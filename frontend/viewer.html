@@ -45,8 +45,10 @@
         }
         
         /* Panel positioning - consistent width */
-        #model-panel, #animation-panel, #camera-debug {
+        #model-panel, #animation-panel, #synthesizer-panel, #camera-debug {
             width: 200px;
+            max-height: 85vh;
+            overflow-y: auto;
         }
         
         #model-panel {
@@ -55,6 +57,11 @@
         }
         
         #animation-panel {
+            top: 20px;
+            left: 20px;
+        }
+        
+        #synthesizer-panel {
             top: 20px;
             left: 20px;
         }
@@ -98,6 +105,12 @@
         
         .btn:active {
             transform: translateY(0);
+        }
+        
+        /* Play-Pause button specific hover states */
+        #play-pause-toggle-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
         }
         
         /* Common form element styles */
@@ -164,6 +177,62 @@
             background: rgba(255, 255, 255, 0.3);
         }
         
+        /* Slider styles */
+        .slider-group {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .slider-group label {
+            font-size: 9px;
+            color: #aaa;
+            width: 85px;
+            text-align: right;
+            flex-shrink: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .slider {
+            flex: 1;
+            height: 4px;
+            background: #2a2a2a;
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+            min-width: 0;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #4a9eff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #4a9eff;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .slider-value {
+            font-size: 10px;
+            color: #4a9eff;
+            width: 32px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        
         /* Loading overlay */
         .loading {
             position: absolute;
@@ -195,10 +264,19 @@
         </div>
         <div id="animation-panel" class="panel" style="display: none;">
             <h3>Animation</h3>
-            <select id="animation-select" class="select"></select>
-            <button id="play-animation-btn" class="btn">Play</button>
-            <button id="pause-animation-btn" class="btn">Pause</button>
+            <button id="play-pause-toggle-btn" class="btn">Play</button>
             <button id="stop-animation-btn" class="btn">Stop</button>
+            <select id="animation-select" class="select" style="margin-top: 8px;"></select>
+            <button id="toggle-synthetic-btn" class="btn" style="margin-top: 8px;">Use Synthetic</button>
+        </div>
+        <div id="synthesizer-panel" class="panel" style="display: none;">
+            <h3>Movement Synthesizer</h3>
+            <div class="slider-group">
+                <label>Speed</label>
+                <input type="range" id="speed-slider" min="0.5" max="3" step="0.1" value="1" class="slider">
+                <span class="slider-value" id="speed-value">1.0</span>
+            </div>
+            <div id="bone-sliders-container"></div>
         </div>
         <div id="status" class="panel">Select a GLB file to load</div>
         <div id="camera-debug" class="panel">
@@ -264,6 +342,11 @@
         let showSkeleton = false;
         let currentModelName = null;
         let hasSkeleton = false;
+        let useSyntheticAnimation = false;
+        let syntheticDataTime = 0;
+        let isSyntheticPaused = false;
+        let isPlaying = false;
+        let boneMap = new Map();
         
         function updateStatus(message) {
             document.getElementById('status').textContent = message;
@@ -282,17 +365,196 @@
             }
         }
         
+        function createBoneSliders() {
+            const container = document.getElementById('bone-sliders-container');
+            if (!container) {
+                console.warn('bone-sliders-container not found');
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            if (boneMap.size === 0) {
+                console.warn('No bones in boneMap');
+                return;
+            }
+            
+            let boneIndex = 0;
+            currentModel.traverse((child) => {
+                if (child.isSkinnedMesh && child.skeleton) {
+                    const bones = child.skeleton.bones;
+                    bones.forEach((bone, index) => {
+                        const boneName = bone.name;
+                        const sliderId = `bone-${boneName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-slider`;
+                        const valueId = `bone-${boneName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-value`;
+                        
+                        const group = document.createElement('div');
+                        group.className = 'slider-group';
+                        
+                        const label = document.createElement('label');
+                        label.textContent = `${index}: ${boneName}`;
+                        label.title = boneName;
+                        
+                        const slider = document.createElement('input');
+                        slider.type = 'range';
+                        slider.id = sliderId;
+                        slider.className = 'slider';
+                        slider.min = '0';
+                        slider.max = '1';
+                        slider.step = '0.01';
+                        slider.value = '0';
+                        slider.dataset.boneName = boneName;
+                        
+                        const valueSpan = document.createElement('span');
+                        valueSpan.className = 'slider-value';
+                        valueSpan.id = valueId;
+                        valueSpan.textContent = '0.00';
+                        
+                        slider.addEventListener('input', () => {
+                            valueSpan.textContent = parseFloat(slider.value).toFixed(2);
+                        });
+                        
+                        group.appendChild(label);
+                        group.appendChild(slider);
+                        group.appendChild(valueSpan);
+                        container.appendChild(group);
+                    });
+                }
+            });
+            
+            console.log(`Created ${container.children.length} bone sliders`);
+        }
+        
         function checkSkeleton() {
             hasSkeleton = false;
+            boneMap.clear();
             if (currentModel) {
                 currentModel.traverse((child) => {
                     if (child.isSkinnedMesh && child.skeleton) {
                         hasSkeleton = true;
+                        const bones = child.skeleton.bones;
+                        bones.forEach(bone => {
+                            boneMap.set(bone.name, bone);
+                        });
                     }
                 });
             }
             const skeletonBtn = document.getElementById('toggle-skeleton-btn');
             skeletonBtn.style.display = hasSkeleton ? 'inline-block' : 'none';
+            
+            if (hasSkeleton) {
+                createBoneSliders();
+            }
+        }
+        
+        function getSliderValue(id) {
+            const slider = document.getElementById(id);
+            return slider ? parseFloat(slider.value) : 0;
+        }
+        
+        function getBoneSliderValue(boneName) {
+            const sliderId = `bone-${boneName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-slider`;
+            return getSliderValue(sliderId);
+        }
+        
+        function generateSyntheticBoneRotations(time) {
+            const rotations = {};
+            const speed = getSliderValue('speed-slider');
+            const adjustedTime = time * speed;
+            
+            boneMap.forEach((bone, boneName) => {
+                const amplitude = getBoneSliderValue(boneName);
+                if (amplitude > 0) {
+                    const frequency = 2;
+                    const x = Math.sin(adjustedTime * frequency) * amplitude;
+                    const y = Math.sin(adjustedTime * frequency * 0.8) * amplitude * 0.5;
+                    const z = Math.sin(adjustedTime * frequency * 1.2) * amplitude * 0.3;
+                    rotations[boneName] = new THREE.Euler(x, y, z);
+                }
+            });
+            
+            return rotations;
+        }
+        
+        function updateBonesFromRotations(rotations) {
+            if (!currentModel || !boneMap.size) return;
+            
+            let updatedCount = 0;
+            Object.keys(rotations).forEach(boneName => {
+                const bone = boneMap.get(boneName);
+                if (bone) {
+                    const euler = rotations[boneName];
+                    // Store original rotation if not already stored
+                    if (!bone.userData.originalQuaternion) {
+                        bone.userData.originalQuaternion = bone.quaternion.clone();
+                    }
+                    // Apply rotation relative to original
+                    const originalQuat = bone.userData.originalQuaternion;
+                    const newEuler = new THREE.Euler(euler.x, euler.y, euler.z, 'XYZ');
+                    const newQuat = new THREE.Quaternion().setFromEuler(newEuler);
+                    bone.quaternion.copy(originalQuat).multiply(newQuat);
+                    updatedCount++;
+                }
+            });
+            
+            if (updatedCount > 0) {
+                currentModel.traverse((child) => {
+                    if (child.isSkinnedMesh && child.skeleton) {
+                        child.skeleton.update();
+                    }
+                });
+            }
+        }
+        
+        function resetBoneRotations() {
+            if (!currentModel || !boneMap.size) return;
+            boneMap.forEach((bone) => {
+                if (bone.userData.originalQuaternion) {
+                    bone.quaternion.copy(bone.userData.originalQuaternion);
+                }
+            });
+            currentModel.traverse((child) => {
+                if (child.isSkinnedMesh && child.skeleton) {
+                    child.skeleton.update();
+                }
+            });
+        }
+        
+        function toggleSyntheticAnimation() {
+            useSyntheticAnimation = !useSyntheticAnimation;
+            
+            if (useSyntheticAnimation) {
+                if (mixer) {
+                    animationActions.forEach(anim => anim.action.stop());
+                }
+                boneMap.forEach((bone) => {
+                    if (!bone.userData.originalQuaternion) {
+                        bone.userData.originalQuaternion = bone.quaternion.clone();
+                    }
+                });
+                syntheticDataTime = 0;
+                isSyntheticPaused = true;
+                isPlaying = false;
+                updatePlayPauseButton();
+                document.getElementById('synthesizer-panel').style.display = 'block';
+                const animationPanel = document.getElementById('animation-panel');
+                const animationPanelRect = animationPanel.getBoundingClientRect();
+                const synthesizerPanel = document.getElementById('synthesizer-panel');
+                synthesizerPanel.style.top = (animationPanelRect.bottom - window.scrollY + 8) + 'px';
+                synthesizerPanel.style.left = animationPanel.style.left;
+                updateStatus('Synthetic animation: ON');
+            } else {
+                resetBoneRotations();
+                isSyntheticPaused = false;
+                isPlaying = false;
+                updatePlayPauseButton();
+                document.getElementById('synthesizer-panel').style.display = 'none';
+                updateStatus('Synthetic animation: OFF');
+            }
+            
+            const btn = document.getElementById('toggle-synthetic-btn');
+            btn.textContent = useSyntheticAnimation ? 'Use Recorded' : 'Use Synthetic';
+            btn.style.background = useSyntheticAnimation ? '#ff6b6b' : '#4a9eff';
         }
         
         function cleanupCurrentModel() {
@@ -304,6 +566,7 @@
             }
             animationActions = [];
             document.getElementById('animation-panel').style.display = 'none';
+            document.getElementById('synthesizer-panel').style.display = 'none';
             
             if (skeletonHelper) {
                 scene.remove(skeletonHelper);
@@ -369,38 +632,47 @@
                     scene.add(currentModel);
                     checkSkeleton();
                     createSkeletonHelper();
+                    
+                    const animationPanel = document.getElementById('animation-panel');
+                    if (hasSkeleton) {
+                        const modelPanel = document.getElementById('model-panel');
+                        const modelPanelRect = modelPanel.getBoundingClientRect();
+                        animationPanel.style.display = 'block';
+                        animationPanel.style.top = (modelPanelRect.bottom - window.scrollY + 8) + 'px';
+                        animationPanel.style.left = modelPanel.style.left;
+                    }
+                    
                     if (gltf.animations && gltf.animations.length > 0) {
                         mixer = new THREE.AnimationMixer(currentModel);
                         animationActions = [];
                         
-                        gltf.animations.forEach((clip) => {
+                        gltf.animations.forEach((clip, originalIndex) => {
                             const action = mixer.clipAction(clip);
-                            animationActions.push({ action, clip, name: clip.name || `Animation ${animationActions.length + 1}` });
+                            const normalizedName = (clip.name || `Animation ${originalIndex + 1}`).trim();
+                            animationActions.push({ 
+                                action, 
+                                clip, 
+                                name: normalizedName,
+                                originalIndex: originalIndex
+                            });
                         });
                         
                         const select = document.getElementById('animation-select');
                         select.innerHTML = '';
-                        animationActions.forEach((anim, index) => {
+                        animationActions.forEach((anim) => {
                             const option = document.createElement('option');
-                            option.value = index;
+                            option.value = anim.name;
                             option.textContent = anim.name;
                             select.appendChild(option);
                         });
                         
                         if (animationActions.length > 0) {
-                            animationActions[0].action.play();
-                            select.value = '0';
-                            updateStatus(`Model loaded with ${gltf.animations.length} animation(s). Playing: "${animationActions[0].name}"`);
+                            const firstAnim = animationActions[0];
+                            firstAnim.action.play();
+                            select.value = firstAnim.name;
+                            updateStatus(`Model loaded with ${gltf.animations.length} animation(s). Playing: "${firstAnim.name}"`);
                         }
-                        
-                        const modelPanel = document.getElementById('model-panel');
-                        const animationPanel = document.getElementById('animation-panel');
-                        const modelPanelRect = modelPanel.getBoundingClientRect();
-                        animationPanel.style.display = 'block';
-                        animationPanel.style.top = (modelPanelRect.bottom - window.scrollY + 8) + 'px';
-                        animationPanel.style.left = modelPanel.style.left;
                     } else {
-                        document.getElementById('animation-panel').style.display = 'none';
                         updateStatus('Model loaded. No animations.');
                     }
                     
@@ -570,71 +842,117 @@
         document.getElementById('reset-camera-btn').addEventListener('click', resetCamera);
         document.getElementById('toggle-wireframe-btn').addEventListener('click', toggleWireframe);
         document.getElementById('toggle-skeleton-btn').addEventListener('click', toggleSkeleton);
+        document.getElementById('toggle-synthetic-btn').addEventListener('click', toggleSyntheticAnimation);
+        
+        function updateSliderValue(sliderId, valueId) {
+            const slider = document.getElementById(sliderId);
+            const valueSpan = document.getElementById(valueId);
+            if (slider && valueSpan) {
+                valueSpan.textContent = parseFloat(slider.value).toFixed(2);
+            }
+        }
+        
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValue = document.getElementById('speed-value');
+        if (speedSlider && speedValue) {
+            speedSlider.addEventListener('input', () => {
+                speedValue.textContent = parseFloat(speedSlider.value).toFixed(1);
+            });
+        }
         
         document.getElementById('animation-select').addEventListener('change', (e) => {
             if (!mixer || animationActions.length === 0) return;
+            isPlaying = false;
+            updatePlayPauseButton();
             
-            const selectedValue = e.target.value;
+            const selectedIndex = e.target.selectedIndex;
+            const selectedName = e.target.options[selectedIndex].textContent;
             
-            // Stop all animations first
-            animationActions.forEach(anim => {
-                anim.action.stop();
-            });
-            
-            // Play selected animation only
-            const index = parseInt(selectedValue);
-            if (index >= 0 && index < animationActions.length) {
-                animationActions[index].action.play();
+            if (selectedIndex >= 0 && selectedIndex < animationActions.length) {
+                const selectedAnim = animationActions[selectedIndex];
+                
+                animationActions.forEach(anim => anim.action.stop());
+                selectedAnim.action.play();
                 currentAnimationTime = 0;
                 isAnimationPaused = false;
-                updateStatus(`Playing: "${animationActions[index].name}"`);
+                updateStatus(`Playing: "${selectedName}"`);
             }
         });
         
-        document.getElementById('play-animation-btn').addEventListener('click', () => {
-            if (mixer && animationActions.length > 0) {
-                const selectedValue = document.getElementById('animation-select').value;
-                const index = parseInt(selectedValue);
+        function updatePlayPauseButton() {
+            const btn = document.getElementById('play-pause-toggle-btn');
+            if (isPlaying) {
+                btn.textContent = 'Pause';
+                btn.style.background = '#ff6b6b'; // Red/orange - indicates it will pause
+                btn.style.color = 'white';
+            } else {
+                btn.textContent = 'Play';
+                btn.style.background = '#4caf50'; // Green - indicates it will play
+                btn.style.color = 'white';
+            }
+        }
+        
+        document.getElementById('play-pause-toggle-btn').addEventListener('click', () => {
+            if (useSyntheticAnimation) {
+                isSyntheticPaused = !isSyntheticPaused;
+                isPlaying = !isSyntheticPaused;
+                updatePlayPauseButton();
+                updateStatus(isPlaying ? 'Synthetic animation: Playing' : 'Synthetic animation: Paused');
+            } else if (mixer && animationActions.length > 0) {
+                const select = document.getElementById('animation-select');
+                const selectedIndex = select.selectedIndex;
                 
-                if (index >= 0 && index < animationActions.length) {
-                    // Stop all other animations first
-                    animationActions.forEach((anim, i) => {
-                        if (i !== index) {
-                            anim.action.stop();
-                        }
-                    });
+                if (selectedIndex >= 0 && selectedIndex < animationActions.length) {
+                    const selectedAnim = animationActions[selectedIndex];
+                    const displayName = select.options[selectedIndex].textContent;
                     
-                    animationActions[index].action.paused = false;
-                    animationActions[index].action.play();
-                    isAnimationPaused = false;
-                    updateStatus(`Playing: "${animationActions[index].name}"`);
-                }
-            }
-        });
-        
-        document.getElementById('pause-animation-btn').addEventListener('click', () => {
-            if (mixer && animationActions.length > 0) {
-                const selectedValue = document.getElementById('animation-select').value;
-                const index = parseInt(selectedValue);
-                
-                if (index >= 0 && index < animationActions.length) {
-                    animationActions[index].action.paused = true;
-                    isAnimationPaused = true;
-                    updateStatus(`Paused: "${animationActions[index].name}"`);
+                    if (isPlaying) {
+                        // Pause
+                        selectedAnim.action.paused = true;
+                        isAnimationPaused = true;
+                        isPlaying = false;
+                        updateStatus(`Paused: "${displayName}"`);
+                    } else {
+                        // Play
+                        // Stop all other animations first
+                        animationActions.forEach((anim, index) => {
+                            if (index !== selectedIndex) {
+                                anim.action.stop();
+                            }
+                        });
+                        
+                        selectedAnim.action.paused = false;
+                        selectedAnim.action.play();
+                        isAnimationPaused = false;
+                        isPlaying = true;
+                        updateStatus(`Playing: "${displayName}"`);
+                    }
+                    updatePlayPauseButton();
                 }
             }
         });
         
         document.getElementById('stop-animation-btn').addEventListener('click', () => {
-            if (mixer && animationActions.length > 0) {
-                const selectedValue = document.getElementById('animation-select').value;
-                const index = parseInt(selectedValue);
+            if (useSyntheticAnimation) {
+                syntheticDataTime = 0;
+                isSyntheticPaused = true;
+                isPlaying = false;
+                resetBoneRotations();
+                updatePlayPauseButton();
+                updateStatus('Synthetic animation: Stopped');
+            } else if (mixer && animationActions.length > 0) {
+                const select = document.getElementById('animation-select');
+                const selectedIndex = select.selectedIndex;
                 
-                if (index >= 0 && index < animationActions.length) {
-                    animationActions[index].action.stop();
+                if (selectedIndex >= 0 && selectedIndex < animationActions.length) {
+                    const selectedAnim = animationActions[selectedIndex];
+                    const displayName = select.options[selectedIndex].textContent;
+                    selectedAnim.action.stop();
                     currentAnimationTime = 0;
-                    isAnimationPaused = false;
-                    updateStatus(`Stopped: "${animationActions[index].name}"`);
+                    isAnimationPaused = true;
+                    isPlaying = false;
+                    updatePlayPauseButton();
+                    updateStatus(`Stopped: "${displayName}"`);
                 }
             }
         });
@@ -728,26 +1046,27 @@
                 
                 let animInfo = '';
                 if (mixer && animationActions.length > 0) {
-                    const selectedValue = document.getElementById('animation-select').value;
-                    const index = parseInt(selectedValue);
+                    const select = document.getElementById('animation-select');
+                    const selectedIndex = select.selectedIndex;
                     
-                    if (index >= 0 && index < animationActions.length) {
-                        const anim = animationActions[index];
+                    if (selectedIndex >= 0 && selectedIndex < animationActions.length) {
+                        const anim = animationActions[selectedIndex];
+                        const displayName = select.options[selectedIndex].textContent;
                         const action = anim.action;
                         const duration = anim.clip.duration;
                         const time = currentAnimationTime;
                         const progress = duration > 0 ? ((time % duration) / duration * 100).toFixed(1) : 0;
-                        const isPlaying = action.isRunning() && !action.paused;
+                        const actionIsPlaying = action.isRunning() && !action.paused;
                         const isPaused = action.paused || isAnimationPaused;
                         
                         let status = 'Stopped';
-                        if (isPlaying) status = 'Playing';
+                        if (actionIsPlaying) status = 'Playing';
                         else if (isPaused) status = 'Paused';
                         
                         animInfo = `
                             <div class="section">
                                 <div class="label">Animation:</div>
-                                <div class="value">"${anim.name}" (${status})</div>
+                                <div class="value">"${displayName}" (${status})</div>
                             </div>
                             <div class="section">
                                 <div class="label">Time:</div>
@@ -785,23 +1104,40 @@
             
             const delta = clock.getDelta();
             
-            if (mixer) {
+            if (useSyntheticAnimation) {
+                if (!isSyntheticPaused) {
+                    syntheticDataTime += delta;
+                    isPlaying = true;
+                } else {
+                    isPlaying = false;
+                }
+                const rotations = generateSyntheticBoneRotations(syntheticDataTime);
+                updateBonesFromRotations(rotations);
+                updatePlayPauseButton();
+            } else if (mixer) {
                 if (!isAnimationPaused) {
                     mixer.update(delta);
-                    const index = parseInt(document.getElementById('animation-select').value);
-                    if (index >= 0 && index < animationActions.length) {
-                        const anim = animationActions[index];
+                    const select = document.getElementById('animation-select');
+                    const selectedIndex = select.selectedIndex;
+                    
+                    if (selectedIndex >= 0 && selectedIndex < animationActions.length) {
+                        const anim = animationActions[selectedIndex];
                         if (anim.action.isRunning() && !anim.action.paused) {
+                            isPlaying = true;
                             currentAnimationTime += delta;
                             const duration = anim.clip.duration;
                             if (duration > 0) {
                                 currentAnimationTime = currentAnimationTime % duration;
                             }
+                        } else {
+                            isPlaying = false;
                         }
                     }
                 } else {
                     mixer.update(0);
+                    isPlaying = false;
                 }
+                updatePlayPauseButton();
             }
             
             controls.update();
@@ -846,30 +1182,82 @@
                     scene.add(currentModel);
                     checkSkeleton();
                     createSkeletonHelper();
+                    
+                    const animationPanel = document.getElementById('animation-panel');
+                    if (hasSkeleton) {
+                        const modelPanel = document.getElementById('model-panel');
+                        const modelPanelRect = modelPanel.getBoundingClientRect();
+                        animationPanel.style.display = 'block';
+                        animationPanel.style.top = (modelPanelRect.bottom - window.scrollY + 8) + 'px';
+                        animationPanel.style.left = modelPanel.style.left;
+                    }
+                    
                     if (gltf.animations && gltf.animations.length > 0) {
                         mixer = new THREE.AnimationMixer(currentModel);
                         animationActions = [];
                         
-                        gltf.animations.forEach((clip) => {
+                        // Debug: Log all animations from GLB file
+                        console.log(`=== Loading animations for model: default (Meshy_Merged_Animations.glb) ===`);
+                        console.log(`Total animations in GLB: ${gltf.animations.length}`);
+                        gltf.animations.forEach((clip, originalIndex) => {
+                            console.log(`  [${originalIndex}] Name: "${clip.name || '(unnamed)'}", Duration: ${clip.duration?.toFixed(2) || 'N/A'}s, Tracks: ${clip.tracks?.length || 0}`);
+                        });
+                        
+                        gltf.animations.forEach((clip, originalIndex) => {
                             const action = mixer.clipAction(clip);
-                            animationActions.push({ action, clip, name: clip.name || `Animation ${animationActions.length + 1}` });
+                            // Normalize name: trim whitespace
+                            const normalizedName = (clip.name || `Animation ${originalIndex + 1}`).trim();
+                            animationActions.push({ 
+                                action, 
+                                clip, 
+                                name: normalizedName,
+                                originalIndex: originalIndex  // Store original index for fallback
+                            });
+                        });
+                        
+                        // Check for duplicate names
+                        const nameCounts = {};
+                        animationActions.forEach(anim => {
+                            nameCounts[anim.name] = (nameCounts[anim.name] || 0) + 1;
+                        });
+                        const duplicates = Object.entries(nameCounts).filter(([name, count]) => count > 1);
+                        if (duplicates.length > 0) {
+                            console.warn('⚠️ DUPLICATE ANIMATION NAMES FOUND:', duplicates);
+                            duplicates.forEach(([name, count]) => {
+                                console.warn(`  "${name}" appears ${count} times`);
+                            });
+                        }
+                        
+                        console.log(`Created ${animationActions.length} animation actions`);
+                        
+                        // Create a map for quick lookup by name
+                        const animationMap = new Map();
+                        animationActions.forEach((anim, index) => {
+                            animationMap.set(anim.name, anim);
+                            animationMap.set(index.toString(), anim); // Also allow lookup by index string
                         });
                         
                         // Populate animation selector
                         const select = document.getElementById('animation-select');
                         select.innerHTML = '';
+                        // Keep animations in GLB file order (matches animationActions array)
                         animationActions.forEach((anim, index) => {
                             const option = document.createElement('option');
-                            option.value = index;
+                            // Use name as primary value, but also store index as data attribute
+                            option.value = anim.name;
+                            option.dataset.originalIndex = index.toString();
                             option.textContent = anim.name;
                             select.appendChild(option);
                         });
                         
+                        console.log(`=== Animation dropdown populated with ${select.options.length} options ===`);
+                        
                         // Play first animation by default
                         if (animationActions.length > 0) {
-                            animationActions[0].action.play();
-                            select.value = '0';
-                            updateStatus(`Default model loaded with ${gltf.animations.length} animation(s). Playing: "${animationActions[0].name}"`);
+                            const firstAnim = animationActions[0];
+                            firstAnim.action.play();
+                            select.value = firstAnim.name;
+                            updateStatus(`Default model loaded with ${gltf.animations.length} animation(s). Playing: "${firstAnim.name}"`);
                         }
                         
                         // Show animation panel and position it below model panel
@@ -880,8 +1268,10 @@
                         animationPanel.style.top = (modelPanelRect.bottom - window.scrollY + 8) + 'px';
                         animationPanel.style.left = modelPanel.style.left;
                     } else {
-                        // Hide animation panel
-                        document.getElementById('animation-panel').style.display = 'none';
+                        if (!hasSkeleton) {
+                            document.getElementById('animation-panel').style.display = 'none';
+                            document.getElementById('synthesizer-panel').style.display = 'none';
+                        }
                         updateStatus('Default model loaded. No animations.');
                     }
                     

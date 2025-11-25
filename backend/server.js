@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
 
     // Serve example model
     if (req.url === '/api/model/example' || req.url === '/api/model/example.glb') {
-        const modelPath = path.join(PROJECT_ROOT, 'assets', '3D', 'examples', 'biped', 'Meshy_Merged_Animations.glb');
+        const modelPath = path.join(PROJECT_ROOT, 'assets', '3D', 'examples', 'Orc', 'Meshy_Merged_Animations.glb');
         
         fs.readFile(modelPath, (err, data) => {
             if (err) {
