@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hero Maker - 3D Model Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* Common panel styles */
+        .panel {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+            font-size: 11px;
+        }
+        
+        .panel h3 {
+            font-size: 11px;
+            font-weight: 600;
+            margin: 0 0 8px 0;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Panel positioning - consistent width */
+        #model-panel, #animation-panel, #camera-debug {
+            width: 200px;
+        }
+        
+        #model-panel {
+            top: 20px;
+            left: 20px;
+        }
+        
+        #animation-panel {
+            top: 20px;
+            left: 20px;
+        }
+        
+        #status {
+            bottom: 20px;
+            left: 20px;
+            padding: 10px 12px;
+            max-width: 400px;
+            width: auto;
+        }
+        
+        #camera-debug {
+            top: 20px;
+            right: 20px;
+            max-height: 85vh;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        
+        /* Common button styles */
+        .btn {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            margin: 0 3px 5px 0;
+            transition: all 0.2s ease;
+            width: auto;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            background: #3a8eef;
+            transform: translateY(-1px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Common form element styles */
+        .select {
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
+            padding: 5px 7px;
+            border-radius: 5px;
+            font-size: 11px;
+            margin: 0 0 8px 0;
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .select:hover {
+            border-color: #555;
+        }
+        
+        /* File input - hidden, triggered by custom button */
+        input[type="file"] {
+            display: none;
+        }
+        
+        /* Debug panel specific */
+        .section {
+            margin-bottom: 8px;
+        }
+        
+        .section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .label {
+            color: #aaa;
+            font-size: 10px;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .value {
+            color: #4a9eff;
+            font-size: 11px;
+            word-break: break-all;
+        }
+        
+        /* Scrollbar styling for scrollable panels */
+        .panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        .panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Loading overlay */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 11px;
+            font-weight: 500;
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <div class="loading" id="loading" style="display: none;">Loading 3D model...</div>
+        <div id="model-panel" class="panel">
+            <h3>Model</h3>
+            <div id="model-info" class="value" style="margin-bottom: 8px; font-size: 10px; color: #aaa;">No model loaded</div>
+            <button id="load-default-btn" class="btn">Load Default</button>
+            <button id="load-file-btn" class="btn">Load File</button>
+            <button id="reset-camera-btn" class="btn">Reset Camera</button>
+            <button id="toggle-wireframe-btn" class="btn">Wireframe</button>
+            <button id="toggle-skeleton-btn" class="btn" style="display: none;">Skeleton</button>
+            <input type="file" id="file-input" accept=".glb,.gltf">
+        </div>
+        <div id="animation-panel" class="panel" style="display: none;">
+            <h3>Animation</h3>
+            <select id="animation-select" class="select"></select>
+            <button id="play-animation-btn" class="btn">Play</button>
+            <button id="pause-animation-btn" class="btn">Pause</button>
+            <button id="stop-animation-btn" class="btn">Stop</button>
+        </div>
+        <div id="status" class="panel">Select a GLB file to load</div>
+        <div id="camera-debug" class="panel">
+            <h3>Debug Info</h3>
+            <div id="camera-info">No model loaded</div>
+            <div id="animation-info"></div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x2a2a2a);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 3);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 1, 0);
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(5, 10, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+        
+        const gridHelper = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
+        scene.add(gridHelper);
+        
+        const loader = new GLTFLoader();
+        let currentModel = null;
+        let wireframeMode = false;
+        let mixer = null;
+        let clock = new THREE.Clock();
+        let animationActions = [];
+        let currentAnimationTime = 0;
+        let isAnimationPaused = false;
+        let skeletonHelper = null;
+        let showSkeleton = false;
+        let currentModelName = null;
+        let hasSkeleton = false;
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+        
+        function updateModelInfo(name, source) {
+            currentModelName = name;
+            const modelInfo = document.getElementById('model-info');
+            if (name) {
+                const sourceText = source === 'file' ? 'Local' : 'Default';
+                modelInfo.textContent = `${sourceText}: ${name}`;
+                modelInfo.style.color = '#4a9eff';
+            } else {
+                modelInfo.textContent = 'No model loaded';
+                modelInfo.style.color = '#aaa';
+            }
+        }
+        
+        function checkSkeleton() {
+            hasSkeleton = false;
+            if (currentModel) {
+                currentModel.traverse((child) => {
+                    if (child.isSkinnedMesh && child.skeleton) {
+                        hasSkeleton = true;
+                    }
+                });
+            }
+            const skeletonBtn = document.getElementById('toggle-skeleton-btn');
+            skeletonBtn.style.display = hasSkeleton ? 'inline-block' : 'none';
+        }
+        
+        function cleanupCurrentModel() {
+            if (!currentModel) return;
+            
+            if (mixer) {
+                mixer.stopAllAction();
+                mixer = null;
+            }
+            animationActions = [];
+            document.getElementById('animation-panel').style.display = 'none';
+            
+            if (skeletonHelper) {
+                scene.remove(skeletonHelper);
+                skeletonHelper = null;
+            }
+            
+            currentModel.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+            });
+            
+            scene.remove(currentModel);
+            currentModel = null;
+            updateModelInfo(null, null);
+            checkSkeleton();
+        }
+        
+        function loadModelFromFile(file) {
+            if (!file) {
+                updateStatus('No file selected');
+                return;
+            }
+            
+            updateStatus('Loading model...');
+            document.getElementById('loading').style.display = 'block';
+            
+            // Remove previous model
+            cleanupCurrentModel();
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const arrayBuffer = e.target.result;
+                loader.parse(
+                    arrayBuffer,
+                    '',
+                    (gltf) => {
+                    currentModel = gltf.scene;
+                    updateModelInfo(file.name, 'file');
+                    
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 2 / maxDim;
+                    
+                    currentModel.scale.multiplyScalar(scale);
+                    currentModel.position.sub(center.multiplyScalar(scale));
+                    currentModel.position.y = 0;
+                    
+                    currentModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    scene.add(currentModel);
+                    checkSkeleton();
+                    createSkeletonHelper();
+                    if (gltf.animations && gltf.animations.length > 0) {
+                        mixer = new THREE.AnimationMixer(currentModel);
+                        animationActions = [];
+                        
+                        gltf.animations.forEach((clip) => {
+                            const action = mixer.clipAction(clip);
+                            animationActions.push({ action, clip, name: clip.name || `Animation ${animationActions.length + 1}` });
+                        });
+                        
+                        const select = document.getElementById('animation-select');
+                        select.innerHTML = '';
+                        animationActions.forEach((anim, index) => {
+                            const option = document.createElement('option');
+                            option.value = index;
+                            option.textContent = anim.name;
+                            select.appendChild(option);
+                        });
+                        
+                        if (animationActions.length > 0) {
+                            animationActions[0].action.play();
+                            select.value = '0';
+                            updateStatus(`Model loaded with ${gltf.animations.length} animation(s). Playing: "${animationActions[0].name}"`);
+                        }
+                        
+                        const modelPanel = document.getElementById('model-panel');
+                        const animationPanel = document.getElementById('animation-panel');
+                        const modelPanelRect = modelPanel.getBoundingClientRect();
+                        animationPanel.style.display = 'block';
+                        animationPanel.style.top = (modelPanelRect.bottom - window.scrollY + 8) + 'px';
+                        animationPanel.style.left = modelPanel.style.left;
+                    } else {
+                        document.getElementById('animation-panel').style.display = 'none';
+                        updateStatus('Model loaded. No animations.');
+                    }
+                    
+                    let boneCount = 0;
+                    currentModel.traverse((child) => {
+                        if (child.isBone || child.isSkinnedMesh) {
+                            boneCount++;
+                        }
+                    });
+                    
+                    if (boneCount > 0 && !mixer) {
+                        updateStatus(`Model loaded. Bones: ${boneCount} (unrigged)`);
+                    } else if (boneCount > 0) {
+                        updateStatus(`Model loaded. Bones: ${boneCount}. Animations: ${gltf.animations.length}`);
+                    }
+                    
+                    frameModel();
+                    document.getElementById('loading').style.display = 'none';
+                    },
+                    (error) => {
+                        updateStatus(`Error: ${error.message}`);
+                        document.getElementById('loading').style.display = 'none';
+                        console.error('Error loading model:', error);
+                    }
+                );
+            };
+            reader.onerror = (error) => {
+                updateStatus(`Error reading file: ${error.message}`);
+                document.getElementById('loading').style.display = 'none';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        async function frameModel() {
+            if (!currentModel) return;
+            
+            // Verify model is in scene and has geometry
+            if (!scene.children.includes(currentModel)) {
+                console.warn('Model not in scene yet');
+                return;
+            }
+            
+            // Force update of all matrices to ensure accurate bounding box
+            currentModel.updateMatrixWorld(true);
+            
+            // Also update all meshes to ensure their geometry is computed
+            let hasGeometry = false;
+            currentModel.traverse((child) => {
+                if (child.isMesh && child.geometry) {
+                    hasGeometry = true;
+                    if (!child.geometry.boundingBox) {
+                        child.geometry.computeBoundingBox();
+                    }
+                }
+            });
+            
+            if (!hasGeometry) {
+                console.warn('Model has no geometry');
+                return;
+            }
+            
+            // Calculate bounding box of the model
+            const box = new THREE.Box3().setFromObject(currentModel);
+            
+            // Verify bounding box is valid
+            if (box.isEmpty()) {
+                console.warn('Bounding box is empty');
+                return;
+            }
+            
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            const tanHalfFov = Math.tan(fov / 2);
+            
+            const baseDistance = maxDim * 3.5;
+            const aspect = camera.aspect;
+            const distanceForHeight = size.y / (2 * tanHalfFov);
+            const distanceForWidth = size.x / (2 * tanHalfFov * aspect);
+            let cameraZ = Math.max(distanceForHeight, distanceForWidth, baseDistance);
+            cameraZ *= 1.2;
+            
+            const cameraHeightOffset = size.y * 2.16;
+            const cameraY = center.y + cameraHeightOffset;
+            camera.position.set(center.x, cameraY, center.z + cameraZ);
+            
+            const targetHeightOffset = size.y * 1.44;
+            const targetY = center.y + targetHeightOffset;
+            camera.lookAt(center.x, targetY, center.z);
+            camera.updateProjectionMatrix();
+            
+            controls.target.set(center.x, targetY, center.z);
+            controls.update();
+        }
+        
+        function resetCamera() {
+            if (currentModel) {
+                frameModel();
+            } else {
+                camera.position.set(0, 1.6, 3);
+                controls.target.set(0, 1, 0);
+                controls.update();
+            }
+        }
+        
+        function toggleWireframe() {
+            wireframeMode = !wireframeMode;
+            if (currentModel) {
+                currentModel.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => m.wireframe = wireframeMode);
+                        } else {
+                            child.material.wireframe = wireframeMode;
+                        }
+                    }
+                });
+            }
+            updateStatus(wireframeMode ? 'Wireframe mode ON' : 'Wireframe mode OFF');
+        }
+        
+        function createSkeletonHelper() {
+            if (skeletonHelper) {
+                scene.remove(skeletonHelper);
+                skeletonHelper = null;
+            }
+            
+            if (!currentModel) return;
+            
+            let foundSkeleton = null;
+            currentModel.traverse((child) => {
+                if (child.isSkinnedMesh && child.skeleton && !foundSkeleton) {
+                    foundSkeleton = child.skeleton;
+                }
+            });
+            
+            if (foundSkeleton) {
+                skeletonHelper = new THREE.SkeletonHelper(currentModel);
+                skeletonHelper.visible = showSkeleton;
+                scene.add(skeletonHelper);
+            }
+        }
+        
+        function toggleSkeleton() {
+            showSkeleton = !showSkeleton;
+            if (skeletonHelper) {
+                skeletonHelper.visible = showSkeleton;
+            } else if (currentModel && showSkeleton) {
+                createSkeletonHelper();
+                if (skeletonHelper) {
+                    skeletonHelper.visible = true;
+                }
+            }
+            updateStatus(showSkeleton ? 'Skeleton visible' : 'Skeleton hidden');
+        }
+        
+        document.getElementById('load-default-btn').addEventListener('click', loadDefaultModel);
+        document.getElementById('load-file-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadModelFromFile(e.target.files[0]);
+            }
+        });
+        document.getElementById('reset-camera-btn').addEventListener('click', resetCamera);
+        document.getElementById('toggle-wireframe-btn').addEventListener('click', toggleWireframe);
+        document.getElementById('toggle-skeleton-btn').addEventListener('click', toggleSkeleton);
+        
+        document.getElementById('animation-select').addEventListener('change', (e) => {
+            if (!mixer || animationActions.length === 0) return;
+            
+            const selectedValue = e.target.value;
+            
+            // Stop all animations first
+            animationActions.forEach(anim => {
+                anim.action.stop();
+            });
+            
+            // Play selected animation only
+            const index = parseInt(selectedValue);
+            if (index >= 0 && index < animationActions.length) {
+                animationActions[index].action.play();
+                currentAnimationTime = 0;
+                isAnimationPaused = false;
+                updateStatus(`Playing: "${animationActions[index].name}"`);
+            }
+        });
+        
+        document.getElementById('play-animation-btn').addEventListener('click', () => {
+            if (mixer && animationActions.length > 0) {
+                const selectedValue = document.getElementById('animation-select').value;
+                const index = parseInt(selectedValue);
+                
+                if (index >= 0 && index < animationActions.length) {
+                    // Stop all other animations first
+                    animationActions.forEach((anim, i) => {
+                        if (i !== index) {
+                            anim.action.stop();
+                        }
+                    });
+                    
+                    animationActions[index].action.paused = false;
+                    animationActions[index].action.play();
+                    isAnimationPaused = false;
+                    updateStatus(`Playing: "${animationActions[index].name}"`);
+                }
+            }
+        });
+        
+        document.getElementById('pause-animation-btn').addEventListener('click', () => {
+            if (mixer && animationActions.length > 0) {
+                const selectedValue = document.getElementById('animation-select').value;
+                const index = parseInt(selectedValue);
+                
+                if (index >= 0 && index < animationActions.length) {
+                    animationActions[index].action.paused = true;
+                    isAnimationPaused = true;
+                    updateStatus(`Paused: "${animationActions[index].name}"`);
+                }
+            }
+        });
+        
+        document.getElementById('stop-animation-btn').addEventListener('click', () => {
+            if (mixer && animationActions.length > 0) {
+                const selectedValue = document.getElementById('animation-select').value;
+                const index = parseInt(selectedValue);
+                
+                if (index >= 0 && index < animationActions.length) {
+                    animationActions[index].action.stop();
+                    currentAnimationTime = 0;
+                    isAnimationPaused = false;
+                    updateStatus(`Stopped: "${animationActions[index].name}"`);
+                }
+            }
+        });
+        
+        function updateCameraDebug() {
+            const debugDiv = document.getElementById('camera-info');
+            const animDiv = document.getElementById('animation-info');
+            
+            if (!currentModel) {
+                debugDiv.innerHTML = 'No model loaded';
+                animDiv.innerHTML = '';
+                return;
+            }
+            
+            currentModel.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(currentModel);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            const cameraToTarget = new THREE.Vector3();
+            cameraToTarget.subVectors(controls.target, camera.position);
+            const distance = cameraToTarget.length();
+            
+            const offsetX = (camera.position.x - center.x).toFixed(3);
+            const offsetY = (camera.position.y - center.y).toFixed(3);
+            const offsetZ = (camera.position.z - center.z).toFixed(3);
+            
+            debugDiv.innerHTML = `
+                <div class="section">
+                    <div class="label">Camera Position:</div>
+                    <div class="value">x: ${camera.position.x.toFixed(3)}, y: ${camera.position.y.toFixed(3)}, z: ${camera.position.z.toFixed(3)}</div>
+                </div>
+                <div class="section">
+                    <div class="label">Camera Target:</div>
+                    <div class="value">x: ${controls.target.x.toFixed(3)}, y: ${controls.target.y.toFixed(3)}, z: ${controls.target.z.toFixed(3)}</div>
+                </div>
+                <div class="section">
+                    <div class="label">Distance to Target:</div>
+                    <div class="value">${distance.toFixed(3)}</div>
+                </div>
+                <div class="section">
+                    <div class="label">FOV / Aspect:</div>
+                    <div class="value">${camera.fov}° / ${camera.aspect.toFixed(3)}</div>
+                </div>
+                <div class="section">
+                    <div class="label">Model Center:</div>
+                    <div class="value">x: ${center.x.toFixed(3)}, y: ${center.y.toFixed(3)}, z: ${center.z.toFixed(3)}</div>
+                </div>
+                <div class="section">
+                    <div class="label">Model Size:</div>
+                    <div class="value">x: ${size.x.toFixed(3)}, y: ${size.y.toFixed(3)}, z: ${size.z.toFixed(3)}</div>
+                </div>
+                <div class="section">
+                    <div class="label">Max Dimension:</div>
+                    <div class="value">${Math.max(size.x, size.y, size.z).toFixed(3)}</div>
+                </div>
+                <div class="section">
+                    <div class="label">Camera Offset from Center:</div>
+                    <div class="value">x: ${offsetX}, y: ${offsetY}, z: ${offsetZ}</div>
+                </div>
+            `;
+            
+            if (currentModel) {
+                let boneCount = 0;
+                let jointCount = 0;
+                let skinnedMeshCount = 0;
+                const boneNames = [];
+                const jointNames = [];
+                
+                currentModel.traverse((child) => {
+                    if (child.isBone) {
+                        boneCount++;
+                        if (child.name) {
+                            boneNames.push(child.name);
+                        }
+                    }
+                        if (child.isSkinnedMesh) {
+                            skinnedMeshCount++;
+                            if (child.skeleton) {
+                            const joints = child.skeleton.bones;
+                            jointCount = joints.length;
+                            joints.forEach(joint => {
+                                if (joint.name && !jointNames.includes(joint.name)) {
+                                    jointNames.push(joint.name);
+                                }
+                            });
+                        }
+                    }
+                });
+                
+                
+                let animInfo = '';
+                if (mixer && animationActions.length > 0) {
+                    const selectedValue = document.getElementById('animation-select').value;
+                    const index = parseInt(selectedValue);
+                    
+                    if (index >= 0 && index < animationActions.length) {
+                        const anim = animationActions[index];
+                        const action = anim.action;
+                        const duration = anim.clip.duration;
+                        const time = currentAnimationTime;
+                        const progress = duration > 0 ? ((time % duration) / duration * 100).toFixed(1) : 0;
+                        const isPlaying = action.isRunning() && !action.paused;
+                        const isPaused = action.paused || isAnimationPaused;
+                        
+                        let status = 'Stopped';
+                        if (isPlaying) status = 'Playing';
+                        else if (isPaused) status = 'Paused';
+                        
+                        animInfo = `
+                            <div class="section">
+                                <div class="label">Animation:</div>
+                                <div class="value">"${anim.name}" (${status})</div>
+                            </div>
+                            <div class="section">
+                                <div class="label">Time:</div>
+                                <div class="value">${(time % duration).toFixed(3)}s / ${duration.toFixed(3)}s (${progress}%)</div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                animDiv.innerHTML = `
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #333;">
+                        <div class="section">
+                            <div class="label">Bones (Model):</div>
+                            <div class="value">${boneCount}</div>
+                        </div>
+                        <div class="section">
+                            <div class="label">Joints (Model):</div>
+                            <div class="value">${jointCount > 0 ? jointCount : boneCount}</div>
+                        </div>
+                        <div class="section">
+                            <div class="label">Skinned Meshes:</div>
+                            <div class="value">${skinnedMeshCount}</div>
+                        </div>
+                        ${animInfo}
+                    </div>
+                `;
+            } else {
+                animDiv.innerHTML = '';
+            }
+        }
+        
+        let debugUpdateCounter = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const delta = clock.getDelta();
+            
+            if (mixer) {
+                if (!isAnimationPaused) {
+                    mixer.update(delta);
+                    const index = parseInt(document.getElementById('animation-select').value);
+                    if (index >= 0 && index < animationActions.length) {
+                        const anim = animationActions[index];
+                        if (anim.action.isRunning() && !anim.action.paused) {
+                            currentAnimationTime += delta;
+                            const duration = anim.clip.duration;
+                            if (duration > 0) {
+                                currentAnimationTime = currentAnimationTime % duration;
+                            }
+                        }
+                    }
+                } else {
+                    mixer.update(0);
+                }
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+            
+            debugUpdateCounter++;
+            if (debugUpdateCounter >= 10) {
+                updateCameraDebug();
+                debugUpdateCounter = 0;
+            }
+        }
+        
+        function loadDefaultModel() {
+            const defaultPath = 'http://localhost:3000/api/model/example';
+            updateStatus('Loading default model...');
+            document.getElementById('loading').style.display = 'block';
+            cleanupCurrentModel();
+            
+            loader.load(
+                defaultPath,
+                (gltf) => {
+                    currentModel = gltf.scene;
+                    updateModelInfo('Meshy_Merged_Animations.glb', 'default');
+                    
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 2 / maxDim;
+                    
+                    currentModel.scale.multiplyScalar(scale);
+                    currentModel.position.sub(center.multiplyScalar(scale));
+                    currentModel.position.y = 0;
+                    
+                    currentModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    scene.add(currentModel);
+                    checkSkeleton();
+                    createSkeletonHelper();
+                    if (gltf.animations && gltf.animations.length > 0) {
+                        mixer = new THREE.AnimationMixer(currentModel);
+                        animationActions = [];
+                        
+                        gltf.animations.forEach((clip) => {
+                            const action = mixer.clipAction(clip);
+                            animationActions.push({ action, clip, name: clip.name || `Animation ${animationActions.length + 1}` });
+                        });
+                        
+                        // Populate animation selector
+                        const select = document.getElementById('animation-select');
+                        select.innerHTML = '';
+                        animationActions.forEach((anim, index) => {
+                            const option = document.createElement('option');
+                            option.value = index;
+                            option.textContent = anim.name;
+                            select.appendChild(option);
+                        });
+                        
+                        // Play first animation by default
+                        if (animationActions.length > 0) {
+                            animationActions[0].action.play();
+                            select.value = '0';
+                            updateStatus(`Default model loaded with ${gltf.animations.length} animation(s). Playing: "${animationActions[0].name}"`);
+                        }
+                        
+                        // Show animation panel and position it below model panel
+                        const modelPanel = document.getElementById('model-panel');
+                        const animationPanel = document.getElementById('animation-panel');
+                        const modelPanelRect = modelPanel.getBoundingClientRect();
+                        animationPanel.style.display = 'block';
+                        animationPanel.style.top = (modelPanelRect.bottom - window.scrollY + 8) + 'px';
+                        animationPanel.style.left = modelPanel.style.left;
+                    } else {
+                        // Hide animation panel
+                        document.getElementById('animation-panel').style.display = 'none';
+                        updateStatus('Default model loaded. No animations.');
+                    }
+                    
+                    // Check for bones/rigging
+                    let boneCount = 0;
+                    currentModel.traverse((child) => {
+                        if (child.isBone || child.isSkinnedMesh) {
+                            boneCount++;
+                        }
+                    });
+                    
+                    if (boneCount > 0 && !mixer) {
+                        updateStatus(`Default model loaded. Bones: ${boneCount} (unrigged)`);
+                    } else if (boneCount > 0) {
+                        updateStatus(`Default model loaded. Bones: ${boneCount}. Animations: ${gltf.animations.length}`);
+                    }
+                    
+                    frameModel();
+                    document.getElementById('loading').style.display = 'none';
+                },
+                undefined,
+                (error) => {
+                    document.getElementById('loading').style.display = 'none';
+                    updateStatus('Select a GLB file to load (or start server: npm run server)');
+                    updateModelInfo(null, null);
+                    checkSkeleton();
+                    console.error('Could not load default model:', error.message);
+                }
+            );
+        }
+        
+        updateModelInfo(null, null);
+        checkSkeleton();
+        loadDefaultModel();
+        animate();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
+

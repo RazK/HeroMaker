@@ -1,0 +1,9 @@
+node_modules/
+.idea/
+.DS_Store
+.env
+server/.env
+server/.env.local
+server/.env.*.local
+assets/**/*.zip
+

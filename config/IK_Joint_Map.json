@@ -1,0 +1,81 @@
+[
+    {
+        "mediapipe_index": 0,
+        "mediapipe_name": "nose",
+        "rig_bone_name": "Head"
+    },
+    {
+        "mediapipe_index": 11,
+        "mediapipe_name": "left_shoulder",
+        "rig_bone_name": "LeftShoulder"
+    },
+    {
+        "mediapipe_index": 12,
+        "mediapipe_name": "right_shoulder",
+        "rig_bone_name": "RightShoulder"
+    },
+    {
+        "mediapipe_index": 13,
+        "mediapipe_name": "left_elbow",
+        "rig_bone_name": "LeftArm"
+    },
+    {
+        "mediapipe_index": 14,
+        "mediapipe_name": "right_elbow",
+        "rig_bone_name": "RightArm"
+    },
+    {
+        "mediapipe_index": 15,
+        "mediapipe_name": "left_wrist",
+        "rig_bone_name": "LeftForeArm"
+    },
+    {
+        "mediapipe_index": 16,
+        "mediapipe_name": "right_wrist",
+        "rig_bone_name": "RightForeArm"
+    },
+    {
+        "mediapipe_index": 23,
+        "mediapipe_name": "left_hip",
+        "rig_bone_name": "Hips"
+        /* Hips joint is the anchor point for the rig */
+    },
+    {
+        "mediapipe_index": 24,
+        "mediapipe_name": "right_hip",
+        "rig_bone_name": "Hips"
+        /* Hips joint is the anchor point for the rig */
+    },
+    {
+        "mediapipe_index": 25,
+        "mediapipe_name": "left_knee",
+        "rig_bone_name": "LeftUpLeg"
+    },
+    {
+        "mediapipe_index": 26,
+        "mediapipe_name": "right_knee",
+        "rig_bone_name": "RightUpLeg"
+    },
+    {
+        "mediapipe_index": 27,
+        "mediapipe_name": "left_ankle",
+        "rig_bone_name": "LeftLeg"
+    },
+    {
+        "mediapipe_index": 28,
+        "mediapipe_name": "right_ankle",
+        "rig_bone_name": "RightLeg"
+    },
+    {
+        "mediapipe_index": 7, 
+        "mediapipe_name": "left_ear",
+        "rig_bone_name": "neck"
+        /* Used to approximate neck/head tilt */
+    },
+    {
+        "mediapipe_index": 8,
+        "mediapipe_name": "right_ear",
+        "rig_bone_name": "neck"
+        /* Used to approximate neck/head tilt */
+    }
+]
