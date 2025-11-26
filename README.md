@@ -34,11 +34,11 @@ This branch adds a browser-based performance capture workflow that streams Media
    - Click **Load File** and select any local `.glb/.gltf` that contains a skinned mesh.
 
 4. **Stream your pose**
-   - Click **Start Tracking** in the left pane.
-   - Grant camera permission when your browser prompts for it.
-   - Keep your upper body within frame; FPS/latency are shown in the metrics widget.
-   - No webcam handy? Hit **Play Demo Video** to run the bundled yoga clip and drive the rig from that footage instead.
-   - Click **Stop Tracking** to release the webcam (also auto-pauses when the tab loses focus).
+   - Click **Start Tracking** for a live webcam feed.
+   - Grant camera permission when prompted and keep your upper body within frame; FPS/latency overlay updates every ~0.5 s.
+   - **Play Demo Video** loads the bundled yoga clip (see below) and loops it through MediaPipe.
+   - **Stream Video URL** accepts any HTTPS MP4/WebM link that allows cross-origin playback (e.g., raw CDN files, S3 objects, GitHub Releases). Paste the URL, press the button, and the left pane will treat it like a webcam feed.
+   - Click **Stop Tracking** to release whichever source is active; the UI also auto-pauses if the tab loses focus.
 
 5. **Debugging tips**
    - Toggle **Wireframe** or **Skeleton** from the right-side HUD for rig inspection.
@@ -56,6 +56,16 @@ This branch adds a browser-based performance capture workflow that streams Media
 - Source: [Yoga With Les – Class 10 preview](https://archive.org/details/YogaWithLesClass10-YogaForAbs) (Internet Archive, public/community media).
 - Use **Play Demo Video** to route MediaPipe through this clip whenever a webcam isn't available.
 - Swap in your own footage by replacing the file (keep the same name) or by editing `DEMO_VIDEO_URL` inside `viewer.html`.
+- To mirror the user's suggested YouTube Short (`https://youtube.com/shorts/ZGwEgwLFf_k`), download it locally first (YouTube suppresses direct MP4 playback without credentials). Example:
+  ```bash
+  pip install --user yt-dlp
+  ~/.local/bin/yt-dlp -o frontend/media/yoga_flow_demo.mp4 https://youtube.com/shorts/ZGwEgwLFf_k
+  ```
+  After the file is in place, reload the frontend and click **Play Demo Video**.
+
+### Remote Video URL Tips
+- Only direct video file URLs (MP4/WebM) can be streamed due to browser security—platform pages (YouTube, Vimeo, etc.) usually require downloading the file first.
+- The request is made client-side, so the host must permit CORS. If the stream fails, consider proxying the file through the backend or hosting it on an S3 bucket with `Access-Control-Allow-Origin: *`.
 
 ## Troubleshooting
 | Symptom | Fix |
