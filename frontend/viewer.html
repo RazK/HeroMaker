@@ -702,6 +702,7 @@
         let poseLandmarker = null;
         let poseInitPromise = null;
         let poseTrackingActive = false;
+        let poseTrackingPaused = false;
         let usePoseTracking = false;
         let webcamStream = null;
         let poseAnimationFrame = null;
@@ -722,10 +723,12 @@
         
         function describePoseInputState() {
             if (poseTrackingActive) {
+                const stateLabel = poseTrackingPaused ? 'paused' : 'playing';
                 if (currentPoseInput === 'video' || currentPoseInput === 'url') {
-                    return currentVideoLabel ? `${currentVideoLabel} (playing)` : 'Video stream (playing)';
+                    const label = currentVideoLabel || (currentPoseInput === 'video' ? 'Demo video' : 'External video');
+                    return `${label} (${stateLabel})`;
                 }
-                return 'Live webcam';
+                return `Live webcam (${stateLabel})`;
             }
             switch (currentPoseInput) {
                 case 'camera':
@@ -749,6 +752,23 @@
             ];
             const lines = baseLines.concat(extraLines);
             poseDebugList.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
+        }
+        
+        function describeCurrentPoseInputStatus() {
+            if (!poseTrackingActive) return '';
+            if (poseTrackingPaused) {
+                return 'Pose tracking paused. Press Play to resume.';
+            }
+            if (currentPoseInput === 'camera') {
+                return 'Tracking live pose. Stay centered in frame.';
+            }
+            if (currentPoseInput === 'video') {
+                return 'Tracking demo yoga video.';
+            }
+            if (currentPoseInput === 'url') {
+                return 'Tracking external video stream.';
+            }
+            return 'Tracking active.';
         }
         
         function hideWebcamPlaceholder() {
@@ -993,6 +1013,7 @@
                 toggleSyntheticAnimation();
             }
             poseTrackingActive = true;
+            poseTrackingPaused = false;
             usePoseTracking = true;
             currentPoseInput = inputType;
             currentVideoLabel = label;
@@ -1001,6 +1022,7 @@
             poseFpsTracker.lastTime = performance.now();
             poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
             renderPoseDebugSummary();
+            updatePlayPauseButton();
         }
         
         async function loadDemoVideo() {
@@ -1050,6 +1072,20 @@
             return rawUrl.trim();
         }
         
+        function friendlyLabelFromUrl(url) {
+            try {
+                const parsed = new URL(url);
+                const segments = parsed.pathname.split('/').filter(Boolean);
+                const lastSegment = segments.length ? segments[segments.length - 1] : '';
+                if (lastSegment) {
+                    return `${parsed.hostname}/${lastSegment}`;
+                }
+                return parsed.hostname;
+            } catch {
+                return url;
+            }
+        }
+        
         async function loadCustomVideo(url) {
             const normalized = sanitizeVideoUrl(url);
             if (!normalized) {
@@ -1097,6 +1133,45 @@
                     startPlayback();
                 }
             });
+        }
+        
+        function isVideoPoseSource() {
+            return currentPoseInput === 'video' || currentPoseInput === 'url';
+        }
+        
+        function pausePoseMediaPlayback() {
+            if (!webcamVideo || !isVideoPoseSource()) return;
+            try {
+                webcamVideo.pause();
+            } catch (error) {
+                console.warn('Unable to pause pose video source', error);
+            }
+        }
+        
+        function resumePoseMediaPlayback() {
+            if (!webcamVideo || !isVideoPoseSource()) return;
+            webcamVideo.play().catch((error) => {
+                handlePoseError('Unable to resume video playback.', error);
+            });
+        }
+        
+        function togglePosePause() {
+            if (!poseTrackingActive) return;
+            poseTrackingPaused = !poseTrackingPaused;
+            if (poseTrackingPaused) {
+                pausePoseMediaPlayback();
+                updatePoseStatus('Pose tracking paused. Press Play to resume.');
+            } else {
+                if (isVideoPoseSource()) {
+                    resumePoseMediaPlayback();
+                }
+                const statusMessage = describeCurrentPoseInputStatus();
+                if (statusMessage) {
+                    updatePoseStatus(statusMessage);
+                }
+            }
+            renderPoseDebugSummary();
+            updatePlayPauseButton();
         }
         
         function directionToEuler(direction, referenceAxis) {
@@ -1275,6 +1350,7 @@
                 poseAnimationFrame = null;
             }
             poseTrackingActive = false;
+            poseTrackingPaused = false;
             usePoseTracking = false;
             poseLastVideoTime = -1;
             lastPoseRotations = {};
@@ -1309,11 +1385,16 @@
             currentPoseInput = 'idle';
             currentVideoLabel = '';
             renderPoseDebugSummary();
+            updatePlayPauseButton();
         }
         
         const predictPoseFrame = () => {
             if (!poseTrackingActive || !poseLandmarker) return;
             if (!webcamVideo || webcamVideo.readyState < 2) {
+                poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
+                return;
+            }
+            if (poseTrackingPaused) {
                 poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
                 return;
             }
@@ -1347,7 +1428,8 @@
                 await initPoseLandmarker();
                 await enableWebcamStream();
                 await beginPoseTrackingFlow('camera', 'Webcam');
-                updatePoseStatus('Tracking live pose. Stay centered in frame.');
+                const statusMessage = describeCurrentPoseInputStatus() || 'Tracking live pose. Stay centered in frame.';
+                updatePoseStatus(statusMessage);
                 updateStatus('Pose tracking streaming from webcam');
             } catch (error) {
                 handlePoseError('Unable to start pose tracking.', error);
@@ -1374,7 +1456,8 @@
                 await initPoseLandmarker();
                 await loadDemoVideo();
                 await beginPoseTrackingFlow('video', DEMO_VIDEO_LABEL);
-                updatePoseStatus(`Tracking demo yoga video (${DEMO_VIDEO_LABEL}).`);
+                const statusMessage = describeCurrentPoseInputStatus() || `Tracking demo yoga video (${DEMO_VIDEO_LABEL}).`;
+                updatePoseStatus(statusMessage);
                 updateStatus('Pose tracking using the built-in yoga demo video');
             } catch (error) {
                 handlePoseError('Unable to start demo video tracking.', error);
@@ -1406,8 +1489,10 @@
                 updatePoseStatus('Fetching remote video stream…');
                 await initPoseLandmarker();
                 const resolvedUrl = await loadCustomVideo(url);
-                await beginPoseTrackingFlow('url', resolvedUrl);
-                updatePoseStatus('Tracking external video stream. Some hosts may throttle playback.');
+                const friendlyLabel = friendlyLabelFromUrl(resolvedUrl);
+                await beginPoseTrackingFlow('url', friendlyLabel);
+                const statusMessage = describeCurrentPoseInputStatus() || 'Tracking external video stream.';
+                updatePoseStatus(statusMessage);
                 updateStatus(`Pose tracking using external video: ${resolvedUrl}`);
             } catch (error) {
                 handlePoseError('Unable to start external video tracking.', error);
@@ -1790,18 +1875,31 @@
         
         function updatePlayPauseButton() {
             const btn = document.getElementById('play-pause-toggle-btn');
-            if (isPlaying) {
+            if (!btn) return;
+            let playing = false;
+            if (poseTrackingActive) {
+                playing = !poseTrackingPaused;
+            } else if (useSyntheticAnimation) {
+                playing = isPlaying && !isSyntheticPaused;
+            } else {
+                playing = isPlaying;
+            }
+            if (playing) {
                 btn.textContent = 'Pause';
-                btn.style.background = '#ff6b6b'; // Red/orange - indicates it will pause
+                btn.style.background = '#ff6b6b';
                 btn.style.color = 'white';
             } else {
                 btn.textContent = 'Play';
-                btn.style.background = '#4caf50'; // Green - indicates it will play
+                btn.style.background = '#4caf50';
                 btn.style.color = 'white';
             }
         }
         
         document.getElementById('play-pause-toggle-btn').addEventListener('click', () => {
+            if (poseTrackingActive) {
+                togglePosePause();
+                return;
+            }
             if (useSyntheticAnimation) {
                 isSyntheticPaused = !isSyntheticPaused;
                 isPlaying = !isSyntheticPaused;
@@ -1816,14 +1914,11 @@
                     const displayName = select.options[selectedIndex].textContent;
                     
                     if (isPlaying) {
-                        // Pause
                         selectedAnim.action.paused = true;
                         isAnimationPaused = true;
                         isPlaying = false;
                         updateStatus(`Paused: "${displayName}"`);
                     } else {
-                        // Play
-                        // Stop all other animations first
                         animationActions.forEach((anim, index) => {
                             if (index !== selectedIndex) {
                                 anim.action.stop();
@@ -1842,6 +1937,10 @@
         });
         
         document.getElementById('stop-animation-btn').addEventListener('click', () => {
+            if (poseTrackingActive) {
+                stopPoseTracking();
+                return;
+            }
             if (useSyntheticAnimation) {
                 syntheticDataTime = 0;
                 isSyntheticPaused = true;
