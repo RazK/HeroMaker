@@ -46,6 +46,7 @@ This branch adds a browser-based performance capture workflow that streams Media
 
 ## Extending the Retargeter
 - Bone matching uses lowercase substring checks (`mixamorigLeftArm`, `LeftArm`, etc.). You can augment `RETARGET_BONE_CONFIG` inside `frontend/viewer.html` with additional bone names or landmarks.
+- Landmark → rig directions live in `frontend/mediapipe_to_meshy.js`; extend this helper if you need extra joints (hands, fingers, props, etc.).
 - Landmarks currently leverage MediaPipe world coordinates. If your rig expects a different rest axis, tweak the `axis` vector per config entry.
 - For hand/finger animation, add new entries that look at wrist → index/pinky landmarks.
 

@@ -507,6 +507,7 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { PoseLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0';
+        import { mediapipeToMeshy } from './mediapipe_to_meshy.js';
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x2a2a2a);
@@ -646,19 +647,21 @@
         ];
         
         const RETARGET_BONE_CONFIG = [
-            { key: 'hips', targets: ['hips', 'pelvis', 'root', 'mixamorighips'], start: 'midHip', end: 'midShoulder', axis: new THREE.Vector3(0, 1, 0) },
-            { key: 'spine', targets: ['spine', 'mixamorigspine', 'spine1'], start: 'midHip', end: 'midShoulder', axis: new THREE.Vector3(0, 1, 0) },
-            { key: 'chest', targets: ['chest', 'spine2', 'upperchest', 'mixamorigspine2'], start: 'midShoulder', end: 'neck', axis: new THREE.Vector3(0, 1, 0) },
-            { key: 'neck', targets: ['neck', 'mixamorigneck'], start: 'midShoulder', end: 'neck', axis: new THREE.Vector3(0, 1, 0) },
-            { key: 'head', targets: ['head', 'mixamorighead'], start: 'neck', end: 'nose', axis: new THREE.Vector3(0, 1, 0) },
-            { key: 'leftUpperArm', targets: ['leftarm', 'mixamorigleftarm'], start: 'leftShoulder', end: 'leftElbow', axis: new THREE.Vector3(1, 0, 0) },
-            { key: 'leftLowerArm', targets: ['leftforearm', 'mixamorigleftforearm'], start: 'leftElbow', end: 'leftWrist', axis: new THREE.Vector3(1, 0, 0) },
-            { key: 'rightUpperArm', targets: ['rightarm', 'mixamorigrightarm'], start: 'rightShoulder', end: 'rightElbow', axis: new THREE.Vector3(1, 0, 0) },
-            { key: 'rightLowerArm', targets: ['rightforearm', 'mixamorigrightforearm'], start: 'rightElbow', end: 'rightWrist', axis: new THREE.Vector3(1, 0, 0) },
-            { key: 'leftUpperLeg', targets: ['leftupleg', 'lefthip', 'mixamorigleftupleg'], start: 'leftHip', end: 'leftKnee', axis: new THREE.Vector3(0, -1, 0) },
-            { key: 'leftLowerLeg', targets: ['leftleg', 'mixamorigleftleg'], start: 'leftKnee', end: 'leftAnkle', axis: new THREE.Vector3(0, -1, 0) },
-            { key: 'rightUpperLeg', targets: ['rightupleg', 'righthip', 'mixamorigrightupleg'], start: 'rightHip', end: 'rightKnee', axis: new THREE.Vector3(0, -1, 0) },
-            { key: 'rightLowerLeg', targets: ['rightleg', 'mixamorigrightleg'], start: 'rightKnee', end: 'rightAnkle', axis: new THREE.Vector3(0, -1, 0) }
+            { key: 'hips', targets: ['hips', 'pelvis', 'root', 'mixamorighips'], sourceKey: 'Hips', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'spine', targets: ['spine', 'mixamorigspine', 'spine1'], sourceKey: 'Spine', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'chest', targets: ['chest', 'spine2', 'upperchest', 'mixamorigspine2'], sourceKey: 'Chest', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'neck', targets: ['neck', 'mixamorigneck'], sourceKey: 'Neck', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'head', targets: ['head', 'mixamorighead'], sourceKey: 'Neck', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'leftUpperArm', targets: ['leftarm', 'mixamorigleftarm'], sourceKey: 'LeftUpperArm', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'leftLowerArm', targets: ['leftforearm', 'mixamorigleftforearm'], sourceKey: 'LeftLowerArm', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'rightUpperArm', targets: ['rightarm', 'mixamorigrightarm'], sourceKey: 'RightUpperArm', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'rightLowerArm', targets: ['rightforearm', 'mixamorigrightforearm'], sourceKey: 'RightLowerArm', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'leftUpperLeg', targets: ['leftupleg', 'lefthip', 'mixamorigleftupleg'], sourceKey: 'LeftUpperLeg', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'leftLowerLeg', targets: ['leftleg', 'mixamorigleftleg'], sourceKey: 'LeftLowerLeg', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'rightUpperLeg', targets: ['rightupleg', 'righthip', 'mixamorigrightupleg'], sourceKey: 'RightUpperLeg', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'rightLowerLeg', targets: ['rightleg', 'mixamorigrightleg'], sourceKey: 'RightLowerLeg', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'leftFoot', targets: ['leftfoot', 'mixamorigleftfoot'], sourceKey: 'LeftFoot', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'rightFoot', targets: ['rightfoot', 'mixamorigrightfoot'], sourceKey: 'RightFoot', axis: new THREE.Vector3(0, -1, 0) }
         ];
         
         let poseLandmarker = null;
@@ -916,62 +919,16 @@
             updatePlayPauseButton();
         }
         
-        function vectorFromWorldLandmark(landmark) {
-            if (!landmark) return null;
-            return new THREE.Vector3(landmark.x, landmark.y, -landmark.z);
-        }
-        
-        function averageWorldVectors(worldLandmarks, firstIndex, secondIndex) {
-            const first = vectorFromWorldLandmark(worldLandmarks[firstIndex]);
-            const second = vectorFromWorldLandmark(worldLandmarks[secondIndex]);
-            if (!first || !second) return null;
-            return first.add(second).multiplyScalar(0.5);
-        }
-        
-        function getJointVector(key, worldLandmarks) {
-            if (!worldLandmarks) return null;
-            switch (key) {
-                case 'midHip':
-                    return averageWorldVectors(worldLandmarks, MP_LANDMARKS.LEFT_HIP, MP_LANDMARKS.RIGHT_HIP);
-                case 'midShoulder':
-                    return averageWorldVectors(worldLandmarks, MP_LANDMARKS.LEFT_SHOULDER, MP_LANDMARKS.RIGHT_SHOULDER);
-                case 'leftShoulder':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_SHOULDER]);
-                case 'rightShoulder':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_SHOULDER]);
-                case 'leftElbow':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_ELBOW]);
-                case 'rightElbow':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_ELBOW]);
-                case 'leftWrist':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_WRIST]);
-                case 'rightWrist':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_WRIST]);
-                case 'leftHip':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_HIP]);
-                case 'rightHip':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_HIP]);
-                case 'leftKnee':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_KNEE]);
-                case 'rightKnee':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_KNEE]);
-                case 'leftAnkle':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_ANKLE]);
-                case 'rightAnkle':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_ANKLE]);
-                case 'neck': {
-                    const shoulders = averageWorldVectors(worldLandmarks, MP_LANDMARKS.LEFT_SHOULDER, MP_LANDMARKS.RIGHT_SHOULDER);
-                    const nose = vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.NOSE]);
-                    if (shoulders && nose) {
-                        return shoulders.clone().lerp(nose, 0.25);
-                    }
-                    return shoulders || nose;
-                }
-                case 'nose':
-                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.NOSE]);
-                default:
-                    return null;
-            }
+        function directionToEuler(direction, referenceAxis) {
+            if (!direction || !referenceAxis) return null;
+            const dirVector = new THREE.Vector3(direction.x, direction.y, -direction.z);
+            if (dirVector.lengthSq() === 0) return null;
+            dirVector.normalize();
+            const axis = referenceAxis.clone();
+            if (axis.lengthSq() === 0) return null;
+            axis.normalize();
+            const quaternion = new THREE.Quaternion().setFromUnitVectors(axis, dirVector);
+            return new THREE.Euler().setFromQuaternion(quaternion, 'XYZ');
         }
         
         function applyPoseRotations(rotations) {
@@ -1000,21 +957,23 @@
             if (!usePoseTracking || !result?.worldLandmarks?.length || !boneMap.size) return;
             const worldLandmarks = result.worldLandmarks[0];
             if (!worldLandmarks) return;
+            let poseData = null;
+            try {
+                poseData = mediapipeToMeshy(worldLandmarks);
+            } catch (error) {
+                handlePoseError('Pose retarget mapping failed.', error);
+                return;
+            }
             const rotations = {};
             RETARGET_BONE_CONFIG.forEach((definition) => {
                 const boneName = poseBoneBindings.get(definition.key);
                 if (!boneName) return;
-                const start = getJointVector(definition.start, worldLandmarks);
-                const end = getJointVector(definition.end, worldLandmarks);
-                if (!start || !end) return;
-                const direction = new THREE.Vector3().subVectors(end, start);
-                if (direction.lengthSq() === 0) return;
-                direction.normalize();
-                const referenceAxis = definition.axis.clone().normalize();
-                if (referenceAxis.lengthSq() === 0) return;
-                const quaternion = new THREE.Quaternion().setFromUnitVectors(referenceAxis, direction);
-                const euler = new THREE.Euler().setFromQuaternion(quaternion, 'XYZ');
-                rotations[boneName] = euler;
+                const direction = poseData.directions[definition.sourceKey];
+                if (!direction) return;
+                const euler = directionToEuler(direction, definition.axis);
+                if (euler) {
+                    rotations[boneName] = euler;
+                }
             });
             if (Object.keys(rotations).length > 0) {
                 applyPoseRotations(rotations);
