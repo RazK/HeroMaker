@@ -11,16 +11,171 @@
             box-sizing: border-box;
         }
         
+        html, body {
+            height: 100%;
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #1a1a1a;
+            background: #0f0f0f;
             color: #fff;
             overflow: hidden;
+            display: flex;
+        }
+        
+        #app-layout {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            min-height: 100vh;
+        }
+        
+        #pose-pane {
+            flex: 0 0 34%;
+            min-width: 320px;
+            max-width: 520px;
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            background: #121212;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+        }
+        
+        #viewer-pane {
+            flex: 1;
+            position: relative;
+            background: #0c0c0c;
+        }
+        
+        #webcam-wrapper {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            aspect-ratio: 4 / 3;
+        }
+        
+        #webcam-video,
+        #pose-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 14px;
+        }
+        
+        #pose-overlay {
+            pointer-events: none;
+        }
+        
+        #webcam-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.18), rgba(255, 255, 255, 0.04));
+            color: #cbd7ff;
+            font-size: 14px;
+            padding: 16px;
+        }
+        
+        .pose-header h1 {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+        
+        .pose-header p {
+            color: #9da9c5;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .pose-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .pose-controls .btn {
+            width: 100%;
+            font-size: 13px;
+            padding: 10px;
+        }
+        
+        .btn.secondary {
+            background: #2a2a2a;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .btn.secondary:disabled {
+            opacity: 0.5;
+        }
+        
+        .pose-metrics {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+        
+        .pose-metrics .label {
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-size: 10px;
+            color: #8c96b6;
+        }
+        
+        .pose-metrics .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #7cc4ff;
+        }
+        
+        .pose-panel {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 14px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .pose-panel h3 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: #9ca6c5;
+        }
+        
+        #pose-status {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #c3d5ff;
+        }
+        
+        #pose-debug-list {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #9fb6ff;
+            line-height: 1.4;
         }
         
         #canvas-container {
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             position: relative;
         }
         
@@ -177,6 +332,24 @@
             background: rgba(255, 255, 255, 0.3);
         }
         
+        @media (max-width: 1200px) {
+            #app-layout {
+                flex-direction: column;
+            }
+            
+            #pose-pane {
+                flex: 0 0 auto;
+                width: 100%;
+                max-width: none;
+                border-right: none;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            
+            #viewer-pane {
+                min-height: 60vh;
+            }
+        }
+        
         /* Slider styles */
         .slider-group {
             margin-bottom: 6px;
@@ -250,40 +423,74 @@
     </style>
 </head>
 <body>
-    <div id="canvas-container">
-        <div class="loading" id="loading" style="display: none;">Loading 3D model...</div>
-        <div id="model-panel" class="panel">
-            <h3>Model</h3>
-            <div id="model-info" class="value" style="margin-bottom: 8px; font-size: 10px; color: #aaa;">No model loaded</div>
-            <button id="load-default-btn" class="btn">Load Default</button>
-            <button id="load-file-btn" class="btn">Load File</button>
-            <button id="reset-camera-btn" class="btn">Reset Camera</button>
-            <button id="toggle-wireframe-btn" class="btn">Wireframe</button>
-            <button id="toggle-skeleton-btn" class="btn" style="display: none;">Skeleton</button>
-            <input type="file" id="file-input" accept=".glb,.gltf">
-        </div>
-        <div id="animation-panel" class="panel" style="display: none;">
-            <h3>Animation</h3>
-            <button id="play-pause-toggle-btn" class="btn">Play</button>
-            <button id="stop-animation-btn" class="btn">Stop</button>
-            <select id="animation-select" class="select" style="margin-top: 8px;"></select>
-            <button id="toggle-synthetic-btn" class="btn" style="margin-top: 8px;">Use Synthetic</button>
-        </div>
-        <div id="synthesizer-panel" class="panel" style="display: none;">
-            <h3>Movement Synthesizer</h3>
-            <div class="slider-group">
-                <label>Speed</label>
-                <input type="range" id="speed-slider" min="0.5" max="3" step="0.1" value="1" class="slider">
-                <span class="slider-value" id="speed-value">1.0</span>
+    <div id="app-layout">
+        <section id="pose-pane">
+            <div class="pose-header">
+                <h1>Live Pose Capture</h1>
+                <p>Mirror yourself to puppeteer the hero. MediaPipe pose landmarks drive the rig in real time.</p>
             </div>
-            <div id="bone-sliders-container"></div>
-        </div>
-        <div id="status" class="panel">Select a GLB file to load</div>
-        <div id="camera-debug" class="panel">
-            <h3>Debug Info</h3>
-            <div id="camera-info">No model loaded</div>
-            <div id="animation-info"></div>
-        </div>
+            <div id="webcam-wrapper">
+                <video id="webcam-video" playsinline autoplay muted></video>
+                <canvas id="pose-overlay" width="640" height="480"></canvas>
+                <div id="webcam-placeholder">Allow camera access to preview pose landmarks.</div>
+            </div>
+            <div class="pose-controls">
+                <button id="start-pose-btn" class="btn">Start Tracking</button>
+                <button id="stop-pose-btn" class="btn secondary" disabled>Stop Tracking</button>
+            </div>
+            <div class="pose-metrics">
+                <div>
+                    <div class="label">Pose FPS</div>
+                    <div class="value" id="pose-fps-value">0</div>
+                </div>
+                <div>
+                    <div class="label">Latency</div>
+                    <div class="value" id="pose-latency">-- ms</div>
+                </div>
+            </div>
+            <div id="pose-status-panel" class="pose-panel">
+                <h3>Tracking Status</h3>
+                <p id="pose-status">Webcam idle. Load a rigged GLB and press "Start Tracking".</p>
+                <div id="pose-debug-list"></div>
+            </div>
+        </section>
+        <section id="viewer-pane">
+            <div id="canvas-container">
+                <div class="loading" id="loading" style="display: none;">Loading 3D model...</div>
+                <div id="model-panel" class="panel">
+                    <h3>Model</h3>
+                    <div id="model-info" class="value" style="margin-bottom: 8px; font-size: 10px; color: #aaa;">No model loaded</div>
+                    <button id="load-default-btn" class="btn">Load Default</button>
+                    <button id="load-file-btn" class="btn">Load File</button>
+                    <button id="reset-camera-btn" class="btn">Reset Camera</button>
+                    <button id="toggle-wireframe-btn" class="btn">Wireframe</button>
+                    <button id="toggle-skeleton-btn" class="btn" style="display: none;">Skeleton</button>
+                    <input type="file" id="file-input" accept=".glb,.gltf">
+                </div>
+                <div id="animation-panel" class="panel" style="display: none;">
+                    <h3>Animation</h3>
+                    <button id="play-pause-toggle-btn" class="btn">Play</button>
+                    <button id="stop-animation-btn" class="btn">Stop</button>
+                    <select id="animation-select" class="select" style="margin-top: 8px;"></select>
+                    <button id="toggle-synthetic-btn" class="btn" style="margin-top: 8px;">Use Synthetic</button>
+                </div>
+                <div id="synthesizer-panel" class="panel" style="display: none;">
+                    <h3>Movement Synthesizer</h3>
+                    <div class="slider-group">
+                        <label>Speed</label>
+                        <input type="range" id="speed-slider" min="0.5" max="3" step="0.1" value="1" class="slider">
+                        <span class="slider-value" id="speed-value">1.0</span>
+                    </div>
+                    <div id="bone-sliders-container"></div>
+                </div>
+                <div id="status" class="panel">Select a GLB file to load</div>
+                <div id="camera-debug" class="panel">
+                    <h3>Debug Info</h3>
+                    <div id="camera-info">No model loaded</div>
+                    <div id="animation-info"></div>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script type="importmap">
@@ -299,18 +506,23 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { PoseLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0';
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x2a2a2a);
         
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const canvasContainer = document.getElementById('canvas-container');
+        const initialWidth = canvasContainer?.clientWidth || window.innerWidth;
+        const initialHeight = canvasContainer?.clientHeight || window.innerHeight;
+        
+        const camera = new THREE.PerspectiveCamera(75, initialWidth / initialHeight, 0.1, 1000);
         camera.position.set(0, 1.6, 3);
         
         const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(initialWidth, initialHeight);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        canvasContainer?.appendChild(renderer.domElement);
         
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -326,6 +538,21 @@
         directionalLight.shadow.mapSize.width = 2048;
         directionalLight.shadow.mapSize.height = 2048;
         scene.add(directionalLight);
+        
+        const resizeRendererToContainer = () => {
+            if (!canvasContainer) return;
+            const width = canvasContainer.clientWidth || window.innerWidth;
+            const height = canvasContainer.clientHeight || window.innerHeight;
+            renderer.setSize(width, height);
+            camera.aspect = width / Math.max(height, 1);
+            camera.updateProjectionMatrix();
+        };
+        resizeRendererToContainer();
+        if (window.ResizeObserver && canvasContainer) {
+            const ro = new ResizeObserver(() => resizeRendererToContainer());
+            ro.observe(canvasContainer);
+        }
+        window.addEventListener('resize', resizeRendererToContainer);
         
         const gridHelper = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
         scene.add(gridHelper);
@@ -348,8 +575,131 @@
         let isPlaying = false;
         let boneMap = new Map();
         
+        const webcamVideo = document.getElementById('webcam-video');
+        const poseCanvas = document.getElementById('pose-overlay');
+        const poseCtx = poseCanvas?.getContext('2d');
+        const poseStatusEl = document.getElementById('pose-status');
+        const poseFpsValue = document.getElementById('pose-fps-value');
+        const poseLatencyValue = document.getElementById('pose-latency');
+        const poseDebugList = document.getElementById('pose-debug-list');
+        const startPoseBtn = document.getElementById('start-pose-btn');
+        const stopPoseBtn = document.getElementById('stop-pose-btn');
+        const webcamPlaceholder = document.getElementById('webcam-placeholder');
+        
+        const MEDIAPIPE_WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm';
+        const MEDIAPIPE_POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker_full/float16/1/pose_landmarker_full.task';
+        const POSE_SMOOTHING = 0.35;
+        
+        const MP_LANDMARKS = {
+            NOSE: 0,
+            LEFT_EYE_INNER: 1,
+            LEFT_EYE: 2,
+            LEFT_EYE_OUTER: 3,
+            RIGHT_EYE_INNER: 4,
+            RIGHT_EYE: 5,
+            RIGHT_EYE_OUTER: 6,
+            LEFT_EAR: 7,
+            RIGHT_EAR: 8,
+            MOUTH_LEFT: 9,
+            MOUTH_RIGHT: 10,
+            LEFT_SHOULDER: 11,
+            RIGHT_SHOULDER: 12,
+            LEFT_ELBOW: 13,
+            RIGHT_ELBOW: 14,
+            LEFT_WRIST: 15,
+            RIGHT_WRIST: 16,
+            LEFT_PINKY: 17,
+            RIGHT_PINKY: 18,
+            LEFT_INDEX: 19,
+            RIGHT_INDEX: 20,
+            LEFT_THUMB: 21,
+            RIGHT_THUMB: 22,
+            LEFT_HIP: 23,
+            RIGHT_HIP: 24,
+            LEFT_KNEE: 25,
+            RIGHT_KNEE: 26,
+            LEFT_ANKLE: 27,
+            RIGHT_ANKLE: 28,
+            LEFT_HEEL: 29,
+            RIGHT_HEEL: 30,
+            LEFT_FOOT_INDEX: 31,
+            RIGHT_FOOT_INDEX: 32
+        };
+        
+        const POSE_CONNECTIONS = [
+            [MP_LANDMARKS.LEFT_SHOULDER, MP_LANDMARKS.RIGHT_SHOULDER],
+            [MP_LANDMARKS.LEFT_SHOULDER, MP_LANDMARKS.LEFT_ELBOW],
+            [MP_LANDMARKS.LEFT_ELBOW, MP_LANDMARKS.LEFT_WRIST],
+            [MP_LANDMARKS.RIGHT_SHOULDER, MP_LANDMARKS.RIGHT_ELBOW],
+            [MP_LANDMARKS.RIGHT_ELBOW, MP_LANDMARKS.RIGHT_WRIST],
+            [MP_LANDMARKS.LEFT_HIP, MP_LANDMARKS.RIGHT_HIP],
+            [MP_LANDMARKS.LEFT_HIP, MP_LANDMARKS.LEFT_KNEE],
+            [MP_LANDMARKS.LEFT_KNEE, MP_LANDMARKS.LEFT_ANKLE],
+            [MP_LANDMARKS.RIGHT_HIP, MP_LANDMARKS.RIGHT_KNEE],
+            [MP_LANDMARKS.RIGHT_KNEE, MP_LANDMARKS.RIGHT_ANKLE],
+            [MP_LANDMARKS.LEFT_SHOULDER, MP_LANDMARKS.LEFT_HIP],
+            [MP_LANDMARKS.RIGHT_SHOULDER, MP_LANDMARKS.RIGHT_HIP],
+            [MP_LANDMARKS.LEFT_ANKLE, MP_LANDMARKS.LEFT_FOOT_INDEX],
+            [MP_LANDMARKS.RIGHT_ANKLE, MP_LANDMARKS.RIGHT_FOOT_INDEX],
+            [MP_LANDMARKS.LEFT_WRIST, MP_LANDMARKS.LEFT_INDEX],
+            [MP_LANDMARKS.RIGHT_WRIST, MP_LANDMARKS.RIGHT_INDEX]
+        ];
+        
+        const RETARGET_BONE_CONFIG = [
+            { key: 'hips', targets: ['hips', 'pelvis', 'root', 'mixamorighips'], start: 'midHip', end: 'midShoulder', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'spine', targets: ['spine', 'mixamorigspine', 'spine1'], start: 'midHip', end: 'midShoulder', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'chest', targets: ['chest', 'spine2', 'upperchest', 'mixamorigspine2'], start: 'midShoulder', end: 'neck', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'neck', targets: ['neck', 'mixamorigneck'], start: 'midShoulder', end: 'neck', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'head', targets: ['head', 'mixamorighead'], start: 'neck', end: 'nose', axis: new THREE.Vector3(0, 1, 0) },
+            { key: 'leftUpperArm', targets: ['leftarm', 'mixamorigleftarm'], start: 'leftShoulder', end: 'leftElbow', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'leftLowerArm', targets: ['leftforearm', 'mixamorigleftforearm'], start: 'leftElbow', end: 'leftWrist', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'rightUpperArm', targets: ['rightarm', 'mixamorigrightarm'], start: 'rightShoulder', end: 'rightElbow', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'rightLowerArm', targets: ['rightforearm', 'mixamorigrightforearm'], start: 'rightElbow', end: 'rightWrist', axis: new THREE.Vector3(1, 0, 0) },
+            { key: 'leftUpperLeg', targets: ['leftupleg', 'lefthip', 'mixamorigleftupleg'], start: 'leftHip', end: 'leftKnee', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'leftLowerLeg', targets: ['leftleg', 'mixamorigleftleg'], start: 'leftKnee', end: 'leftAnkle', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'rightUpperLeg', targets: ['rightupleg', 'righthip', 'mixamorigrightupleg'], start: 'rightHip', end: 'rightKnee', axis: new THREE.Vector3(0, -1, 0) },
+            { key: 'rightLowerLeg', targets: ['rightleg', 'mixamorigrightleg'], start: 'rightKnee', end: 'rightAnkle', axis: new THREE.Vector3(0, -1, 0) }
+        ];
+        
+        let poseLandmarker = null;
+        let poseInitPromise = null;
+        let poseTrackingActive = false;
+        let usePoseTracking = false;
+        let webcamStream = null;
+        let poseAnimationFrame = null;
+        let poseLastVideoTime = -1;
+        let lastPoseRotations = {};
+        const poseBoneBindings = new Map();
+        const poseFpsTracker = { frames: 0, lastTime: performance.now() };
+        
         function updateStatus(message) {
             document.getElementById('status').textContent = message;
+        }
+        
+        function updatePoseStatus(message, isError = false) {
+            if (!poseStatusEl) return;
+            poseStatusEl.textContent = message;
+            poseStatusEl.style.color = isError ? '#ff9b9b' : '#c3d5ff';
+        }
+        
+        function renderPoseDebugSummary(extraLines = []) {
+            if (!poseDebugList) return;
+            const mapped = poseBoneBindings.size;
+            const totalTargets = RETARGET_BONE_CONFIG.length;
+            const baseLines = [
+                `Rig bones detected: ${boneMap.size}`,
+                `Pose ➜ rig mappings: ${mapped}/${totalTargets}`
+            ];
+            const lines = baseLines.concat(extraLines);
+            poseDebugList.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
+        }
+        
+        function cacheOriginalBoneRotations() {
+            boneMap.forEach((bone) => {
+                if (!bone.userData.originalQuaternion) {
+                    bone.userData.originalQuaternion = bone.quaternion.clone();
+                }
+            });
         }
         
         function updateModelInfo(name, source) {
@@ -425,6 +775,38 @@
             console.log(`Created ${container.children.length} bone sliders`);
         }
         
+        function normalizeBoneName(name) {
+            return (name || '').toLowerCase().replace(/\s+/g, '');
+        }
+        
+        function findBoneCandidate(candidates) {
+            if (!boneMap.size || !candidates?.length) return null;
+            const normalizedCandidates = candidates.map(candidate => candidate.toLowerCase());
+            let resolved = null;
+            boneMap.forEach((_bone, boneName) => {
+                if (resolved) return;
+                const normalizedBone = normalizeBoneName(boneName);
+                normalizedCandidates.forEach((candidate) => {
+                    if (resolved) return;
+                    if (normalizedBone === candidate || normalizedBone.includes(candidate)) {
+                        resolved = boneName;
+                    }
+                });
+            });
+            return resolved;
+        }
+        
+        function resolveRetargetBones() {
+            poseBoneBindings.clear();
+            RETARGET_BONE_CONFIG.forEach((definition) => {
+                const resolvedName = findBoneCandidate(definition.targets);
+                if (resolvedName) {
+                    poseBoneBindings.set(definition.key, resolvedName);
+                }
+            });
+            renderPoseDebugSummary();
+        }
+        
         function checkSkeleton() {
             hasSkeleton = false;
             boneMap.clear();
@@ -444,6 +826,11 @@
             
             if (hasSkeleton) {
                 createBoneSliders();
+                cacheOriginalBoneRotations();
+            }
+            resolveRetargetBones();
+            if (!poseTrackingActive) {
+                updatePoseStatus(hasSkeleton ? 'Rig detected. Press "Start Tracking" to stream your pose.' : 'Load a rigged GLB before starting pose tracking.');
             }
         }
         
@@ -520,7 +907,326 @@
             });
         }
         
+        function pauseRecordedAnimations() {
+            if (mixer && animationActions.length > 0) {
+                animationActions.forEach(anim => anim.action.stop());
+            }
+            isAnimationPaused = true;
+            isPlaying = false;
+            updatePlayPauseButton();
+        }
+        
+        function vectorFromWorldLandmark(landmark) {
+            if (!landmark) return null;
+            return new THREE.Vector3(landmark.x, landmark.y, -landmark.z);
+        }
+        
+        function averageWorldVectors(worldLandmarks, firstIndex, secondIndex) {
+            const first = vectorFromWorldLandmark(worldLandmarks[firstIndex]);
+            const second = vectorFromWorldLandmark(worldLandmarks[secondIndex]);
+            if (!first || !second) return null;
+            return first.add(second).multiplyScalar(0.5);
+        }
+        
+        function getJointVector(key, worldLandmarks) {
+            if (!worldLandmarks) return null;
+            switch (key) {
+                case 'midHip':
+                    return averageWorldVectors(worldLandmarks, MP_LANDMARKS.LEFT_HIP, MP_LANDMARKS.RIGHT_HIP);
+                case 'midShoulder':
+                    return averageWorldVectors(worldLandmarks, MP_LANDMARKS.LEFT_SHOULDER, MP_LANDMARKS.RIGHT_SHOULDER);
+                case 'leftShoulder':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_SHOULDER]);
+                case 'rightShoulder':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_SHOULDER]);
+                case 'leftElbow':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_ELBOW]);
+                case 'rightElbow':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_ELBOW]);
+                case 'leftWrist':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_WRIST]);
+                case 'rightWrist':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_WRIST]);
+                case 'leftHip':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_HIP]);
+                case 'rightHip':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_HIP]);
+                case 'leftKnee':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_KNEE]);
+                case 'rightKnee':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_KNEE]);
+                case 'leftAnkle':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.LEFT_ANKLE]);
+                case 'rightAnkle':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.RIGHT_ANKLE]);
+                case 'neck': {
+                    const shoulders = averageWorldVectors(worldLandmarks, MP_LANDMARKS.LEFT_SHOULDER, MP_LANDMARKS.RIGHT_SHOULDER);
+                    const nose = vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.NOSE]);
+                    if (shoulders && nose) {
+                        return shoulders.clone().lerp(nose, 0.25);
+                    }
+                    return shoulders || nose;
+                }
+                case 'nose':
+                    return vectorFromWorldLandmark(worldLandmarks[MP_LANDMARKS.NOSE]);
+                default:
+                    return null;
+            }
+        }
+        
+        function applyPoseRotations(rotations) {
+            if (!rotations || Object.keys(rotations).length === 0) return;
+            const blended = {};
+            Object.entries(rotations).forEach(([boneName, euler]) => {
+                const previous = lastPoseRotations[boneName];
+                if (previous) {
+                    const smoothed = new THREE.Euler(
+                        THREE.MathUtils.lerp(previous.x, euler.x, POSE_SMOOTHING),
+                        THREE.MathUtils.lerp(previous.y, euler.y, POSE_SMOOTHING),
+                        THREE.MathUtils.lerp(previous.z, euler.z, POSE_SMOOTHING),
+                        'XYZ'
+                    );
+                    blended[boneName] = smoothed;
+                    lastPoseRotations[boneName] = { x: smoothed.x, y: smoothed.y, z: smoothed.z };
+                } else {
+                    blended[boneName] = euler;
+                    lastPoseRotations[boneName] = { x: euler.x, y: euler.y, z: euler.z };
+                }
+            });
+            updateBonesFromRotations(blended);
+        }
+        
+        function retargetPoseToModel(result) {
+            if (!usePoseTracking || !result?.worldLandmarks?.length || !boneMap.size) return;
+            const worldLandmarks = result.worldLandmarks[0];
+            if (!worldLandmarks) return;
+            const rotations = {};
+            RETARGET_BONE_CONFIG.forEach((definition) => {
+                const boneName = poseBoneBindings.get(definition.key);
+                if (!boneName) return;
+                const start = getJointVector(definition.start, worldLandmarks);
+                const end = getJointVector(definition.end, worldLandmarks);
+                if (!start || !end) return;
+                const direction = new THREE.Vector3().subVectors(end, start);
+                if (direction.lengthSq() === 0) return;
+                direction.normalize();
+                const referenceAxis = definition.axis.clone().normalize();
+                if (referenceAxis.lengthSq() === 0) return;
+                const quaternion = new THREE.Quaternion().setFromUnitVectors(referenceAxis, direction);
+                const euler = new THREE.Euler().setFromQuaternion(quaternion, 'XYZ');
+                rotations[boneName] = euler;
+            });
+            if (Object.keys(rotations).length > 0) {
+                applyPoseRotations(rotations);
+            }
+        }
+        
+        function drawPoseOverlay(result) {
+            if (!poseCtx || !poseCanvas || !webcamVideo) return;
+            const normalizedLandmarks = result?.landmarks?.[0];
+            const width = webcamVideo.videoWidth || poseCanvas.width || 640;
+            const height = webcamVideo.videoHeight || poseCanvas.height || 480;
+            if (poseCanvas.width !== width || poseCanvas.height !== height) {
+                poseCanvas.width = width;
+                poseCanvas.height = height;
+            }
+            poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+            if (!normalizedLandmarks) return;
+            poseCtx.strokeStyle = 'rgba(124, 196, 255, 0.85)';
+            poseCtx.lineWidth = 4;
+            poseCtx.lineCap = 'round';
+            POSE_CONNECTIONS.forEach(([startIdx, endIdx]) => {
+                const start = normalizedLandmarks[startIdx];
+                const end = normalizedLandmarks[endIdx];
+                if (!start || !end) return;
+                if ((start.visibility ?? 1) < 0.15 || (end.visibility ?? 1) < 0.15) return;
+                poseCtx.beginPath();
+                poseCtx.moveTo(start.x * poseCanvas.width, start.y * poseCanvas.height);
+                poseCtx.lineTo(end.x * poseCanvas.width, end.y * poseCanvas.height);
+                poseCtx.stroke();
+            });
+            poseCtx.fillStyle = '#ffd369';
+            normalizedLandmarks.forEach((landmark) => {
+                if (!landmark || (landmark.visibility ?? 1) < 0.15) return;
+                poseCtx.beginPath();
+                poseCtx.arc(landmark.x * poseCanvas.width, landmark.y * poseCanvas.height, 4, 0, Math.PI * 2);
+                poseCtx.fill();
+            });
+        }
+        
+        function updatePoseMetrics(latencyMs) {
+            if (poseLatencyValue && Number.isFinite(latencyMs)) {
+                poseLatencyValue.textContent = `${latencyMs.toFixed(1)} ms`;
+            }
+            poseFpsTracker.frames += 1;
+            const now = performance.now();
+            if (now - poseFpsTracker.lastTime >= 500) {
+                const fps = (poseFpsTracker.frames * 1000) / (now - poseFpsTracker.lastTime);
+                if (poseFpsValue) {
+                    poseFpsValue.textContent = fps.toFixed(1);
+                }
+                poseFpsTracker.frames = 0;
+                poseFpsTracker.lastTime = now;
+            }
+        }
+        
+        function handlePoseError(message, error) {
+            console.error(message, error);
+            updatePoseStatus(`${message} ${error?.message || ''}`.trim(), true);
+        }
+        
+        async function initPoseLandmarker() {
+            if (poseLandmarker) return poseLandmarker;
+            if (poseInitPromise) return poseInitPromise;
+            poseInitPromise = (async () => {
+                const filesetResolver = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_BASE);
+                const landmarker = await PoseLandmarker.createFromOptions(filesetResolver, {
+                    baseOptions: {
+                        modelAssetPath: MEDIAPIPE_POSE_MODEL,
+                        delegate: 'GPU'
+                    },
+                    runningMode: 'VIDEO',
+                    numPoses: 1,
+                    minPoseDetectionConfidence: 0.6,
+                    minPosePresenceConfidence: 0.6,
+                    minTrackingConfidence: 0.6,
+                    outputSegmentationMasks: false
+                });
+                poseLandmarker = landmarker;
+                return poseLandmarker;
+            })().catch((error) => {
+                poseInitPromise = null;
+                throw error;
+            });
+            return poseInitPromise;
+        }
+        
+        async function enableWebcamStream() {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                throw new Error('Camera API unavailable in this browser.');
+            }
+            const constraints = {
+                video: {
+                    width: { ideal: 960 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30, max: 60 },
+                    facingMode: 'user'
+                },
+                audio: false
+            };
+            webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+            if (!webcamVideo) return;
+            webcamVideo.srcObject = webcamStream;
+            await webcamVideo.play();
+            await new Promise((resolve) => {
+                if (webcamVideo.readyState >= 2) {
+                    resolve();
+                } else {
+                    webcamVideo.onloadeddata = () => resolve();
+                }
+            });
+            if (webcamPlaceholder) {
+                webcamPlaceholder.style.display = 'none';
+            }
+        }
+        
+        function stopPoseTracking({ silent = false } = {}) {
+            if (poseAnimationFrame) {
+                cancelAnimationFrame(poseAnimationFrame);
+                poseAnimationFrame = null;
+            }
+            poseTrackingActive = false;
+            usePoseTracking = false;
+            poseLastVideoTime = -1;
+            lastPoseRotations = {};
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            if (webcamVideo) {
+                webcamVideo.pause();
+                webcamVideo.srcObject = null;
+            }
+            if (poseCtx && poseCanvas) {
+                poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+            }
+            if (webcamPlaceholder) {
+                webcamPlaceholder.style.display = 'flex';
+            }
+            if (startPoseBtn) startPoseBtn.disabled = false;
+            if (stopPoseBtn) stopPoseBtn.disabled = true;
+            if (poseFpsValue) poseFpsValue.textContent = '0';
+            if (poseLatencyValue) poseLatencyValue.textContent = '-- ms';
+            if (!silent) {
+                updatePoseStatus('Webcam idle. Press "Start Tracking" when ready.');
+            }
+            if (hasSkeleton) {
+                resetBoneRotations();
+            }
+        }
+        
+        const predictPoseFrame = () => {
+            if (!poseTrackingActive || !poseLandmarker) return;
+            if (!webcamVideo || webcamVideo.readyState < 2) {
+                poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
+                return;
+            }
+            if (poseLastVideoTime === webcamVideo.currentTime) {
+                poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
+                return;
+            }
+            const startTime = performance.now();
+            poseLastVideoTime = webcamVideo.currentTime;
+            try {
+                const results = poseLandmarker.detectForVideo(webcamVideo, startTime);
+                drawPoseOverlay(results);
+                retargetPoseToModel(results);
+                updatePoseMetrics(performance.now() - startTime);
+            } catch (error) {
+                handlePoseError('Pose detection issue.', error);
+            }
+            poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
+        };
+        
+        async function startPoseTracking() {
+            if (poseTrackingActive) return;
+            if (!hasSkeleton || !boneMap.size) {
+                updatePoseStatus('Load a rigged GLB before starting pose tracking.', true);
+                return;
+            }
+            try {
+                if (startPoseBtn) startPoseBtn.disabled = true;
+                updatePoseStatus('Initializing pose pipeline…');
+                await initPoseLandmarker();
+                await enableWebcamStream();
+                cacheOriginalBoneRotations();
+                pauseRecordedAnimations();
+                if (useSyntheticAnimation) {
+                    toggleSyntheticAnimation();
+                }
+                poseTrackingActive = true;
+                usePoseTracking = true;
+                if (stopPoseBtn) stopPoseBtn.disabled = false;
+                poseFpsTracker.frames = 0;
+                poseFpsTracker.lastTime = performance.now();
+                poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
+                updatePoseStatus('Tracking live pose. Stay centered in frame.');
+                updateStatus('Pose tracking streaming from webcam');
+            } catch (error) {
+                handlePoseError('Unable to start pose tracking.', error);
+                stopPoseTracking({ silent: true });
+            } finally {
+                if (!poseTrackingActive && startPoseBtn) {
+                    startPoseBtn.disabled = false;
+                }
+            }
+        }
+        
         function toggleSyntheticAnimation() {
+            if (poseTrackingActive) {
+                updatePoseStatus('Stop pose tracking before using synthetic animation.', true);
+                return;
+            }
             useSyntheticAnimation = !useSyntheticAnimation;
             
             if (useSyntheticAnimation) {
@@ -843,6 +1549,8 @@
         document.getElementById('toggle-wireframe-btn').addEventListener('click', toggleWireframe);
         document.getElementById('toggle-skeleton-btn').addEventListener('click', toggleSkeleton);
         document.getElementById('toggle-synthetic-btn').addEventListener('click', toggleSyntheticAnimation);
+        startPoseBtn?.addEventListener('click', () => startPoseTracking());
+        stopPoseBtn?.addEventListener('click', () => stopPoseTracking());
         
         function updateSliderValue(sliderId, valueId) {
             const slider = document.getElementById(sliderId);
@@ -1303,16 +2011,25 @@
             );
         }
         
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && poseTrackingActive) {
+                stopPoseTracking({ silent: true });
+                updatePoseStatus('Pose tracking paused while tab is hidden.');
+            }
+        });
+        
+        window.addEventListener('beforeunload', () => {
+            if (poseTrackingActive) {
+                stopPoseTracking({ silent: true });
+            }
+            poseLandmarker?.close?.();
+        });
+        
         updateModelInfo(null, null);
         checkSkeleton();
         loadDefaultModel();
         animate();
         
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
