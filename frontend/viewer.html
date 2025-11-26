@@ -432,10 +432,11 @@
             <div id="webcam-wrapper">
                 <video id="webcam-video" playsinline autoplay muted></video>
                 <canvas id="pose-overlay" width="640" height="480"></canvas>
-                <div id="webcam-placeholder">Allow camera access to preview pose landmarks.</div>
+                <div id="webcam-placeholder">Allow camera access or use the demo yoga video to preview pose landmarks.</div>
             </div>
             <div class="pose-controls">
                 <button id="start-pose-btn" class="btn">Start Tracking</button>
+                <button id="start-demo-btn" class="btn secondary">Play Demo Video</button>
                 <button id="stop-pose-btn" class="btn secondary" disabled>Stop Tracking</button>
             </div>
             <div class="pose-metrics">
@@ -584,12 +585,18 @@
         const poseLatencyValue = document.getElementById('pose-latency');
         const poseDebugList = document.getElementById('pose-debug-list');
         const startPoseBtn = document.getElementById('start-pose-btn');
+        const startDemoBtn = document.getElementById('start-demo-btn');
         const stopPoseBtn = document.getElementById('stop-pose-btn');
         const webcamPlaceholder = document.getElementById('webcam-placeholder');
         
         const MEDIAPIPE_WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm';
         const MEDIAPIPE_POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker_full/float16/1/pose_landmarker_full.task';
         const POSE_SMOOTHING = 0.35;
+        const DEMO_VIDEO_URL = './media/yoga_flow_demo.mp4';
+        const DEMO_VIDEO_LABEL = 'Yoga with Les – Class 10 preview (Internet Archive)';
+        const PLACEHOLDER_TEXT = 'Allow camera access or use the demo yoga video to preview pose landmarks.';
+        
+        let currentPoseInput = 'idle';
         
         const MP_LANDMARKS = {
             NOSE: 0,
@@ -685,16 +692,44 @@
             poseStatusEl.style.color = isError ? '#ff9b9b' : '#c3d5ff';
         }
         
+        function describePoseInputState() {
+            if (poseTrackingActive) {
+                return currentPoseInput === 'video' ? 'Yoga demo video (playing)' : 'Live webcam';
+            }
+            switch (currentPoseInput) {
+                case 'camera':
+                    return 'Webcam ready';
+                case 'video':
+                    return 'Demo video ready';
+                default:
+                    return 'Idle';
+            }
+        }
+        
         function renderPoseDebugSummary(extraLines = []) {
             if (!poseDebugList) return;
             const mapped = poseBoneBindings.size;
             const totalTargets = RETARGET_BONE_CONFIG.length;
             const baseLines = [
                 `Rig bones detected: ${boneMap.size}`,
-                `Pose ➜ rig mappings: ${mapped}/${totalTargets}`
+                `Pose ➜ rig mappings: ${mapped}/${totalTargets}`,
+                `Pose input: ${describePoseInputState()}`
             ];
             const lines = baseLines.concat(extraLines);
             poseDebugList.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
+        }
+        
+        function hideWebcamPlaceholder() {
+            if (!webcamPlaceholder) return;
+            webcamPlaceholder.style.display = 'none';
+        }
+        
+        function showWebcamPlaceholder(message = PLACEHOLDER_TEXT) {
+            if (!webcamPlaceholder) return;
+            if (message) {
+                webcamPlaceholder.textContent = message;
+            }
+            webcamPlaceholder.style.display = 'flex';
         }
         
         function cacheOriginalBoneRotations() {
@@ -919,6 +954,64 @@
             updatePlayPauseButton();
         }
         
+        async function beginPoseTrackingFlow(inputType) {
+            cacheOriginalBoneRotations();
+            pauseRecordedAnimations();
+            if (useSyntheticAnimation) {
+                toggleSyntheticAnimation();
+            }
+            poseTrackingActive = true;
+            usePoseTracking = true;
+            currentPoseInput = inputType;
+            if (stopPoseBtn) stopPoseBtn.disabled = false;
+            poseFpsTracker.frames = 0;
+            poseFpsTracker.lastTime = performance.now();
+            poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
+            renderPoseDebugSummary();
+        }
+        
+        async function loadDemoVideo() {
+            if (!webcamVideo) {
+                throw new Error('Video element unavailable.');
+            }
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            webcamVideo.pause();
+            webcamVideo.srcObject = null;
+            webcamVideo.loop = true;
+            webcamVideo.muted = true;
+            webcamVideo.crossOrigin = 'anonymous';
+            return new Promise((resolve, reject) => {
+                const cleanup = () => {
+                    webcamVideo.onloadeddata = null;
+                    webcamVideo.onerror = null;
+                };
+                const startPlayback = () => {
+                    webcamVideo.play().then(() => {
+                        hideWebcamPlaceholder();
+                        resolve();
+                    }).catch((error) => {
+                        reject(error);
+                    });
+                };
+                webcamVideo.onloadeddata = () => {
+                    cleanup();
+                    startPlayback();
+                };
+                webcamVideo.onerror = () => {
+                    cleanup();
+                    reject(new Error('Demo yoga video failed to load.'));
+                };
+                webcamVideo.src = DEMO_VIDEO_URL;
+                if (webcamVideo.readyState >= 2) {
+                    cleanup();
+                    startPlayback();
+                }
+            });
+        }
+        
         function directionToEuler(direction, referenceAxis) {
             if (!direction || !referenceAxis) return null;
             const dirVector = new THREE.Vector3(direction.x, direction.y, -direction.z);
@@ -1075,6 +1168,8 @@
             };
             webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
             if (!webcamVideo) return;
+            webcamVideo.loop = false;
+            webcamVideo.muted = true;
             webcamVideo.srcObject = webcamStream;
             await webcamVideo.play();
             await new Promise((resolve) => {
@@ -1084,9 +1179,7 @@
                     webcamVideo.onloadeddata = () => resolve();
                 }
             });
-            if (webcamPlaceholder) {
-                webcamPlaceholder.style.display = 'none';
-            }
+            hideWebcamPlaceholder();
         }
         
         function stopPoseTracking({ silent = false } = {}) {
@@ -1105,23 +1198,28 @@
             if (webcamVideo) {
                 webcamVideo.pause();
                 webcamVideo.srcObject = null;
+                if (currentPoseInput === 'video') {
+                    webcamVideo.removeAttribute('src');
+                    webcamVideo.load();
+                }
             }
             if (poseCtx && poseCanvas) {
                 poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
             }
-            if (webcamPlaceholder) {
-                webcamPlaceholder.style.display = 'flex';
-            }
+            showWebcamPlaceholder();
             if (startPoseBtn) startPoseBtn.disabled = false;
+            if (startDemoBtn) startDemoBtn.disabled = false;
             if (stopPoseBtn) stopPoseBtn.disabled = true;
             if (poseFpsValue) poseFpsValue.textContent = '0';
             if (poseLatencyValue) poseLatencyValue.textContent = '-- ms';
             if (!silent) {
-                updatePoseStatus('Webcam idle. Press "Start Tracking" when ready.');
+                updatePoseStatus('Tracking stopped. Choose webcam or the demo yoga video to resume.');
             }
             if (hasSkeleton) {
                 resetBoneRotations();
             }
+            currentPoseInput = 'idle';
+            renderPoseDebugSummary();
         }
         
         const predictPoseFrame = () => {
@@ -1155,28 +1253,46 @@
             }
             try {
                 if (startPoseBtn) startPoseBtn.disabled = true;
+                if (startDemoBtn) startDemoBtn.disabled = true;
                 updatePoseStatus('Initializing pose pipeline…');
                 await initPoseLandmarker();
                 await enableWebcamStream();
-                cacheOriginalBoneRotations();
-                pauseRecordedAnimations();
-                if (useSyntheticAnimation) {
-                    toggleSyntheticAnimation();
-                }
-                poseTrackingActive = true;
-                usePoseTracking = true;
-                if (stopPoseBtn) stopPoseBtn.disabled = false;
-                poseFpsTracker.frames = 0;
-                poseFpsTracker.lastTime = performance.now();
-                poseAnimationFrame = requestAnimationFrame(predictPoseFrame);
+                await beginPoseTrackingFlow('camera');
                 updatePoseStatus('Tracking live pose. Stay centered in frame.');
                 updateStatus('Pose tracking streaming from webcam');
             } catch (error) {
                 handlePoseError('Unable to start pose tracking.', error);
                 stopPoseTracking({ silent: true });
             } finally {
-                if (!poseTrackingActive && startPoseBtn) {
-                    startPoseBtn.disabled = false;
+                if (!poseTrackingActive) {
+                    if (startPoseBtn) startPoseBtn.disabled = false;
+                    if (startDemoBtn) startDemoBtn.disabled = false;
+                }
+            }
+        }
+        
+        async function startDemoPoseTracking() {
+            if (poseTrackingActive) return;
+            if (!hasSkeleton || !boneMap.size) {
+                updatePoseStatus('Load a rigged GLB before starting pose tracking.', true);
+                return;
+            }
+            try {
+                if (startPoseBtn) startPoseBtn.disabled = true;
+                if (startDemoBtn) startDemoBtn.disabled = true;
+                updatePoseStatus('Loading demo yoga video…');
+                await initPoseLandmarker();
+                await loadDemoVideo();
+                await beginPoseTrackingFlow('video');
+                updatePoseStatus(`Tracking demo yoga video (${DEMO_VIDEO_LABEL}).`);
+                updateStatus('Pose tracking using the built-in yoga demo video');
+            } catch (error) {
+                handlePoseError('Unable to start demo video tracking.', error);
+                stopPoseTracking({ silent: true });
+            } finally {
+                if (!poseTrackingActive) {
+                    if (startPoseBtn) startPoseBtn.disabled = false;
+                    if (startDemoBtn) startDemoBtn.disabled = false;
                 }
             }
         }
@@ -1509,6 +1625,7 @@
         document.getElementById('toggle-skeleton-btn').addEventListener('click', toggleSkeleton);
         document.getElementById('toggle-synthetic-btn').addEventListener('click', toggleSyntheticAnimation);
         startPoseBtn?.addEventListener('click', () => startPoseTracking());
+        startDemoBtn?.addEventListener('click', () => startDemoPoseTracking());
         stopPoseBtn?.addEventListener('click', () => stopPoseTracking());
         
         function updateSliderValue(sliderId, valueId) {
@@ -1973,7 +2090,7 @@
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && poseTrackingActive) {
                 stopPoseTracking({ silent: true });
-                updatePoseStatus('Pose tracking paused while tab is hidden.');
+                updatePoseStatus('Pose tracking paused while tab is hidden. Restart the webcam or demo video when you return.');
             }
         });
         

@@ -37,6 +37,7 @@ This branch adds a browser-based performance capture workflow that streams Media
    - Click **Start Tracking** in the left pane.
    - Grant camera permission when your browser prompts for it.
    - Keep your upper body within frame; FPS/latency are shown in the metrics widget.
+   - No webcam handy? Hit **Play Demo Video** to run the bundled yoga clip and drive the rig from that footage instead.
    - Click **Stop Tracking** to release the webcam (also auto-pauses when the tab loses focus).
 
 5. **Debugging tips**
@@ -49,6 +50,12 @@ This branch adds a browser-based performance capture workflow that streams Media
 - Landmark → rig directions live in `frontend/mediapipe_to_meshy.js`; extend this helper if you need extra joints (hands, fingers, props, etc.).
 - Landmarks currently leverage MediaPipe world coordinates. If your rig expects a different rest axis, tweak the `axis` vector per config entry.
 - For hand/finger animation, add new entries that look at wrist → index/pinky landmarks.
+
+### Bundled Yoga Demo Video
+- File: `frontend/media/yoga_flow_demo.mp4` (≈20 MB, 3 min clip).
+- Source: [Yoga With Les – Class 10 preview](https://archive.org/details/YogaWithLesClass10-YogaForAbs) (Internet Archive, public/community media).
+- Use **Play Demo Video** to route MediaPipe through this clip whenever a webcam isn't available.
+- Swap in your own footage by replacing the file (keep the same name) or by editing `DEMO_VIDEO_URL` inside `viewer.html`.
 
 ## Troubleshooting
 | Symptom | Fix |
