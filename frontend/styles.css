@@ -35,27 +35,100 @@ body {
     font-family: 'Nunito Sans', sans-serif;
 }
 
-#container {
+#main-view {
     width: 100vw;
     height: 100vh;
-    background: #1a1a1a;
-}
-
-#controls {
-    position: absolute;
-    top: 24px;
-    left: 24px;
-    z-index: 100;
-    background: var(--box-gradient);
-    border-radius: 27px;
-    box-shadow: 0 2px 15px rgba(2, 2, 43, 0.2);
-    padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    min-width: 200px;
-    border: 1px solid rgba(255, 255, 255, 0.8);
 }
+
+.comparison-view {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    gap: 0;
+}
+
+.pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #1a1a1a;
+    border-right: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.pane:last-child {
+    border-right: none;
+}
+
+.pane-header {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 12px;
+}
+
+.pane-header h4 {
+    margin: 0;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #fff;
+}
+
+
+.small-btn {
+    background: linear-gradient(90deg, #3eb127, #add616);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 20px;
+    box-shadow: 0 0 0.3rem rgba(0, 0, 0, 0.3);
+    color: #fff !important;
+    font-size: 0.85em;
+    font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+    transition: transform 0.1s ease-in-out;
+    outline: 1px solid #fff;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.small-btn:hover {
+    background: #add616;
+    transform: scale(1.05);
+}
+
+#container {
+    flex: 1;
+    background: #1a1a1a;
+    position: relative;
+}
+
+.image-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1a1a1a;
+    position: relative;
+    overflow: hidden;
+}
+
+.image-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.placeholder-text {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.9em;
+    font-style: italic;
+}
+
 
 button {
     background: linear-gradient(90deg, #3eb127, #add616);
@@ -251,5 +324,27 @@ input[type="range"] {
     content: "Load a model to see pose JSON";
     color: var(--light-font-color);
     font-style: italic;
+}
+
+.preset-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    font-family: inherit;
+}
+
+.preset-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    font-family: inherit;
+    background: white;
+    cursor: pointer;
 }
 

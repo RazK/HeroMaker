@@ -6,4 +6,5 @@ server/.env
 server/.env.local
 server/.env.*.local
 assets/**/*.zip
+poses/
 

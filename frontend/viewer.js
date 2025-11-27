@@ -10,8 +10,11 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 camera.position.set(0, 1, 3);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.getElementById('container').appendChild(renderer.domElement);
+const container = document.getElementById('container');
+const containerWidth = container.clientWidth;
+const containerHeight = container.clientHeight;
+renderer.setSize(containerWidth, containerHeight);
+container.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 1, 0);
@@ -181,61 +184,6 @@ function updateBoneControls() {
     });
 }
 
-// Pose definitions
-const APOSE = {
-  "Head": { "x": 71.36318261698293, "y": 0.4241412773754582, "z": 0.7767577363531508 },
-  "head_end": { "x": -26.39168018969181, "y": 0.03720568535914297, "z": -0.15867444937338288 },
-  "headfront": { "x": 26.450866298759397, "y": 0.037378190383607346, "z": 0.15900464551875823 },
-  "Hips": { "x": 7.79339251411141, "y": 0.26695501728665333, "z": 0.23290691342083802 },
-  "LeftArm": { "x": 73.12478913062147, "y": 72.20438487974839, "z": -5.224218974655768 },
-  "LeftFoot": { "x": -61.195165740150095, "y": -5.358768774238057, "z": -6.105455730603098 },
-  "LeftForeArm": { "x": -22.11164133896093, "y": 2.2825876594077688, "z": 14.354930682521493 },
-  "LeftHand": { "x": -0.31647784542779367, "y": 18.49713749003286, "z": 27.09596667514471 },
-  "LeftLeg": { "x": 17.537915010176185, "y": 7.187154367023984, "z": 3.0345166694034003 },
-  "LeftShoulder": { "x": 98.33242946663009, "y": 0.07076058842184585, "z": -94.19890340100162 },
-  "LeftToeBase": { "x": -42.887514984174004, "y": -4.503021282797755, "z": -4.170876850248275 },
-  "LeftUpLeg": { "x": 168.2178547161373, "y": -8.715069212174619, "z": -9.291325691421868 },
-  "neck": { "x": 0.5183128431438504, "y": 0.6928907778591643, "z": -0.6037417610465206 },
-  "RightArm": { "x": 70.68756890073249, "y": -71.50845847964705, "z": 3.1437078913726597 },
-  "RightFoot": { "x": -63.14598254822018, "y": 5.392330713412872, "z": 10.565461162687043 },
-  "RightForeArm": { "x": -20.52903960940714, "y": -4.927802522334809, "z": -17.268727939894898 },
-  "RightHand": { "x": -4.4492450037294375, "y": -15.55482472510266, "z": -25.25070803600831 },
-  "RightLeg": { "x": 17.14451929638346, "y": -9.361853663151667, "z": -4.804077582980139 },
-  "RightShoulder": { "x": 98.33244815297785, "y": 0.0707566242513941, "z": 94.07256321304425 },
-  "RightToeBase": { "x": -41.03180406613524, "y": 4.90640510088091, "z": 4.25678344136294 },
-  "RightUpLeg": { "x": 168.2378711669004, "y": 9.113690218359093, "z": 9.814189825791622 },
-  "Spine": { "x": -0.5105280330185218, "y": -0.2588418323750072, "z": 0.22113832302156203 },
-  "Spine01": { "x": 0.000006830346314860216, "y": -1.000516031455257e-8, "z": 2.001032361094423e-8 },
-  "Spine02": { "x": -15.613391836920052, "y": 0.1326551804061113, "z": -0.5813851386147403 }
-};
-
-const TPOSE = {
-  "Head": { "x": 71.36318261698293, "y": 0.4241412773754582, "z": 0.7767577363531508 },
-  "head_end": { "x": -26.39168018969181, "y": 0.03720568535914297, "z": -0.15867444937338288 },
-  "headfront": { "x": 26.450866298759397, "y": 0.037378190383607346, "z": 0.15900464551875823 },
-  "Hips": { "x": 7.79339251411141, "y": 0.26695501728665333, "z": 0.23290691342083802 },
-  "LeftArm": { "x": 4, "y": 75.00000000000001, "z": -5.224218974655768 },
-  "LeftFoot": { "x": -61.195165740150095, "y": -5.358768774238057, "z": -6.105455730603098 },
-  "LeftForeArm": { "x": -22.11164133896093, "y": 2.2825876594077688, "z": 14.354930682521493 },
-  "LeftHand": { "x": -0.31647784542779367, "y": 18.49713749003286, "z": 27.09596667514471 },
-  "LeftLeg": { "x": 17.537915010176185, "y": 7.187154367023984, "z": 3.0345166694034003 },
-  "LeftShoulder": { "x": 98.33242946663009, "y": 0.07076058842184585, "z": -94.19890340100162 },
-  "LeftToeBase": { "x": -42.887514984174004, "y": -4.503021282797755, "z": -4.170876850248275 },
-  "LeftUpLeg": { "x": 168.2178547161373, "y": -8.715069212174619, "z": -9.291325691421868 },
-  "neck": { "x": 0.5183128431438504, "y": 0.6928907778591643, "z": -0.6037417610465206 },
-  "RightArm": { "x": 0, "y": -71.50845847964705, "z": 3.1437078913726597 },
-  "RightFoot": { "x": -63.14598254822018, "y": 5.392330713412872, "z": 10.565461162687043 },
-  "RightForeArm": { "x": -20.52903960940714, "y": -4.927802522334809, "z": -17.268727939894898 },
-  "RightHand": { "x": -4.4492450037294375, "y": -15.55482472510266, "z": -25.25070803600831 },
-  "RightLeg": { "x": 17.14451929638346, "y": -9.361853663151667, "z": -4.804077582980139 },
-  "RightShoulder": { "x": 98.33244815297785, "y": 0.0707566242513941, "z": 94.07256321304425 },
-  "RightToeBase": { "x": -41.03180406613524, "y": 4.90640510088091, "z": 4.25678344136294 },
-  "RightUpLeg": { "x": 168.2378711669004, "y": 9.113690218359093, "z": 9.814189825791622 },
-  "Spine": { "x": -0.5105280330185218, "y": -0.2588418323750072, "z": 0.22113832302156203 },
-  "Spine01": { "x": 0.000006830346314860216, "y": -1.000516031455257e-8, "z": 2.001032361094423e-8 },
-  "Spine02": { "x": -15.613391836920052, "y": 0.1326551804061113, "z": -0.5813851386147403 }
-};
-
 // Apply pose to model
 function applyPose(pose) {
     if (!model || bones.length === 0) return;
@@ -266,16 +214,6 @@ function applyPose(pose) {
     }
 }
 
-// Reset to T-pose
-function resetToTPose() {
-    applyPose(TPOSE);
-}
-
-// Reset to A-pose
-function resetToAPose() {
-    applyPose(APOSE);
-}
-
 // Get current pose as JSON
 function getCurrentPose() {
     if (!model || bones.length === 0) return null;
@@ -304,6 +242,7 @@ function updatePoseJSON() {
 }
 
 // Export current pose
+// Export pose as JSON file
 function exportPose() {
     const pose = getCurrentPose();
     if (!pose) return;
@@ -316,22 +255,6 @@ function exportPose() {
     a.download = 'pose.json';
     a.click();
     URL.revokeObjectURL(url);
-}
-
-// Copy pose JSON to clipboard
-function copyPoseJSON() {
-    const pose = getCurrentPose();
-    if (!pose) return;
-    
-    const json = JSON.stringify(pose, null, 2);
-    navigator.clipboard.writeText(json).then(() => {
-        const btn = document.getElementById('copyPoseBtn');
-        const originalText = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => {
-            btn.textContent = originalText;
-        }, 2000);
-    });
 }
 
 // Show/hide bone axes
@@ -385,12 +308,12 @@ function updateBoneAxes() {
 // Enable debug tools
 function enableDebugTools() {
     document.getElementById('debug-panel').classList.add('active');
-    document.getElementById('resetTposeBtn').disabled = false;
-    document.getElementById('resetAposeBtn').disabled = false;
     document.getElementById('exportPoseBtn').disabled = false;
-    document.getElementById('copyPoseBtn').disabled = false;
     document.getElementById('refreshPoseBtn').disabled = false;
     document.getElementById('showAxesToggle').disabled = false;
+    document.getElementById('savePresetBtn').disabled = false;
+    document.getElementById('presetSelect').disabled = false;
+    updatePresetSelect();
 }
 
 // Load model
@@ -420,6 +343,9 @@ document.getElementById('loadBtn').addEventListener('click', () => {
 
             // Enable skeleton toggle
             document.getElementById('skeletonToggle').disabled = false;
+            
+            // Enable debug tools
+            enableDebugTools();
         },
         undefined,
         (error) => {
@@ -441,15 +367,204 @@ document.getElementById('skeletonToggle').addEventListener('change', (e) => {
     }
 });
 
+// Pose presets storage (server-based)
+let posePresets = {};
+
+// Load presets from server
+async function loadPresetsFromServer() {
+    try {
+        const response = await fetch('/api/poses');
+        if (!response.ok) {
+            console.warn('Failed to load poses from server');
+            return;
+        }
+        const poseNames = await response.json();
+        
+        // Load each pose
+        posePresets = {};
+        for (const name of poseNames) {
+            try {
+                const poseResponse = await fetch(`/api/poses/${encodeURIComponent(name)}`);
+                if (poseResponse.ok) {
+                    posePresets[name] = await poseResponse.json();
+                }
+            } catch (e) {
+                console.error(`Error loading pose ${name}:`, e);
+            }
+        }
+        updatePresetSelect();
+    } catch (e) {
+        console.error('Error loading presets from server:', e);
+    }
+}
+
+// Save preset to server
+async function savePresetToServer(name, pose) {
+    try {
+        const response = await fetch('/api/poses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, pose })
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to save pose');
+        }
+        return await response.json();
+    } catch (e) {
+        console.error('Error saving pose to server:', e);
+        throw e;
+    }
+}
+
+// Delete preset from server
+async function deletePresetFromServer(name) {
+    try {
+        const response = await fetch(`/api/poses/${encodeURIComponent(name)}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete pose');
+        }
+        return await response.json();
+    } catch (e) {
+        console.error('Error deleting pose from server:', e);
+        throw e;
+    }
+}
+
+// Update preset select dropdown
+function updatePresetSelect() {
+    const select = document.getElementById('presetSelect');
+    const currentValue = select.value; // Save current selection
+    select.innerHTML = '<option value="">Select a preset...</option>';
+    
+    Object.keys(posePresets).sort().forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+    });
+    
+    // Restore selection if it still exists
+    if (currentValue && posePresets[currentValue]) {
+        select.value = currentValue;
+    }
+    
+    // Update button states based on current selection
+    updatePresetButtonStates();
+}
+
+// Update preset button states
+function updatePresetButtonStates() {
+    const select = document.getElementById('presetSelect');
+    const hasSelection = select.value !== '' && posePresets[select.value];
+    document.getElementById('deletePresetBtn').disabled = !hasSelection;
+}
+
+// Save current pose as preset (server)
+async function savePreset() {
+    const name = document.getElementById('presetName').value.trim();
+    if (!name) {
+        alert('Please enter a preset name');
+        return;
+    }
+    
+    const pose = getCurrentPose();
+    if (!pose) {
+        alert('No model loaded');
+        return;
+    }
+    
+    try {
+        await savePresetToServer(name, pose);
+        posePresets[name] = pose;
+        updatePresetSelect();
+        document.getElementById('presetName').value = '';
+        
+        // Select the newly saved preset
+        document.getElementById('presetSelect').value = name;
+        updatePresetButtonStates();
+    } catch (e) {
+        alert('Error saving pose: ' + e.message);
+    }
+}
+
+// Load selected preset
+function loadPreset() {
+    const select = document.getElementById('presetSelect');
+    const name = select.value;
+    
+    if (!name) {
+        console.warn('No preset selected');
+        return;
+    }
+    
+    if (!posePresets[name]) {
+        console.error('Preset not found:', name, 'Available presets:', Object.keys(posePresets));
+        return;
+    }
+    
+    if (!model || bones.length === 0) {
+        console.warn('No model loaded, cannot apply pose');
+        return;
+    }
+    
+    console.log('Loading preset:', name);
+    console.log('Preset data:', posePresets[name]);
+    applyPose(posePresets[name]);
+}
+
+// Delete selected preset
+async function deletePreset() {
+    const select = document.getElementById('presetSelect');
+    const name = select.value;
+    if (!name || !posePresets[name]) {
+        alert('No preset selected');
+        return;
+    }
+    
+    if (!confirm(`Delete preset "${name}"?`)) {
+        return;
+    }
+    
+    try {
+        await deletePresetFromServer(name);
+        delete posePresets[name];
+        updatePresetSelect();
+        updatePresetButtonStates();
+    } catch (e) {
+        alert('Error deleting pose: ' + e.message);
+    }
+}
+
+// Initialize presets
+loadPresetsFromServer();
+
 // Debug tool event listeners
-document.getElementById('resetTposeBtn').addEventListener('click', resetToTPose);
-document.getElementById('resetAposeBtn').addEventListener('click', resetToAPose);
 document.getElementById('exportPoseBtn').addEventListener('click', exportPose);
-document.getElementById('copyPoseBtn').addEventListener('click', copyPoseJSON);
 document.getElementById('refreshPoseBtn').addEventListener('click', updatePoseJSON);
 document.getElementById('showAxesToggle').addEventListener('change', (e) => {
     showAxes = e.target.checked;
     updateBoneAxes();
+});
+
+// Preset event listeners
+document.getElementById('savePresetBtn').addEventListener('click', savePreset);
+document.getElementById('deletePresetBtn').addEventListener('click', deletePreset);
+document.getElementById('presetSelect').addEventListener('change', () => {
+    updatePresetButtonStates();
+    // Auto-load when preset is selected
+    const select = document.getElementById('presetSelect');
+    if (select.value) {
+        loadPreset();
+    }
+});
+document.getElementById('presetName').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        savePreset();
+    }
 });
 
 // Animation loop
@@ -467,8 +582,51 @@ function animate() {
 animate();
 
 // Handle resize
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+function handleResize() {
+    const container = document.getElementById('container');
+    if (!container) return;
+    
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    if (width > 0 && height > 0) {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+    }
+}
+
+window.addEventListener('resize', handleResize);
+// Also trigger resize when panes are resized (using ResizeObserver if available)
+if (window.ResizeObserver) {
+    const container = document.getElementById('container');
+    if (container) {
+        const resizeObserver = new ResizeObserver(handleResize);
+        resizeObserver.observe(container);
+    }
+}
+
+// Image loading
+let loadedImage = null;
+
+document.getElementById('loadImageBtn').addEventListener('click', () => {
+    document.getElementById('imageUpload').click();
+});
+
+document.getElementById('imageUpload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            const container = document.getElementById('image-container');
+            container.innerHTML = '';
+            container.appendChild(img);
+            loadedImage = img;
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
 });

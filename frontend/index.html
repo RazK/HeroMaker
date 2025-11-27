@@ -7,13 +7,26 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="container"></div>
-    <div id="controls">
-        <button id="loadBtn">Load Model</button>
-        <label>
-            <input type="checkbox" id="skeletonToggle" disabled>
-            Show Skeleton
-        </label>
+    <div id="main-view">
+        <div id="comparison-view" class="comparison-view">
+            <div id="image-pane" class="pane">
+                <div class="pane-header">
+                    <h4>Reference Image</h4>
+                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                    <button id="loadImageBtn" class="small-btn">Load Image</button>
+                </div>
+                <div id="image-container" class="image-container">
+                    <p class="placeholder-text">No image loaded</p>
+                </div>
+            </div>
+            <div id="viewer-pane" class="pane">
+                <div class="pane-header">
+                    <h4>3D Model</h4>
+                    <button id="loadBtn" class="small-btn">Load Model</button>
+                </div>
+                <div id="container"></div>
+            </div>
+        </div>
     </div>
     <div id="debug-panel" class="debug-panel">
         <h3>Debug Tools</h3>
@@ -28,15 +41,26 @@
             </div>
         </div>
         <div class="debug-section">
-            <button id="resetTposeBtn" disabled>Reset to T-Pose</button>
-            <button id="resetAposeBtn" disabled>Reset to A-Pose</button>
+            <h4>Pose Presets</h4>
+            <select id="presetSelect" class="preset-select" disabled>
+                <option value="">Select a preset...</option>
+            </select>
+            <button id="deletePresetBtn" disabled>Delete</button>
+            <hr style="margin: 12px 0; border: none; border-top: 1px solid rgba(0,0,0,0.1);">
+            <input type="text" id="presetName" placeholder="Preset name" class="preset-input">
+            <button id="savePresetBtn" disabled>Save Current Pose</button>
             <button id="exportPoseBtn" disabled>Export Pose</button>
-            <button id="copyPoseBtn" disabled>Copy Pose JSON</button>
         </div>
-        <label>
-            <input type="checkbox" id="showAxesToggle" disabled>
-            Show Bone Axes
-        </label>
+        <div class="debug-section">
+            <label>
+                <input type="checkbox" id="skeletonToggle" disabled>
+                Show Skeleton
+            </label>
+            <label>
+                <input type="checkbox" id="showAxesToggle" disabled>
+                Show Bone Axes
+            </label>
+        </div>
         <div class="debug-section">
             <h4>Current Pose JSON</h4>
             <div id="pose-json-display" class="pose-json-display"></div>
