@@ -98,6 +98,12 @@ label {
     font-size: 1em;
     font-weight: 400;
     color: var(--dark-font-color);
+    margin: 12px 0;
+}
+
+.debug-panel > label {
+    margin: 0;
+    display: flex;
 }
 
 input[type="checkbox"] {
@@ -105,5 +111,145 @@ input[type="checkbox"] {
     height: 18px;
     cursor: pointer;
     accent-color: #add616;
+}
+
+.debug-panel {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    z-index: 100;
+    background: var(--box-gradient);
+    border-radius: 27px;
+    box-shadow: 0 2px 15px rgba(2, 2, 43, 0.2);
+    padding: 24px;
+    max-width: 400px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.debug-panel.active {
+    display: flex;
+}
+
+.debug-panel h3 {
+    margin: 0;
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--dark-font-color);
+}
+
+.debug-panel h4 {
+    margin: 0 0 12px 0;
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--dark-font-color);
+}
+
+.debug-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.debug-section button {
+    margin: 0;
+}
+
+.bone-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.bone-item {
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9em;
+    margin: 2px 0;
+    transition: background 0.1s;
+}
+
+.bone-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.bone-item.selected {
+    background: rgba(59, 130, 246, 0.2);
+    font-weight: 600;
+}
+
+.bone-controls {
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.no-bone-selected {
+    color: var(--light-font-color);
+    font-size: 0.9em;
+    font-style: italic;
+    margin: 16px 0;
+}
+
+.rotation-control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rotation-control label {
+    display: block;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+    color: var(--dark-font-color);
+}
+
+.rotation-control input[type="range"] {
+    width: 100%;
+    margin: 4px 0;
+}
+
+.rotation-value {
+    display: inline-block;
+    font-size: 0.8em;
+    color: var(--light-font-color);
+    margin-left: 8px;
+}
+
+input[type="range"] {
+    accent-color: #add616;
+}
+
+.pose-json-display {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75em;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    user-select: all;
+    cursor: text;
+}
+
+.pose-json-display:empty::before {
+    content: "Load a model to see pose JSON";
+    color: var(--light-font-color);
+    font-style: italic;
 }
 

@@ -15,6 +15,34 @@
             Show Skeleton
         </label>
     </div>
+    <div id="debug-panel" class="debug-panel">
+        <h3>Debug Tools</h3>
+        <div class="debug-section">
+            <h4>Bone Hierarchy</h4>
+            <div id="bone-list" class="bone-list"></div>
+        </div>
+        <div class="debug-section">
+            <h4>Bone Rotation</h4>
+            <div id="bone-controls" class="bone-controls">
+                <p class="no-bone-selected">Select a bone to adjust</p>
+            </div>
+        </div>
+        <div class="debug-section">
+            <button id="resetTposeBtn" disabled>Reset to T-Pose</button>
+            <button id="resetAposeBtn" disabled>Reset to A-Pose</button>
+            <button id="exportPoseBtn" disabled>Export Pose</button>
+            <button id="copyPoseBtn" disabled>Copy Pose JSON</button>
+        </div>
+        <label>
+            <input type="checkbox" id="showAxesToggle" disabled>
+            Show Bone Axes
+        </label>
+        <div class="debug-section">
+            <h4>Current Pose JSON</h4>
+            <div id="pose-json-display" class="pose-json-display"></div>
+            <button id="refreshPoseBtn" disabled>Refresh JSON</button>
+        </div>
+    </div>
 
     <script type="importmap">
     {
