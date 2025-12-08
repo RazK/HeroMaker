@@ -50,28 +50,66 @@ animate();
 const loader = new THREE.GLTFLoader();
 loader.crossOrigin = "anonymous";
 // Import model from URL, add your own model here (local copy)
-loader.load(
-  "https://cdn.glitch.com/29e07830-2317-4b15-a044-135e73c7f840%2FAshtra.vrm?v=1630342336981",
+const DEFAULT_VRM =
+  "https://cdn.glitch.com/29e07830-2317-4b15-a044-135e73c7f840%2FAshtra.vrm?v=1630342336981";
 
-  gltf => {
-    THREE.VRMUtils.removeUnnecessaryJoints(gltf.scene);
+let loadToken = 0;
 
-    THREE.VRM.from(gltf).then(vrm => {
-      scene.add(vrm.scene);
-      currentVrm = vrm;
-      currentVrm.scene.rotation.y = Math.PI; // Rotate model 180deg to face camera
-    });
-  },
+function disposeVrm(vrm) {
+  if (!vrm) return;
+  vrm.scene.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.geometry?.dispose?.();
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach((m) => {
+        if (m && m.dispose) {
+          // dispose textures
+          Object.keys(m).forEach((k) => {
+            const val = m[k];
+            if (val && val.isTexture && val.dispose) {
+              val.dispose();
+            }
+          });
+          m.dispose();
+        }
+      });
+    }
+  });
+}
 
-  progress =>
-    console.log(
-      "Loading model...",
-      100.0 * (progress.loaded / progress.total),
-      "%"
-    ),
+function loadVrm(url) {
+  const token = ++loadToken;
+  if (currentVrm) {
+    scene.remove(currentVrm.scene);
+    disposeVrm(currentVrm);
+    currentVrm = null;
+  }
+  loader.load(
+    url,
+    (gltf) => {
+      if (token !== loadToken) return; // stale load
+      THREE.VRMUtils.removeUnnecessaryJoints(gltf.scene);
+      THREE.VRM.from(gltf).then((vrm) => {
+        if (token !== loadToken) {
+          disposeVrm(vrm);
+          return;
+        }
+        scene.add(vrm.scene);
+        currentVrm = vrm;
+        currentVrm.scene.rotation.y = Math.PI; // face camera
+      });
+    },
+    (progress) =>
+      console.log(
+        "Loading model...",
+        100.0 * (progress.loaded / progress.total),
+        "%"
+      ),
+    (error) => console.error(error)
+  );
+}
 
-  error => console.error(error)
-);
+loadVrm(DEFAULT_VRM);
 
 // Animate Rotation Helper function
 const rigRotation = (
@@ -340,3 +378,32 @@ const camera = new Camera(videoElement, {
   height: 480
 });
 camera.start();
+
+/* Local VRM loader */
+const fileInput = document.getElementById('vrm-input');
+const loadDefaultBtn = document.getElementById('load-default');
+let lastObjectUrl = null;
+
+if (fileInput) {
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (lastObjectUrl) {
+      URL.revokeObjectURL(lastObjectUrl);
+      lastObjectUrl = null;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    lastObjectUrl = objectUrl;
+    loadVrm(objectUrl);
+  });
+}
+
+if (loadDefaultBtn) {
+  loadDefaultBtn.addEventListener('click', () => {
+    if (lastObjectUrl) {
+      URL.revokeObjectURL(lastObjectUrl);
+      lastObjectUrl = null;
+    }
+    loadVrm(DEFAULT_VRM);
+  });
+}
