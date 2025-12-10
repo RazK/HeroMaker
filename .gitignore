@@ -25,3 +25,11 @@ dist-ssr
 
 # Reference clones (not tracked)
 reference/
+
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Cursor IDE files
+.cursor/
