@@ -1,1 +1,0 @@
-# Meshy API Research Scripts
