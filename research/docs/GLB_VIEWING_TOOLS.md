@@ -108,3 +108,4 @@ This will show:
 1. **Quick check**: Use `check_glb_rigging.py` to verify rigging exists
 2. **Visual inspection**: Use Don McCurdy's viewer to see the skeleton overlay
 3. **Deep analysis**: Use Blender if you need to inspect bone weights, hierarchy, or make edits
+
