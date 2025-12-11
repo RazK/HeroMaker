@@ -29,9 +29,9 @@ Welcome to the HeroMaker documentation. This directory contains all design and i
 - **[ERROR_HANDLING.md](./ERROR_HANDLING.md)** - Error response format, error codes, retry strategies
 - **[INTEGRATIONS.md](./INTEGRATIONS.md)** - External API integration details (ChatGPT, Meshy)
 
-### Legacy/Reference
+### Legacy/Archive
 
-- **[API_DATABASE_DESIGN.md](./API_DATABASE_DESIGN.md)** - Comprehensive single document (kept for reference, see split docs above)
+- **[legacy/API_DATABASE_DESIGN.md](./legacy/API_DATABASE_DESIGN.md)** - Original comprehensive document (archived, see split docs above for current docs)
 
 ## For Backend Developers
 
