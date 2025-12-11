@@ -1,0 +1,13 @@
+{
+  "task_id": "019b0ade-057e-7026-91b8-b244f87bf9dd",
+  "step_name": "image_to_3d",
+  "timestamp": "2025-12-11T02:44:41.502535",
+  "data": {
+    "test_name": "crayon_superhero",
+    "image_path": "/Users/razkarl/projects/HeroMaker/assets/research/test_data/input_images/Crayon Superhero.png",
+    "image_size_mb": 1.5570878982543945,
+    "data_uri_size_mb": 2.076139450073242,
+    "task_id": "019b0ade-057e-7026-91b8-b244f87bf9dd",
+    "created_at": "2025-12-11T02:44:41.502347"
+  }
+}

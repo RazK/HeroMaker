@@ -1,0 +1,18 @@
+{
+  "task_id": "019b0adf-fd11-7075-bc7a-9af42550e206",
+  "step_name": "image_to_3d",
+  "timestamp": "2025-12-11T02:49:12.336976",
+  "data": {
+    "test_name": "crayon_superhero",
+    "image_path": "/Users/razkarl/projects/HeroMaker/assets/research/test_data/input_images/Crayon Superhero.png",
+    "image_size_mb": 1.5570878982543945,
+    "data_uri_size_mb": 2.076139450073242,
+    "task_id": "019b0adf-fd11-7075-bc7a-9af42550e206",
+    "created_at": "2025-12-11T02:46:50.299357",
+    "status": "SUCCEEDED",
+    "elapsed_seconds": 143.27764797210693,
+    "glb_path": "/Users/razkarl/projects/HeroMaker/assets/research/test_data/intermediate_outputs/crayon_superhero_model.glb",
+    "glb_size_mb": 3.227283477783203,
+    "completed_at": "2025-12-11T02:49:12.336757"
+  }
+}

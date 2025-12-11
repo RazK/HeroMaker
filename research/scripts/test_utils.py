@@ -182,6 +182,73 @@ def validate_glb_file(filepath: Path) -> bool:
     except:
         return False
 
+def check_glb_rigging(filepath: Path) -> Dict[str, Any]:
+    """
+    Check if GLB file contains rigging/skeleton data.
+    
+    Args:
+        filepath: Path to GLB file
+    
+    Returns:
+        Dictionary with rigging information:
+        {
+            "has_rigging": bool,
+            "skin_count": int,
+            "joint_count": int,
+            "joint_names": List[str],
+            "error": Optional[str]
+        }
+    """
+    result = {
+        "has_rigging": False,
+        "skin_count": 0,
+        "joint_count": 0,
+        "joint_names": [],
+        "error": None
+    }
+    
+    if not filepath.exists():
+        result["error"] = "File does not exist"
+        return result
+    
+    try:
+        from pygltflib import GLTF2
+        
+        # Load GLB file
+        glb = GLTF2.load(str(filepath))
+        
+        # Check for skins (rigging data)
+        if glb.skins and len(glb.skins) > 0:
+            result["has_rigging"] = True
+            result["skin_count"] = len(glb.skins)
+            
+            # Collect all unique joints
+            all_joints = set()
+            for skin in glb.skins:
+                if skin.joints:
+                    all_joints.update(skin.joints)
+            
+            result["joint_count"] = len(all_joints)
+            
+            # Get joint names
+            if glb.nodes:
+                joint_names = []
+                for joint_idx in sorted(all_joints):
+                    if joint_idx < len(glb.nodes):
+                        node = glb.nodes[joint_idx]
+                        name = node.name if node.name else f"Joint_{joint_idx}"
+                        joint_names.append(name)
+                result["joint_names"] = joint_names
+        
+        return result
+        
+    except ImportError:
+        result["error"] = "pygltflib not installed. Run: pip install pygltflib"
+        return result
+    except Exception as e:
+        result["error"] = f"Error reading GLB file: {str(e)}"
+        return result
+
 def create_test_log(log_name: str) -> Path:
     """
     Create a log file for test run.

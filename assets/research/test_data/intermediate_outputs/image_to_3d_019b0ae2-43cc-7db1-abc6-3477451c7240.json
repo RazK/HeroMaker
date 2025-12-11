@@ -1,0 +1,18 @@
+{
+  "task_id": "019b0ae2-43cc-7db1-abc6-3477451c7240",
+  "step_name": "image_to_3d",
+  "timestamp": "2025-12-11T02:52:39.173354",
+  "data": {
+    "test_name": "girl_superhero",
+    "image_path": "/Users/razkarl/projects/HeroMaker/assets/research/test_data/input_images/Girl Superhero.png",
+    "image_size_mb": 1.8196039199829102,
+    "data_uri_size_mb": 2.4261608123779297,
+    "task_id": "019b0ae2-43cc-7db1-abc6-3477451c7240",
+    "created_at": "2025-12-11T02:49:19.442149",
+    "status": "SUCCEEDED",
+    "elapsed_seconds": 201.03977584838867,
+    "glb_path": "/Users/razkarl/projects/HeroMaker/assets/research/test_data/intermediate_outputs/girl_superhero_model.glb",
+    "glb_size_mb": 3.94012451171875,
+    "completed_at": "2025-12-11T02:52:39.173288"
+  }
+}
