@@ -1,3 +1,21 @@
+# API and Database Design for HeroMaker
+
+> **Note:** This comprehensive document has been split into focused documents for easier navigation. See [docs/README.md](./README.md) for the new structure.
+
+**Split Documents:**
+- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Database schema and file system structure
+- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Task definitions and execution logic
+- [API_REFERENCE.md](./API_REFERENCE.md) - Complete API endpoint documentation
+- [USER_JOURNEYS.md](./USER_JOURNEYS.md) - User flows and system interactions
+- [IMPLEMENTATION_STEPS.md](./IMPLEMENTATION_STEPS.md) - Step-by-step implementation guide
+- [CONFIGURATION.md](./CONFIGURATION.md) - Environment variables and settings
+- [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error codes and retry strategies
+- [INTEGRATIONS.md](./INTEGRATIONS.md) - External API integration details
+
+This document is kept for reference but the split documents above are the source of truth.
+
+---
+
 ---
 name: API and Database Design for HeroMaker
 overview: Complete API and database design for HeroMaker with file system as source of truth for task status, user-scoped file paths, and terminal commands ready for execution at each step. Backend returns flat task lists without user-facing step nesting.
