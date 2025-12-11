@@ -52,7 +52,7 @@ class MeshyClient:
         
         Args:
             method: HTTP method (GET, POST, etc.)
-            endpoint: API endpoint (e.g., "/openapi/v1/multi-image-to-3d")
+            endpoint: API endpoint (e.g., "/openapi/v1/image-to-3d")
             **kwargs: Additional arguments for requests.request()
         
         Returns:
@@ -82,34 +82,78 @@ class MeshyClient:
     
     def create_image_to_3d_task(
         self,
-        image_urls: List[str],
+        image_url: str,
         ai_model: Optional[str] = None,
-        is_a_t_pose: bool = False
+        should_texture: bool = True,
+        enable_pbr: bool = False,
+        should_remesh: bool = True,
+        save_pre_remeshed_model: bool = False,
+        topology: Optional[str] = None,
+        target_polycount: Optional[int] = None,
+        symmetry_mode: Optional[str] = None,
+        pose_mode: Optional[str] = None,
+        texture_prompt: Optional[str] = None,
+        texture_image_url: Optional[str] = None,
+        moderation: bool = False
     ) -> str:
         """
         Create an image-to-3D model generation task.
         
         Args:
-            image_urls: List of 1-4 image URLs
-            ai_model: AI model to use (e.g., "meshy-5")
-            is_a_t_pose: Generate model in A/T pose
+            image_url: Image URL or base64 data URI (single image)
+            ai_model: AI model to use (e.g., "meshy-4", "meshy-5", "latest")
+            should_texture: Generate textures (default: True) - can skip separate texture step
+            enable_pbr: Generate PBR maps (default: False)
+            should_remesh: Enable remeshing (default: True) - can skip separate remesh step
+            save_pre_remeshed_model: Save model before remeshing (default: False)
+            topology: "quad" or "triangle" (default: "triangle")
+            target_polycount: Target polygon count 100-300,000 (default: 30,000)
+            symmetry_mode: "off", "auto", or "on" (default: "auto")
+            pose_mode: "t-pose", "a-pose", or "" (empty string)
+            texture_prompt: Text prompt for texturing (up to 600 chars)
+            texture_image_url: Image URL to guide texturing
+            moderation: Enable content moderation (default: False)
         
         Returns:
             Task ID
         """
         data = {
-            "image_urls": image_urls,
-            "is_a_t_pose": is_a_t_pose
+            "image_url": image_url,
+            "should_texture": should_texture,
+            "enable_pbr": enable_pbr,
+            "should_remesh": should_remesh,
+            "save_pre_remeshed_model": save_pre_remeshed_model
         }
+        
+        # Add optional parameters if provided
         if ai_model:
             data["ai_model"] = ai_model
+        if topology:
+            data["topology"] = topology
+        if target_polycount:
+            data["target_polycount"] = target_polycount
+        if symmetry_mode:
+            data["symmetry_mode"] = symmetry_mode
+        if pose_mode:
+            data["pose_mode"] = pose_mode
+        if texture_prompt:
+            data["texture_prompt"] = texture_prompt
+        if texture_image_url:
+            data["texture_image_url"] = texture_image_url
+        if moderation:
+            data["moderation"] = moderation
         
-        response = self._request("POST", "/openapi/v1/multi-image-to-3d", json=data)
+        response = self._request("POST", "/openapi/v1/image-to-3d", json=data)
         return response.get("result")
     
     def get_image_to_3d_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of image-to-3D task."""
-        return self._request("GET", f"/openapi/v2/multi-image-to-3d/{task_id}")
+        # Try v2 first, fallback to v1 if needed
+        try:
+            return self._request("GET", f"/openapi/v2/image-to-3d/{task_id}")
+        except MeshyAPIError:
+            # Fallback to v1 if v2 doesn't exist
+            return self._request("GET", f"/openapi/v1/image-to-3d/{task_id}")
     
     # Remesh Methods
     

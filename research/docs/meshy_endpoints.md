@@ -6,12 +6,12 @@ This document maps HeroMaker pipeline steps to specific Meshy API endpoints.
 
 ### Image-to-3D Model Generation
 
-**Pipeline Step**: Convert rendered image to 3D model  
-**Meshy Endpoint**: `POST /openapi/v1/multi-image-to-3d`
+**Pipeline Step**: Convert rendered image to 3D model (with remesh + texture built-in)  
+**Meshy Endpoint**: `POST /openapi/v1/image-to-3d`
 
 **Request Details:**
 - **Method**: POST
-- **URL**: `https://api.meshy.ai/openapi/v1/multi-image-to-3d`
+- **URL**: `https://api.meshy.ai/openapi/v1/image-to-3d`
 - **Headers**: 
   - `Authorization: Bearer {API_KEY}`
   - `Content-Type: application/json`
@@ -19,27 +19,37 @@ This document maps HeroMaker pipeline steps to specific Meshy API endpoints.
 **Request Body:**
 ```json
 {
-  "image_urls": ["https://..."],
-  "ai_model": "meshy-5",  // Optional
-  "is_a_t_pose": false     // Optional: generate in A/T pose
+  "image_url": "data:image/png;base64,...",  // Single image URL or data URI
+  "ai_model": "meshy-5",  // Optional: "meshy-4", "meshy-5", "latest"
+  "pose_mode": "t-pose",  // Optional: "t-pose", "a-pose", or ""
+  "should_texture": true,  // Optional: Generate textures (default: true) - SKIPS separate texture step
+  "should_remesh": true,  // Optional: Enable remeshing (default: true) - SKIPS separate remesh step
+  "target_polycount": 30000,  // Optional: 100-300,000 (default: 30,000)
+  "topology": "triangle",  // Optional: "quad" or "triangle" (default: "triangle")
+  "enable_pbr": false,  // Optional: Generate PBR maps
+  "symmetry_mode": "auto",  // Optional: "off", "auto", "on" (default: "auto")
+  "texture_prompt": "...",  // Optional: Text prompt for texturing (up to 600 chars)
+  "texture_image_url": "...",  // Optional: Image URL to guide texturing
+  "save_pre_remeshed_model": false,  // Optional: Save model before remeshing
+  "moderation": false  // Optional: Enable content moderation
 }
 ```
 
 **Response:**
 ```json
 {
-  "result": "task_id_here",
-  "status": "PENDING"
+  "result": "task_id_here"
 }
 ```
 
 **Status Check:**
-- **Endpoint**: `GET /openapi/v2/multi-image-to-3d/{task_id}`
+- **Endpoint**: `GET /openapi/v2/image-to-3d/{task_id}` (or `/openapi/v1/image-to-3d/{task_id}`)
 - **Poll until**: `status == "SUCCEEDED"` and `progress == 100`
 
 **Output:**
 - GLB file URL in `model_urls.glb`
 - Download and save to `assets/{character_name}/model.glb`
+- **Note**: Output includes textures and remeshing if enabled - can skip steps 4 & 5!
 
 ---
 
@@ -215,15 +225,20 @@ This document maps HeroMaker pipeline steps to specific Meshy API endpoints.
 
 ## Endpoint Summary Table
 
-| Pipeline Step | Endpoint | Method | Required Params | Cost |
-|---------------|----------|--------|-----------------|------|
-| Image-to-3D | `/openapi/v1/multi-image-to-3d` | POST | `image_urls` | 5-30 credits |
-| Remesh | `/openapi/v1/remesh` | POST | `input_task_id` | 5 credits |
-| Texture | `/openapi/v1/retexture` | POST | `input_task_id`, `text_style_prompt` OR `image_style_url` | 10 credits |
-| Rig | `/openapi/v1/rigging` | POST | `input_task_id` | 5 credits |
-| Animate | `/openapi/v1/animations` | POST | `rig_task_id`, `action_id` | 3 credits |
+| Pipeline Step | Endpoint | Method | Required Params | Cost | Notes |
+|---------------|----------|--------|-----------------|------|-------|
+| Image-to-3D | `/openapi/v1/image-to-3d` | POST | `image_url` | 5-30 credits | Can include remesh + texture |
+| Remesh | `/openapi/v1/remesh` | POST | `input_task_id` | 5 credits | **OPTIONAL** if done in image-to-3d |
+| Texture | `/openapi/v1/retexture` | POST | `input_task_id`, `text_style_prompt` OR `image_style_url` | 10 credits | **OPTIONAL** if done in image-to-3d |
+| Rig | `/openapi/v1/rigging` | POST | `input_task_id` | 5 credits | Required (separate step) |
+| Animate | `/openapi/v1/animations` | POST | `rig_task_id`, `action_id` | 3 credits | Required (separate step) |
 
-**Total Pipeline Cost**: ~28-53 credits per complete pipeline (depending on image-to-3D model used)
+**Optimized Pipeline Cost**: ~13-38 credits (Image-to-3D with texture + Rig + Animate)
+- Image-to-3D with texture: 15-30 credits (depending on model)
+- Rig: 5 credits
+- Animate: 3 credits
+
+**Full Pipeline Cost** (if not using optimized): ~28-53 credits
 
 ## Status Check Endpoints
 
@@ -233,10 +248,18 @@ All tasks can be checked using:
 
 ## File Flow
 
+**Optimized Pipeline (Recommended):**
+```
+Image-to-3D (with remesh + texture): image.png → [API] → textured_remeshed.glb
+Rig: textured_remeshed.glb (task_id) → [API] → rigged.glb
+Animate: rigged.glb (rig_task_id) + action_id → [API] → animated.glb
+```
+
+**Full Pipeline (if needed):**
 ```
 Image-to-3D: image.png → [API] → model.glb
-Remesh: model.glb (task_id) → [API] → remeshed.glb
-Texture: remeshed.glb (task_id) → [API] → textured.glb
+Remesh: model.glb (task_id) → [API] → remeshed.glb (OPTIONAL if done in step 1)
+Texture: remeshed.glb (task_id) → [API] → textured.glb (OPTIONAL if done in step 1)
 Rig: textured.glb (task_id) → [API] → rigged.glb
 Animate: rigged.glb (rig_task_id) + action_id → [API] → animated.glb
 ```
@@ -245,9 +268,11 @@ Animate: rigged.glb (rig_task_id) + action_id → [API] → animated.glb
 
 1. **Task IDs are chained**: Each step uses the `task_id` from the previous step
 2. **Rigging is special**: The `rig_task_id` is used for animations, not the task_id
-3. **Image URLs required**: Images must be accessible via URL (not direct file upload)
+3. **Image input**: Images can be provided as URLs or base64 data URIs (no public hosting needed)
 4. **Asynchronous processing**: All operations are async, requiring polling/webhooks
 5. **Format flexibility**: Remesh allows choosing output formats (GLB, FBX)
+6. **Optimization opportunity**: Image-to-3D can include remesh + texture, skipping steps 4 & 5
+7. **T-pose support**: Use `pose_mode: "t-pose"` in image-to-3d for T-pose models
 
 ## Questions to Resolve During Testing
 

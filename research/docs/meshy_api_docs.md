@@ -112,10 +112,10 @@ GET /openapi/v1/remesh/{task_id}/stream
 ## API Endpoints Overview
 
 ### Image-to-3D
-- **Endpoint**: `POST /openapi/v1/multi-image-to-3d`
-- **Description**: Converts 1-4 images into a 3D model
-- **Required**: `image_urls` (array)
-- **Optional**: `ai_model`, `is_a_t_pose`
+- **Endpoint**: `POST /openapi/v1/image-to-3d`
+- **Description**: Converts a single image into a 3D model (can include remesh + texture)
+- **Required**: `image_url` (string - URL or base64 data URI)
+- **Optional**: `ai_model`, `pose_mode`, `should_texture`, `should_remesh`, `target_polycount`, `topology`, `enable_pbr`, `symmetry_mode`, `texture_prompt`, `texture_image_url`, `moderation`
 
 ### Remesh
 - **Endpoint**: `POST /openapi/v1/remesh`
