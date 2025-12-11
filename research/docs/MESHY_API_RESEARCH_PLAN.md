@@ -20,8 +20,8 @@ todos:
   - id: test_rig
     content: Create and run rigging testing script
     status: pending
-  - id: test_animate
-    content: Create and run animations testing script
+  - id: test_vrm_conversion
+    content: Test GLB to VRM conversion using existing convert_glb_to_vrm.py script
     status: pending
   - id: test_full_pipeline
     content: Test complete sequential workflow end-to-end
@@ -31,6 +31,9 @@ todos:
     status: pending
   - id: create_documentation
     content: Create integration guide and findings summary documentation
+    status: pending
+  - id: test_animate
+    content: Create and run animations testing script
     status: pending
 ---
 
@@ -169,19 +172,23 @@ todos:
 - **Output**: Document findings in `research/findings_rig.md`
 - **Ready to test**: `cd /Users/razkarl/projects/HeroMaker && python3 research/scripts/test_rig.py`
 
-### 3.5 Animations Testing
+### 3.5 VRM Conversion Testing
 
-- **Script**: `scripts/research/test_animate.py`
+- **Script**: `scripts/research/test_vrm_conversion.py` (wrapper around existing `convert_glb_to_vrm.py`)
 - **Tests**:
-  - Upload rigged GLB from step 3.4
-  - Test animation parameters (animation type, duration)
-  - Test available animation presets
-  - Poll for completion
-  - Download animated GLB
-  - Validate animation data
-  - Measure processing time
-- **Output**: Document findings in `research/findings_animate.md`
-- **Ready to test**: `cd /Users/razkarl/projects/HeroMaker && python3 research/scripts/test_animate.py`
+  - Use rigged GLB from Phase 3.4 (rigging step)
+  - Test conversion using existing `convert_glb_to_vrm.py` script
+  - Validate VRM file is created successfully
+  - Test VRM file loads in VRM viewer
+  - Check VRM file structure and metadata
+  - Measure conversion time
+  - Test with different GLB inputs (rigged models from different test cases)
+  - Document any conversion issues or limitations
+  - Verify rigging/bone structure is preserved in VRM
+  - Note: This happens after rigging, before animations (animations are not preserved in VRM anyway)
+- **Output**: Document findings in `research/findings_vrm_conversion.md`
+- **Dependencies**: Blender with VRM addon installed
+- **Ready to test**: `cd /Users/razkarl/projects/HeroMaker && python3 research/scripts/test_vrm_conversion.py`
 
 ## Phase 4: Sequential Workflow Testing
 
@@ -191,7 +198,7 @@ todos:
 - **Tests**:
   - Execute all steps sequentially using outputs from previous steps
   - Track total processing time
-  - Validate file chain: image → 3D → remesh → texture → rig → animate
+  - Validate file chain: image → 3D → remesh → texture → rig → VRM conversion
   - Test error recovery (what happens if step fails mid-pipeline)
   - Test pause/resume capability (if supported)
 - **Output**: Document workflow findings in `research/findings_full_pipeline.md`
@@ -261,7 +268,7 @@ todos:
 
    - API documentation notes
    - Endpoint mapping
-   - Individual step findings (5 files)
+   - Individual step findings (6 files: 4 Meshy API + 1 VRM conversion + 1 animations)
    - Full pipeline findings
    - Quality assessment
    - Integration guide
@@ -270,7 +277,7 @@ todos:
 2. **Test Scripts**:
 
    - Setup utilities
-   - Individual endpoint test scripts (5 scripts)
+   - Individual endpoint test scripts (4 Meshy API scripts + 1 VRM conversion + 1 animations)
    - Full pipeline test script
    - Workflow variation tests
    - Quality assessment script
@@ -289,6 +296,7 @@ todos:
 ## Success Criteria
 
 ✅ All 5 Meshy API endpoints tested individually
+✅ GLB to VRM conversion tested and validated
 
 ✅ Complete sequential workflow tested end-to-end
 
@@ -300,4 +308,22 @@ todos:
 
 ✅ Integration guide prepared
 
-✅ Ready to implement in pipeline scripts (Step 1.4-1.8)
+✅ Ready to implement in pipeline scripts (Step 1.4-1.10)
+
+## Phase 7: Animations Testing (Final Step)
+
+### 7.1 Animations Testing
+
+- **Script**: `scripts/research/test_animate.py`
+- **Tests**:
+  - Use rigged GLB from rigging step (Phase 3.4)
+  - Test animation parameters (animation type, duration)
+  - Test available animation presets (action_id values)
+  - Poll for completion
+  - Download animated GLB
+  - Validate animation data in GLB file
+  - Measure processing time
+  - Note: Animations are not preserved in VRM conversion, but useful for testing/preview
+  - Note: This is tested last, after VRM conversion, since VRM is the primary output format
+- **Output**: Document findings in `research/findings_animate.md`
+- **Ready to test**: `cd /Users/razkarl/projects/HeroMaker && python3 research/scripts/test_animate.py`

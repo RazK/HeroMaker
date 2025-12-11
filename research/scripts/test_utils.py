@@ -249,6 +249,45 @@ def check_glb_rigging(filepath: Path) -> Dict[str, Any]:
         result["error"] = f"Error reading GLB file: {str(e)}"
         return result
 
+def validate_vrm_file(filepath: Path) -> Dict[str, Any]:
+    """
+    Basic validation that file is a VRM file.
+    
+    Args:
+        filepath: Path to file
+    
+    Returns:
+        Dictionary with validation results:
+        {
+            "is_valid": bool,
+            "error": Optional[str]
+        }
+    """
+    result = {
+        "is_valid": False,
+        "error": None
+    }
+    
+    if not filepath.exists():
+        result["error"] = "File does not exist"
+        return result
+    
+    # VRM files are GLB files with VRM extension
+    # They should start with "glTF" magic number (same as GLB)
+    try:
+        with open(filepath, "rb") as f:
+            header = f.read(4)
+            # GLB/VRM files have "glTF" at offset 0
+            if header == b"glTF" or filepath.suffix.lower() == ".vrm":
+                result["is_valid"] = True
+                return result
+            else:
+                result["error"] = "File does not appear to be a valid VRM/GLB file"
+                return result
+    except Exception as e:
+        result["error"] = f"Error reading file: {str(e)}"
+        return result
+
 def create_test_log(log_name: str) -> Path:
     """
     Create a log file for test run.
