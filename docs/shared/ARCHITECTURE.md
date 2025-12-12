@@ -7,7 +7,7 @@ This document provides the high-level system view that ties together the detaile
 HeroMaker exposes three primary states in the frontend experience (see `USER_JOURNEYS.md` for detailed steps):
 
 1. **Browse** – Lists completed public characters (`GET /api/characters`) so users can explore the gallery.
-2. **Create** – A guided workflow that starts a creation (`POST /api/creations`), walks the user through webcam capture, and then streams progress as backend tasks run.
+2. **Create** – A guided workflow that starts a creation (`POST /api/creations`), allows user to capture image via webcam or upload from device, and then streams progress as backend tasks run.
 3. **Show** – Presents an individual character with its VRM file, thumbnails, and task history once the pipeline finishes.
 
 The frontend treats the backend as the single source of truth and polls for creation/task progress every ~2 seconds while a hero is being built.
@@ -17,11 +17,11 @@ The frontend treats the backend as the single source of truth and polls for crea
 | Component | Responsibilities | Tech / Interfaces | Notes |
 |-----------|------------------|-------------------|-------|
 | Frontend Web Client | Browse gallery, trigger creations, upload scans, display progress/VRM viewer | Any SPA framework (prototype uses Vite-based tooling). Communicates via REST over HTTPS. | Stateless; uses polling instead of websockets for simplicity. |
-| Backend API Service | Implements REST endpoints under `/api`, orchestrates task execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic (see `IMPLEMENTATION_STEPS.md`). Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). |
+| Backend API Service | Implements REST endpoints under `/api`, orchestrates task execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic (see `IMPLEMENTATION.md`). Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). |
 | Task Engine | Encapsulated inside the API service (no separate worker). Executes sequential tasks defined in `TASK_CONFIGURATION.md`, spawns Meshy/ChatGPT jobs, and writes outputs to disk. | Python modules plus helper scripts in `research/scripts/`. | Task completion is inferred from filesystem state instead of a queue table. |
-| Database | Stores users, creations, status, metadata, audit timestamps | PostgreSQL in production, SQLite for dev (`CONFIGURATION.md`). | Only two core tables (`users`, `creations`). File paths are not stored here. |
+| Database | Stores users, creations, status, metadata, audit timestamps | PostgreSQL in production, SQLite for dev (`SETUP.md`). | Only two core tables (`users`, `creations`). File paths are not stored here. |
 | File Storage | Holds all intermediate and final artifacts (`assets/temp` and `assets/permanent`) | Local POSIX filesystem in V2; can be swapped for S3-compatible storage later. | Directory structure encodes `user_id` and `creation_id`; moving temp → permanent marks completion. |
-| External Services | ChatGPT for render + naming, Meshy for 3D pipeline, Blender VRM add-on for final conversion | HTTP APIs (OpenAI, Meshy) + local Blender CLI invoked by `convert_glb_to_vrm.py`. | API polling intervals and retries defined in `CONFIGURATION.md` & `INTEGRATIONS.md`. |
+| External Services | ChatGPT for render + naming, Meshy for 3D pipeline, Blender VRM add-on for final conversion | HTTP APIs (OpenAI, Meshy) + local Blender CLI invoked by `convert_glb_to_vrm.py`. | API polling intervals and retries defined in `SETUP.md` & `INTEGRATIONS.md`. |
 
 ## Service Interactions
 
@@ -29,7 +29,7 @@ The frontend treats the backend as the single source of truth and polls for crea
    `POST /api/creations` inserts a row in `creations`, seeds the task list, and allocates a filesystem workspace (`assets/temp/{user}/{creation}`).
 
 2. **User-Driven Tasks**  
-   `webcam_scan` accepts a processed frame upload. Everything afterwards is backend-driven: as soon as the required input file exists, the service fires the next task.
+   `image_capture` accepts an image file upload (from webcam capture or device file selection). Everything afterwards is backend-driven: as soon as the required input file exists, the service fires the next task.
 
 3. **Automated Task Chain**  
    Each task definition (`TASK_CONFIGURATION.md`) specifies its dependency and expected output filename. When the task finishes, the existence of that file becomes the single source of truth for “completed.”
@@ -43,12 +43,12 @@ The frontend treats the backend as the single source of truth and polls for crea
 ## Data Model & Storage Strategy
 
 - **Relational Core** – Only durable metadata (users, creations, timestamps, status, task pointers, optional error messages) lives in Postgres/SQLite. See `DATABASE_SCHEMA.md` for exact DDL.
-- **Filesystem Truth** – Output artifacts determine task status, keep storage cheap, and simplify recovery (“if the file exists, the task completed”). The backend wraps file operations in helper utilities outlined in `IMPLEMENTATION_STEPS.md` Step 3.
+- **Filesystem Truth** – Output artifacts determine task status, keep storage cheap, and simplify recovery (“if the file exists, the task completed”). The backend wraps file operations in helper utilities outlined in `IMPLEMENTATION.md` Step 3.
 - **Path Convention** – Every path includes the `user_id` (or `debug` in development) and the immutable `creation_id`, e.g. `assets/temp/debug/{creation_id}/rendered.png`. VRM files explicitly use `{creation_id}.vrm` to stay stable even if a user renames the character.
 
 ## Error Handling & Resilience
 
-- REST responses follow the structured format documented in `ERROR_HANDLING.md`.
+- REST responses follow the structured format documented in `SETUP.md`.
 - Transient Meshy/ChatGPT failures are automatically retried (3 attempts, exponential backoff). Persistent failures set `status='failed'` and capture context in `creations.error_message`.
 - Users can manually retry a task via `POST /api/creations/{id}/tasks/{name}/retry`, which clears the error and restarts the pipeline from the failed step.
 - Because task state is inferred from files, the system can survive API restarts without extra bookkeeping—on boot, it simply scans for the next missing output and resumes.
@@ -56,7 +56,7 @@ The frontend treats the backend as the single source of truth and polls for crea
 ## Deployment & Environment Strategy
 
 - **Development (V2)** – SQLite, debug auth (auto-assigned user), permissive CORS, local assets folder. Uvicorn runs hot-reload, and scripts in `research/scripts/` exercise external APIs with local `.env` secrets.
-- **Production (V3+)** – PostgreSQL, OAuth-based auth (JWTs), locked-down CORS origins, proper secret storage, and rate limiting (see `CONFIGURATION.md`). File storage can stay on-disk initially but should migrate to shared storage for multi-instance hosting.
+- **Production (V3+)** – PostgreSQL, OAuth-based auth (JWTs), locked-down CORS origins, proper secret storage, and rate limiting (see `SETUP.md`). File storage can stay on-disk initially but should migrate to shared storage for multi-instance hosting.
 - **Background Processes** – No separate worker today; FastAPI process handles both HTTP requests and polling loops. Webhook support from Meshy would allow offloading polling and is a future enhancement.
 
 ## External Integrations Summary
@@ -75,9 +75,10 @@ The frontend treats the backend as the single source of truth and polls for crea
 
 For implementation details, cross-reference:
 
-- [USER_JOURNEYS.md](./USER_JOURNEYS.md) for end-to-end flows
+- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) for end-to-end flows
 - [API_REFERENCE.md](./API_REFERENCE.md) for endpoint contracts
-- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) for the exact task graph
-- [CONFIGURATION.md](./CONFIGURATION.md) for environment and tuning parameters
-- [INTEGRATIONS.md](./INTEGRATIONS.md) for external API call patterns
-- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) for persistence details
+- [TASK_CONFIGURATION.md](../backend/TASK_CONFIGURATION.md) for the exact task graph
+- [SETUP.md](../backend/SETUP.md) for environment and tuning parameters
+- [INTEGRATIONS.md](../backend/INTEGRATIONS.md) for external API call patterns
+- [DATABASE_SCHEMA.md](../backend/DATABASE_SCHEMA.md) for persistence details
+- [IMPLEMENTATION.md](../frontend/IMPLEMENTATION.md) for frontend 3D UI design

@@ -1,4 +1,95 @@
-# Implementation Steps
+# Backend Implementation Guide
+
+Complete guide to implementing the HeroMaker backend API, from setup to deployment.
+
+---
+
+## Prerequisites
+
+- Python 3.11+
+- PostgreSQL (or SQLite for V2 development)
+- OpenAI API key (for ChatGPT integration)
+- Meshy API key (for 3D pipeline)
+
+---
+
+## Quick Setup
+
+### 1. Create Backend Directory Structure
+
+```bash
+cd /Users/razkarl/projects/HeroMaker
+mkdir -p backend/app/{api,services,utils,config}
+mkdir -p backend/alembic/versions
+```
+
+### 2. Install Dependencies
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install fastapi uvicorn sqlalchemy alembic pydantic python-dotenv
+```
+
+### 3. Configure Environment
+
+Create `backend/.env`:
+```bash
+DATABASE_URL=sqlite:///./heromaker.db  # For V2 development
+OPENAI_API_KEY=sk-...
+MESHY_API_KEY=meshy_...
+DEBUG=true
+ASSETS_ROOT=../assets
+```
+
+See [SETUP.md](./SETUP.md) for all environment variables.
+
+### 4. Initialize Database
+
+```bash
+cd backend
+alembic init alembic
+alembic revision --autogenerate -m "Initial schema"
+alembic upgrade head
+```
+
+---
+
+## Essential Reading Order
+
+1. **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** - Understand the data model (5 min)
+2. **[TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md)** - Understand task system (10 min)
+3. **[API_REFERENCE.md](../shared/API_REFERENCE.md)** - Review all endpoints (15 min)
+4. **This document** - Follow step-by-step implementation (start here for coding)
+
+---
+
+## Testing Your First Endpoint
+
+```bash
+# Start server
+cd backend
+uvicorn app.main:app --reload --port 8000
+
+# Test in another terminal
+curl -X POST http://localhost:8000/api/creations \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+---
+
+## Key Concepts
+
+- **File System as Source of Truth**: Task completion is inferred from file existence
+- **User ID in Paths**: All files stored in `assets/{temp|permanent}/{user_id}/{creation_id}/`
+- **Flat Task Structure**: Backend returns tasks as flat list, no nesting
+- **Creation ID for Files**: VRM files use `{creation_id}.vrm`, not character name
+
+---
+
+## Implementation Steps
 
 Step-by-step implementation guide with terminal commands ready for execution.
 
@@ -76,7 +167,7 @@ cd /Users/razkarl/projects/HeroMaker/backend && python -c "from app.utils.file_u
 
 **Terminal command ready:**
 ```bash
-cd /Users/razkarl/projects/HeroMaker/backend && python -c "from app.config.tasks import TASKS, get_next_task; print(f'✅ Loaded {len(TASKS)} tasks'); print('Next after webcam_scan:', get_next_task('webcam_scan'))"
+cd /Users/razkarl/projects/HeroMaker/backend && python -c "from app.config.tasks import TASKS, get_next_task; print(f'✅ Loaded {len(TASKS)} tasks'); print('Next after image_capture:', get_next_task('image_capture'))"
 ```
 
 ---
@@ -154,7 +245,7 @@ sleep 2 && curl -X POST http://localhost:8000/api/creations -H "Content-Type: ap
 **Terminal command ready:**
 ```bash
 cd /Users/razkarl/projects/HeroMaker/backend && uvicorn app.main:app --reload --port 8000 &
-sleep 2 && CREATION_ID=$(curl -s -X POST http://localhost:8000/api/creations | python -c "import sys, json; print(json.load(sys.stdin)['id'])") && echo "Created: $CREATION_ID" && curl -X GET "http://localhost:8000/api/creations/$CREATION_ID/tasks/webcam_scan" | python -m json.tool && echo "✅ Task endpoint working" && pkill -f uvicorn
+sleep 2 && CREATION_ID=$(curl -s -X POST http://localhost:8000/api/creations | python -c "import sys, json; print(json.load(sys.stdin)['id'])") && echo "Created: $CREATION_ID" && curl -X GET "http://localhost:8000/api/creations/$CREATION_ID/tasks/image_capture" | python -m json.tool && echo "✅ Task endpoint working" && pkill -f uvicorn
 ```
 
 ---
@@ -225,10 +316,34 @@ cd /Users/razkarl/projects/HeroMaker/backend && python tests/test_complete_flow.
 
 ---
 
-## Related Documentation
+## Implementation Checklist
 
-- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Database structure to implement
-- [API_REFERENCE.md](./API_REFERENCE.md) - API endpoints to implement
-- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Task system to implement
-- [CONFIGURATION.md](./CONFIGURATION.md) - Configuration needed
-- [INTEGRATIONS.md](./INTEGRATIONS.md) - External API integrations
+Follow the steps above in order:
+
+- [ ] Step 1: Database Setup
+- [ ] Step 2: SQLAlchemy Models
+- [ ] Step 3: File System Utilities
+- [ ] Step 4: Task Configuration
+- [ ] Step 5: Authentication Middleware
+- [ ] Step 6: Pydantic Schemas
+- [ ] Step 7: Core API Endpoints
+- [ ] Step 8: Task Endpoints
+- [ ] Step 9: File Serving Endpoint
+- [ ] Step 10: Progress Endpoint
+- [ ] Step 11: Gallery/Characters Endpoints
+- [ ] Step 12: Integration Testing
+
+---
+
+## Reference Documentation
+
+- [API_REFERENCE.md](../shared/API_REFERENCE.md) - All endpoint specifications
+- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Database structure
+- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Task definitions
+- [SETUP.md](./SETUP.md) - Environment setup and error handling
+- [INTEGRATIONS.md](./INTEGRATIONS.md) - External API integration
+
+## Need Help?
+
+- See [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) to understand how frontend uses your APIs
+- Check [ARCHITECTURE.md](../shared/ARCHITECTURE.md) for high-level system overview

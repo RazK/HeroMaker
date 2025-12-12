@@ -1,63 +1,79 @@
 # HeroMaker Documentation
 
-Welcome to the HeroMaker documentation. This directory contains all design and implementation documentation for the project.
+Welcome to the HeroMaker documentation. This directory contains all design and implementation documentation organized by role for easy navigation.
 
 ## Quick Start
 
-- **New to the project?** Start with [ARCHITECTURE.md](./ARCHITECTURE.md) for high-level overview
-- **Backend Developer?** Read [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md), [API_REFERENCE.md](./API_REFERENCE.md), [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md)
-- **Frontend Developer?** Read [API_REFERENCE.md](./API_REFERENCE.md), [USER_JOURNEYS.md](./USER_JOURNEYS.md)
-- **Setting up?** Read [CONFIGURATION.md](./CONFIGURATION.md), [IMPLEMENTATION_STEPS.md](./IMPLEMENTATION_STEPS.md)
+- **New to the project?** Start with [shared/ARCHITECTURE.md](./shared/ARCHITECTURE.md) for high-level overview
+- **Backend Developer?** Start with [backend/IMPLEMENTATION.md](./backend/IMPLEMENTATION.md)
+- **Frontend Developer?** Start with [frontend/IMPLEMENTATION.md](./frontend/IMPLEMENTATION.md)
+
+---
 
 ## Documentation Structure
 
-### Core Design Documents
+### Backend Documentation (`backend/`)
 
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - High-level system architecture, design decisions, and roadmap
-- **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** - Database schema, tables, indexes, and design notes
-- **[TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md)** - Task definitions, file mappings, and execution logic
-- **[API_REFERENCE.md](./API_REFERENCE.md)** - Complete API endpoint documentation with request/response examples
+All backend development documentation:
 
-### Implementation Guides
+- **[IMPLEMENTATION.md](./backend/IMPLEMENTATION.md)** - ⭐ **Start here** - Complete backend implementation guide (setup + step-by-step)
+- **[DATABASE_SCHEMA.md](./backend/DATABASE_SCHEMA.md)** - Database schema, tables, indexes, and design notes
+- **[TASK_CONFIGURATION.md](./backend/TASK_CONFIGURATION.md)** - Task definitions, file mappings, and execution logic
+- **[SETUP.md](./backend/SETUP.md)** - Environment variables, error handling, and operational configuration
+- **[INTEGRATIONS.md](./backend/INTEGRATIONS.md)** - External API integration details (ChatGPT, Meshy)
 
-- **[USER_JOURNEYS.md](./USER_JOURNEYS.md)** - Detailed user flows showing frontend-backend-database interactions
-- **[IMPLEMENTATION_STEPS.md](./IMPLEMENTATION_STEPS.md)** - Step-by-step implementation guide with terminal commands
+### Frontend Documentation (`frontend/`)
 
-### Configuration & Operations
+All frontend development documentation:
 
-- **[CONFIGURATION.md](./CONFIGURATION.md)** - Environment variables, settings, CORS, rate limits
-- **[ERROR_HANDLING.md](./ERROR_HANDLING.md)** - Error response format, error codes, retry strategies
-- **[INTEGRATIONS.md](./INTEGRATIONS.md)** - External API integration details (ChatGPT, Meshy)
+- **[IMPLEMENTATION.md](./frontend/IMPLEMENTATION.md)** - ⭐ **Start here** - Complete frontend implementation guide (setup + 3D UI design)
+- **[USER_JOURNEYS.md](./frontend/USER_JOURNEYS.md)** - Detailed user flows showing frontend-backend-database interactions
 
-### Legacy/Archive
+### Shared Documentation (`shared/`)
 
-- **[legacy/API_DATABASE_DESIGN.md](./legacy/API_DATABASE_DESIGN.md)** - Original comprehensive document (archived, see split docs above for current docs)
+Documentation relevant to both backend and frontend:
+
+- **[API_REFERENCE.md](./shared/API_REFERENCE.md)** - ⭐ **API Contract** - Complete API endpoint documentation (used by both frontend and backend)
+- **[ARCHITECTURE.md](./shared/ARCHITECTURE.md)** - High-level system architecture, design decisions, and roadmap
+- **[legacy/API_DATABASE_DESIGN.md](./shared/legacy/API_DATABASE_DESIGN.md)** - Original comprehensive document (archived, see split docs for current)
+
+---
 
 ## For Backend Developers
 
-**Essential Reading:**
-1. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Understand the data model
-2. [API_REFERENCE.md](./API_REFERENCE.md) - Implement all endpoints
-3. [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Understand task execution
-4. [CONFIGURATION.md](./CONFIGURATION.md) - Environment setup
-5. [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns
-6. [INTEGRATIONS.md](./INTEGRATIONS.md) - External API integration
+**Start Here:**
+1. **[IMPLEMENTATION.md](./backend/IMPLEMENTATION.md)** - Get set up and follow step-by-step implementation
+
+**Essential Reading (in order):**
+1. [DATABASE_SCHEMA.md](./backend/DATABASE_SCHEMA.md) - Understand the data model
+2. [TASK_CONFIGURATION.md](./backend/TASK_CONFIGURATION.md) - Understand task execution
+3. [API_REFERENCE.md](./shared/API_REFERENCE.md) - Implement all endpoints
+4. [IMPLEMENTATION.md](./backend/IMPLEMENTATION.md) - Follow step-by-step implementation
 
 **Reference:**
-- [USER_JOURNEYS.md](./USER_JOURNEYS.md) - See how frontend will use your APIs
-- [IMPLEMENTATION_STEPS.md](./IMPLEMENTATION_STEPS.md) - Step-by-step implementation
+- [SETUP.md](./backend/SETUP.md) - Environment setup and error handling
+- [INTEGRATIONS.md](./backend/INTEGRATIONS.md) - External API integration
+- [USER_JOURNEYS.md](./frontend/USER_JOURNEYS.md) - See how frontend uses your APIs
+- [ARCHITECTURE.md](./shared/ARCHITECTURE.md) - High-level system overview
+
+---
 
 ## For Frontend Developers
 
-**Essential Reading:**
-1. [API_REFERENCE.md](./API_REFERENCE.md) - All available endpoints
-2. [USER_JOURNEYS.md](./USER_JOURNEYS.md) - User flows and interactions
-3. [CONFIGURATION.md](./CONFIGURATION.md) - API base URL, CORS settings
-4. [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns
+**Start Here:**
+1. **[IMPLEMENTATION.md](./frontend/IMPLEMENTATION.md)** - Get set up and follow 3D UI implementation guide
+
+**Essential Reading (in order):**
+1. [IMPLEMENTATION.md](./frontend/IMPLEMENTATION.md) - Complete 3D UI design and implementation guide
+2. [API_REFERENCE.md](./shared/API_REFERENCE.md) - All available endpoints
+3. [USER_JOURNEYS.md](./frontend/USER_JOURNEYS.md) - User flows and interactions
 
 **Reference:**
-- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Understand task structure
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - High-level system understanding
+- [TASK_CONFIGURATION.md](./backend/TASK_CONFIGURATION.md) - Understand task structure
+- [SETUP.md](./backend/SETUP.md) - Error handling patterns
+- [ARCHITECTURE.md](./shared/ARCHITECTURE.md) - High-level system understanding
+
+---
 
 ## Documentation Principles
 
@@ -65,6 +81,8 @@ Welcome to the HeroMaker documentation. This directory contains all design and i
 - **Flat task structure** - Backend returns tasks as flat list, frontend handles grouping
 - **User ID in paths** - All file paths include user_id for organization and security
 - **Creation ID for files** - VRM files use creation_id, not character_name, to avoid file system issues
+
+---
 
 ## Questions?
 

@@ -4,7 +4,7 @@ Complete API endpoint documentation for HeroMaker backend.
 
 **Base URL:** `http://localhost:8000` (development)
 
-**Authentication:** Optional in V2 (auto-assigns debug user). See [CONFIGURATION.md](./CONFIGURATION.md) for auth setup.
+**Authentication:** Optional in V2 (auto-assigns debug user). See [SETUP.md](../backend/SETUP.md) for auth setup.
 
 ---
 
@@ -52,13 +52,13 @@ Authorization: Bearer <token>  // Optional in V2 (uses debug user)
 {
   "id": "uuid",
   "status": "pending",
-  "current_task": "webcam_scan",
+  "current_task": "image_capture",
   "character_name": null,
   "user_id": "debug-user-uuid",
   "created_at": "2024-01-01T00:00:00Z",
   "tasks": [
     {
-      "name": "webcam_scan",
+      "name": "image_capture",
       "status": "pending",
       "output_file": "scan.jpg"
     },
@@ -93,7 +93,7 @@ Get creation status with task progress
   "updated_at": "2024-01-01T00:05:00Z",
   "tasks": [
     {
-      "name": "webcam_scan",
+      "name": "image_capture",
       "status": "completed",
       "output_file": "scan.jpg",
       "file_url": "/api/files/temp/debug/{creation_id}/scan.jpg"
@@ -224,7 +224,7 @@ Authorization: Bearer <token>  // Required - must own creation
 
 **Path Parameters:**
 - `creation_id`: UUID of the creation
-- `task_name`: Name of task (e.g., "webcam_scan", "chatgpt_render", "meshy_3d")
+- `task_name`: Name of task (e.g., "image_capture", "chatgpt_render", "meshy_3d")
 
 **Request:**
 ```json
@@ -233,16 +233,22 @@ Authorization: Bearer <token>  // Required - must own creation
 }
 ```
 
-**For webcam_scan (with file upload):**
+**For image_capture (file upload - supports both webcam capture and file upload):**
 ```
 multipart/form-data
 file: <image_file>
 ```
 
+**Note:** The `image_capture` task accepts image files from two sources:
+- **Webcam capture**: Frontend captures image from webcam and uploads
+- **File upload**: User selects and uploads image file from device
+
+Both methods upload the same way via `multipart/form-data`. The backend treats them identically.
+
 **Response:**
 ```json
 {
-  "task_name": "webcam_scan",
+  "task_name": "image_capture",
   "status": "processing",
   "output_file": "scan.jpg",
   "file_url": "/api/files/temp/debug/{creation_id}/scan.jpg"
@@ -419,7 +425,7 @@ Get detailed progress for real-time updates
   "creation_id": "uuid",
   "status": "processing",
   "current_task": "meshy_remesh",
-  "completed_tasks": ["webcam_scan", "image_processing", "chatgpt_render", "meshy_3d"],
+  "completed_tasks": ["image_capture", "image_processing", "chatgpt_render", "meshy_3d"],
   "processing_task": "meshy_remesh",
   "pending_tasks": ["meshy_texture", "meshy_rig", "meshy_animate", "select_glb", "convert_vrm", "complete"],
   "overall_progress": 35,  // Percentage across all tasks
@@ -431,7 +437,7 @@ Get detailed progress for real-time updates
 
 ## Error Responses
 
-All endpoints may return error responses. See [ERROR_HANDLING.md](./ERROR_HANDLING.md) for details.
+All endpoints may return error responses. See [SETUP.md](../backend/SETUP.md) for details.
 
 **Standard Error Format:**
 ```json
@@ -457,8 +463,10 @@ All endpoints may return error responses. See [ERROR_HANDLING.md](./ERROR_HANDLI
 
 ## Related Documentation
 
-- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Database structure
-- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Task definitions
-- [USER_JOURNEYS.md](./USER_JOURNEYS.md) - Usage examples
-- [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling details
-- [CONFIGURATION.md](./CONFIGURATION.md) - API configuration
+- [DATABASE_SCHEMA.md](../backend/DATABASE_SCHEMA.md) - Database structure
+- [TASK_CONFIGURATION.md](../backend/TASK_CONFIGURATION.md) - Task definitions
+- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) - Usage examples
+- [SETUP.md](../backend/SETUP.md) - Error handling and configuration details
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - High-level system architecture
+
+

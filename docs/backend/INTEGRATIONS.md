@@ -235,7 +235,7 @@ Meshy API may support consolidated endpoints:
 ## API Key Management
 
 **Storage:**
-- Store in environment variables (see [CONFIGURATION.md](./CONFIGURATION.md))
+- Store in environment variables (see [SETUP.md](./SETUP.md))
 - Never commit to git
 - Use `.env.example` as template
 
@@ -246,6 +246,7 @@ Meshy API may support consolidated endpoints:
 ## Related Documentation
 
 - [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - How tasks use these APIs
-- [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling for external APIs
-- [CONFIGURATION.md](./CONFIGURATION.md) - API key configuration
-- [USER_JOURNEYS.md](./USER_JOURNEYS.md) - See API calls in practice
+- [SETUP.md](./SETUP.md) - Error handling and API key configuration
+- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) - See API calls in practice
+
+

@@ -9,15 +9,15 @@ Tasks are defined by their input/output file patterns and dependencies. The file
 ```python
 TASKS = [
     {
-        "name": "webcam_scan",
-        "input": None,  # No input (user action)
+        "name": "image_capture",
+        "input": None,  # No input (user action: webcam capture or file upload)
         "output": "scan.jpg"
     },
     {
         "name": "image_processing", 
         "input": "scan.jpg",
         "output": "scanned.jpg",
-        "depends_on": "webcam_scan"
+        "depends_on": "image_capture"
     },
     {
         "name": "chatgpt_render",
@@ -117,7 +117,7 @@ TASKS = [
 
 Tasks form a dependency graph:
 ```
-webcam_scan → image_processing → chatgpt_render → meshy_3d → meshy_remesh → 
+image_capture → image_processing → chatgpt_render → meshy_3d → meshy_remesh → 
 meshy_texture → meshy_rig → meshy_animate → select_glb → convert_vrm → complete
 ```
 
@@ -152,6 +152,8 @@ Tasks are defined by input/output files, not hardcoded. If Meshy API consolidate
 ## Related Documentation
 
 - [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - How tasks are tracked in database
-- [API_REFERENCE.md](./API_REFERENCE.md) - Task execution endpoints
+- [API_REFERENCE.md](../shared/API_REFERENCE.md) - Task execution endpoints
 - [INTEGRATIONS.md](./INTEGRATIONS.md) - External API integration details
-- [USER_JOURNEYS.md](./USER_JOURNEYS.md) - See tasks in action
+- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) - See tasks in action
+
+

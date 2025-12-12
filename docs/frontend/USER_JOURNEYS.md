@@ -20,7 +20,7 @@ This document demonstrates how frontend, backend, and database interact during u
 **Database:**
 ```sql
 INSERT INTO creations (id, user_id, status, current_task, created_at)
-VALUES ('abc-123', 'debug-user-uuid', 'pending', 'webcam_scan', NOW());
+VALUES ('abc-123', 'debug-user-uuid', 'pending', 'image_capture', NOW());
 ```
 
 **Backend Response:**
@@ -28,12 +28,12 @@ VALUES ('abc-123', 'debug-user-uuid', 'pending', 'webcam_scan', NOW());
 {
   "id": "abc-123",
   "status": "pending",
-  "current_task": "webcam_scan",
+  "current_task": "image_capture",
   "character_name": null,
   "user_id": "debug-user-uuid",
   "created_at": "2024-01-01T10:00:00Z",
   "tasks": [
-    {"name": "webcam_scan", "status": "pending", "output_file": "scan.jpg"},
+    {"name": "image_capture", "status": "pending", "output_file": "scan.jpg"},
     {"name": "image_processing", "status": "pending", "output_file": "scanned.jpg"},
     // ... all tasks
   ]
@@ -43,18 +43,37 @@ VALUES ('abc-123', 'debug-user-uuid', 'pending', 'webcam_scan', NOW());
 **Frontend:**
 - Receives creation response
 - Transitions to Create state
-- Shows roadmap with first task (webcam_scan) highlighted
-- Displays webcam capture interface
+- Shows roadmap with first task (image_capture) highlighted
+- Displays image capture interface with two options:
+  - **Webcam capture**: Button to capture from webcam
+  - **File upload**: Button to upload image from device
 
 ---
 
-### Step 2: User captures webcam image
+### Step 2: User captures/uploads image
+
+**Option A: Webcam Capture**
 
 **Frontend:**
+- User selects "Capture from Webcam"
 - User positions drawing in front of webcam
 - User clicks "Capture"
 - Frontend processes image (scanning/cleanup) using frontend library
-- Frontend calls: `POST /api/creations/abc-123/tasks/webcam_scan` with processed image file
+- Frontend calls: `POST /api/creations/abc-123/tasks/image_capture` with processed image file
+
+**Option B: File Upload**
+
+**Frontend:**
+- User selects "Upload Image"
+- User clicks file picker and selects image from device
+- Frontend optionally processes image (scanning/cleanup) using frontend library
+- Frontend calls: `POST /api/creations/abc-123/tasks/image_capture` with uploaded image file
+
+**Backend (same for both options):**
+- Receives file upload (multipart/form-data)
+- Validates file (image type, size limits)
+- Saves file to: `assets/temp/debug/abc-123/scan.jpg`
+- Updates database
 
 **Backend:**
 - Receives file upload
@@ -80,7 +99,7 @@ assets/temp/debug/abc-123/
 **Backend Response:**
 ```json
 {
-  "task_name": "webcam_scan",
+  "task_name": "image_capture",
   "status": "completed",
   "output_file": "scan.jpg",
   "file_url": "/api/files/temp/debug/abc-123/scan.jpg"
@@ -89,7 +108,7 @@ assets/temp/debug/abc-123/
 
 **Frontend:**
 - Receives completion
-- Updates UI: webcam_scan task marked complete
+- Updates UI: image_capture task marked complete
 - Auto-triggers next task: `POST /api/creations/abc-123/tasks/image_processing`
 
 ---
@@ -462,7 +481,7 @@ SELECT * FROM creations WHERE id = 'abc-123' AND status = 'completed';
   "vrm_url": "/api/files/permanent/debug/abc-123/abc-123.vrm",
   "task_history": [
     {
-      "name": "webcam_scan",
+      "name": "image_capture",
       "output_file": "scan.jpg",
       "file_url": "/api/files/permanent/debug/abc-123/scan.jpg"
     },
@@ -521,7 +540,7 @@ WHERE id = 'abc-123';
   "creation_id": "abc-123",
   "status": "processing",
   "current_task": "meshy_remesh",
-  "completed_tasks": ["webcam_scan", "image_processing", "chatgpt_render", "meshy_3d"],
+  "completed_tasks": ["image_capture", "image_processing", "chatgpt_render", "meshy_3d"],
   "processing_task": "meshy_remesh",
   "pending_tasks": ["meshy_texture", "meshy_rig", "meshy_animate", "select_glb", "convert_vrm", "complete"],
   "overall_progress": 36,  // 4 of 11 tasks done
@@ -672,7 +691,10 @@ WHERE id = 'abc-123';
 
 ## Related Documentation
 
-- [API_REFERENCE.md](./API_REFERENCE.md) - Complete API endpoint details
-- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Database structure
-- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Task definitions
-- [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling details
+- [API_REFERENCE.md](../shared/API_REFERENCE.md) - Complete API endpoint details
+- [DATABASE_SCHEMA.md](../backend/DATABASE_SCHEMA.md) - Database structure
+- [TASK_CONFIGURATION.md](../backend/TASK_CONFIGURATION.md) - Task definitions
+- [SETUP.md](../backend/SETUP.md) - Error handling details
+- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Frontend UI design and implementation
+
+

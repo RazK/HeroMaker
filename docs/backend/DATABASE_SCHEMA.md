@@ -92,7 +92,7 @@ assets/
 Each task produces a specific output file. File existence indicates task completion.
 
 **Task to File Mapping:**
-- `webcam_scan` → `scan.jpg`
+- `image_capture` → `scan.jpg` (supports both webcam capture and file upload)
 - `image_processing` → `scanned.jpg`
 - `chatgpt_render` → `rendered.png`
 - `meshy_3d` → `model.glb`
@@ -167,5 +167,7 @@ WHERE status = ?;
 ## Related Documentation
 
 - [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Task definitions and file mappings
-- [API_REFERENCE.md](./API_REFERENCE.md) - API endpoints that query this schema
-- [USER_JOURNEYS.md](./USER_JOURNEYS.md) - See how database is used in practice
+- [API_REFERENCE.md](../shared/API_REFERENCE.md) - API endpoints that query this schema
+- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) - See how database is used in practice
+
+
