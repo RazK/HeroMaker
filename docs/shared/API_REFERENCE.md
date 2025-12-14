@@ -60,12 +60,12 @@ Authorization: Bearer <token>  // Optional in V2 (uses debug user)
     {
       "name": "image_capture",
       "status": "pending",
-      "output_file": "scan.jpg"
+      "output_file": "original.jpg"
     },
     {
       "name": "image_processing",
       "status": "pending",
-      "output_file": "scanned.jpg"
+      "output_file": "processed.jpg"
     },
     {
       "name": "chatgpt_render",
@@ -87,7 +87,7 @@ Get creation status with task progress
   "id": "uuid",
   "character_name": "Super Hero",
   "status": "processing",
-  "current_task": "meshy_remesh",
+  "current_task": "meshy_rig",
   "user_id": "debug-user-uuid",
   "created_at": "2024-01-01T00:00:00Z",
   "updated_at": "2024-01-01T00:05:00Z",
@@ -95,14 +95,14 @@ Get creation status with task progress
     {
       "name": "image_capture",
       "status": "completed",
-      "output_file": "scan.jpg",
-      "file_url": "/api/files/temp/debug/{creation_id}/scan.jpg"
+      "output_file": "original.jpg",
+      "file_url": "/api/files/temp/debug/{creation_id}/original.jpg"
     },
     {
       "name": "image_processing",
       "status": "completed",
-      "output_file": "scanned.jpg",
-      "file_url": "/api/files/temp/debug/{creation_id}/scanned.jpg"
+      "output_file": "processed.jpg",
+      "file_url": "/api/files/temp/debug/{creation_id}/processed.jpg"
     },
     {
       "name": "chatgpt_render",
@@ -120,18 +120,13 @@ Get creation status with task progress
       "file_url": "/api/files/temp/debug/{creation_id}/model.glb"
     },
     {
-      "name": "meshy_remesh",
+      "name": "meshy_rig",
       "status": "processing",
-      "output_file": "remeshed.glb",
+      "output_file": "rigged.glb",
       "metadata": {
         "meshy_task_id": "task_123",
         "progress_percentage": 45
       }
-    },
-    {
-      "name": "meshy_texture",
-      "status": "pending",
-      "output_file": "textured.glb"
     }
     // ... remaining tasks
   ]
@@ -250,8 +245,8 @@ Both methods upload the same way via `multipart/form-data`. The backend treats t
 {
   "task_name": "image_capture",
   "status": "processing",
-  "output_file": "scan.jpg",
-  "file_url": "/api/files/temp/debug/{creation_id}/scan.jpg"
+  "output_file": "original.jpg",
+  "file_url": "/api/files/temp/debug/{creation_id}/original.jpg"
 }
 ```
 
@@ -262,10 +257,10 @@ Get specific task status
 **Response:**
 ```json
 {
-  "task_name": "meshy_remesh",
+  "task_name": "meshy_rig",
   "status": "processing",  // Inferred from file existence + current_task
   "input_file": "model.glb",
-  "output_file": "remeshed.glb",
+  "output_file": "rigged.glb",
   "depends_on": "meshy_3d",
   "started_at": "2024-01-01T00:04:00Z",
   "metadata": {
@@ -292,7 +287,7 @@ Authorization: Bearer <token>  // Required - must own creation
 **Response:**
 ```json
 {
-  "task_name": "meshy_remesh",
+  "task_name": "meshy_rig",
   "status": "processing",
   "started_at": "2024-01-01T00:07:00Z"
 }
@@ -316,7 +311,7 @@ file: <file>
 **Response:**
 ```json
 {
-  "task_name": "meshy_remesh",
+  "task_name": "meshy_rig",
   "input_file_path": "temp/{creation_id}/uploaded_file.glb",
   "status": "completed"  // If replacing output
 }
@@ -331,9 +326,9 @@ file: <file>
 Serve files from assets directory
 
 **Path Examples:**
-- `/api/files/temp/debug/{creation_id}/scanned.jpg`
+- `/api/files/temp/debug/{creation_id}/processed.jpg`
 - `/api/files/permanent/debug/{creation_id}/rendered.png`
-- `/api/files/permanent/debug/{creation_id}/{creation_id}.vrm`
+- `/api/files/permanent/debug/{creation_id}/avatar.vrm`
 
 **Security:**
 - Validate file paths (prevent directory traversal)
@@ -367,9 +362,10 @@ List completed characters (for gallery)
       "id": "uuid",  // creation_id
       "character_name": "Super Hero",
       "user_id": "debug-user-uuid",
-      "scan_url": "/api/files/permanent/debug/{creation_id}/scanned.jpg",
+      "original_url": "/api/files/permanent/debug/{creation_id}/original.jpg",
+      "processed_url": "/api/files/permanent/debug/{creation_id}/processed.jpg",
       "rendered_url": "/api/files/permanent/debug/{creation_id}/rendered.png",
-      "vrm_url": "/api/files/permanent/debug/{creation_id}/{creation_id}.vrm",
+      "vrm_url": "/api/files/permanent/debug/{creation_id}/avatar.vrm",
       "thumbnail_url": "/api/files/permanent/debug/{creation_id}/rendered.png",
       "created_at": "2024-01-01T00:00:00Z"
     }
@@ -397,8 +393,8 @@ Get single character details for Show mode
   "task_history": [
     {
       "name": "webcam_scan",
-      "output_file": "scanned.jpg",
-      "file_url": "/api/files/permanent/debug/{creation_id}/scanned.jpg"
+      "output_file": "processed.jpg",
+      "file_url": "/api/files/permanent/debug/{creation_id}/processed.jpg"
     },
     {
       "name": "chatgpt_render",
@@ -424,10 +420,10 @@ Get detailed progress for real-time updates
 {
   "creation_id": "uuid",
   "status": "processing",
-  "current_task": "meshy_remesh",
+  "current_task": "meshy_rig",
   "completed_tasks": ["image_capture", "image_processing", "chatgpt_render", "meshy_3d"],
-  "processing_task": "meshy_remesh",
-  "pending_tasks": ["meshy_texture", "meshy_rig", "meshy_animate", "select_glb", "convert_vrm", "complete"],
+  "processing_task": "meshy_rig",
+  "pending_tasks": ["meshy_rig", "convert_vrm", "complete"],
   "overall_progress": 35,  // Percentage across all tasks
   "current_task_progress": 65  // Progress within current task (if applicable)
 }

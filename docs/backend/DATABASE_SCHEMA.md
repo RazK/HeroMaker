@@ -71,16 +71,12 @@ assets/
   temp/
     {user_id}/
       {creation_id}/
-        scan.jpg
-        scanned.jpg
+        original.jpg
+        processed.jpg
         rendered.png
         model.glb
-        remeshed.glb
-        textured.glb
         rigged.glb
-        animated.glb
-        selected.glb
-        {creation_id}.vrm
+        avatar.vrm
   permanent/
     {user_id}/
       {creation_id}/
@@ -92,16 +88,12 @@ assets/
 Each task produces a specific output file. File existence indicates task completion.
 
 **Task to File Mapping:**
-- `image_capture` → `scan.jpg` (supports both webcam capture and file upload)
-- `image_processing` → `scanned.jpg`
+- `image_capture` → `original.jpg` (supports both webcam capture and file upload)
+- `image_processing` → `processed.jpg`
 - `chatgpt_render` → `rendered.png`
-- `meshy_3d` → `model.glb`
-- `meshy_remesh` → `remeshed.glb`
-- `meshy_texture` → `textured.glb`
+- `meshy_3d` → `model.glb` (includes remeshing and texturing)
 - `meshy_rig` → `rigged.glb`
-- `meshy_animate` → `animated.glb`
-- `select_glb` → `selected.glb` (or reference animated.glb)
-- `convert_vrm` → `{creation_id}.vrm` (uses creation ID, not character name, to avoid file system issues)
+- `convert_vrm` → `avatar.vrm`
 
 ## User ID in Paths
 
@@ -118,7 +110,7 @@ Each task produces a specific output file. File existence indicates task complet
 
 ## File Naming Decisions
 
-**VRM files use `{creation_id}.vrm`, not `{character_name}.vrm`**
+**VRM files are named `avatar.vrm` in each creation directory**
 
 **Rationale:**
 - Prevents file system issues if character name changes

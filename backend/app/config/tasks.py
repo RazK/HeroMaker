@@ -2,17 +2,17 @@ TASKS = [
     {
         "name": "image_capture",
         "input": None,
-        "output": "scan.jpg"
+        "output": "original.jpg"
     },
     {
         "name": "image_processing", 
-        "input": "scan.jpg",
-        "output": "scanned.jpg",
+        "input": "original.jpg",
+        "output": "processed.jpg",
         "depends_on": "image_capture"
     },
     {
         "name": "chatgpt_render",
-        "input": "scanned.jpg",
+        "input": "processed.jpg",
         "output": "rendered.png",
         "depends_on": "image_processing"
     },
@@ -23,34 +23,20 @@ TASKS = [
         "depends_on": "chatgpt_render"
     },
     {
-        "name": "meshy_remesh",
-        "input": "model.glb",
-        "output": "remeshed.glb",
-        "depends_on": "meshy_3d",
-        "is_pass_through": True  # Remeshing done in meshy_3d step, just copy file
-    },
-    {
-        "name": "meshy_texture",
-        "input": "remeshed.glb",
-        "output": "textured.glb",
-        "depends_on": "meshy_remesh",
-        "is_pass_through": True  # Texturing done in meshy_3d step, just copy file
-    },
-    {
         "name": "meshy_rig",
-        "input": "textured.glb",
+        "input": "model.glb",
         "output": "rigged.glb",
-        "depends_on": "meshy_texture"
+        "depends_on": "meshy_3d"
     },
     {
         "name": "convert_vrm",
         "input": "rigged.glb",
-        "output": "{creation_id}.vrm",
+        "output": "avatar.vrm",
         "depends_on": "meshy_rig"
     },
     {
         "name": "complete",
-        "input": "{creation_id}.vrm",
+        "input": "avatar.vrm",
         "output": None,
         "depends_on": "convert_vrm"
     }

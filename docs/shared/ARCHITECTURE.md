@@ -44,7 +44,7 @@ The frontend treats the backend as the single source of truth and polls for crea
 
 - **Relational Core** – Only durable metadata (users, creations, timestamps, status, task pointers, optional error messages) lives in Postgres/SQLite. See `DATABASE_SCHEMA.md` for exact DDL.
 - **Filesystem Truth** – Output artifacts determine task status, keep storage cheap, and simplify recovery (“if the file exists, the task completed”). The backend wraps file operations in helper utilities outlined in `IMPLEMENTATION.md` Step 3.
-- **Path Convention** – Every path includes the `user_id` (or `debug` in development) and the immutable `creation_id`, e.g. `assets/temp/debug/{creation_id}/rendered.png`. VRM files explicitly use `{creation_id}.vrm` to stay stable even if a user renames the character.
+- **Path Convention** – Every path includes the `user_id` (or `debug` in development) and the immutable `creation_id`, e.g. `assets/temp/debug/{creation_id}/rendered.png`. VRM files are named `avatar.vrm` in each creation directory.
 
 ## Error Handling & Resilience
 

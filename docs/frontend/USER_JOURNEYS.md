@@ -33,8 +33,8 @@ VALUES ('abc-123', 'debug-user-uuid', 'pending', 'image_capture', NOW());
   "user_id": "debug-user-uuid",
   "created_at": "2024-01-01T10:00:00Z",
   "tasks": [
-    {"name": "image_capture", "status": "pending", "output_file": "scan.jpg"},
-    {"name": "image_processing", "status": "pending", "output_file": "scanned.jpg"},
+    {"name": "image_capture", "status": "pending", "output_file": "original.jpg"},
+    {"name": "image_processing", "status": "pending", "output_file": "processed.jpg"},
     // ... all tasks
   ]
 }
@@ -72,13 +72,13 @@ VALUES ('abc-123', 'debug-user-uuid', 'pending', 'image_capture', NOW());
 **Backend (same for both options):**
 - Receives file upload (multipart/form-data)
 - Validates file (image type, size limits)
-- Saves file to: `assets/temp/debug/abc-123/scan.jpg`
+- Saves file to: `assets/temp/debug/abc-123/original.jpg`
 - Updates database
 
 **Backend:**
 - Receives file upload
 - Validates file
-- Saves file to: `assets/temp/debug/abc-123/scan.jpg`
+- Saves file to: `assets/temp/debug/abc-123/original.jpg`
 - Updates database
 
 **Database:**
@@ -93,7 +93,7 @@ WHERE id = 'abc-123';
 **File System:**
 ```
 assets/temp/debug/abc-123/
-  scan.jpg  ← File created
+  original.jpg  ← File created
 ```
 
 **Backend Response:**
@@ -102,7 +102,7 @@ assets/temp/debug/abc-123/
   "task_name": "image_capture",
   "status": "completed",
   "output_file": "scan.jpg",
-  "file_url": "/api/files/temp/debug/abc-123/scan.jpg"
+  "file_url": "/api/files/temp/debug/abc-123/original.jpg"
 }
 ```
 
@@ -119,9 +119,9 @@ assets/temp/debug/abc-123/
 - Calls: `POST /api/creations/abc-123/tasks/image_processing`
 
 **Backend:**
-- Checks: Does `scan.jpg` exist? Yes
+- Checks: Does `original.jpg` exist? Yes
 - Processes image (if needed, or frontend already did it)
-- Saves: `assets/temp/debug/abc-123/scanned.jpg`
+- Saves: `assets/temp/debug/abc-123/processed.jpg`
 - Updates database
 
 **Database:**
@@ -135,8 +135,8 @@ WHERE id = 'abc-123';
 **File System:**
 ```
 assets/temp/debug/abc-123/
-  scan.jpg
-  scanned.jpg  ← New file
+  original.jpg
+  processed.jpg  ← New file
 ```
 
 **Backend Response:**
@@ -144,8 +144,8 @@ assets/temp/debug/abc-123/
 {
   "task_name": "image_processing",
   "status": "completed",
-  "output_file": "scanned.jpg",
-  "file_url": "/api/files/temp/debug/abc-123/scanned.jpg"
+  "output_file": "processed.jpg",
+  "file_url": "/api/files/temp/debug/abc-123/processed.jpg"
 }
 ```
 
@@ -161,7 +161,7 @@ assets/temp/debug/abc-123/
 - Calls: `POST /api/creations/abc-123/tasks/chatgpt_render`
 
 **Backend:**
-- Checks: Does `scanned.jpg` exist? Yes
+- Checks: Does `processed.jpg` exist? Yes
 - Calls ChatGPT API with image
 - Stores ChatGPT task ID in metadata
 - Updates database
@@ -198,8 +198,8 @@ WHERE id = 'abc-123';
 **File System:**
 ```
 assets/temp/debug/abc-123/
-  scan.jpg
-  scanned.jpg
+  original.jpg
+  processed.jpg
   rendered.png  ← New file
 ```
 
@@ -256,7 +256,7 @@ WHERE id = 'abc-123';
 **Database:**
 ```sql
 UPDATE creations 
-SET current_task = 'meshy_remesh',
+SET current_task = 'meshy_rig',
     updated_at = NOW()
 WHERE id = 'abc-123';
 ```
@@ -264,8 +264,8 @@ WHERE id = 'abc-123';
 **File System:**
 ```
 assets/temp/debug/abc-123/
-  scan.jpg
-  scanned.jpg
+  original.jpg
+  processed.jpg
   rendered.png
   model.glb  ← New file
 ```
@@ -298,19 +298,15 @@ assets/temp/debug/abc-123/
 - Polls: `GET /api/creations/abc-123` every 2 seconds
 - Sees meshy_3d status change to "completed"
 - Updates UI: meshy_3d task complete
-- Auto-triggers next task: `POST /api/creations/abc-123/tasks/meshy_remesh`
+- Auto-triggers next task: `POST /api/creations/abc-123/tasks/meshy_rig`
 
 ---
 
-### Step 6-10: Remaining Meshy tasks (auto-triggered sequentially)
+### Step 5-6: Remaining Meshy tasks (auto-triggered sequentially)
 
 **Pattern repeats for:**
-- meshy_remesh → remeshed.glb
-- meshy_texture → textured.glb
 - meshy_rig → rigged.glb
-- meshy_animate → animated.glb
-- select_glb → selected.glb (or references animated.glb)
-- convert_vrm → abc-123.vrm (uses creation_id, not character_name)
+- convert_vrm → avatar.vrm
 
 **Each step:**
 1. Frontend polls for status updates
@@ -334,16 +330,14 @@ WHERE id = 'abc-123';
 **File System:**
 ```
 assets/temp/debug/abc-123/
-  scan.jpg
-  scanned.jpg
+  original.jpg
+  processed.jpg
   rendered.png
   model.glb
-  remeshed.glb
-  textured.glb
   rigged.glb
   animated.glb
   selected.glb
-  abc-123.vrm  ← Final file (uses creation_id)
+  avatar.vrm  ← Final file
 ```
 
 ---
@@ -362,16 +356,14 @@ assets/temp/debug/abc-123/
 ```
 # Files moved
 assets/permanent/debug/abc-123/
-  scan.jpg
-  scanned.jpg
+  original.jpg
+  processed.jpg
   rendered.png
   model.glb
-  remeshed.glb
-  textured.glb
   rigged.glb
   animated.glb
   selected.glb
-  abc-123.vrm
+  avatar.vrm
 
 # Temp directory cleaned up (or kept for reference)
 ```
@@ -430,7 +422,8 @@ LIMIT 20;
       "id": "abc-123",
       "character_name": "Super Hero",
       "user_id": "debug-user-uuid",
-      "scan_url": "/api/files/permanent/debug/abc-123/scanned.jpg",
+      "original_url": "/api/files/permanent/debug/abc-123/original.jpg",
+      "processed_url": "/api/files/permanent/debug/abc-123/processed.jpg",
       "rendered_url": "/api/files/permanent/debug/abc-123/rendered.png",
       "vrm_url": "/api/files/permanent/debug/abc-123/abc-123.vrm",
       "thumbnail_url": "/api/files/permanent/debug/abc-123/rendered.png",
@@ -476,14 +469,15 @@ SELECT * FROM creations WHERE id = 'abc-123' AND status = 'completed';
   "id": "abc-123",
   "character_name": "Super Hero",
   "user_id": "debug-user-uuid",
-  "scan_url": "/api/files/permanent/debug/abc-123/scanned.jpg",
+  "original_url": "/api/files/permanent/debug/abc-123/original.jpg",
+  "processed_url": "/api/files/permanent/debug/abc-123/processed.jpg",
   "rendered_url": "/api/files/permanent/debug/abc-123/rendered.png",
   "vrm_url": "/api/files/permanent/debug/abc-123/abc-123.vrm",
   "task_history": [
     {
       "name": "image_capture",
-      "output_file": "scan.jpg",
-      "file_url": "/api/files/permanent/debug/abc-123/scan.jpg"
+      "output_file": "original.jpg",
+      "file_url": "/api/files/permanent/debug/abc-123/original.jpg"
     },
     {
       "name": "chatgpt_render",
@@ -499,7 +493,7 @@ SELECT * FROM creations WHERE id = 'abc-123' AND status = 'completed';
 **Frontend:**
 - Receives character details
 - Transitions to Show state
-- Loads VRM file: `GET /api/files/permanent/debug/abc-123/abc-123.vrm` (uses creation_id)
+- Loads VRM file: `GET /api/files/permanent/debug/abc-123/avatar.vrm`
 - Displays character with webcam tracking
 - Shows task history (scan, render, VRM) in UI
 
@@ -539,10 +533,10 @@ WHERE id = 'abc-123';
 {
   "creation_id": "abc-123",
   "status": "processing",
-  "current_task": "meshy_remesh",
+  "current_task": "meshy_rig",
   "completed_tasks": ["image_capture", "image_processing", "chatgpt_render", "meshy_3d"],
-  "processing_task": "meshy_remesh",
-  "pending_tasks": ["meshy_texture", "meshy_rig", "meshy_animate", "select_glb", "convert_vrm", "complete"],
+  "processing_task": "meshy_rig",
+  "pending_tasks": ["meshy_rig", "convert_vrm", "complete"],
   "overall_progress": 36,  // 4 of 11 tasks done
   "current_task_progress": 65,  // From Meshy API polling (stored in metadata)
   "current_task_metadata": {
@@ -557,9 +551,9 @@ WHERE id = 'abc-123';
 - Receives progress update
 - Updates UI:
   - Shows completed tasks with checkmarks
-  - Highlights current task (meshy_remesh)
-  - Updates progress bar (36%)
-  - Shows sub-task progress (65% for meshy_remesh)
+  - Highlights current task (meshy_rig)
+  - Updates progress bar (50%)
+  - Shows sub-task progress (65% for meshy_rig)
 
 ---
 
@@ -619,7 +613,7 @@ WHERE id = 'abc-123' AND user_id = 'debug-user-uuid';
 ```sql
 UPDATE creations 
 SET status = 'failed',
-    current_task = 'meshy_remesh',
+    current_task = 'meshy_rig',
     error_message = 'Meshy API error: Task timeout',
     updated_at = NOW()
 WHERE id = 'abc-123';
@@ -634,12 +628,12 @@ WHERE id = 'abc-123';
 {
   "id": "abc-123",
   "status": "failed",
-  "current_task": "meshy_remesh",
+  "current_task": "meshy_rig",
   "error_message": "Meshy API error: Task timeout",
   "tasks": [
     // ... previous tasks marked completed
     {
-      "name": "meshy_remesh",
+      "name": "meshy_rig",
       "status": "failed",
       "error": "Meshy API error: Task timeout"
     }
@@ -650,7 +644,7 @@ WHERE id = 'abc-123';
 **Frontend:**
 - Shows error message
 - Displays "Retry" button on failed task
-- User clicks retry: `POST /api/creations/abc-123/tasks/meshy_remesh/retry`
+- User clicks retry: `POST /api/creations/abc-123/tasks/meshy_rig/retry`
 
 **Backend:**
 - Retries Meshy API call

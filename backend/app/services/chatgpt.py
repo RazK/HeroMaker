@@ -99,3 +99,4 @@ Render the character exactly as shown, in a clean 3D style with arms extended ho
         
         # Wrap other errors with descriptive message
         raise Exception(f"OpenAI API error: {error_str}") from e
+

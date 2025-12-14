@@ -11,17 +11,17 @@ TASKS = [
     {
         "name": "image_capture",
         "input": None,  # No input (user action: webcam capture or file upload)
-        "output": "scan.jpg"
+        "output": "original.jpg"
     },
     {
         "name": "image_processing", 
-        "input": "scan.jpg",
-        "output": "scanned.jpg",
+        "input": "original.jpg",
+        "output": "processed.jpg",
         "depends_on": "image_capture"
     },
     {
         "name": "chatgpt_render",
-        "input": "scanned.jpg",
+        "input": "processed.jpg",
         "output": "rendered.png",
         "depends_on": "image_processing"
     },
@@ -32,44 +32,20 @@ TASKS = [
         "depends_on": "chatgpt_render"
     },
     {
-        "name": "meshy_remesh",
+        "name": "meshy_rig",
         "input": "model.glb",
-        "output": "remeshed.glb",
+        "output": "rigged.glb",
         "depends_on": "meshy_3d"
     },
     {
-        "name": "meshy_texture",
-        "input": "remeshed.glb",
-        "output": "textured.glb",
-        "depends_on": "meshy_remesh"
-    },
-    {
-        "name": "meshy_rig",
-        "input": "textured.glb",
-        "output": "rigged.glb",
-        "depends_on": "meshy_texture"
-    },
-    {
-        "name": "meshy_animate",
+        "name": "convert_vrm",
         "input": "rigged.glb",
-        "output": "animated.glb",
+        "output": "avatar.vrm",
         "depends_on": "meshy_rig"
     },
     {
-        "name": "select_glb",
-        "input": "animated.glb",
-        "output": "selected.glb",
-        "depends_on": "meshy_animate"
-    },
-    {
-        "name": "convert_vrm",
-        "input": "selected.glb",
-        "output": "{creation_id}.vrm",  # Use creation_id, not character_name
-        "depends_on": "select_glb"
-    },
-    {
         "name": "complete",
-        "input": "{creation_id}.vrm",
+        "input": "avatar.vrm",
         "output": None,  # No output, just marks completion
         "depends_on": "convert_vrm"
     }
@@ -117,8 +93,7 @@ TASKS = [
 
 Tasks form a dependency graph:
 ```
-image_capture → image_processing → chatgpt_render → meshy_3d → meshy_remesh → 
-meshy_texture → meshy_rig → meshy_animate → select_glb → convert_vrm → complete
+image_capture (original.jpg) → image_processing (processed.jpg) → chatgpt_render (rendered.png) → meshy_3d (model.glb) → meshy_rig (rigged.glb) → convert_vrm (avatar.vrm) → complete
 ```
 
 **Dependency Resolution:**
@@ -131,16 +106,7 @@ meshy_texture → meshy_rig → meshy_animate → select_glb → convert_vrm →
 **Flexibility:**
 Tasks are defined by input/output files, not hardcoded. If Meshy API consolidates endpoints:
 
-**Example:** If `image-to-3d` + `remesh` + `texture` become a single endpoint:
-
-```python
-{
-    "name": "meshy_3d_complete",  # Combined 3D + remesh + texture
-    "input": "rendered.png",
-    "output": "model_textured.glb",
-    "depends_on": "chatgpt_render"
-}
-```
+**Note:** The `meshy_3d` step already includes remeshing and texturing as part of Meshy's image-to-3D conversion, so separate remesh/texture steps are not needed.
 
 **Impact:**
 - Update `TASKS` configuration

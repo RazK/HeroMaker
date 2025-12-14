@@ -121,21 +121,8 @@ def execute_task(creation_id: str, user_id: str, task_name: str, db: Session) ->
                 "meshy_task_id": task_id
             }
         
-        elif task_name == "meshy_remesh" or task_name == "meshy_texture":
-            # Pass-through tasks: just copy the input file to output
-            input_filename = task_config["input"]
-            output_filename = task_config["output"]
-            input_path = get_task_input_path(creation_id, user_id, input_filename, is_temp)
-            output_path = get_task_output_path(creation_id, user_id, output_filename, is_temp)
-            
-            # Copy file
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(input_path, output_path)
-            
-            result = {"status": "completed", "output_file": output_filename}
-        
         elif task_name == "meshy_rig":
-            # Get meshy_3d task_id from metadata (texture/remesh are pass-through)
+            # Get meshy_3d task_id from metadata
             metadata = creation.metadata_json or {}
             input_task_id = metadata.get("meshy_3d_task_id")
             
@@ -282,8 +269,6 @@ def poll_meshy_task_async(
     # Determine status function based on task type
     status_funcs = {
         "meshy_3d": client.get_image_to_3d_status,
-        "meshy_remesh": client.get_remesh_status,
-        "meshy_texture": client.get_retexture_status,
         "meshy_rig": client.get_rigging_status,
         "meshy_animate": client.get_animation_status,
     }
@@ -358,3 +343,4 @@ def poll_meshy_task_async(
         except Exception as e:
             print(f"Error polling Meshy task {task_id}: {e}")
             time.sleep(poll_interval)
+
