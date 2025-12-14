@@ -85,9 +85,9 @@ def convert_glb_to_vrm(glb_path: Path, vrm_path: Path, blender_path: Optional[Pa
     vrm_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Get path to conversion script
-    # The script is in the project root
-    project_root = Path(__file__).parent.parent.parent.parent
-    conversion_script = project_root / "convert_glb_to_vrm.py"
+    # The script is in backend/scripts/
+    backend_dir = Path(__file__).parent.parent.parent
+    conversion_script = backend_dir / "scripts" / "convert_glb_to_vrm.py"
     
     if not conversion_script.exists():
         raise FileNotFoundError(f"Conversion script not found: {conversion_script}")
