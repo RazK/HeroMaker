@@ -33,53 +33,92 @@ Authorization: Bearer <token>  // Optional in V2 (auto-assigns debug user)
 
 ## Creation Management
 
-### POST /api/creations
+### POST /api/creations/upload
 
-Create a new creation (start "Making A New Hero")
+Upload image file and create a new creation. This is the primary way to create a creation - uploads automatically create the creation record.
 
 **Headers:**
 ```
 Authorization: Bearer <token>  // Optional in V2 (uses debug user)
+Content-Type: multipart/form-data
 ```
 
 **Request:**
-```json
-{}
+```
+multipart/form-data
+file: <image_file>
+character_name: <optional string>
 ```
 
 **Response:**
 ```json
 {
   "id": "uuid",
-  "status": "pending",
-  "current_task": "image_capture",
   "character_name": null,
+  "status": "pending",
+  "current_step": "image_processing",
   "user_id": "debug-user-uuid",
   "created_at": "2024-01-01T00:00:00Z",
-  "tasks": [
+  "completed_at": null,
+  "steps": [
     {
-      "name": "image_capture",
+      "step_name": "image_processing",
       "status": "pending",
-      "output_file": "original.jpg"
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
     },
     {
-      "name": "image_processing",
+      "step_name": "chatgpt_render",
       "status": "pending",
-      "output_file": "processed.jpg"
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
     },
     {
-      "name": "chatgpt_render",
+      "step_name": "meshy_3d",
       "status": "pending",
-      "output_file": "rendered.png"
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
+    },
+    {
+      "step_name": "meshy_rig",
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
+    },
+    {
+      "step_name": "convert_vrm",
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
+    },
+    {
+      "step_name": "complete",
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
     }
-    // ... all tasks
-  ]
+  ],
+  "error_message": null
 }
 ```
 
+**Note:** Uploading automatically creates the creation, initializes all steps as "pending", and saves the uploaded file as `original.jpg` in the temp directory.
+
 ### GET /api/creations/{creation_id}
 
-Get creation status with task progress
+Get creation status with step progress
 
 **Response:**
 ```json
@@ -87,63 +126,84 @@ Get creation status with task progress
   "id": "uuid",
   "character_name": "Super Hero",
   "status": "processing",
-  "current_task": "meshy_rig",
+  "current_step": "meshy_rig",
   "user_id": "debug-user-uuid",
   "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:05:00Z",
-  "tasks": [
+  "completed_at": null,
+  "steps": [
     {
-      "name": "image_capture",
+      "step_name": "image_processing",
       "status": "completed",
-      "output_file": "original.jpg",
-      "file_url": "/api/files/temp/debug/{creation_id}/original.jpg"
+      "started_at": "2024-01-01T00:00:00Z",
+      "completed_at": "2024-01-01T00:00:01Z",
+      "estimated_completion_time": "2024-01-01T00:00:01Z",
+      "error_message": null
     },
     {
-      "name": "image_processing",
+      "step_name": "chatgpt_render",
       "status": "completed",
-      "output_file": "processed.jpg",
-      "file_url": "/api/files/temp/debug/{creation_id}/processed.jpg"
+      "started_at": "2024-01-01T00:00:01Z",
+      "completed_at": "2024-01-01T00:00:40Z",
+      "estimated_completion_time": "2024-01-01T00:00:40Z",
+      "error_message": null
     },
     {
-      "name": "chatgpt_render",
+      "step_name": "meshy_3d",
       "status": "completed",
-      "output_file": "rendered.png",
-      "file_url": "/api/files/temp/debug/{creation_id}/rendered.png",
-      "metadata": {
-        "generated_name": "Super Hero"
-      }
+      "started_at": "2024-01-01T00:00:40Z",
+      "completed_at": "2024-01-01T00:03:52Z",
+      "estimated_completion_time": "2024-01-01T00:03:52Z",
+      "error_message": null
     },
     {
-      "name": "meshy_3d",
-      "status": "completed",
-      "output_file": "model.glb",
-      "file_url": "/api/files/temp/debug/{creation_id}/model.glb"
-    },
-    {
-      "name": "meshy_rig",
+      "step_name": "meshy_rig",
       "status": "processing",
-      "output_file": "rigged.glb",
-      "metadata": {
-        "meshy_task_id": "task_123",
-        "progress_percentage": 45
-      }
+      "started_at": "2024-01-01T00:03:52Z",
+      "completed_at": null,
+      "estimated_completion_time": "2024-01-01T00:04:18Z",
+      "error_message": null
+    },
+    {
+      "step_name": "convert_vrm",
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
+    },
+    {
+      "step_name": "complete",
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "estimated_completion_time": null,
+      "error_message": null
     }
-    // ... remaining tasks
-  ]
+  ],
+  "error_message": null
 }
 ```
 
-**Note:** Task status is inferred from file existence in the file system.
+**Step Status Values:**
+- `pending` - Step has not started
+- `processing` - Step is currently running
+- `completed` - Step finished successfully
+- `failed` - Step failed (check `error_message`)
+
+**Note:** The `status` field on the creation is derived from step statuses:
+- `pending` - All steps are pending
+- `processing` - At least one step is processing
+- `completed` - All steps are completed
+- `failed` - At least one step failed
 
 ### GET /api/creations
 
 List creations
 
 **Query Parameters:**
-- `status`: filter by status (default: all)
-- `user_id`: filter by user (admin only, or own user in V3)
-- `limit`: pagination limit (default: 20)
-- `offset`: pagination offset (default: 0)
+- `status`: Filter by status (`pending`, `processing`, `completed`, `failed`) - default: all
+- `limit`: Pagination limit (default: 20)
+- `offset`: Pagination offset (default: 0)
 
 **Response:**
 ```json
@@ -153,8 +213,12 @@ List creations
       "id": "uuid",
       "character_name": "Super Hero",
       "status": "completed",
+      "current_step": null,
+      "user_id": "debug-user-uuid",
       "created_at": "2024-01-01T00:00:00Z",
-      "thumbnail_url": "/api/files/permanent/debug/{creation_id}/rendered.png"
+      "completed_at": "2024-01-01T00:05:00Z",
+      "steps": [...],
+      "error_message": null
     }
   ],
   "total": 100,
@@ -169,7 +233,7 @@ Update creation (currently only character_name)
 
 **Headers:**
 ```
-Authorization: Bearer <token>  // Required - must own creation or be admin
+Authorization: Bearer <token>  // Optional in V2
 ```
 
 **Request:**
@@ -184,7 +248,13 @@ Authorization: Bearer <token>  // Required - must own creation or be admin
 {
   "id": "uuid",
   "character_name": "Edited Name",
-  "updated_at": "2024-01-01T00:06:00Z"
+  "status": "processing",
+  "current_step": "meshy_rig",
+  "user_id": "debug-user-uuid",
+  "created_at": "2024-01-01T00:00:00Z",
+  "completed_at": null,
+  "steps": [...],
+  "error_message": null
 }
 ```
 
@@ -194,7 +264,7 @@ Delete creation and all associated files
 
 **Headers:**
 ```
-Authorization: Bearer <token>  // Required - must own creation or be admin
+Authorization: Bearer <token>  // Optional in V2
 ```
 
 **Response:**
@@ -204,230 +274,96 @@ Authorization: Bearer <token>  // Required - must own creation or be admin
 }
 ```
 
+**Note:** This deletes the creation record from the database and removes all associated files from both temp and permanent storage.
+
 ---
 
-## Task Execution
+## Pipeline Execution
 
-### POST /api/creations/{creation_id}/tasks/{task_name}
+### POST /api/creations/{creation_id}/run
 
-Execute a specific task
+Run the full pipeline sequentially
 
 **Headers:**
 ```
-Authorization: Bearer <token>  // Required - must own creation
+Authorization: Bearer <token>  // Optional in V2
+```
+
+**Query Parameters:**
+- `restart`: If `true`, restart from step 1. If `false` (default), resume from first incomplete step.
+
+**Response:**
+```json
+{
+  "message": "Pipeline run triggered",
+  "creation_id": "uuid",
+  "restart": false
+}
+```
+
+**Note:** Pipeline execution runs in the background. Poll `GET /api/creations/{creation_id}` to check progress.
+
+### POST /api/creations/{creation_id}/steps/{step_name}/run
+
+Run a single step manually
+
+**Headers:**
+```
+Authorization: Bearer <token>  // Optional in V2
 ```
 
 **Path Parameters:**
 - `creation_id`: UUID of the creation
-- `task_name`: Name of task (e.g., "image_capture", "chatgpt_render", "meshy_3d")
-
-**Request:**
-```json
-{
-  "input_data": "..."  // Optional, if not provided uses output from depends_on task
-}
-```
-
-**For image_capture (file upload - supports both webcam capture and file upload):**
-```
-multipart/form-data
-file: <image_file>
-```
-
-**Note:** The `image_capture` task accepts image files from two sources:
-- **Webcam capture**: Frontend captures image from webcam and uploads
-- **File upload**: User selects and uploads image file from device
-
-Both methods upload the same way via `multipart/form-data`. The backend treats them identically.
+- `step_name`: Name of step (e.g., "image_processing", "chatgpt_render", "meshy_3d", "meshy_rig", "convert_vrm", "complete")
 
 **Response:**
 ```json
 {
-  "task_name": "image_capture",
-  "status": "processing",
-  "output_file": "original.jpg",
-  "file_url": "/api/files/temp/debug/{creation_id}/original.jpg"
+  "message": "Step execution started",
+  "creation_id": "uuid",
+  "step_name": "meshy_3d"
 }
 ```
 
-### GET /api/creations/{creation_id}/tasks/{task_name}
+**Note:** 
+- Step execution runs in the background
+- Dependencies are automatically validated before execution
+- If a dependency step hasn't completed, the request will fail with a 400 error
 
-Get specific task status
-
-**Response:**
-```json
-{
-  "task_name": "meshy_rig",
-  "status": "processing",  // Inferred from file existence + current_task
-  "input_file": "model.glb",
-  "output_file": "rigged.glb",
-  "depends_on": "meshy_3d",
-  "started_at": "2024-01-01T00:04:00Z",
-  "metadata": {
-    "meshy_task_id": "task_456",
-    "progress_percentage": 65
-  }
-}
-```
-
-### POST /api/creations/{creation_id}/tasks/{task_name}/retry
-
-Retry a failed task
-
-**Headers:**
-```
-Authorization: Bearer <token>  // Required - must own creation
-```
-
-**Request:**
-```json
-{}
-```
-
-**Response:**
-```json
-{
-  "task_name": "meshy_rig",
-  "status": "processing",
-  "started_at": "2024-01-01T00:07:00Z"
-}
-```
-
-### POST /api/creations/{creation_id}/tasks/{task_name}/upload (Admin Only)
-
-Admin upload file to replace task output
-
-**Headers:**
-```
-Authorization: Bearer <token>  // Required - must be admin
-```
-
-**Request:**
-```
-multipart/form-data
-file: <file>
-```
-
-**Response:**
-```json
-{
-  "task_name": "meshy_rig",
-  "input_file_path": "temp/{creation_id}/uploaded_file.glb",
-  "status": "completed"  // If replacing output
-}
-```
+**Available Steps:**
+- `image_processing` - Process uploaded image
+- `chatgpt_render` - Transform drawing to 3D render using OpenAI GPT-Image-1
+- `meshy_3d` - Generate 3D model from rendered image (Meshy API)
+- `meshy_rig` - Rig the 3D model (Meshy API)
+- `convert_vrm` - Convert rigged GLB to VRM format
+- `complete` - Move files from temp to permanent storage
 
 ---
 
 ## File Serving
 
-### GET /api/files/{file_path}
+### GET /api/files/{path:path}
 
 Serve files from assets directory
 
 **Path Examples:**
-- `/api/files/temp/debug/{creation_id}/processed.jpg`
-- `/api/files/permanent/debug/{creation_id}/rendered.png`
-- `/api/files/permanent/debug/{creation_id}/avatar.vrm`
+- `/api/files/temp/debug-user-uuid/{creation_id}/original.jpg`
+- `/api/files/temp/debug-user-uuid/{creation_id}/processed.jpg`
+- `/api/files/temp/debug-user-uuid/{creation_id}/rendered.png`
+- `/api/files/temp/debug-user-uuid/{creation_id}/model.glb`
+- `/api/files/permanent/debug-user-uuid/{creation_id}/rendered.png`
+- `/api/files/permanent/debug-user-uuid/{creation_id}/avatar.vrm`
 
 **Security:**
-- Validate file paths (prevent directory traversal)
-- Only serve from assets/ directory
-- Check file exists before serving
+- Validates file paths (prevents directory traversal)
+- Only serves from assets/ directory
+- Checks file exists before serving
 
 **Response:**
 - Binary file with appropriate Content-Type headers
 - Images: `image/jpeg`, `image/png`
 - GLB: `model/gltf-binary`
 - VRM: `model/vrm` or `application/octet-stream`
-
----
-
-## Gallery/Characters
-
-### GET /api/characters
-
-List completed characters (for gallery)
-
-**Query Parameters:**
-- `focus`: character_id to focus on (for share links)
-- `limit`: pagination limit (default: 20)
-- `offset`: pagination offset (default: 0)
-
-**Response:**
-```json
-{
-  "characters": [
-    {
-      "id": "uuid",  // creation_id
-      "character_name": "Super Hero",
-      "user_id": "debug-user-uuid",
-      "original_url": "/api/files/permanent/debug/{creation_id}/original.jpg",
-      "processed_url": "/api/files/permanent/debug/{creation_id}/processed.jpg",
-      "rendered_url": "/api/files/permanent/debug/{creation_id}/rendered.png",
-      "vrm_url": "/api/files/permanent/debug/{creation_id}/avatar.vrm",
-      "thumbnail_url": "/api/files/permanent/debug/{creation_id}/rendered.png",
-      "created_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "total": 100,
-  "focus_index": 5  // If focus parameter provided
-}
-```
-
-**Note:** This endpoint returns `GET /api/creations?status=completed` with a character-focused response format.
-
-### GET /api/characters/{character_id}
-
-Get single character details for Show mode
-
-**Response:**
-```json
-{
-  "id": "uuid",
-  "character_name": "Super Hero",
-  "user_id": "debug-user-uuid",
-  "scan_url": "/api/files/permanent/debug/{creation_id}/scanned.jpg",
-  "rendered_url": "/api/files/permanent/debug/{creation_id}/rendered.png",
-  "vrm_url": "/api/files/permanent/debug/{creation_id}/{creation_id}.vrm",
-  "task_history": [
-    {
-      "name": "webcam_scan",
-      "output_file": "processed.jpg",
-      "file_url": "/api/files/permanent/debug/{creation_id}/processed.jpg"
-    },
-    {
-      "name": "chatgpt_render",
-      "output_file": "rendered.png",
-      "file_url": "/api/files/permanent/debug/{creation_id}/rendered.png"
-    }
-    // ... all completed tasks
-  ],
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
----
-
-## Progress Tracking
-
-### GET /api/creations/{creation_id}/progress
-
-Get detailed progress for real-time updates
-
-**Response:**
-```json
-{
-  "creation_id": "uuid",
-  "status": "processing",
-  "current_task": "meshy_rig",
-  "completed_tasks": ["image_capture", "image_processing", "chatgpt_render", "meshy_3d"],
-  "processing_task": "meshy_rig",
-  "pending_tasks": ["meshy_rig", "convert_vrm", "complete"],
-  "overall_progress": 35,  // Percentage across all tasks
-  "current_task_progress": 65  // Progress within current task (if applicable)
-}
-```
 
 ---
 
@@ -438,21 +374,16 @@ All endpoints may return error responses. See [SETUP.md](../backend/SETUP.md) fo
 **Standard Error Format:**
 ```json
 {
-  "error": {
-    "code": "TASK_FAILED",
-    "message": "Meshy API returned error",
-    "details": {}
-  }
+  "detail": "Error message here"
 }
 ```
 
 **HTTP Status Codes:**
 - `200` - Success
-- `201` - Created
-- `400` - Bad Request (validation error)
+- `400` - Bad Request (validation error, missing dependency)
 - `401` - Unauthorized
 - `403` - Forbidden (not owner/admin)
-- `404` - Not Found
+- `404` - Not Found (creation not found, step not found)
 - `500` - Internal Server Error
 
 ---
@@ -460,9 +391,6 @@ All endpoints may return error responses. See [SETUP.md](../backend/SETUP.md) fo
 ## Related Documentation
 
 - [DATABASE_SCHEMA.md](../backend/DATABASE_SCHEMA.md) - Database structure
-- [TASK_CONFIGURATION.md](../backend/TASK_CONFIGURATION.md) - Task definitions
-- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) - Usage examples
+- [TASK_CONFIGURATION.md](../backend/TASK_CONFIGURATION.md) - Step definitions (note: uses "steps" not "tasks")
 - [SETUP.md](../backend/SETUP.md) - Error handling and configuration details
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - High-level system architecture
-
-
