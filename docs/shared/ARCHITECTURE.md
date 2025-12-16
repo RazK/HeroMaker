@@ -6,52 +6,51 @@ This document provides the high-level system view that ties together the detaile
 
 HeroMaker exposes three primary states in the frontend experience (see `USER_JOURNEYS.md` for detailed steps):
 
-1. **Browse** – Lists completed public characters (`GET /api/characters`) so users can explore the gallery.
-2. **Create** – A guided workflow that starts a creation (`POST /api/creations`), allows user to capture image via webcam or upload from device, and then streams progress as backend tasks run.
-3. **Show** – Presents an individual character with its VRM file, thumbnails, and task history once the pipeline finishes.
+1. **Create** – A guided workflow that starts by uploading an image (`POST /api/creations/upload`), which creates the creation and then streams progress as backend steps run.
+2. **Show** – Presents an individual character with its VRM file, thumbnails, and step history once the pipeline finishes.
 
-The frontend treats the backend as the single source of truth and polls for creation/task progress every ~2 seconds while a hero is being built.
+The frontend treats the backend as the single source of truth and polls for creation/step progress every ~2 seconds while a hero is being built.
 
 ## Component Architecture
 
 | Component | Responsibilities | Tech / Interfaces | Notes |
 |-----------|------------------|-------------------|-------|
 | Frontend Web Client | Browse gallery, trigger creations, upload scans, display progress/VRM viewer | Any SPA framework (prototype uses Vite-based tooling). Communicates via REST over HTTPS. | Stateless; uses polling instead of websockets for simplicity. |
-| Backend API Service | Implements REST endpoints under `/api`, orchestrates task execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic (see `IMPLEMENTATION.md`). Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). |
-| Task Engine | Encapsulated inside the API service (no separate worker). Executes sequential tasks defined in `TASK_CONFIGURATION.md`, spawns Meshy/ChatGPT jobs, and writes outputs to disk. | Python modules plus helper scripts in `research/scripts/`. | Task completion is inferred from filesystem state instead of a queue table. |
-| Database | Stores users, creations, status, metadata, audit timestamps | PostgreSQL in production, SQLite for dev (`SETUP.md`). | Only two core tables (`users`, `creations`). File paths are not stored here. |
+| Backend API Service | Implements REST endpoints under `/api`, orchestrates step execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic (see `IMPLEMENTATION.md`). Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). |
+| Pipeline Engine | Encapsulated inside the API service (no separate worker). Executes sequential steps defined in `TASK_CONFIGURATION.md`, spawns Meshy/ChatGPT jobs, and writes outputs to disk. | Python modules plus helper scripts in `research/scripts/`. | Step status is tracked in database with timestamps and progress. |
+| Database | Stores users, creations, creation_steps with status, metadata, audit timestamps | PostgreSQL in production, SQLite for dev (`SETUP.md`). | Core tables: `users`, `creations`, `creation_steps`. File paths are not stored here. |
 | File Storage | Holds all intermediate and final artifacts (`assets/temp` and `assets/permanent`) | Local POSIX filesystem in V2; can be swapped for S3-compatible storage later. | Directory structure encodes `user_id` and `creation_id`; moving temp → permanent marks completion. |
 | External Services | ChatGPT for render + naming, Meshy for 3D pipeline, Blender VRM add-on for final conversion | HTTP APIs (OpenAI, Meshy) + local Blender CLI invoked by `convert_glb_to_vrm.py`. | API polling intervals and retries defined in `SETUP.md` & `INTEGRATIONS.md`. |
 
 ## Service Interactions
 
 1. **Creation Kickoff**  
-   `POST /api/creations` inserts a row in `creations`, seeds the task list, and allocates a filesystem workspace (`assets/temp/{user}/{creation}`).
+   `POST /api/creations/upload` accepts an image file upload, creates a row in `creations`, initializes all steps as "pending", and allocates a filesystem workspace (`assets/temp/{user}/{creation}`).
 
-2. **User-Driven Tasks**  
-   `image_capture` accepts an image file upload (from webcam capture or device file selection). Everything afterwards is backend-driven: as soon as the required input file exists, the service fires the next task.
+2. **Pipeline Execution**  
+   User triggers pipeline via `POST /api/creations/{id}/run` or individual steps via `POST /api/creations/{id}/steps/{step_name}/run`. Steps execute sequentially, with dependencies validated automatically.
 
-3. **Automated Task Chain**  
-   Each task definition (`TASK_CONFIGURATION.md`) specifies its dependency and expected output filename. When the task finishes, the existence of that file becomes the single source of truth for “completed.”
+3. **Automated Step Chain**  
+   Each step definition (`TASK_CONFIGURATION.md`) specifies its dependency and expected output filename. Step status is tracked in the database with timestamps and progress percentages.
 
 4. **External API Jobs**  
-   For ChatGPT and Meshy steps, the backend records provider task IDs in `creations.metadata`, polls on a configurable cadence, and writes progress percentages so the frontend can render sub-status bars (`USER_JOURNEYS.md` Journey 3).
+   For ChatGPT and Meshy steps, the backend records provider task IDs in `creations.metadata`, polls on a configurable cadence, and updates step progress percentages so the frontend can render progress bars.
 
-5. **Completion & Publishing**  
-   After `convert_vrm` succeeds, the `complete` task moves the entire directory tree to `assets/permanent`, nulls `current_task`, and marks the creation `status='completed'`. Gallery endpoints read directly from these permanent directories.
+5. **Completion**  
+   After `convert_vrm` succeeds, the `complete` step moves the entire directory tree to `assets/permanent`, sets `current_step` to null, and marks the creation `status='completed'`.
 
 ## Data Model & Storage Strategy
 
-- **Relational Core** – Only durable metadata (users, creations, timestamps, status, task pointers, optional error messages) lives in Postgres/SQLite. See `DATABASE_SCHEMA.md` for exact DDL.
-- **Filesystem Truth** – Output artifacts determine task status, keep storage cheap, and simplify recovery (“if the file exists, the task completed”). The backend wraps file operations in helper utilities outlined in `IMPLEMENTATION.md` Step 3.
+- **Relational Core** – Durable metadata (users, creations, creation_steps with timestamps, status, progress, optional error messages) lives in Postgres/SQLite. See `DATABASE_SCHEMA.md` for exact DDL.
+- **Filesystem Storage** – Output artifacts are stored in organized directory structure. Step status is tracked in database, not inferred from files. The backend wraps file operations in helper utilities outlined in `IMPLEMENTATION.md`.
 - **Path Convention** – Every path includes the `user_id` (or `debug` in development) and the immutable `creation_id`, e.g. `assets/temp/debug/{creation_id}/rendered.png`. VRM files are named `avatar.vrm` in each creation directory.
 
 ## Error Handling & Resilience
 
 - REST responses follow the structured format documented in `SETUP.md`.
-- Transient Meshy/ChatGPT failures are automatically retried (3 attempts, exponential backoff). Persistent failures set `status='failed'` and capture context in `creations.error_message`.
-- Users can manually retry a task via `POST /api/creations/{id}/tasks/{name}/retry`, which clears the error and restarts the pipeline from the failed step.
-- Because task state is inferred from files, the system can survive API restarts without extra bookkeeping—on boot, it simply scans for the next missing output and resumes.
+- Transient Meshy/ChatGPT failures are automatically retried (3 attempts, exponential backoff). Persistent failures set step `status='failed'` and capture context in `creation_steps.error_message`.
+- Users can manually retry a step by calling `POST /api/creations/{id}/steps/{step_name}/run`, which resets the step and re-executes it.
+- Step state is stored in database, allowing the system to resume from the last incomplete step after restarts.
 
 ## Deployment & Environment Strategy
 
@@ -68,17 +67,15 @@ The frontend treats the backend as the single source of truth and polls for crea
 ## Roadmap & Open Questions
 
 - **Auth Hardening** – Move from the debug user to proper OAuth + JWT enforcement across endpoints.
-- **Scaling Task Execution** – Introduce a worker queue (Celery, RQ, or managed alternative) so long-running Meshy conversions do not block API workers.
+- **Scaling Step Execution** – Introduce a worker queue (Celery, RQ, or managed alternative) so long-running Meshy conversions do not block API workers.
 - **Webhook Adoption** – Replace Meshy polling with webhook receivers once keys are provisioned, reducing latency and cost.
 - **Cloud Storage** – Migrate `assets/` to object storage for durability and CDN-backed downloads.
 - **Rigging Quality Assurance** – Automate bone completeness checks prior to VRM conversion (see `research/docs/findings_vrm_conversion.md`) and feed failures back to users with actionable messaging.
 
 For implementation details, cross-reference:
 
-- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) for end-to-end flows
 - [API_REFERENCE.md](./API_REFERENCE.md) for endpoint contracts
-- [TASK_CONFIGURATION.md](../backend/TASK_CONFIGURATION.md) for the exact task graph
+- [TASK_CONFIGURATION.md](../backend/TASK_CONFIGURATION.md) for the exact step definitions (note: uses "steps" not "tasks")
 - [SETUP.md](../backend/SETUP.md) for environment and tuning parameters
 - [INTEGRATIONS.md](../backend/INTEGRATIONS.md) for external API call patterns
 - [DATABASE_SCHEMA.md](../backend/DATABASE_SCHEMA.md) for persistence details
-- [IMPLEMENTATION.md](../frontend/IMPLEMENTATION.md) for frontend 3D UI design
