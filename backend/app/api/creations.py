@@ -1,34 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 from app.database import get_db
-from app.models import Creation, User
-from app.schemas.creation import CreationCreate, CreationResponse, TaskResponse
+from app.models import Creation, User, CreationStep
+from app.schemas.creation import CreationRequest, CreationResponse
 from app.services.auth import get_current_user
-from app.config.tasks import TASKS
-from app.utils.file_utils import check_file_exists, get_creation_path
+from app.config.steps import get_step_by_name
+from app.utils.file_utils import get_creation_path, get_task_file_path
+from app.services.pipeline import run_pipeline_sequential, execute_step_sync, _initialize_creation_steps, _reset_step
 import shutil
 
 router = APIRouter()
-
-@router.post("/", response_model=CreationResponse)
-def create_creation(
-    creation: CreationCreate,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
-    new_creation = Creation(
-        user_id=user.id,
-        character_name=creation.character_name,
-        current_task="image_capture",
-        status="pending"
-    )
-    db.add(new_creation)
-    db.commit()
-    db.refresh(new_creation)
-    
-    # Hydrate tasks for response
-    return hydrate_creation_response(new_creation, user.id)
 
 @router.get("/{creation_id}", response_model=CreationResponse)
 def get_creation(
@@ -42,19 +24,17 @@ def get_creation(
     
     # In V3, check ownership here
     
-    return hydrate_creation_response(creation, user.id)
+    return CreationResponse.from_creation(creation)
 
 @router.get("/", response_model=dict)
 def list_creations(
-    status: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
     limit: int = 20,
     offset: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
     query = db.query(Creation)
-    if status:
-        query = query.filter(Creation.status == status)
     
     # Filter by user in V3
     # query = query.filter(Creation.user_id == user.id)
@@ -62,8 +42,15 @@ def list_creations(
     total = query.count()
     creations = query.order_by(Creation.created_at.desc()).offset(offset).limit(limit).all()
     
+    # Build responses using model properties
+    creation_responses = [CreationResponse.from_creation(c) for c in creations]
+    
+    if status_filter:
+        creation_responses = [c for c in creation_responses if c.status == status_filter]
+        total = len(creation_responses)
+    
     return {
-        "creations": [hydrate_creation_response(c, c.user_id) for c in creations],
+        "creations": creation_responses,
         "total": total,
         "limit": limit,
         "offset": offset
@@ -72,7 +59,7 @@ def list_creations(
 @router.patch("/{creation_id}", response_model=CreationResponse)
 def update_creation(
     creation_id: str,
-    creation_update: CreationCreate,
+    creation_update: CreationRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -85,7 +72,7 @@ def update_creation(
     
     db.commit()
     db.refresh(creation)
-    return hydrate_creation_response(creation, user.id)
+    return CreationResponse.from_creation(creation)
 
 @router.delete("/{creation_id}")
 def delete_creation(
@@ -109,81 +96,127 @@ def delete_creation(
     db.commit()
     return {"message": "Creation deleted successfully"}
 
-@router.get("/{creation_id}/progress")
-def get_creation_progress(
-    creation_id: str,
+@router.post("/upload", response_model=CreationResponse)
+async def upload_image(
+    file: UploadFile = File(...),
+    character_name: Optional[str] = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
+    """Upload image file. Creates creation if needed, resets all steps, does NOT start pipeline."""
+    # Create new creation
+    new_creation = Creation(
+        user_id=user.id,
+        character_name=character_name
+    )
+    db.add(new_creation)
+    db.commit()
+    db.refresh(new_creation)
+    
+    # Save file as original.jpg
+    output_filename = "original.jpg"
+    save_path = get_task_file_path(new_creation.id, user.id, output_filename, is_temp=True)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(save_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Initialize steps
+    _initialize_creation_steps(new_creation.id, db)
+    
+    # Reset all steps to pending (new upload = fresh start)
+    steps = db.query(CreationStep).filter(CreationStep.creation_id == new_creation.id).all()
+    for step in steps:
+        _reset_step(step)
+    db.commit()
+    
+    # Return creation response (pipeline not started yet)
+    db.refresh(new_creation)
+    return CreationResponse.from_creation(new_creation)
+
+
+@router.post("/{creation_id}/run")
+async def run_creation(
+    creation_id: str,
+    restart: bool = Query(False, description="If true, restart from step 1. If false, resume from first incomplete step."),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Run pipeline sequentially. Calls shared logic directly."""
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
-    completed_tasks = []
-    pending_tasks = []
+    # Create new DB session for background task
+    from app.database import SessionLocal
+    db_session = SessionLocal()
     
-    # Determine task status based on file existence
-    for task in TASKS:
-        output_file = task["output"]
-        if output_file:
-            # Replace placeholder
-            filename = output_file.format(creation_id=creation.id)
-            is_temp = creation.status != "completed"
-            if check_file_exists(creation.id, user.id, filename, is_temp=is_temp):
-                completed_tasks.append(task["name"])
-            else:
-                pending_tasks.append(task["name"])
-        else:
-            # Special case for 'complete' task or tasks without output
-            if creation.status == "completed" and task["name"] == "complete":
-                completed_tasks.append(task["name"])
-            else:
-                pending_tasks.append(task["name"])
-
-    total_tasks = len(TASKS)
-    overall_progress = int((len(completed_tasks) / total_tasks) * 100) if total_tasks > 0 else 0
+    # Trigger pipeline in background
+    def run_pipeline_task():
+        try:
+            run_pipeline_sequential(creation_id, user.id, restart, db_session)
+        finally:
+            db_session.close()
+    
+    background_tasks.add_task(run_pipeline_task)
     
     return {
-        "creation_id": creation.id,
-        "status": creation.status,
-        "current_task": creation.current_task,
-        "completed_tasks": completed_tasks,
-        "processing_task": creation.current_task,
-        "pending_tasks": pending_tasks,
-        "overall_progress": overall_progress,
-        "current_task_progress": 0 # Placeholder for specific task progress
+        "message": "Pipeline run triggered",
+        "creation_id": creation_id,
+        "restart": restart
     }
 
-def hydrate_creation_response(creation: Creation, user_id: str) -> CreationResponse:
-    # Build task list with status
-    tasks_resp = []
-    is_temp = creation.status != "completed"
+
+@router.post("/{creation_id}/steps/{step_name}/run")
+async def run_step(
+    creation_id: str,
+    step_name: str,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Run a single step. Validates dependencies, executes in background."""
+    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
     
-    for task in TASKS:
-        status = "pending"
-        file_url = None
-        output_file = task["output"]
-        
-        if output_file:
-            filename = output_file.format(creation_id=creation.id)
-            if check_file_exists(creation.id, user_id, filename, is_temp=is_temp):
-                status = "completed"
-                # Construct URL
-                base_path = "temp" if is_temp else "permanent"
-                file_url = f"/api/files/{base_path}/{user_id}/{creation.id}/{filename}"
-            elif creation.current_task == task["name"]:
-                status = "processing"
-        elif task["name"] == "complete" and creation.status == "completed":
-             status = "completed"
-             
-        tasks_resp.append(TaskResponse(
-            name=task["name"],
-            status=status,
-            output_file=output_file.format(creation_id=creation.id) if output_file else None,
-            file_url=file_url
-        ))
-        
-    response = CreationResponse.from_orm(creation)
-    response.tasks = tasks_resp
-    return response
+    # Validate step_name exists
+    step_config = get_step_by_name(step_name)
+    if not step_config:
+        raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
+    
+    # Validate dependencies
+    if step_config.get("depends_on"):
+        dep_step_config = get_step_by_name(step_config["depends_on"])
+        if dep_step_config and dep_step_config.get("output"):
+            dep_output = dep_step_config["output"]
+            if "{creation_id}" in dep_output:
+                dep_output = dep_output.format(creation_id=creation_id)
+            from app.utils.file_utils import check_file_exists
+            if not check_file_exists(creation_id, user.id, dep_output, is_temp=True):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Dependency {step_config['depends_on']} output not found: {dep_output}"
+                )
+    
+    # Create new DB session for background task
+    from app.database import SessionLocal
+    db_session = SessionLocal()
+    
+    # Execute step in background
+    def run_step_task():
+        try:
+            execute_step_sync(creation_id, user.id, step_name, db_session)
+        finally:
+            db_session.close()
+    
+    background_tasks.add_task(run_step_task)
+    
+    return {
+        "message": "Step execution started",
+        "creation_id": creation_id,
+        "step_name": step_name
+    }
+
 

@@ -33,3 +33,22 @@ env/
 
 # Cursor IDE files
 .cursor/
+.cursor/debug.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+heromaker.db
+
+# Test files in assets (keep structure, ignore test data)
+assets/temp/
+assets/permanent/*/
+!assets/permanent/.gitkeep
