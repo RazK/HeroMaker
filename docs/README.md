@@ -4,6 +4,18 @@ Welcome to the HeroMaker documentation. This directory contains all design and i
 
 ## Quick Start
 
+### Docker Setup (Recommended)
+
+**Fastest way to get started:**
+
+1. Copy `.env.example` to `.env` and add your API keys
+2. Run `docker-compose up -d`
+3. Access API at `http://localhost:8000`
+
+See [DOCKER_SETUP.md](./backend/DOCKER_SETUP.md) for complete Docker setup guide.
+
+### Manual Setup
+
 - **New to the project?** Start with [shared/ARCHITECTURE.md](./shared/ARCHITECTURE.md) for high-level overview
 - **Backend Developer?** Start with [backend/IMPLEMENTATION.md](./backend/IMPLEMENTATION.md)
 - **Frontend Developer?** Frontend is being rebuilt - see [API_REFERENCE.md](./shared/API_REFERENCE.md) for API contract
@@ -16,7 +28,8 @@ Welcome to the HeroMaker documentation. This directory contains all design and i
 
 All backend development documentation:
 
-- **[IMPLEMENTATION.md](./backend/IMPLEMENTATION.md)** - ⭐ **Start here** - Complete backend implementation guide (setup + step-by-step)
+- **[DOCKER_SETUP.md](./backend/DOCKER_SETUP.md)** - ⭐ **Docker Quick Start** - Run HeroMaker with Docker (recommended)
+- **[IMPLEMENTATION.md](./backend/IMPLEMENTATION.md)** - Complete backend implementation guide (setup + step-by-step)
 - **[DATABASE_SCHEMA.md](./backend/DATABASE_SCHEMA.md)** - Database schema, tables, indexes, and design notes
 - **[TASK_CONFIGURATION.md](./backend/TASK_CONFIGURATION.md)** - Task definitions, file mappings, and execution logic
 - **[SETUP.md](./backend/SETUP.md)** - Environment variables, error handling, and operational configuration
