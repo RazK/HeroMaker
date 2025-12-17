@@ -1,6 +1,18 @@
 import bpy
 import sys
-import math
+import os
+import addon_utils
+import bmesh
+
+def enable_vrm_addon():
+    """Ensure the VRM addon is enabled (needed for containerized Blender)."""
+    try:
+        addon_utils.enable("io_scene_vrm", default_set=True, persistent=True)
+    except:
+        try:
+            addon_utils.enable("vrm_addon", default_set=True, persistent=True)
+        except:
+            pass  # Addon might already be enabled
 
 def clean_scene():
     bpy.ops.object.select_all(action='SELECT')
@@ -36,6 +48,56 @@ def bake_pose(armature):
     bpy.ops.pose.armature_apply()
     
     bpy.ops.object.mode_set(mode='OBJECT')
+
+def set_vrm_thumbnail(armature, thumbnail_path):
+    """
+    Set thumbnail image for VRM avatar.
+    
+    Args:
+        armature: The armature object
+        thumbnail_path: Path to thumbnail image file
+    """
+    if not os.path.exists(thumbnail_path):
+        print(f"Warning: Thumbnail file not found: {thumbnail_path}")
+        return False
+    
+    try:
+        # Load the image into Blender
+        img = bpy.data.images.load(thumbnail_path)
+        print(f"Loaded thumbnail image: {thumbnail_path} ({img.size[0]}x{img.size[1]})")
+        
+        # Ensure VRM extension exists
+        if not hasattr(armature.data, "vrm_addon_extension"):
+            print("Error: VRM Addon not found - cannot set thumbnail")
+            return False
+        
+        ext = armature.data.vrm_addon_extension
+        vrm0 = ext.vrm0
+        
+        # Set thumbnail in VRM metadata
+        # Try different possible attribute names for thumbnail
+        if hasattr(vrm0.meta, "thumbnail"):
+            vrm0.meta.thumbnail = img
+            print("Thumbnail set in VRM metadata (thumbnail)")
+        elif hasattr(vrm0.meta, "texture"):
+            vrm0.meta.texture = img
+            print("Thumbnail set in VRM metadata (texture)")
+        elif hasattr(vrm0.meta, "preview"):
+            vrm0.meta.preview = img
+            print("Thumbnail set in VRM metadata (preview)")
+        else:
+            # Try to find the thumbnail field by inspecting the metadata
+            print("Warning: Could not find thumbnail field in VRM metadata")
+            print(f"Available attributes: {dir(vrm0.meta)}")
+            return False
+        
+        return True
+    except Exception as e:
+        print(f"Error setting thumbnail: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 
 def map_vrm_bones(armature):
     # Ensure VRM extension exists
@@ -138,12 +200,15 @@ def map_vrm_bones(armature):
                 print(f"Info: Optional bone '{mixamo_name}' ({vrm_name}) not found - VRM spec allows fallback")
 
 def main():
+    # Enable VRM addon first (needed for containerized Blender)
+    enable_vrm_addon()
+    
     # Args: blender --bg --python script.py -- input.glb output.vrm
     argv = sys.argv
     if "--" in argv:
         argv = argv[argv.index("--") + 1:]
     else:
-        print("Usage: blender ... -- input.glb output.vrm")
+        print("Usage: blender ... -- input.glb output.vrm [thumbnail.png]")
         return
 
     if len(argv) < 2:
@@ -152,8 +217,11 @@ def main():
 
     input_path = argv[0]
     output_path = argv[1]
+    thumbnail_path = argv[2] if len(argv) > 2 else None
     
     print(f"Processing: {input_path}")
+    if thumbnail_path:
+        print(f"Thumbnail: {thumbnail_path}")
     
     clean_scene()
     
@@ -184,12 +252,50 @@ def main():
     print("Mapping VRM Bones...")
     map_vrm_bones(armature)
     
-    # 5. Export VRM
+    # 5. Set thumbnail if provided
+    if thumbnail_path:
+        print("Setting thumbnail...")
+        set_vrm_thumbnail(armature, thumbnail_path)
+    
+    # 5. Remove unwanted objects (collision boxes, helpers, etc.)
+    print("Removing unwanted objects...")
+    objects_to_keep = set()
+    objects_to_keep.add(armature)
+    
+    # Keep all meshes that are children of the armature
+    for obj in bpy.context.scene.objects:
+        if obj.type == 'MESH':
+            parent = obj.parent
+            while parent:
+                if parent == armature:
+                    objects_to_keep.add(obj)
+                    break
+                parent = parent.parent
+    
+    # Delete everything else
+    objects_to_delete = []
+    for obj in bpy.context.scene.objects:
+        if obj not in objects_to_keep:
+            objects_to_delete.append(obj)
+    
+    if objects_to_delete:
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in objects_to_delete:
+            obj.select_set(True)
+            print(f"Removing: {obj.name} (type: {obj.type})")
+        bpy.ops.object.delete()
+    
+    # 6. Select armature and remaining objects for export
+    print("Selecting objects for export...")
+    bpy.ops.object.select_all(action='SELECT')
+    
+    # 6. Export VRM
     print(f"Exporting to {output_path}...")
     export_success = False
     try:
         # Explicitly pass the armature name and ignore warnings
         # Note: ignore_warning=True allows export even with missing optional bones
+        # Only selected objects (armature + children) will be exported
         bpy.ops.export_scene.vrm(
             filepath=output_path,
             armature_object_name=armature.name,
@@ -207,6 +313,11 @@ def main():
         # Try alternate operator name if it changed in recent versions
         try:
             print("Retrying with alternate operator...")
+            # Ensure selection is still correct
+            bpy.ops.object.select_all(action='DESELECT')
+            armature.select_set(True)
+            bpy.context.view_layer.objects.active = armature
+            bpy.ops.object.select_grouped(type='CHILDREN_RECURSIVE')
             bpy.ops.vrm.export_vrm(filepath=output_path)
             import os
             if os.path.exists(output_path):
@@ -224,3 +335,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -328,8 +328,13 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
         elif step_name == "convert_vrm":
             logger.info(f"[{creation_id}] Executing convert_vrm...")
             input_path = get_task_file_path(creation_id, user_id, step_config["input"], is_temp)
-            output_path = get_task_file_path(creation_id, user_id, output_filename, is_temp)
-            vrm_conversion.convert_glb_to_vrm(input_path, output_path)
+            # Always use avatar.vrm as output filename
+            output_path = get_task_file_path(creation_id, user_id, "avatar.vrm", is_temp)
+            # Try to find rendered.png as thumbnail (from chatgpt_render step)
+            thumbnail_path = get_task_file_path(creation_id, user_id, "rendered.png", is_temp)
+            if not thumbnail_path.exists():
+                thumbnail_path = None
+            vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=thumbnail_path)
             
         elif step_name == "complete":
             logger.info(f"[{creation_id}] Executing complete (moving files to permanent storage)...")
