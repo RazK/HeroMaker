@@ -51,3 +51,4 @@ heromaker.db
 # Test files in assets (keep structure, ignore test data)
 assets/temp/
 !assets/permanent/.gitkeep
+.env
