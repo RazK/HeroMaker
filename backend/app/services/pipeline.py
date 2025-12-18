@@ -16,7 +16,8 @@ from app.database import SessionLocal
 from app.utils.file_utils import (
     get_task_file_path,
     check_file_exists,
-    move_to_permanent
+    move_to_permanent,
+    copy_original_to_temp
 )
 from app.services import image_processing
 from app.services import chatgpt
@@ -383,6 +384,11 @@ def run_pipeline_sequential(creation_id: str, user_id: str, restart: bool, db: S
         raise ValueError(f"Creation {creation_id} not found")
     
     logger.info(f"[{creation_id}] Starting pipeline (restart={restart})")
+    
+    # If restarting, copy original.jpg from permanent back to temp if it exists
+    if restart:
+        if copy_original_to_temp(creation_id, user_id):
+            logger.info(f"[{creation_id}] Copied original.jpg from permanent to temp for restart")
     
     # Initialize steps if needed
     _initialize_creation_steps(creation_id, db)

@@ -27,6 +27,8 @@ class Creation(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"))
     character_name = Column(String, nullable=True)
+    name = Column(String, nullable=True)  # Person's name (for original image)
+    age = Column(Integer, nullable=True)  # Person's age (for original image)
     is_public = Column(Boolean, default=True)
     metadata_json = Column(JSON, default={}, name="metadata") # 'metadata' is reserved in Base
     created_at = Column(DateTime, default=datetime.utcnow)

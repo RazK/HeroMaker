@@ -4,6 +4,8 @@ from typing import Optional, List
 
 class CreationRequest(BaseModel):
     character_name: Optional[str] = None
+    name: Optional[str] = None
+    age: Optional[int] = None
 
 class CreationStepResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -34,9 +36,12 @@ class CreationResponse(BaseModel):
     
     id: str
     character_name: Optional[str] = None
+    name: Optional[str] = None  # Person's name (for original image)
+    age: Optional[int] = None  # Person's age (for original image)
     status: str  # Derived from steps
     current_step: Optional[str] = None  # Derived from steps
     user_id: str
+    username: Optional[str] = None  # User's username (deprecated, use name instead)
     created_at: datetime
     completed_at: Optional[datetime] = None  # Derived from steps
     steps: List[CreationStepResponse] = []
@@ -49,6 +54,12 @@ class CreationResponse(BaseModel):
         
         # Use model_validate to convert Creation model to response (uses @property methods)
         response = cls.model_validate(creation)
+        
+        # Add username from user relationship if available
+        if creation.user:
+            response.username = creation.user.username
+        else:
+            response.username = None
         
         # Build steps list in STEPS config order (not DB order)
         # Steps should be initialized, but handle gracefully if missing (e.g., old creations)

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from app.database import get_db
 from app.models import Creation, User, CreationStep
@@ -22,6 +22,9 @@ def get_creation(
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
+    # Eagerly load user relationship to include username
+    db.refresh(creation, ["user"])
+    
     # In V3, check ownership here
     
     return CreationResponse.from_creation(creation)
@@ -34,7 +37,7 @@ def list_creations(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    query = db.query(Creation)
+    query = db.query(Creation).options(joinedload(Creation.steps))
     
     # Filter by user in V3
     # query = query.filter(Creation.user_id == user.id)
@@ -67,11 +70,30 @@ def update_creation(
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
+    print(f"[API] PATCH /creations/{creation_id}: character_name={creation_update.character_name}, name={creation_update.name}, age={creation_update.age}")
+    
     if creation_update.character_name is not None:
         creation.character_name = creation_update.character_name
+        print(f"[API] Updated character_name to: {creation.character_name}")
+    
+    if creation_update.name is not None:
+        # Convert empty string to None, otherwise use the trimmed value
+        if isinstance(creation_update.name, str):
+            trimmed = creation_update.name.strip()
+            creation.name = trimmed if trimmed else None
+        else:
+            creation.name = None
+        print(f"[API] Updated name to: {creation.name}")
+    
+    if creation_update.age is not None:
+        creation.age = creation_update.age
+        print(f"[API] Updated age to: {creation.age}")
     
     db.commit()
     db.refresh(creation)
+    print(f"[API] After refresh - name: {creation.name}, age: {creation.age}")
+    # Eagerly load user relationship
+    db.refresh(creation, ["user"])
     return CreationResponse.from_creation(creation)
 
 @router.delete("/{creation_id}")

@@ -36,6 +36,21 @@ def move_to_permanent(creation_id: str, user_id: str):
             shutil.rmtree(perm_path)
         shutil.move(str(temp_path), str(perm_path))
 
+def copy_original_to_temp(creation_id: str, user_id: str):
+    """Copy original.jpg from permanent to temp storage (for restarting completed creations)."""
+    perm_original = get_task_file_path(creation_id, user_id, "original.jpg", is_temp=False)
+    temp_original = get_task_file_path(creation_id, user_id, "original.jpg", is_temp=True)
+    
+    if perm_original.exists():
+        # Ensure temp directory exists
+        temp_path = get_creation_path(creation_id, user_id, is_temp=True)
+        temp_path.mkdir(parents=True, exist_ok=True)
+        
+        # Copy original.jpg from permanent to temp
+        shutil.copy2(str(perm_original), str(temp_original))
+        return True
+    return False
+
 def get_file_url(creation_id: str, user_id: str, filename: str, is_temp: bool = True) -> str:
     """
     Get the API URL for a file.
