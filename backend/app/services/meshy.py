@@ -58,12 +58,29 @@ class MeshyClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
-            error_msg = f"HTTP {response.status_code}"
+            # Try to extract the actual error message from Meshy API response
+            error_msg = None
             try:
                 error_data = response.json()
-                error_msg += f": {error_data.get('error', {}).get('message', str(e))}"
-            except:
-                error_msg += f": {str(e)}"
+                # Meshy API returns error in different formats
+                if isinstance(error_data, dict):
+                    # Try 'message' field first (most common)
+                    if 'message' in error_data:
+                        error_msg = error_data['message']
+                    # Try 'error' object with 'message'
+                    elif 'error' in error_data and isinstance(error_data['error'], dict):
+                        error_msg = error_data['error'].get('message')
+                    # Try 'detail' field
+                    elif 'detail' in error_data:
+                        error_msg = error_data['detail']
+            except Exception:
+                # If JSON parsing fails, try raw response text
+                error_msg = response.text[:200] if response.text else None
+            
+            # Fallback to HTTP status if we couldn't extract a message
+            if not error_msg:
+                error_msg = f"HTTP {response.status_code}: {str(e)}"
+            
             raise MeshyAPIError(error_msg) from e
         except requests.exceptions.RequestException as e:
             raise MeshyAPIError(f"Request failed: {str(e)}") from e

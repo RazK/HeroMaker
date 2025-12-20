@@ -53,8 +53,9 @@ export function useCreationPolling(
         
         onUpdateRef.current(creation);
 
-        // Stop polling if completed or failed
-        if (creation.status === 'completed' || creation.status === 'failed') {
+        // Stop polling only if completed
+        // Don't stop on failed - user might retry, which will change status back to processing
+        if (creation.status === 'completed') {
           console.log(`[Polling] Stopping polling for ${creationId}: status = ${creation.status}`);
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -87,3 +88,8 @@ export function useCreationPolling(
     };
   }, [creationId]);
 }
+
+
+
+
+
