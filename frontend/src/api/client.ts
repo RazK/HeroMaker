@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const DEBUG_USER_ID = 'debug-user-uuid';
 
 export interface CreationStepResponse {
@@ -28,7 +28,8 @@ export interface CreationResponse {
 export interface RunPipelineResponse {
   message: string;
   creation_id: string;
-  restart: boolean;
+  step_name?: string;
+  retry_all_following: boolean;
 }
 
 class ApiError extends Error {
@@ -109,15 +110,55 @@ export const api = {
   /**
    * Start or restart the pipeline for a creation
    */
-  async runPipeline(creationId: string, restart: boolean = false): Promise<RunPipelineResponse> {
-    console.log('[API] runPipeline:', { creationId, restart });
+  async runPipeline(
+    creationId: string, 
+    stepName?: string, 
+    retryAllFollowing: boolean = true
+  ): Promise<RunPipelineResponse> {
+    console.log('[API] runPipeline:', { creationId, stepName, retryAllFollowing });
+    const params = new URLSearchParams();
+    if (stepName) {
+      params.append('step_name', stepName);
+    }
+    params.append('retry_all_following', String(retryAllFollowing));
+    
     const result = await fetchJson<RunPipelineResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}/run?restart=${restart}`,
+      `${API_BASE_URL}/api/creations/${creationId}/run?${params.toString()}`,
       {
         method: 'POST',
       }
     );
     console.log('[API] runPipeline result:', result);
+    return result;
+  },
+
+  /**
+   * Run a single step
+   */
+  async runStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
+    console.log('[API] runStep:', { creationId, stepName });
+    const result = await fetchJson<{ message: string; creation_id: string; step_name: string }>(
+      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/run`,
+      {
+        method: 'POST',
+      }
+    );
+    console.log('[API] runStep result:', result);
+    return result;
+  },
+
+  /**
+   * Reset a step and all following steps, then run pipeline from that step
+   */
+  async resetAndRunFromStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
+    console.log('[API] resetAndRunFromStep:', { creationId, stepName });
+    const result = await fetchJson<{ message: string; creation_id: string; step_name: string }>(
+      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/reset-and-run`,
+      {
+        method: 'POST',
+      }
+    );
+    console.log('[API] resetAndRunFromStep result:', result);
     return result;
   },
 
@@ -152,10 +193,9 @@ export const api = {
   /**
    * Get file URL for a creation file
    */
-  getFileUrl(creationId: string, filename: string, isTemp: boolean = true): string {
-    const basePath = isTemp ? 'temp' : 'permanent';
-    const url = `${API_BASE_URL}/api/files/${basePath}/${DEBUG_USER_ID}/${creationId}/${filename}`;
-    console.log('[API] getFileUrl:', { creationId, filename, isTemp, url });
+  getFileUrl(creationId: string, filename: string): string {
+    const url = `${API_BASE_URL}/api/files/${DEBUG_USER_ID}/${creationId}/${filename}`;
+    console.log('[API] getFileUrl:', { creationId, filename, url });
     return url;
   },
 
@@ -269,9 +309,9 @@ export const api = {
   /**
    * Download a file
    */
-  async downloadFile(creationId: string, filename: string, isTemp: boolean = true): Promise<void> {
-    const url = this.getFileUrl(creationId, filename, isTemp);
-    console.log('[API] downloadFile:', { creationId, filename, isTemp, url });
+  async downloadFile(creationId: string, filename: string): Promise<void> {
+    const url = this.getFileUrl(creationId, filename);
+    console.log('[API] downloadFile:', { creationId, filename, url });
     const response = await fetch(url);
     
     if (!response.ok) {

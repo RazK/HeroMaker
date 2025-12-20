@@ -3,13 +3,14 @@ import { CreationStepResponse } from '../api/client';
 import { ImagePreview } from './ImagePreview';
 import { ModelPreview } from './ModelPreview';
 import { api } from '../api/client';
+import { RetryModal } from './RetryModal';
 import './StepCard.css';
 
 interface StepCardProps {
   step: CreationStepResponse;
   creationId: string;
   stepIndex: number;
-  creationStatus: string; // Add creation status to know when files are in permanent
+  onStepRetry?: (stepName: string) => void;
 }
 
 const STEP_DISPLAY_NAMES: Record<string, string> = {
@@ -204,10 +205,12 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-export function StepCard({ step, creationId, stepIndex, creationStatus }: StepCardProps) {
+export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardProps) {
   // Force re-render every second for live time updates
   const [, setTick] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
+  const [showRetryModal, setShowRetryModal] = useState(false);
+  const [isHoveringStatus, setIsHoveringStatus] = useState(false);
 
   useEffect(() => {
     if (step.status === 'processing') {
@@ -232,11 +235,9 @@ export function StepCard({ step, creationId, stepIndex, creationStatus }: StepCa
   const isVrmStep = outputFile && outputFile.endsWith('.vrm');
   // Only show preview for completed steps (file exists)
   const showPreview = step.status === 'completed' && outputFile;
-
-  // Files are in temp until creation status is 'completed' (when 'complete' step finishes)
-  const isTemp = creationStatus !== 'completed';
+  
   const fileUrl = showPreview
-    ? api.getFileUrl(creationId, outputFile, isTemp)
+    ? api.getFileUrl(creationId, outputFile)
     : null;
 
   const handleDownload = async () => {
@@ -246,7 +247,7 @@ export function StepCard({ step, creationId, stepIndex, creationStatus }: StepCa
     const fileToDownload = step.step_name === 'meshy_rig' ? 'avatar.vrm' : outputFile;
     
     try {
-      await api.downloadFile(creationId, fileToDownload, isTemp);
+      await api.downloadFile(creationId, fileToDownload);
     } catch (error) {
       console.error('Failed to download file:', error);
       alert(`Failed to download ${fileToDownload}`);
@@ -265,6 +266,31 @@ export function StepCard({ step, creationId, stepIndex, creationStatus }: StepCa
     } else {
       // Fallback: open in new window if clipboard fails
       window.open(shareLink, '_blank');
+    }
+  };
+
+  const handleRetry = async (retryAllFollowing: boolean) => {
+    try {
+      // Use pipeline endpoint with step name and retry flag
+      await api.runPipeline(creationId, step.step_name, retryAllFollowing);
+      
+      // Immediately update UI to show processing state
+      if (onStepRetry) {
+        onStepRetry(step.step_name);
+      }
+      
+      // Close modal after successful retry
+      setShowRetryModal(false);
+    } catch (error) {
+      console.error('Failed to retry step:', error);
+      alert(`Failed to retry step: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleStatusClick = () => {
+    if (step.status !== 'processing') {
+      // Show retry modal for non-processing steps
+      setShowRetryModal(true);
     }
   };
 
@@ -288,10 +314,32 @@ export function StepCard({ step, creationId, stepIndex, creationStatus }: StepCa
             </svg>
           </button>
         ) : (
-          <div className={`step-card-status step-card-status-${step.status}`}>
-            {step.status === 'processing' && '⟳'}
-            {step.status === 'failed' && '✗'}
-            {step.status === 'pending' && '○'}
+          <div
+            className="step-card-status-wrapper"
+            onMouseEnter={() => setIsHoveringStatus(true)}
+            onMouseLeave={() => setIsHoveringStatus(false)}
+          >
+            {isHoveringStatus && step.status === 'failed' ? (
+              <button
+                className={`step-card-status step-card-status-${step.status} step-card-status-retry`}
+                onClick={handleStatusClick}
+                title="Retry this step"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </button>
+            ) : (
+              <div className={`step-card-status step-card-status-${step.status}`}>
+                {step.status === 'processing' && '⟳'}
+                {step.status === 'failed' && '✗'}
+                {step.status === 'pending' && '○'}
+                {step.status === 'completed' && '✓'}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -316,9 +364,16 @@ export function StepCard({ step, creationId, stepIndex, creationStatus }: StepCa
 
       {step.status === 'failed' && step.error_message && (
         <div className="step-card-error">
-          <strong>Error:</strong> {step.error_message}
+          <strong>Error</strong> {step.error_message}
         </div>
       )}
+
+      <RetryModal
+        stepName={displayName}
+        isOpen={showRetryModal}
+        onClose={() => setShowRetryModal(false)}
+        onRetry={handleRetry}
+      />
 
       {showPreview && fileUrl ? (
         <div className="step-card-preview">
@@ -367,4 +422,9 @@ export function StepCard({ step, creationId, stepIndex, creationStatus }: StepCa
     </div>
   );
 }
+
+
+
+
+
 

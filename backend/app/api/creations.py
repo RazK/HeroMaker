@@ -7,7 +7,8 @@ from app.schemas.creation import CreationRequest, CreationResponse
 from app.services.auth import get_current_user
 from app.config.steps import get_step_by_name
 from app.utils.file_utils import get_creation_path, get_task_file_path
-from app.services.pipeline import run_pipeline_sequential, execute_step_sync, _initialize_creation_steps, _reset_step
+from app.services.pipeline import run_pipeline_sequential, execute_step_sync, _initialize_creation_steps
+from app.services.pipeline import _reset_step
 import shutil
 
 router = APIRouter()
@@ -107,12 +108,9 @@ def delete_creation(
         raise HTTPException(status_code=404, detail="Creation not found")
     
     # Remove files
-    path = get_creation_path(creation_id, user.id, is_temp=True)
+    path = get_creation_path(creation_id, user.id)
     if path.exists():
         shutil.rmtree(path)
-    path_perm = get_creation_path(creation_id, user.id, is_temp=False)
-    if path_perm.exists():
-        shutil.rmtree(path_perm)
 
     db.delete(creation)
     db.commit()
@@ -137,7 +135,7 @@ async def upload_image(
     
     # Save file as original.jpg
     output_filename = "original.jpg"
-    save_path = get_task_file_path(new_creation.id, user.id, output_filename, is_temp=True)
+    save_path = get_task_file_path(new_creation.id, user.id, output_filename)
     save_path.parent.mkdir(parents=True, exist_ok=True)
     
     with open(save_path, "wb") as buffer:
@@ -160,15 +158,58 @@ async def upload_image(
 @router.post("/{creation_id}/run")
 async def run_creation(
     creation_id: str,
-    restart: bool = Query(False, description="If true, restart from step 1. If false, resume from first incomplete step."),
+    step_name: Optional[str] = Query(None, description="Optional step name to start from. If None, starts from beginning (step 0)."),
+    retry_all_following: bool = Query(True, description="If true and step_name provided, resets step and all following steps. If false, only resets the specified step."),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Run pipeline sequentially. Calls shared logic directly."""
+    """
+    Run pipeline sequentially.
+    
+    - If step_name is None: Always start from beginning (step 0)
+    - If step_name is provided: Start from that step, optionally resetting all following steps
+    """
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
+    
+    # If step_name is provided, validate it exists and reset steps accordingly
+    if step_name:
+        step_config = get_step_by_name(step_name)
+        if not step_config:
+            raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
+        
+        # Find step index
+        from app.config.steps import STEPS
+        step_index = next((i for i, s in enumerate(STEPS) if s["name"] == step_name), None)
+        if step_index is None:
+            raise HTTPException(status_code=404, detail=f"Step {step_name} not found in STEPS")
+        
+        # Reset this step and optionally all following steps
+        all_steps = db.query(CreationStep).filter(CreationStep.creation_id == creation_id).all()
+        steps_by_name = {s.step_name: s for s in all_steps}
+        
+        if retry_all_following:
+            # Reset this step and all following steps
+            for i in range(step_index, len(STEPS)):
+                step_to_reset = steps_by_name.get(STEPS[i]["name"])
+                if step_to_reset:
+                    _reset_step(step_to_reset)
+        else:
+            # Reset only this step
+            step_to_reset = steps_by_name.get(step_name)
+            if step_to_reset:
+                _reset_step(step_to_reset)
+        
+        db.commit()
+        # When step_name is provided, we start from that step
+        start_from_step = step_name
+        restart = False  # We've already reset steps, so don't restart from beginning
+    else:
+        # No step_name: always start from beginning
+        start_from_step = None
+        restart = True
     
     # Create new DB session for background task
     from app.database import SessionLocal
@@ -177,7 +218,7 @@ async def run_creation(
     # Trigger pipeline in background
     def run_pipeline_task():
         try:
-            run_pipeline_sequential(creation_id, user.id, restart, db_session)
+            run_pipeline_sequential(creation_id, user.id, restart, db_session, start_from_step=start_from_step)
         finally:
             db_session.close()
     
@@ -186,7 +227,8 @@ async def run_creation(
     return {
         "message": "Pipeline run triggered",
         "creation_id": creation_id,
-        "restart": restart
+        "step_name": step_name,
+        "retry_all_following": retry_all_following
     }
 
 
@@ -216,7 +258,7 @@ async def run_step(
             if "{creation_id}" in dep_output:
                 dep_output = dep_output.format(creation_id=creation_id)
             from app.utils.file_utils import check_file_exists
-            if not check_file_exists(creation_id, user.id, dep_output, is_temp=True):
+            if not check_file_exists(creation_id, user.id, dep_output):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Dependency {step_config['depends_on']} output not found: {dep_output}"
@@ -237,6 +279,61 @@ async def run_step(
     
     return {
         "message": "Step execution started",
+        "creation_id": creation_id,
+        "step_name": step_name
+    }
+
+
+@router.post("/{creation_id}/steps/{step_name}/reset-and-run")
+async def reset_and_run_from_step(
+    creation_id: str,
+    step_name: str,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Reset a step and all following steps to pending, then run pipeline from that step."""
+    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
+    
+    # Validate step_name exists
+    step_config = get_step_by_name(step_name)
+    if not step_config:
+        raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
+    
+    # Find step index
+    from app.config.steps import STEPS
+    step_index = next((i for i, s in enumerate(STEPS) if s["name"] == step_name), None)
+    if step_index is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_name} not found in STEPS")
+    
+    # Reset this step and all following steps
+    all_steps = db.query(CreationStep).filter(CreationStep.creation_id == creation_id).all()
+    steps_by_name = {s.step_name: s for s in all_steps}
+    
+    for i in range(step_index, len(STEPS)):
+        step_to_reset = steps_by_name.get(STEPS[i]["name"])
+        if step_to_reset:
+            _reset_step(step_to_reset)
+    
+    db.commit()
+    
+    # Create new DB session for background task
+    from app.database import SessionLocal
+    db_session = SessionLocal()
+    
+    # Run pipeline from this step
+    def run_pipeline_task():
+        try:
+            run_pipeline_sequential(creation_id, user.id, restart=False, db=db_session)
+        finally:
+            db_session.close()
+    
+    background_tasks.add_task(run_pipeline_task)
+    
+    return {
+        "message": "Steps reset and pipeline started",
         "creation_id": creation_id,
         "step_name": step_name
     }

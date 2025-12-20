@@ -67,7 +67,7 @@ def cleanup_test_creations(test_client, api_base_url):
                 
                 # Also remove temp folder if it exists (for debug-user-uuid)
                 for user_id in ["debug-user-uuid", TEST_USER_ID]:
-                    temp_path = get_creation_path(creation_id, user_id, is_temp=True)
+                    temp_path = get_creation_path(creation_id, user_id)
                     if temp_path.exists():
                         shutil.rmtree(temp_path, ignore_errors=True)
             

@@ -6,21 +6,19 @@ interface DownloadButtonProps {
   creationId: string;
   filename: string;
   label?: string;
-  isTemp?: boolean;
 }
 
 export function DownloadButton({
   creationId,
   filename,
   label,
-  isTemp = false,
 }: DownloadButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await api.downloadFile(creationId, filename, isTemp);
+      await api.downloadFile(creationId, filename);
     } catch (error) {
       alert(`Failed to download file: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -52,3 +50,8 @@ export function DownloadButton({
     </button>
   );
 }
+
+
+
+
+

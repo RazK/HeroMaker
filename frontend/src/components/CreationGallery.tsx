@@ -58,10 +58,9 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
       
       // Show all creations that have an original image
       const filteredCreations = allCreations.filter(creation => {
-        // Only show if it has an original image (either in temp or permanent)
-        const isTemp = creation.status !== 'completed';
+        // Only show if it has an original image
         try {
-          const originalUrl = api.getFileUrl(creation.id, 'original.jpg', isTemp);
+          const originalUrl = api.getFileUrl(creation.id, 'original.jpg');
           return !!originalUrl;
         } catch {
           return false;
@@ -80,10 +79,8 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
   };
 
   const getImageUrl = (creation: CreationResponse, filename: 'original.jpg' | 'rendered.png'): string | null => {
-    // Try to get image - check if creation is completed (permanent) or in progress (temp)
-    const isTemp = creation.status !== 'completed';
     try {
-      return api.getFileUrl(creation.id, filename, isTemp);
+      return api.getFileUrl(creation.id, filename);
     } catch {
       return null;
     }
@@ -305,4 +302,9 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     </div>
   );
 }
+
+
+
+
+
 

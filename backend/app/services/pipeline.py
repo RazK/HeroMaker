@@ -15,9 +15,7 @@ from app.config.steps import STEPS, get_step_by_name
 from app.database import SessionLocal
 from app.utils.file_utils import (
     get_task_file_path,
-    check_file_exists,
-    move_to_permanent,
-    copy_original_to_temp
+    check_file_exists
 )
 from app.services import image_processing
 from app.services import chatgpt
@@ -74,11 +72,17 @@ def _reset_step(step: CreationStep) -> None:
 
 
 def _get_step_start_index(creation_id: str, restart: bool, db: Session) -> int:
-    """Determine starting index for pipeline execution."""
+    """Determine starting index for pipeline execution.
+    
+    If restart=True: Start from step 0 (beginning).
+    If restart=False: Start from the first incomplete step (failed, pending, or processing).
+                     This effectively resumes from the last failed step if one exists,
+                     or from the first incomplete step otherwise.
+    """
     if restart:
         return 0
     
-    # Find last completed step, start from next one
+    # Find last completed step, start from next one (which may be failed, pending, or processing)
     steps_by_name = {s.step_name: s for s in db.query(CreationStep).filter(
         CreationStep.creation_id == creation_id
     ).all()}
@@ -89,6 +93,7 @@ def _get_step_start_index(creation_id: str, restart: bool, db: Session) -> int:
         if step and step.status == "completed":
             start_index = i + 1
         else:
+            # Found first incomplete step (failed, pending, or processing) - start from here
             break
     
     return start_index
@@ -208,7 +213,9 @@ def execute_meshy_rig_sync(
 ) -> None:
     """Create rigging task, poll until complete, download file."""
     # Create task
+    logger.info(f"[{step.creation_id}] Creating rigging task with input_task_id: {input_task_id}")
     task_id = client.create_rigging_task(input_task_id)
+    logger.info(f"[{step.creation_id}] Rigging task created: {task_id}")
     
     # Poll until complete (updates progress in DB)
     download_url = _poll_meshy_task_with_progress(
@@ -257,12 +264,8 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
             dep_output = dep_step_config["output"]
             if "{creation_id}" in dep_output:
                 dep_output = dep_output.format(creation_id=creation_id)
-            if not check_file_exists(creation_id, user_id, dep_output, is_temp=True):
+            if not check_file_exists(creation_id, user_id, dep_output):
                 raise ValueError(f"Dependency {step_config['depends_on']} output not found: {dep_output}")
-    
-    # Determine if temp based on whether all steps are completed
-    all_steps = db.query(CreationStep).filter(CreationStep.creation_id == creation_id).all()
-    is_temp = not all(s.status == "completed" for s in all_steps)
     
     # Update step: processing
     step.started_at = datetime.utcnow()
@@ -286,20 +289,20 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
         
         if step_name == "image_processing":
             logger.info(f"[{creation_id}] Executing image_processing...")
-            input_path = get_task_file_path(creation_id, user_id, step_config["input"], is_temp)
-            output_path = get_task_file_path(creation_id, user_id, output_filename, is_temp)
+            input_path = get_task_file_path(creation_id, user_id, step_config["input"])
+            output_path = get_task_file_path(creation_id, user_id, output_filename)
             image_processing.process_image(input_path, output_path)
             
         elif step_name == "chatgpt_render":
             logger.info(f"[{creation_id}] Executing chatgpt_render (this may take 1-2 minutes)...")
-            input_path = get_task_file_path(creation_id, user_id, step_config["input"], is_temp)
-            output_path = get_task_file_path(creation_id, user_id, output_filename, is_temp)
+            input_path = get_task_file_path(creation_id, user_id, step_config["input"])
+            output_path = get_task_file_path(creation_id, user_id, output_filename)
             chatgpt.render_image(input_path, output_path)
             
         elif step_name == "meshy_3d":
             logger.info(f"[{creation_id}] Executing meshy_3d (this may take 3-5 minutes)...")
-            input_path = get_task_file_path(creation_id, user_id, step_config["input"], is_temp)
-            output_path = get_task_file_path(creation_id, user_id, output_filename, is_temp)
+            input_path = get_task_file_path(creation_id, user_id, step_config["input"])
+            output_path = get_task_file_path(creation_id, user_id, output_filename)
             client = MeshyClient()
             # Create task and get task_id before polling
             logger.info(f"[{creation_id}] Creating Meshy 3D task...")
@@ -321,25 +324,34 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
             if not input_task_id:
                 raise ValueError("No meshy_3d_task_id found in metadata")
             
-            output_path = get_task_file_path(creation_id, user_id, output_filename, is_temp)
+            logger.info(f"[{creation_id}] Using meshy_3d_task_id from metadata: {input_task_id}")
+            output_path = get_task_file_path(creation_id, user_id, output_filename)
             client = MeshyClient()
             logger.info(f"[{creation_id}] Creating Meshy rigging task for task_id: {input_task_id}...")
-            execute_meshy_rig_sync(input_task_id, output_path, step, db, client)
+            try:
+                execute_meshy_rig_sync(input_task_id, output_path, step, db, client)
+            except Exception as e:
+                logger.error(f"[{creation_id}] Meshy rigging failed with input_task_id={input_task_id}: {str(e)}")
+                raise
             
         elif step_name == "convert_vrm":
             logger.info(f"[{creation_id}] Executing convert_vrm...")
-            input_path = get_task_file_path(creation_id, user_id, step_config["input"], is_temp)
+            input_path = get_task_file_path(creation_id, user_id, step_config["input"])
             # Always use avatar.vrm as output filename
-            output_path = get_task_file_path(creation_id, user_id, "avatar.vrm", is_temp)
+            output_path = get_task_file_path(creation_id, user_id, "avatar.vrm")
             # Try to find rendered.png as thumbnail (from chatgpt_render step)
-            thumbnail_path = get_task_file_path(creation_id, user_id, "rendered.png", is_temp)
+            thumbnail_path = get_task_file_path(creation_id, user_id, "rendered.png")
             if not thumbnail_path.exists():
                 thumbnail_path = None
             vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=thumbnail_path)
             
         elif step_name == "complete":
-            logger.info(f"[{creation_id}] Executing complete (moving files to permanent storage)...")
-            move_to_permanent(creation_id, user_id)
+            logger.info(f"[{creation_id}] Executing complete (validating final output exists)...")
+            # Just validate that the final output file exists
+            final_output = get_task_file_path(creation_id, user_id, "avatar.vrm")
+            if not final_output.exists():
+                raise FileNotFoundError(f"Final output file not found: {final_output}")
+            logger.info(f"[{creation_id}] Final output validated: {final_output}")
             
         else:
             raise ValueError(f"Unknown step: {step_name}")
@@ -374,27 +386,36 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
 # Pipeline Runner
 # ============================================================================
 
-def run_pipeline_sequential(creation_id: str, user_id: str, restart: bool, db: Session) -> None:
+def run_pipeline_sequential(creation_id: str, user_id: str, restart: bool, db: Session, start_from_step: Optional[str] = None) -> None:
     """
     Run pipeline sequentially from appropriate starting point.
     Initializes/resets steps as needed, then executes each step in order.
+    
+    Args:
+        creation_id: Creation ID
+        user_id: User ID
+        restart: If True, restart from beginning. If False and start_from_step is None, resume from first incomplete step.
+        db: Database session
+        start_from_step: Optional step name to start from (overrides restart logic)
     """
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     if not creation:
         raise ValueError(f"Creation {creation_id} not found")
     
-    logger.info(f"[{creation_id}] Starting pipeline (restart={restart})")
-    
-    # If restarting, copy original.jpg from permanent back to temp if it exists
-    if restart:
-        if copy_original_to_temp(creation_id, user_id):
-            logger.info(f"[{creation_id}] Copied original.jpg from permanent to temp for restart")
+    logger.info(f"[{creation_id}] Starting pipeline (restart={restart}, start_from_step={start_from_step})")
     
     # Initialize steps if needed
     _initialize_creation_steps(creation_id, db)
     
     # Determine starting point
-    start_index = _get_step_start_index(creation_id, restart, db)
+    if start_from_step:
+        # Find the index of the step to start from
+        step_index = next((i for i, s in enumerate(STEPS) if s["name"] == start_from_step), None)
+        if step_index is None:
+            raise ValueError(f"Step {start_from_step} not found in STEPS")
+        start_index = step_index
+    else:
+        start_index = _get_step_start_index(creation_id, restart, db)
     
     # Reset incomplete steps to pending
     steps_by_name = {s.step_name: s for s in db.query(CreationStep).filter(

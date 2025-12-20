@@ -4,6 +4,7 @@ import './PipelineProgress.css';
 
 interface PipelineProgressProps {
   creation: CreationResponse;
+  onStepRetry?: (stepName: string) => void;
 }
 
 export function calculateOverallProgress(creation: CreationResponse): number {
@@ -14,9 +15,19 @@ export function calculateOverallProgress(creation: CreationResponse): number {
   return Math.round((completed / visibleSteps.length) * 100);
 }
 
-export function PipelineProgress({ creation }: PipelineProgressProps) {
-  // Filter out the "complete" and "convert_vrm" steps - they don't need their own cards
-  const visibleSteps = creation.steps.filter((step) => step.step_name !== 'complete' && step.step_name !== 'convert_vrm');
+export function PipelineProgress({ creation, onStepRetry }: PipelineProgressProps) {
+  // Filter out the "complete" step - it doesn't need its own card
+  // Show "convert_vrm" step if it failed (so user can see the error)
+  const visibleSteps = creation.steps.filter((step) => {
+    if (step.step_name === 'complete') {
+      return false;
+    }
+    // Show convert_vrm if it failed, otherwise hide it
+    if (step.step_name === 'convert_vrm') {
+      return step.status === 'failed';
+    }
+    return true;
+  });
   
   // Recalculate step indices for visible steps only
   const visibleStepsWithIndex = visibleSteps.map((step, index) => ({
@@ -33,11 +44,16 @@ export function PipelineProgress({ creation }: PipelineProgressProps) {
             step={step} 
             creationId={creation.id} 
             stepIndex={index}
-            creationStatus={creation.status}
+            onStepRetry={onStepRetry}
           />
         ))}
       </div>
     </div>
   );
 }
+
+
+
+
+
 

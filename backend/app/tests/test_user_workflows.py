@@ -220,7 +220,7 @@ class TestProgressMonitoring:
                 pytest.skip("Pre-existing rendered.png not found - cannot skip chatgpt_render")
             
             # Copy rendered.png to test creation's temp folder
-            rendered_output_path = get_task_file_path(creation_id, DEBUG_USER_ID, "rendered.png", is_temp=True)
+            rendered_output_path = get_task_file_path(creation_id, DEBUG_USER_ID, "rendered.png")
             rendered_output_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(existing_rendered, rendered_output_path)
             
