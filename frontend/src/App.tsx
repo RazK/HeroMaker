@@ -49,7 +49,7 @@ function App() {
     setError(null);
 
     try {
-      await api.runPipeline(creation.id, false);
+      await api.runPipeline(creation.id);
       console.log('[App] Pipeline start successful');
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to start pipeline';
@@ -79,8 +79,8 @@ function App() {
     }
   }, [creation?.id, creation?.status]);
 
-  // Poll for updates - only poll if status is pending or processing
-  const shouldPoll = creation && (creation.status === 'pending' || creation.status === 'processing');
+  // Poll for updates - poll if status is pending, processing, or failed (user might retry)
+  const shouldPoll = creation && (creation.status === 'pending' || creation.status === 'processing' || creation.status === 'failed');
   useCreationPolling(shouldPoll ? creation.id : null, (updatedCreation) => {
     console.log('[App] Creation updated:', {
       creationId: updatedCreation.id,
@@ -188,25 +188,36 @@ function App() {
               </div>
             )}
 
-            <PipelineProgress creation={creation} />
-
-            {creation.status === 'failed' && (
-              <div className="app-error-section">
-                <h2>Pipeline Failed</h2>
-                {creation.error_message && (
-                  <p className="app-error-message">{creation.error_message}</p>
-                )}
-                <button
-                  className="app-retry-button"
-                  onClick={() => {
-                    setCreation(null);
-                    setError(null);
-                  }}
-                >
-                  Back to Gallery
-                </button>
-              </div>
-            )}
+            <PipelineProgress 
+              creation={creation}
+              onStepRetry={(stepName) => {
+                // Immediately mark step as processing with estimated time
+                const stepDurations: Record<string, number> = {
+                  image_processing: 1,
+                  chatgpt_render: 60,
+                  meshy_3d: 180,
+                  meshy_rig: 30,
+                  convert_vrm: 3,
+                };
+                const duration = stepDurations[stepName] || 30;
+                
+                // Update creation to show step as processing
+                if (creation) {
+                  const updatedSteps = creation.steps.map(s => 
+                    s.step_name === stepName 
+                      ? { 
+                          ...s, 
+                          status: 'processing' as const,
+                          error_message: null,
+                          started_at: new Date().toISOString(),
+                          estimated_completion_time: new Date(Date.now() + duration * 1000).toISOString()
+                        }
+                      : s
+                  );
+                  setCreation({ ...creation, steps: updatedSteps, status: 'processing' });
+                }
+              }}
+            />
           </div>
         )}
       </main>

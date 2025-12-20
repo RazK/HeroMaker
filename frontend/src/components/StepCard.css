@@ -10,6 +10,165 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .step-card {
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+    position: relative;
+    overflow: hidden;
+    min-height: 200px;
+  }
+  
+  /* Preview fills entire card */
+  .step-card-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    z-index: 0;
+  }
+  
+  /* Header overlays on top */
+  .step-card-header {
+    position: relative;
+    z-index: 1;
+    padding: 12px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 50%, transparent 100%);
+    width: 100%;
+    margin-bottom: 0;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px;
+    flex-wrap: nowrap;
+  }
+  
+  .step-card-number {
+    flex-shrink: 0;
+  }
+  
+  .step-card-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .step-card-status {
+    flex-shrink: 0;
+  }
+  
+  .step-card-progress {
+    position: relative;
+    z-index: 1;
+    padding: 0 12px 12px 12px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 50%, transparent 100%);
+    margin-top: auto;
+  }
+  
+  .step-card-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.9);
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+    min-width: 80%;
+    max-width: 90%;
+    line-height: 1.4;
+  }
+  
+  .step-card-error strong {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+  
+  .step-card-share {
+    position: relative;
+    z-index: 1;
+    padding: 0 12px 12px 12px;
+    margin-top: auto;
+  }
+  
+  .step-card-name {
+    color: white;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  }
+  
+  .step-card-number,
+  .step-card-status {
+    background: rgba(255, 255, 255, 0.2) !important;
+    backdrop-filter: blur(10px);
+  }
+  
+  .step-card-progress-text {
+    text-align: left;
+    min-width: auto;
+    color: white;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  }
+  
+  .step-card-progress-bar {
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+  }
+  
+  .step-card-time-placeholder {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+  }
+  
+  .step-card-time-large {
+    font-size: 48px;
+    color: white;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  }
+  
+  .step-card-time-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  }
+  
+  .step-card-share {
+    margin-top: 8px;
+  }
+  
+  .step-card-share-button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .step-card-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+    min-width: 80%;
+    max-width: 90%;
+    line-height: 1.4;
+  }
+  
+  .step-card-error strong {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
 }
 
 /* Make cards more compact on wide screens */
@@ -182,6 +341,12 @@
   justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.step-card-status-wrapper:hover .step-card-status:not(.step-card-status-retry):not(.step-card-status-download) {
+  cursor: pointer;
+  transform: scale(1.05);
 }
 
 .step-card-status-download:hover {
@@ -264,6 +429,42 @@
   color: white;
 }
 
+.step-card-status-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.step-card-status-retry {
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: all 0.2s;
+  background: var(--primary-color) !important;
+  color: white !important;
+}
+
+.step-card-status-retry:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.step-card-status-retry:active {
+  transform: scale(0.95);
+}
+
+.step-card-status-retry svg {
+  width: 16px;
+  height: 16px;
+  stroke: white;
+}
+
+@media (min-width: 1024px) {
+  .step-card-status-retry svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
 .step-card-progress {
   margin-top: 12px;
   display: flex;
@@ -330,18 +531,28 @@
 }
 
 .step-card-error {
-  margin-top: 12px;
-  padding: 12px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
   background: rgba(var(--error-rgb), 0.1);
   border: 1px solid var(--error-color);
   border-radius: 8px;
   color: var(--error-color);
-  font-size: 14px;
+  font-size: 18px;
+  font-weight: 500;
+  text-align: center;
+  min-width: 80%;
+  max-width: 90%;
+  z-index: 10;
+  line-height: 1.4;
 }
 
 .step-card-error strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  font-size: 20px;
 }
 
 .step-card-preview {
