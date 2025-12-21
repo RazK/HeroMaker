@@ -1,0 +1,134 @@
+.pipeline-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .pipeline-progress {
+    gap: 18px;
+  }
+}
+
+.pipeline-progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  flex-shrink: 0;
+  background: var(--bg-primary);
+  padding-top: 8px;
+  margin-top: auto;
+}
+
+.pipeline-progress-bar {
+  flex: 1;
+  height: 14px;
+  background: var(--bg-tertiary);
+  border-radius: 7px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pipeline-progress-overall {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pipeline-progress-percentage {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .pipeline-progress-percentage {
+    font-size: 16px;
+  }
+}
+
+
+.pipeline-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
+  border-radius: 6px;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.pipeline-progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.pipeline-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0 8px;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+/* On desktop, show all cards in a single row with narrower cards */
+@media (min-width: 1024px) {
+  .pipeline-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 100%;
+    padding: 0;
+  }
+}
+
+/* On tall/narrow screens (portrait orientation or tall aspect ratio), use 2x2 grid instead of thin single row */
+@media (min-width: 1024px) and (min-height: 800px) and (max-aspect-ratio: 1.3/1) {
+  .pipeline-steps {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+/* On tablet, show 2 columns */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .pipeline-steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* On mobile, stack vertically */
+@media (max-width: 767px) {
+  .pipeline-steps {
+    grid-template-columns: 1fr;
+  }
+}
+

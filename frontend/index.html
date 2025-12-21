@@ -1,81 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hero Maker</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div id="main-view">
-        <div id="comparison-view" class="comparison-view">
-            <div id="image-pane" class="pane">
-                <div class="pane-header">
-                    <h4>Reference Image</h4>
-                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-                    <button id="loadImageBtn" class="small-btn">Load Image</button>
-                </div>
-                <div id="image-container" class="image-container">
-                    <p class="placeholder-text">No image loaded</p>
-                </div>
-            </div>
-            <div id="viewer-pane" class="pane">
-                <div class="pane-header">
-                    <h4>3D Model</h4>
-                    <button id="loadBtn" class="small-btn">Load Model</button>
-                </div>
-                <div id="container"></div>
-            </div>
-        </div>
-    </div>
-    <div id="debug-panel" class="debug-panel">
-        <h3>Debug Tools</h3>
-        <div class="debug-section">
-            <h4>Bone Hierarchy</h4>
-            <div id="bone-list" class="bone-list"></div>
-        </div>
-        <div class="debug-section">
-            <h4>Bone Rotation</h4>
-            <div id="bone-controls" class="bone-controls">
-                <p class="no-bone-selected">Select a bone to adjust</p>
-            </div>
-        </div>
-        <div class="debug-section">
-            <h4>Pose Presets</h4>
-            <select id="presetSelect" class="preset-select" disabled>
-                <option value="">Select a preset...</option>
-            </select>
-            <button id="deletePresetBtn" disabled>Delete</button>
-            <hr style="margin: 12px 0; border: none; border-top: 1px solid rgba(0,0,0,0.1);">
-            <input type="text" id="presetName" placeholder="Preset name" class="preset-input">
-            <button id="savePresetBtn" disabled>Save Current Pose</button>
-            <button id="exportPoseBtn" disabled>Export Pose</button>
-        </div>
-        <div class="debug-section">
-            <label>
-                <input type="checkbox" id="skeletonToggle" disabled>
-                Show Skeleton
-            </label>
-            <label>
-                <input type="checkbox" id="showAxesToggle" disabled>
-                Show Bone Axes
-            </label>
-        </div>
-        <div class="debug-section">
-            <h4>Current Pose JSON</h4>
-            <div id="pose-json-display" class="pose-json-display"></div>
-            <button id="refreshPoseBtn" disabled>Refresh JSON</button>
-        </div>
-    </div>
-
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-        }
-    }
-    </script>
-    <script type="module" src="viewer.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
+    <title>HeroMaker - Pipeline UI</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
+
+
+
+
+

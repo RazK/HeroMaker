@@ -1,0 +1,30 @@
+# FastAPI and server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6  # Required for file uploads (Form data)
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# Data validation
+pydantic>=2.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# HTTP requests (for Meshy API, ChatGPT image download)
+requests>=2.31.0
+
+# OpenAI API (for ChatGPT service)
+openai>=1.0.0
+
+# Image processing (optional, for future enhancements)
+# Pillow>=10.0.0
+
+# GLB file handling (from root requirements)
+pygltflib>=1.16.0
+
+# Testing (optional, for unit tests)
+pytest>=7.4.0
+

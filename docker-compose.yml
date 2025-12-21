@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  vrm-converter:
+    build:
+      context: .
+      dockerfile: ./vrm-converter-service/Dockerfile
+      args:
+        VERSION: ${VRM_CONVERTER_VERSION:-1.0.0}
+    image: vrm-converter-service:${VRM_CONVERTER_VERSION:-1.0.0}
+    container_name: vrm-converter-service
+    ports:
+      - "8002:8000"
+    environment:
+      - BLENDER_PATH=/usr/bin/blender
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Resource limits (Blender can be memory-intensive)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    restart: unless-stopped
+
