@@ -61,3 +61,7 @@ export function HeaderUploadButtons({ onUpload, onStartWebcam, disabled = false 
     </div>
   );
 }
+
+
+
+
