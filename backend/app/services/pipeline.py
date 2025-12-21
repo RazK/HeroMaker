@@ -69,6 +69,7 @@ def _reset_step(step: CreationStep) -> None:
     step.error_message = None
     step.estimated_progress = None
     step.estimated_completion_time = None
+    step.metadata_json = {}  # Clear step-specific metadata
 
 
 def _get_step_start_index(creation_id: str, restart: bool, db: Session) -> int:
@@ -308,31 +309,32 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
             logger.info(f"[{creation_id}] Creating Meshy 3D task...")
             task_id = client.create_image_to_3d_task(input_path, pose_mode="t-pose")
             logger.info(f"[{creation_id}] Meshy 3D task created: {task_id}, starting polling...")
-            # Store task_id in metadata for meshy_rig dependency
-            metadata = creation.metadata_json or {}
-            metadata["meshy_3d_task_id"] = task_id
-            creation.metadata_json = metadata
+            # Store task_id in step metadata for meshy_rig dependency
+            step.metadata_json = {"meshy_3d_task_id": task_id}
             db.commit()
             # Poll and download (task already created)
             execute_meshy_3d_sync(task_id, output_path, step, db, client)
             
         elif step_name == "meshy_rig":
             logger.info(f"[{creation_id}] Executing meshy_rig (this may take 3-5 minutes)...")
-            # Get meshy_3d task_id from metadata
-            metadata = creation.metadata_json or {}
-            input_task_id = metadata.get("meshy_3d_task_id")
-            if not input_task_id:
-                raise ValueError("No meshy_3d_task_id found in metadata")
+            # Get meshy_3d task_id from meshy_3d step metadata
+            meshy_3d_step = db.query(CreationStep).filter(
+                CreationStep.creation_id == creation_id,
+                CreationStep.step_name == "meshy_3d"
+            ).first()
+            if not meshy_3d_step:
+                raise ValueError("meshy_3d step not found")
             
-            logger.info(f"[{creation_id}] Using meshy_3d_task_id from metadata: {input_task_id}")
+            step_metadata = meshy_3d_step.metadata_json or {}
+            input_task_id = step_metadata.get("meshy_3d_task_id")
+            if not input_task_id:
+                raise ValueError("No meshy_3d_task_id found in meshy_3d step metadata. meshy_3d step may need to be retried.")
+            
+            logger.info(f"[{creation_id}] Using meshy_3d_task_id from meshy_3d step: {input_task_id}")
             output_path = get_task_file_path(creation_id, user_id, output_filename)
             client = MeshyClient()
             logger.info(f"[{creation_id}] Creating Meshy rigging task for task_id: {input_task_id}...")
-            try:
-                execute_meshy_rig_sync(input_task_id, output_path, step, db, client)
-            except Exception as e:
-                logger.error(f"[{creation_id}] Meshy rigging failed with input_task_id={input_task_id}: {str(e)}")
-                raise
+            execute_meshy_rig_sync(input_task_id, output_path, step, db, client)
             
         elif step_name == "convert_vrm":
             logger.info(f"[{creation_id}] Executing convert_vrm...")
