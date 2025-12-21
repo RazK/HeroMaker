@@ -24,10 +24,146 @@
   flex: 0 0 auto;
 }
 
+@media (max-width: 1023px) {
+  .hero-name-editor-row {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 10px;
+  }
+  
+  /* Name + Age wrapper - first line, spans 100% width */
+  .hero-name-editor-name-age-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    flex: 1 1 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  
+  /* Name field inside wrapper - grows, can shrink */
+  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    max-width: calc(100% - 94px); /* 80px age + 12px gap + 2px buffer */
+  }
+  
+  /* Age field inside wrapper - fixed width, never shrinks */
+  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper-age {
+    flex: 0 0 80px;
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+    flex-shrink: 0;
+  }
+  
+  /* Make sure inputs inside don't overflow */
+  .hero-name-editor-name-age-wrapper .hero-name-editor-input-compact {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Superhero name - second line, wraps after name+age wrapper */
+  /* Match the width of creator name field wrapper so inputs align */
+  .hero-name-editor-row > .hero-name-editor-field-wrapper:not(.hero-name-editor-name-age-wrapper) {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: calc(100% - 94px); /* Match creator name wrapper width exactly */
+  }
+  
+  /* Actions - second line, same row as superhero name */
+  .hero-name-editor-actions {
+    flex: 0 0 auto;
+    gap: 8px;
+    flex-shrink: 0;
+    width: auto;
+    margin-left: 0; /* Reset margin for mobile */
+  }
+  
+  .hero-name-editor-input-compact {
+    font-size: 11px !important;
+    padding: 6px 24px 6px 8px !important;
+    line-height: 1.3 !important;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .hero-name-editor-input-age {
+    width: 80px !important;
+    flex: 0 0 80px !important;
+    min-width: 80px !important;
+    max-width: 80px !important;
+    padding: 6px 24px 6px 8px !important;
+    font-size: 11px;
+    box-sizing: border-box;
+  }
+  
+  .hero-name-editor-clear {
+    width: 14px;
+    height: 14px;
+    font-size: 12px;
+    right: 4px;
+    transform: translateY(calc(-50% - 2px));
+  }
+  
+  /* Ensure all clear buttons are same distance from right edge */
+  .hero-name-editor-field-wrapper .hero-name-editor-clear {
+    right: 4px;
+  }
+  
+  .hero-name-editor-action-button {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+  }
+}
+
 @media (min-width: 1024px) {
   .hero-name-editor-row {
     padding: 18px 22px;
     gap: 14px;
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: center;
+  }
+  
+  /* Ensure desktop layout works correctly - everything in one row */
+  .hero-name-editor-name-age-wrapper {
+    flex: 0 1 auto;
+    max-width: none;
+    width: auto;
+    display: flex;
+    flex-direction: row;
+    gap: 14px;
+  }
+  
+  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper:first-child {
+    max-width: none;
+    flex: 1 1 auto;
+  }
+  
+  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper-age {
+    flex: 0 0 auto;
+  }
+  
+  .hero-name-editor-row > .hero-name-editor-field-wrapper {
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: 0;
+  }
+  
+  .hero-name-editor-actions {
+    margin-left: 0;
+    flex: 0 0 auto;
+  }
+  
+  /* Ensure buttons match input height on desktop */
+  .hero-name-editor-action-button {
+    padding: 14px 12px !important;
+    font-size: 18px !important;
+    line-height: 1.3 !important;
   }
 }
 

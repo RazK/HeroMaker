@@ -48,7 +48,12 @@
   }
   
   .header-upload-button {
-    padding: 12px;
-    min-width: 48px;
+    padding: 6px 8px;
+    min-width: 36px;
+  }
+  
+  .header-upload-button svg {
+    width: 18px;
+    height: 18px;
   }
 }
