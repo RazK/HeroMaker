@@ -181,7 +181,7 @@ export const api = {
    */
   async listCreations(limit: number = 50, offset: number = 0): Promise<{ creations: CreationResponse[]; total: number }> {
     const result = await fetchJson<{ creations: CreationResponse[]; total: number; limit: number; offset: number }>(
-      `${API_BASE_URL}/api/creations?limit=${limit}&offset=${offset}`
+      `${API_BASE_URL}/api/creations/?limit=${limit}&offset=${offset}`
     );
     console.log('[API] listCreations result:', {
       count: result.creations.length,
