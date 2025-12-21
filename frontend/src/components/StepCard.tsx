@@ -211,6 +211,7 @@ export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardP
   const [shareCopied, setShareCopied] = useState(false);
   const [showRetryModal, setShowRetryModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
+  const [isHoveringNumber, setIsHoveringNumber] = useState(false);
 
   useEffect(() => {
     if (step.status === 'processing') {
@@ -297,7 +298,28 @@ export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardP
   return (
     <div className={`step-card step-card-${step.status}`}>
       <div className="step-card-header">
-        <div className="step-card-number">{stepIndex + 1}</div>
+        <div
+          className="step-card-number-wrapper"
+          onMouseEnter={() => setIsHoveringNumber(true)}
+          onMouseLeave={() => setIsHoveringNumber(false)}
+        >
+          {isHoveringNumber && step.status !== 'processing' ? (
+            <button
+              className="step-card-number step-card-number-retry"
+              onClick={handleStatusClick}
+              title="Retry this step"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M3 21v-5h5" />
+              </svg>
+            </button>
+          ) : (
+            <div className="step-card-number">{stepIndex + 1}</div>
+          )}
+        </div>
         <div className="step-card-info">
           <h3 className="step-card-name">{displayName}</h3>
         </div>

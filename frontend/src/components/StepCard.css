@@ -238,6 +238,11 @@
   }
 }
 
+.step-card-number-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .step-card-number {
   width: 32px;
   height: 32px;
@@ -250,6 +255,30 @@
   font-size: 14px;
   color: var(--text-secondary);
   flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.step-card-number-retry {
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  background: var(--primary-color) !important;
+  color: white !important;
+}
+
+.step-card-number-retry:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.step-card-number-retry:active {
+  transform: scale(0.95);
+}
+
+.step-card-number-retry svg {
+  width: 16px;
+  height: 16px;
+  stroke: white;
 }
 
 @media (min-width: 1024px) {
