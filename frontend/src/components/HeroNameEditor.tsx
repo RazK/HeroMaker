@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '../api/client';
 import './HeroNameEditor.css';
 
@@ -25,12 +25,27 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
 
-  // Sync with props when they change
+  // Sync with props when they change, but only sync if we're not currently editing
+  // Use refs to track if we're in the middle of clearing a field
+  const isClearingRef = useRef<string | null>(null);
+  
   useEffect(() => {
-    setCharacterNameValue(characterName || '');
-    setNameValue(name || '');
-    setAgeValue(age?.toString() || '');
-  }, [characterName, name, age]);
+    if (isClearingRef.current !== 'characterName') {
+      setCharacterNameValue(characterName || '');
+    }
+  }, [characterName]);
+  
+  useEffect(() => {
+    if (isClearingRef.current !== 'name') {
+      setNameValue(name || '');
+    }
+  }, [name]);
+  
+  useEffect(() => {
+    if (isClearingRef.current !== 'age') {
+      setAgeValue(age?.toString() || '');
+    }
+  }, [age]);
 
   const saveCharacterName = async () => {
     const trimmed = characterNameValue.trim();
@@ -120,34 +135,56 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
   };
 
   const clearName = async () => {
+    const previousNameValue = nameValue;
+    isClearingRef.current = 'name';
     setNameValue('');
     setIsSaving(true);
     setError(null);
     try {
       const updated = await api.updateName(creationId, '');
-      onNameUpdated(updated.name || '');
+      // Only update if the API response matches what we expect (empty name)
+      if (updated.name === '' || updated.name === null) {
+        onNameUpdated('');
+      } else {
+        onNameUpdated(updated.name || '');
+      }
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to update';
       setError(message);
-      setNameValue(name || '');
+      setNameValue(previousNameValue);
     } finally {
       setIsSaving(false);
+      // Clear the flag after a short delay to allow the update to complete
+      setTimeout(() => {
+        isClearingRef.current = null;
+      }, 100);
     }
   };
 
   const clearAge = async () => {
+    const previousAgeValue = ageValue;
+    isClearingRef.current = 'age';
     setAgeValue('');
     setIsSaving(true);
     setError(null);
     try {
       const updated = await api.updateAge(creationId, null);
-      onAgeUpdated(updated.age);
+      // Only update if the API response matches what we expect (null age)
+      if (updated.age === null || updated.age === undefined) {
+        onAgeUpdated(null);
+      } else {
+        onAgeUpdated(updated.age);
+      }
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to update';
       setError(message);
-      setAgeValue(age?.toString() || '');
+      setAgeValue(previousAgeValue);
     } finally {
       setIsSaving(false);
+      // Clear the flag after a short delay to allow the update to complete
+      setTimeout(() => {
+        isClearingRef.current = null;
+      }, 100);
     }
   };
 
@@ -172,13 +209,13 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
     setIsRestarting(true);
     setError(null);
     try {
-      await api.runPipeline(creationId, true);
+      await api.runPipeline(creationId);
       setShowRestartConfirm(false);
       if (onRestart) {
         onRestart();
       }
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Failed to restart pipeline';
+      const message = err instanceof ApiError ? err.message : 'Failed to resume pipeline';
       setError(message);
     } finally {
       setIsRestarting(false);
@@ -188,60 +225,62 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
   return (
     <div className="hero-name-editor">
       <div className="hero-name-editor-row">
-        <div className="hero-name-editor-field-wrapper">
-          <input
-            type="text"
-            value={nameValue}
-            onChange={(e) => setNameValue(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                saveName();
-              }
-            }}
-            placeholder="Name"
-            className="hero-name-editor-input-compact"
-            disabled={isSaving}
-          />
-          {nameValue && (
-            <button
-              type="button"
-              className="hero-name-editor-clear"
-              onClick={clearName}
-              tabIndex={-1}
-            >
-              ×
-            </button>
-          )}
-        </div>
-        <div className="hero-name-editor-field-wrapper hero-name-editor-field-wrapper-age">
-          <input
-            type="number"
-            value={ageValue}
-            onChange={(e) => setAgeValue(e.target.value)}
-            onBlur={saveAge}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                saveAge();
-              }
-            }}
-            placeholder="Age"
-            className="hero-name-editor-input-compact hero-name-editor-input-age"
-            disabled={isSaving}
-            min="0"
-          />
-          {ageValue && (
-            <button
-              type="button"
-              className="hero-name-editor-clear"
-              onClick={clearAge}
-              tabIndex={-1}
-            >
-              ×
-            </button>
-          )}
+        <div className="hero-name-editor-name-age-wrapper">
+          <div className="hero-name-editor-field-wrapper">
+            <input
+              type="text"
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  saveName();
+                }
+              }}
+              placeholder="Creator Name"
+              className="hero-name-editor-input-compact"
+              disabled={isSaving}
+            />
+            {nameValue && (
+              <button
+                type="button"
+                className="hero-name-editor-clear"
+                onClick={clearName}
+                tabIndex={-1}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className="hero-name-editor-field-wrapper hero-name-editor-field-wrapper-age">
+            <input
+              type="number"
+              value={ageValue}
+              onChange={(e) => setAgeValue(e.target.value)}
+              onBlur={saveAge}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  saveAge();
+                }
+              }}
+              placeholder="Age"
+              className="hero-name-editor-input-compact hero-name-editor-input-age"
+              disabled={isSaving}
+              min="0"
+            />
+            {ageValue && (
+              <button
+                type="button"
+                className="hero-name-editor-clear"
+                onClick={clearAge}
+                tabIndex={-1}
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
         <div className="hero-name-editor-field-wrapper">
           <input
@@ -276,7 +315,7 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
             className="hero-name-editor-action-button hero-name-editor-restart-button"
             onClick={() => setShowRestartConfirm(true)}
             disabled={isSaving || isDeleting || isRestarting}
-            title="Restart pipeline"
+            title="Resume pipeline from last failed step"
           >
             ↻
           </button>
@@ -326,7 +365,7 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
         <div className="hero-name-editor-confirm-overlay">
           <div className="hero-name-editor-confirm-dialog">
             <h3>Restart Pipeline?</h3>
-            <p>This will restart the pipeline from the beginning. All current progress will be lost.</p>
+            <p>This will resume the pipeline from the last failed step. Completed steps will be preserved.</p>
             <div className="hero-name-editor-confirm-buttons">
               <button
                 type="button"
@@ -351,4 +390,5 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
     </div>
   );
 }
+
 
