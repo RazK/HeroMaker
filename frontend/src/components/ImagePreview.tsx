@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './ImagePreview.css';
 
 interface ImagePreviewProps {
@@ -10,6 +10,13 @@ interface ImagePreviewProps {
 export function ImagePreview({ src, alt = 'Preview', className = '' }: ImagePreviewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [hasError, setHasError] = useState(false);
+
+  // Reset error state when src changes
+  useEffect(() => {
+    setHasError(false);
+    console.log('[ImagePreview] Loading image:', src);
+  }, [src]);
 
   const handleClick = () => {
     setIsModalOpen(true);
@@ -29,10 +36,37 @@ export function ImagePreview({ src, alt = 'Preview', className = '' }: ImagePrev
     setZoom((z) => Math.max(z - 0.25, 0.5));
   };
 
+  if (hasError) {
+    return (
+      <div className={`image-preview-thumbnail ${className} image-preview-error`}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '100%',
+          color: '#999',
+          fontSize: '14px'
+        }}>
+          Image not available
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className={`image-preview-thumbnail ${className}`} onClick={handleClick}>
-        <img src={src} alt={alt} />
+        <img 
+          src={src} 
+          alt={alt} 
+          onError={(e) => {
+            console.error('[ImagePreview] Image load error:', src, e);
+            setHasError(true);
+          }}
+          onLoad={() => {
+            console.log('[ImagePreview] Image loaded successfully:', src);
+          }}
+        />
         <div className="image-preview-overlay">
           <span>Click to view</span>
         </div>
@@ -58,6 +92,7 @@ export function ImagePreview({ src, alt = 'Preview', className = '' }: ImagePrev
               alt={alt}
               style={{ transform: `scale(${zoom})` }}
               className="image-preview-zoomed"
+              onError={() => setHasError(true)}
             />
           </div>
         </div>
@@ -65,3 +100,8 @@ export function ImagePreview({ src, alt = 'Preview', className = '' }: ImagePrev
     </>
   );
 }
+
+
+
+
+
