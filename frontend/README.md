@@ -106,3 +106,7 @@ The frontend communicates with the backend API:
 - Files are served from `/api/files/temp/{user_id}/{creation_id}/{filename}` during processing
 - After completion, files are moved to permanent storage
 - The debug user ID (`debug-user-uuid`) is hardcoded for Phase 0
+
+
+
+
