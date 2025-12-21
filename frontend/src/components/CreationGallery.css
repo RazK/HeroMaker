@@ -2,6 +2,111 @@
   width: 100%;
 }
 
+.creation-gallery-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .creation-gallery-filters {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+}
+
+.creation-gallery-status-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.creation-gallery-filter-btn {
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.creation-gallery-filter-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+}
+
+.creation-gallery-filter-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.creation-gallery-filter-btn.active:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.creation-gallery-filter-btn-completed.active {
+  background: var(--success-color);
+  color: white;
+  border-color: var(--success-color);
+}
+
+.creation-gallery-filter-btn-completed.active:hover {
+  background: var(--success-hover);
+  border-color: var(--success-hover);
+}
+
+.creation-gallery-filter-btn-failed.active {
+  background: var(--error-color);
+  color: white;
+  border-color: var(--error-color);
+}
+
+.creation-gallery-filter-btn-failed.active:hover {
+  background: var(--error-hover);
+  border-color: var(--error-hover);
+}
+
+.creation-gallery-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.creation-gallery-search:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.creation-gallery-search::placeholder {
+  color: var(--text-tertiary);
+}
+
+.creation-gallery-results-count {
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .creation-gallery-loading,
 .creation-gallery-error,
 .creation-gallery-empty {

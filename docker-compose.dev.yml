@@ -1,0 +1,40 @@
+# Development overrides for hot-reload
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    # Override command to use uvicorn with --reload for auto-reload
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      # Mount source code for hot-reload (in addition to existing volumes)
+      - ./backend/app:/app/app
+      - ./assets:/app/assets
+      - ./backend/heromaker.db:/app/heromaker.db
+    environment:
+      # Enable debug mode in development
+      - DEBUG=true
+
+  frontend:
+    # Override to use dev server instead of production build
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      # Vite dev server runs on port 3000 (container) -> 3001 (host to avoid conflicts)
+      - "3001:3000"
+    environment:
+      # Proxy API requests to backend service in Docker network
+      - VITE_API_PROXY_TARGET=http://backend:8000
+    volumes:
+      # Mount source code for hot-reload
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
+      # Exclude node_modules from mount (use container's)
+      - /app/node_modules
+    command: ["npm", "run", "dev"]
+    # No healthcheck needed for dev server
+

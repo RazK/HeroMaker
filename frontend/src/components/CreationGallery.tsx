@@ -12,6 +12,8 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, setTick] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'failed'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     loadCreations();
@@ -140,6 +142,24 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     return stepNames[processingStep.step_name] || processingStep.step_name;
   };
 
+  // Filter creations based on status and search query
+  const filteredCreations = creations.filter(creation => {
+    // Status filter
+    if (statusFilter === 'completed' && creation.status !== 'completed') return false;
+    if (statusFilter === 'failed' && creation.status !== 'failed') return false;
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      const matchesName = creation.character_name?.toLowerCase().includes(query) ?? false;
+      const matchesCreator = creation.name?.toLowerCase().includes(query) ?? false;
+      const matchesAge = creation.age?.toString().includes(query) ?? false;
+      if (!matchesName && !matchesCreator && !matchesAge) return false;
+    }
+    
+    return true;
+  });
+
   if (isLoading) {
     return (
       <div className="creation-gallery-loading">
@@ -168,8 +188,47 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
 
   return (
     <div className="creation-gallery">
-      <div className="creation-gallery-grid">
-        {creations.map((creation) => {
+      <div className="creation-gallery-filters">
+        <div className="creation-gallery-status-filters">
+          <button
+            className={`creation-gallery-filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('all')}
+          >
+            All
+          </button>
+          <button
+            className={`creation-gallery-filter-btn creation-gallery-filter-btn-completed ${statusFilter === 'completed' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('completed')}
+          >
+            Succeeded
+          </button>
+          <button
+            className={`creation-gallery-filter-btn creation-gallery-filter-btn-failed ${statusFilter === 'failed' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('failed')}
+          >
+            Failed
+          </button>
+        </div>
+        <input
+          type="text"
+          className="creation-gallery-search"
+          placeholder="Search by name, creator, or age..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {filteredCreations.length !== creations.length && (
+          <div className="creation-gallery-results-count">
+            Showing {filteredCreations.length} of {creations.length} creations
+          </div>
+        )}
+      </div>
+      {filteredCreations.length === 0 ? (
+        <div className="creation-gallery-empty">
+          <p>No creations match your filters. Try adjusting your search or filter.</p>
+        </div>
+      ) : (
+        <div className="creation-gallery-grid">
+          {filteredCreations.map((creation) => {
           const originalUrl = getImageUrl(creation, 'original.jpg');
           const renderedUrl = getImageUrl(creation, 'rendered.png');
           const isCompleted = creation.status === 'completed';
@@ -298,7 +357,8 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

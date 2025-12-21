@@ -159,7 +159,40 @@ cp ./backend/heromaker.db ./backend/heromaker.db.backup
 
 ## Development Workflow
 
-### Rebuild After Code Changes
+### Hot Reload Development Mode
+
+For development with automatic reloading (no rebuild needed):
+
+```bash
+# Start in development mode with hot-reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Or in detached mode
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+**Development mode features:**
+- **Backend**: Auto-reloads on code changes (uvicorn --reload)
+- **Frontend**: Vite dev server with HMR (Hot Module Replacement)
+- **No rebuilds needed**: Changes appear instantly after saving
+
+**Access:**
+- Frontend: http://localhost:3001 (Vite dev server - port 3001 to avoid conflicts)
+- Backend: http://localhost:8000
+- Changes to code are automatically detected and reloaded
+
+### Production Mode (Default)
+
+For production builds:
+
+```bash
+# Standard production mode
+docker-compose up -d
+```
+
+### Rebuild After Code Changes (Production Mode)
+
+If using production mode and need to rebuild:
 
 ```bash
 # Rebuild specific service
