@@ -4,6 +4,21 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Build configuration for production
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    // Ensure proper chunking for better caching
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          three: ['three', '@react-three/fiber', '@react-three/drei'],
+        },
+      },
+    },
+  },
+  // Development server configuration (only used in local dev, not in Docker)
   server: {
     host: '0.0.0.0', // Listen on all network interfaces
     port: 3000,
@@ -31,6 +46,8 @@ export default defineConfig({
       },
     },
   },
+  // Note: In production (Docker), nginx handles API proxying
+  // The proxy above is only for local development with `npm run dev`
 })
 
 

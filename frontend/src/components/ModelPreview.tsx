@@ -141,7 +141,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger }: { url: string; s
             fetch('http://127.0.0.1:7242/ingest/b89e3547-7de1-4c89-94c3-53229b5a026e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ModelPreview.tsx:85',message:'Creating skeleton cones (SIMPLIFIED)',data:{modelScale,sceneScaleX:gltf.scene.scale.x,scenePositionX:gltf.scene.position.x,scenePositionY:gltf.scene.position.y,scenePositionZ:gltf.scene.position.z,boneCount:skeleton.bones.length},timestamp:Date.now(),sessionId:'debug-session',runId:'simplified',hypothesisId:'B'})}).catch(()=>{});
             // #endregion
             
-            skeleton.bones.forEach((bone, boneIndex) => {
+            skeleton.bones.forEach((bone) => {
               // Get bone world position (already scaled and positioned)
               const worldPos = new THREE.Vector3();
               bone.getWorldPosition(worldPos);
