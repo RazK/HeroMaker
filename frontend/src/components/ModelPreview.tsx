@@ -7,6 +7,8 @@ import './ModelPreview.css';
 
 interface ModelPreviewProps {
   url: string;
+  walkingUrl?: string | null;
+  riggedUrl?: string | null;
   className?: string;
   isRigged?: boolean;
 }
@@ -56,12 +58,14 @@ class ModelErrorBoundary extends Component<
   }
 }
 
-function Model({ url, showSkeleton, isRotating, resetTrigger }: { url: string; showSkeleton?: boolean; isRotating: boolean; resetTrigger: number }) {
+function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnimationPlaying }: { url: string; showSkeleton?: boolean; isRotating: boolean; resetTrigger: number; isAnimated: boolean; isAnimationPlaying: boolean }) {
   const gltf = useLoader(GLTFLoader, url);
   const meshRef = useRef<THREE.Group>(null);
   const skeletonGroupRef = useRef<THREE.Group | null>(null);
   const bonesRef = useRef<THREE.Bone[] | null>(null);
   const modelScaleRef = useRef<number | null>(null);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const actionsRef = useRef<THREE.AnimationAction[]>([]);
 
   useEffect(() => {
     // Reset model rotation when resetTrigger changes
@@ -70,10 +74,61 @@ function Model({ url, showSkeleton, isRotating, resetTrigger }: { url: string; s
     }
   }, [resetTrigger]);
 
-  useFrame(() => {
+  // Setup animation mixer when animations exist and isAnimated is true
+  useEffect(() => {
+    if (gltf.animations.length > 0 && isAnimated && gltf.scene) {
+      mixerRef.current = new THREE.AnimationMixer(gltf.scene);
+      actionsRef.current = [];
+      gltf.animations.forEach((clip) => {
+        const action = mixerRef.current?.clipAction(clip);
+        if (action) {
+          action.loop = THREE.LoopRepeat;
+          actionsRef.current.push(action);
+          if (isAnimationPlaying) {
+            action.play();
+          }
+        }
+      });
+    } else {
+      if (mixerRef.current) {
+        mixerRef.current.stopAllAction();
+        mixerRef.current = null;
+      }
+      actionsRef.current = [];
+    }
+    return () => {
+      if (mixerRef.current) {
+        mixerRef.current.stopAllAction();
+        mixerRef.current = null;
+      }
+      actionsRef.current = [];
+    };
+  }, [gltf, isAnimated]);
+
+  // Pause/play animation based on isAnimationPlaying
+  useEffect(() => {
+    if (mixerRef.current && isAnimated && actionsRef.current.length > 0) {
+      actionsRef.current.forEach(action => {
+        if (isAnimationPlaying) {
+          action.paused = false;
+          if (!action.isRunning()) {
+            action.play();
+          }
+        } else {
+          action.paused = true;
+        }
+      });
+    }
+  }, [isAnimationPlaying, isAnimated]);
+
+  useFrame((state, delta) => {
     if (meshRef.current && isRotating) {
       // Slow rotation for both 3D model and rigged scenes
       meshRef.current.rotation.y += 0.005;
+    }
+    // Update animation mixer (only if playing)
+    if (mixerRef.current && isAnimated && isAnimationPlaying) {
+      mixerRef.current.update(delta);
     }
     // Update skeleton cones positions to follow bone movements
     // Convert bone world positions to local positions relative to scene (same as model)
@@ -279,9 +334,13 @@ function CameraController({
   );
 }
 
-export function ModelPreview({ url, className = '', isRigged = false }: ModelPreviewProps) {
-  const [isRotating, setIsRotating] = useState(true);
+export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRigged = false }: ModelPreviewProps) {
+  const [isPlaying, setIsPlaying] = useState(true); // Controls both rotation and animation
   const [resetTrigger, setResetTrigger] = useState(0);
+  
+  // Always use walkingUrl if available (animated), otherwise use riggedUrl or url (static)
+  const modelUrl = walkingUrl || riggedUrl || url;
+  const isAnimated = !!walkingUrl; // True if we're showing the animated model
   
   // For model.glb: back off by another 20% (from 3.6 to 4.32)
   // For rigged.glb: camera higher and angled down to look from above
@@ -293,8 +352,9 @@ export function ModelPreview({ url, className = '', isRigged = false }: ModelPre
     ? [0, 1.6, 0] 
     : [0, 0, 0];
 
-  const handleToggleRotation = () => {
-    setIsRotating(!isRotating);
+  const handleTogglePlay = () => {
+    // Toggle both rotation and animation together
+    setIsPlaying(!isPlaying);
   };
 
   const handleResetCamera = () => {
@@ -302,14 +362,14 @@ export function ModelPreview({ url, className = '', isRigged = false }: ModelPre
   };
 
   return (
-    <ModelErrorBoundary key={url}>
+    <ModelErrorBoundary key={modelUrl}>
       <div className={`model-preview-container ${className}`}>
         <Canvas camera={{ position: cameraPosition, fov: 50 }}>
           <Suspense fallback={null}>
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1} />
             <pointLight position={[-10, -10, -5]} intensity={0.5} />
-            <Model url={url} showSkeleton={isRigged} isRotating={isRotating} resetTrigger={resetTrigger} />
+            <Model url={modelUrl} showSkeleton={isRigged && !isAnimated} isRotating={isPlaying} resetTrigger={resetTrigger} isAnimated={isAnimated} isAnimationPlaying={isPlaying} />
             <CameraController 
               homePosition={cameraPosition}
               homeTarget={cameraTarget}
@@ -322,10 +382,10 @@ export function ModelPreview({ url, className = '', isRigged = false }: ModelPre
         </div>
         <button 
           className="model-preview-rotation-toggle"
-          onClick={handleToggleRotation}
-          title={isRotating ? "Stop rotation" : "Start rotation"}
+          onClick={handleTogglePlay}
+          title={isPlaying ? "Pause" : "Play"}
         >
-          {isRotating ? (
+          {isPlaying ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10"/>
               <line x1="10" y1="8" x2="10" y2="16"/>

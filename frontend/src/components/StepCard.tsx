@@ -17,7 +17,7 @@ const STEP_DISPLAY_NAMES: Record<string, string> = {
   image_processing: 'Image Processing',
   chatgpt_render: 'AI Rendering',
   meshy_3d: '3D Modeling',
-  meshy_rig: 'Rigging',
+  meshy_rig: 'Rigging & Animating',
   convert_vrm: 'VRM Conversion',
   complete: 'Finalization',
 };
@@ -237,7 +237,26 @@ export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardP
   // Only show preview for completed steps (file exists)
   const showPreview = step.status === 'completed' && outputFile;
   
+  // For rigging step, check if walking.glb exists in metadata
+  const walkingGlbFilename = (step.step_name === 'meshy_rig' && step.metadata_json?.walking_glb_url) 
+    ? step.metadata_json.walking_glb_url 
+    : null;
+  
+  // Use walking.glb if available, otherwise use outputFile (rigged.glb)
+  const modelFile = (step.step_name === 'meshy_rig' && walkingGlbFilename) 
+    ? walkingGlbFilename 
+    : outputFile;
+  
   const fileUrl = showPreview
+    ? api.getFileUrl(creationId, modelFile)
+    : null;
+  
+  // For rigging step, provide both URLs for toggle
+  const walkingUrl = (step.step_name === 'meshy_rig' && showPreview && walkingGlbFilename)
+    ? api.getFileUrl(creationId, walkingGlbFilename)
+    : null;
+  
+  const riggedUrl = (step.step_name === 'meshy_rig' && showPreview && outputFile)
     ? api.getFileUrl(creationId, outputFile)
     : null;
 
@@ -400,7 +419,14 @@ export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardP
       {showPreview && fileUrl ? (
         <div className="step-card-preview">
           {isImageStep && <ImagePreview src={fileUrl} alt={displayName} />}
-          {isModelStep && <ModelPreview url={fileUrl} isRigged={step.step_name === 'meshy_rig'} />}
+          {isModelStep && (
+            <ModelPreview 
+              url={fileUrl} 
+              isRigged={step.step_name === 'meshy_rig'} 
+              walkingUrl={walkingUrl}
+              riggedUrl={riggedUrl}
+            />
+          )}
         </div>
       ) : (
         timeRemaining && (() => {

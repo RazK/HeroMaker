@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Callable
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,8 @@ from app.config.steps import STEPS, get_step_by_name
 from app.database import SessionLocal
 from app.utils.file_utils import (
     get_task_file_path,
-    check_file_exists
+    check_file_exists,
+    get_file_url
 )
 from app.services import image_processing
 from app.services import chatgpt
@@ -212,11 +214,18 @@ def execute_meshy_rig_sync(
     db: Session,
     client: MeshyClient
 ) -> None:
-    """Create rigging task, poll until complete, download file."""
+    """Create rigging task, poll until complete, download file, and download animations if available."""
     # Create task
     logger.info(f"[{step.creation_id}] Creating rigging task with input_task_id: {input_task_id}")
     task_id = client.create_rigging_task(input_task_id)
     logger.info(f"[{step.creation_id}] Rigging task created: {task_id}")
+    
+    # Store rig_task_id in metadata
+    if not step.metadata_json:
+        step.metadata_json = {}
+    step.metadata_json["rig_task_id"] = task_id
+    flag_modified(step, "metadata_json")  # Tell SQLAlchemy the JSON field changed
+    db.commit()
     
     # Poll until complete (updates progress in DB)
     download_url = _poll_meshy_task_with_progress(
@@ -227,8 +236,39 @@ def execute_meshy_rig_sync(
         _extract_rig_download_url
     )
     
-    # Download file
+    # Download rigged.glb file
     client.download_file(download_url, output_path)
+    logger.info(f"[{step.creation_id}] Downloaded rigged.glb to {output_path}")
+    
+    # Get final rigging status to check for basic_animations
+    try:
+        final_rig_status = client.get_rigging_status(task_id)
+        basic_animations = final_rig_status.get("result", {}).get("basic_animations")
+        
+        if basic_animations:
+            # Get user_id from creation
+            creation = db.query(Creation).filter(Creation.id == step.creation_id).first()
+            if not creation:
+                logger.warning(f"[{step.creation_id}] Creation not found, skipping animation download")
+                return
+            user_id = creation.user_id
+            
+            # Download walking.glb if available
+            walking_glb_url = basic_animations.get("walking_glb_url")
+            if walking_glb_url:
+                walking_output_path = output_path.parent / "walking.glb"
+                try:
+                    client.download_file(walking_glb_url, walking_output_path)
+                    step.metadata_json["walking_glb_url"] = "walking.glb"
+                    flag_modified(step, "metadata_json")  # Tell SQLAlchemy the JSON field changed
+                    db.commit()
+                    logger.info(f"[{step.creation_id}] Downloaded walking.glb to {walking_output_path}")
+                except Exception as e:
+                    logger.error(f"[{step.creation_id}] Failed to download walking.glb: {e}")
+        else:
+            logger.info(f"[{step.creation_id}] No basic_animations found in rigging response")
+    except MeshyAPIError as e:
+        logger.error(f"[{step.creation_id}] Failed to get final rigging status for animations: {e}")
 
 
 # ============================================================================
@@ -311,6 +351,7 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
             logger.info(f"[{creation_id}] Meshy 3D task created: {task_id}, starting polling...")
             # Store task_id in step metadata for meshy_rig dependency
             step.metadata_json = {"meshy_3d_task_id": task_id}
+            flag_modified(step, "metadata_json")  # Tell SQLAlchemy the JSON field changed
             db.commit()
             # Poll and download (task already created)
             execute_meshy_3d_sync(task_id, output_path, step, db, client)
