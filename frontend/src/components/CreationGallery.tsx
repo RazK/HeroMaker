@@ -14,6 +14,8 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
   const [, setTick] = useState(0);
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'failed'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'created' | 'updated'>('updated');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   useEffect(() => {
     loadCreations();
@@ -160,6 +162,26 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     return true;
   });
 
+  // Sort filtered creations
+  const sortedCreations = [...filteredCreations].sort((a, b) => {
+    const getDate = (creation: CreationResponse) => {
+      if (sortBy === 'created') {
+        return new Date(creation.created_at).getTime();
+      } else {
+        return new Date(creation.updated_at).getTime();
+      }
+    };
+    
+    const dateA = getDate(a);
+    const dateB = getDate(b);
+    
+    if (sortOrder === 'newest') {
+      return dateB - dateA; // Newest first
+    } else {
+      return dateA - dateB; // Oldest first
+    }
+  });
+
   if (isLoading) {
     return (
       <div className="creation-gallery-loading">
@@ -209,26 +231,44 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
             Failed
           </button>
         </div>
-        <input
-          type="text"
-          className="creation-gallery-search"
-          placeholder="Search by name, creator, or age..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        {filteredCreations.length !== creations.length && (
-          <div className="creation-gallery-results-count">
-            Showing {filteredCreations.length} of {creations.length} creations
+        <div className="creation-gallery-search-and-sort">
+          <input
+            type="text"
+            className="creation-gallery-search"
+            placeholder="Search by name, creator, or age..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <div className="creation-gallery-sort">
+            <select
+              className="creation-gallery-sort-select"
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [by, order] = e.target.value.split('-');
+                setSortBy(by as 'created' | 'updated');
+                setSortOrder(order as 'newest' | 'oldest');
+              }}
+            >
+              <option value="updated-newest">Last Modified: Newest</option>
+              <option value="updated-oldest">Last Modified: Oldest</option>
+              <option value="created-newest">Created: Newest</option>
+              <option value="created-oldest">Created: Oldest</option>
+            </select>
           </div>
-        )}
+          {filteredCreations.length !== creations.length && (
+            <div className="creation-gallery-results-count">
+              Showing {filteredCreations.length} of {creations.length} creations
+            </div>
+          )}
+        </div>
       </div>
-      {filteredCreations.length === 0 ? (
+      {sortedCreations.length === 0 ? (
         <div className="creation-gallery-empty">
           <p>No creations match your filters. Try adjusting your search or filter.</p>
         </div>
       ) : (
         <div className="creation-gallery-grid">
-          {filteredCreations.map((creation) => {
+          {sortedCreations.map((creation) => {
           const originalUrl = getImageUrl(creation, 'original.jpg');
           const renderedUrl = getImageUrl(creation, 'rendered.png');
           const isCompleted = creation.status === 'completed';

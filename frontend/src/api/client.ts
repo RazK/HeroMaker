@@ -8,6 +8,7 @@ export interface CreationStepResponse {
   completed_at: string | null;
   estimated_completion_time: string | null;
   error_message: string | null;
+  metadata_json?: { [key: string]: any } | null;
 }
 
 export interface CreationResponse {
@@ -20,6 +21,7 @@ export interface CreationResponse {
   user_id: string;
   username: string | null; // Deprecated, use name instead
   created_at: string;
+  updated_at: string;
   completed_at: string | null;
   steps: CreationStepResponse[];
   error_message: string | null;

@@ -16,6 +16,7 @@ class CreationStepResponse(BaseModel):
     completed_at: Optional[datetime] = None
     estimated_completion_time: Optional[datetime] = None  # Calculated completion time, updated when progress changes
     error_message: Optional[str] = None
+    metadata_json: Optional[dict] = None  # Step-specific metadata (e.g., task IDs, animation URLs)
     
     @classmethod
     def from_step(cls, step):
@@ -28,6 +29,7 @@ class CreationStepResponse(BaseModel):
             "completed_at": step.completed_at,
             "estimated_completion_time": step.estimated_completion_time,
             "error_message": step.error_message,
+            "metadata_json": step.metadata_json or {},
         }
         return cls(**data)
 
@@ -43,6 +45,7 @@ class CreationResponse(BaseModel):
     user_id: str
     username: Optional[str] = None  # User's username (deprecated, use name instead)
     created_at: datetime
+    updated_at: datetime
     completed_at: Optional[datetime] = None  # Derived from steps
     steps: List[CreationStepResponse] = []
     error_message: Optional[str] = None  # Derived from failed step

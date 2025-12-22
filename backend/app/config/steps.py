@@ -3,42 +3,42 @@ STEPS = [
         "name": "image_processing", 
         "input": "original.jpg",
         "output": "processed.jpg",
-        "estimated_duration": 1  # Avg: 0.0s from 10 samples (rounded to 1s minimum)
+        "estimated_duration": 1  # Avg: 0.00s from 62 samples (rounded to 1s minimum)
     },
     {
         "name": "chatgpt_render",
         "input": "processed.jpg",
         "output": "rendered.png",
         "depends_on": "image_processing",
-        "estimated_duration": 60  # Avg: 540.6s from 5 samples
+        "estimated_duration": 54  # Avg: 53.98s from 62 samples
     },
     {
         "name": "meshy_3d",
         "input": "rendered.png",
         "output": "model.glb",
         "depends_on": "chatgpt_render",
-        "estimated_duration": 180  # Avg: 201.2s from 5 samples
+        "estimated_duration": 309  # Avg: 308.78s from 62 samples
     },
     {
         "name": "meshy_rig",
         "input": "model.glb",
         "output": "rigged.glb",
         "depends_on": "meshy_3d",
-        "estimated_duration": 30  # Avg: 25.4s from 3 samples
+        "estimated_duration": 43  # Avg: 43.01s from 51 samples
     },
     {
         "name": "convert_vrm",
         "input": "rigged.glb",
         "output": "avatar.vrm",
         "depends_on": "meshy_rig",
-        "estimated_duration": 3  # Avg: 2.8s from 3 samples (rounded to 3s)
+        "estimated_duration": 3  # Avg: 2.61s from 51 samples (rounded to 3s)
     },
     {
         "name": "complete",
         "input": "avatar.vrm",
         "output": None,
         "depends_on": "convert_vrm",
-        "estimated_duration": 1  # Avg: 0.0s from 3 samples (rounded to 1s minimum)
+        "estimated_duration": 1  # Avg: 0.00s from 51 samples (rounded to 1s minimum)
     }
 ]
 
