@@ -1,0 +1,33 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Railway CLI
+        run: |
+          curl -fsSL https://railway.app/install.sh | sh
+          echo "$HOME/.railway/bin" >> $GITHUB_PATH
+
+      - name: Run Database Backup
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE: backend
+        run: |
+          railway login --token $RAILWAY_TOKEN
+          railway run --service backend python backend/scripts/backup_database.py
+
+      - name: Backup Summary
+        run: |
+          echo "✅ Database backup completed"
+          echo "📅 Backup time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+

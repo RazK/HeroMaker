@@ -121,7 +121,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
     }
   }, [isAnimationPlaying, isAnimated]);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (meshRef.current && isRotating) {
       // Slow rotation for both 3D model and rigged scenes
       meshRef.current.rotation.y += 0.005;

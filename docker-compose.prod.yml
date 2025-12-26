@@ -1,0 +1,28 @@
+# Production Docker Compose overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  backend:
+    environment:
+      # Ensure DEBUG is false in production
+      - DEBUG=false
+      # ALLOWED_ORIGINS should be set in Railway dashboard with production URL
+      # Defaults to "*" if not set (for backward compatibility)
+    # Production logging is handled in main.py based on DEBUG setting
+
+  frontend:
+    # Production build is already optimized in Dockerfile
+    # No additional overrides needed
+
+  vrm-converter:
+    # Resource limits are already set in base docker-compose.yml
+    # Production may want stricter limits, but current settings are reasonable
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
