@@ -24,3 +24,7 @@ OPENAI_IMAGE_MODEL_FALLBACK = os.getenv("OPENAI_IMAGE_MODEL_FALLBACK", None)  # 
 VRM_CONVERTER_SERVICE_URL = os.getenv("VRM_CONVERTER_SERVICE_URL", "http://vrm-converter:8000")
 VRM_CONVERTER_TIMEOUT = int(os.getenv("VRM_CONVERTER_TIMEOUT", "300"))  # 5 minutes default
 
+# CORS Configuration
+# Comma-separated list of allowed origins, or "*" for all origins (default for development)
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
+

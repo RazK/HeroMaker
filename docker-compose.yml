@@ -17,6 +17,7 @@ services:
       - OPENAI_IMAGE_MODEL_FALLBACK=${OPENAI_IMAGE_MODEL_FALLBACK:-}
       - VRM_CONVERTER_SERVICE_URL=${VRM_CONVERTER_SERVICE_URL:-http://vrm-converter:8000}
       - VRM_CONVERTER_TIMEOUT=${VRM_CONVERTER_TIMEOUT:-300}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
     volumes:
       # Mount assets directory for file storage
       - ./assets:/app/assets
