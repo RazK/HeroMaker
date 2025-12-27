@@ -2,7 +2,7 @@ services:
   # Backend API Service
   backend:
     build:
-      context: ./backend
+      context: ./vrm-converter-service/backend
       dockerfile: Dockerfile
     container_name: heromaker-backend
     ports:
@@ -35,7 +35,7 @@ services:
   # Frontend Web Application
   frontend:
     build:
-      context: ./frontend
+      context: ./vrm-converter-service/frontend
       dockerfile: Dockerfile
     container_name: heromaker-frontend
     ports:
@@ -55,8 +55,8 @@ services:
   # VRM Converter Service
   vrm-converter:
     build:
-      context: .
-      dockerfile: ./vrm-converter-service/Dockerfile
+      context: ./vrm-converter-service
+      dockerfile: Dockerfile
       args:
         VERSION: ${VRM_CONVERTER_VERSION:-1.0.0}
     image: vrm-converter-service:${VRM_CONVERTER_VERSION:-1.0.0}

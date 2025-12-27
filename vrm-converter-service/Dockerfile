@@ -32,7 +32,7 @@ RUN blender --background --python-expr "import subprocess, sys; subprocess.check
 
 # 4. Install the VRM Addon for Blender
 # Copy the locally downloaded addon zip file and extract it
-COPY downloads/add-on-vrm-v3.17.2.zip /tmp/vrm_addon.zip
+COPY add-on-vrm-v3.17.2.zip /tmp/vrm_addon.zip
 RUN mkdir -p /usr/share/blender/scripts/addons/io_scene_vrm \
     && unzip /tmp/vrm_addon.zip -d /usr/share/blender/scripts/addons/io_scene_vrm \
     && rm /tmp/vrm_addon.zip
@@ -42,8 +42,8 @@ RUN mkdir -p /usr/share/blender/scripts/addons/io_scene_vrm \
 WORKDIR /app
 
 # Copy application files (relative to dockerfile location)
-COPY vrm-converter-service/app.py .
-COPY vrm-converter-service/conversion_script.py .
+COPY app.py .
+COPY conversion_script.py .
 
 # Expose the FastAPI port
 EXPOSE 8000
