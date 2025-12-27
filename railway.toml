@@ -1,0 +1,14 @@
+# Railway Project Configuration
+# This file defines the Railway project structure
+# Note: Railway uses service-level railway.toml files in each service directory
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+

@@ -1,0 +1,18 @@
+# Railway Configuration for VRM Converter Service
+# This file is automatically applied when deploying from vrm-converter-service/ directory
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+dockerContext = "."
+
+[deploy]
+startCommand = ""
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Environment variables (set these in Railway dashboard or via CLI)
+# BLENDER_PATH=/usr/bin/blender
+
