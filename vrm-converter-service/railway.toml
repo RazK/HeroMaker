@@ -3,7 +3,6 @@
 
 [build]
 builder = "DOCKERFILE"
-rootDirectory = "vrm-converter-service"
 dockerfilePath = "Dockerfile"
 dockerContext = "."
 
