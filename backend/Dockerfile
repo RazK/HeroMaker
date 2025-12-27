@@ -21,13 +21,13 @@ COPY app/ ./app/
 # Create data directories if they don't exist (will be mounted as volume)
 RUN mkdir -p /app/data/files /app/data/db
 
-# Expose the FastAPI port
+# Expose the FastAPI port (Railway sets PORT env var)
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
+# Health check (use PORT env var, default to 8000)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD sh -c "python -c \"import urllib.request, os; port = os.getenv('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{port}/health')\"" || exit 1
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application (use PORT env var for Railway, default to 8000)
+CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
