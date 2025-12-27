@@ -3,8 +3,8 @@
 
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
-dockerContext = "."
+dockerfilePath = "frontend/Dockerfile"
+dockerContext = "frontend"
 
 [deploy]
 startCommand = ""
