@@ -50,6 +50,12 @@ sync_service() {
         # Remove quotes from value
         value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//')
         
+        # Skip empty values (Railway CLI doesn't accept empty values)
+        if [ -z "$value" ]; then
+            echo "  ⏭️  Skipping $key (empty value)"
+            continue
+        fi
+        
         echo "  Setting $key"
         # Railway CLI uses --set flag (not 'set' subcommand)
         railway variables --set "$key=$value" 2>&1 | grep -v "already exists" || true
