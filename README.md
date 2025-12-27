@@ -2,7 +2,7 @@
 
 AI-powered character creation pipeline that transforms 2D images into 3D VRM avatars.
 
-![HeroMaker Pipeline](docs/assets/pipeline-overview.gif)
+![HeroMaker Pipeline](docs/assets/pipeline_demo.gif)
 
 > Transform drawings into animated 3D characters in minutes
 
@@ -42,41 +42,26 @@ That's it! The API is now available at `http://localhost:8000`.
 
 ## Features
 
-### 🎨 Upload & Process
-![File Upload](docs/assets/upload-screenshot.png)
-- Drag-and-drop image upload
-- Automatic pipeline execution
+### 🎨 Complete Pipeline
+![Pipeline Demo](docs/assets/pipeline_demo.gif)
+- Complete end-to-end pipeline execution
+- Automatic step-by-step processing
 - Real-time progress tracking
+- Complete pipeline in ~6 minutes
 
-### 📊 Pipeline Progress
-![Pipeline Progress](docs/assets/pipeline-progress.gif)
-- Live step-by-step progress updates
-- Estimated completion times
-- Visual progress indicators for each step
-
-### 🖼️ Image Preview
-![Image Preview](docs/assets/image-preview-screenshot.png)
-- View processed and rendered images
-- Zoom and pan functionality
-- Download intermediate files
-
-### 🎭 3D Model Viewer
-![3D Model Preview](docs/assets/3d-preview.gif)
+### 🎭 3D Model Viewer & Pose Animation
+![3D Model & Pose Demo](docs/assets/kalidoface_demo.gif)
 - Interactive 3D model preview
+- Real-time pose animation from webcam
 - Rotate, zoom, and inspect models
-- Skeleton visualization
+- Live facial tracking and body pose detection
 
 ### 📦 Creation Gallery
-![Gallery View](docs/assets/gallery-screenshot.png)
+![Gallery Demo](docs/assets/gallery_demo.gif)
 - Browse all your creations
 - Quick access to completed avatars
 - Download VRM files
-
-### ⚡ Fast Pipeline
-![Pipeline Demo](docs/assets/full-pipeline-demo.gif)
-- Complete pipeline in ~6 minutes
-- Automatic step execution
-- Error handling and retry options
+- View creation history and details
 
 ## Documentation
 
