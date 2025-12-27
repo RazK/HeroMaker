@@ -51,8 +51,8 @@ sync_service() {
         value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//')
         
         echo "  Setting $key"
-        # Railway CLI uses current directory's linked service
-        railway variables set "$key=$value" 2>&1 | grep -v "already exists" || true
+        # Railway CLI uses --set flag (not 'set' subcommand)
+        railway variables --set "$key=$value" 2>&1 | grep -v "already exists" || true
     done < "../$env_file"
     
     cd ..
