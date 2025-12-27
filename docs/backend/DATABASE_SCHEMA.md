@@ -2,7 +2,7 @@
 
 ## Overview
 
-HeroMaker uses a simplified database design with two main tables: `users` and `creations`. The file system serves as the source of truth for task completion status.
+HeroMaker uses a relational database design with three main tables: `users`, `creations`, and `creation_steps`. Step status is tracked in the database, not inferred from file existence.
 
 ## Tables
 
@@ -10,7 +10,7 @@ HeroMaker uses a simplified database design with two main tables: `users` and `c
 
 ```sql
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id VARCHAR PRIMARY KEY,
     email VARCHAR(255) UNIQUE,
     google_id VARCHAR(255) UNIQUE,
     username VARCHAR(255),
@@ -29,46 +29,73 @@ CREATE INDEX idx_users_google_id ON users(google_id);
 
 ```sql
 CREATE TABLE creations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id VARCHAR PRIMARY KEY,
+    user_id VARCHAR REFERENCES users(id),
     character_name VARCHAR(255),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    status VARCHAR(50) NOT NULL,  -- pending, processing, completed, failed, cancelled
-    current_task VARCHAR(100),  -- NULL if completed or no current step
+    name VARCHAR(255),  -- Person's name (for original image)
+    age INTEGER,  -- Person's age (for original image)
     is_public BOOLEAN DEFAULT true,
+    metadata JSON,  -- Store any extra data (API task IDs, etc.)
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    completed_at TIMESTAMP,  -- Set when status = completed
-    error_message TEXT,
-    metadata JSONB  -- Store any extra data (generated name, API task IDs, etc.)
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_creations_status ON creations(status);
 CREATE INDEX idx_creations_user_id ON creations(user_id);
-CREATE INDEX idx_creations_public_completed ON creations(is_public, status) WHERE status = 'completed';
 CREATE INDEX idx_creations_created_at ON creations(created_at DESC);
+```
+
+**Note:** The `creations` table does NOT have `status`, `current_task`, `completed_at`, or `error_message` columns. These are computed properties:
+- `status` - Calculated from `creation_steps` statuses
+- `current_step` - First processing step, or first pending step
+- `completed_at` - From last step's `completed_at` when all steps completed
+- `error_message` - From first failed step's `error_message`
+
+### Creation Steps Table
+
+```sql
+CREATE TABLE creation_steps (
+    id VARCHAR PRIMARY KEY,
+    creation_id VARCHAR REFERENCES creations(id) ON DELETE CASCADE,
+    step_name VARCHAR(100) NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, processing, completed, failed
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    estimated_duration INTEGER,  -- seconds
+    estimated_progress INTEGER,  -- 0-100, nullable
+    estimated_completion_time TIMESTAMP,  -- Calculated completion time
+    error_message TEXT,
+    metadata JSON,  -- Step-specific metadata (e.g., API task IDs)
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_creation_steps_creation_id ON creation_steps(creation_id);
+CREATE INDEX idx_creation_steps_step_name ON creation_steps(step_name);
+CREATE INDEX idx_creation_steps_status ON creation_steps(status);
 ```
 
 ## Design Notes
 
-- **Creations table tracks both in-progress creations and completed characters**
-  - Status field determines state: "processing" = active creation, "completed" = finished character
-  - Single table eliminates need for separate jobs/characters tables
+- **Step status is stored in database**
+  - Each step has its own row in `creation_steps` table
+  - Status is explicitly tracked: `pending`, `processing`, `completed`, `failed`
+  - File existence is NOT used to infer status (files may exist but step status may be different)
 
-- **File system is source of truth for task completion status**
-  - Task status inferred from file existence in file system
-  - No separate transformations/steps table needed
-  - Simple logic: if file exists, task is done
+- **Creation status is computed from steps**
+  - `pending` - All steps are pending
+  - `processing` - At least one step is processing
+  - `completed` - All steps are completed
+  - `failed` - At least one step failed
 
-- **Metadata field (JSONB)**
-  - Stores flexible data: API task IDs, progress percentages, generated names
-  - Allows querying without schema changes
-  - Example: `{"meshy_task_id": "task_123", "progress_percentage": 65, "generated_name": "Super Hero"}`
+- **Metadata fields (JSON)**
+  - `creations.metadata` - Stores flexible data: API task IDs, progress percentages, generated names
+  - `creation_steps.metadata` - Step-specific data: Meshy task IDs, ChatGPT thread IDs, etc.
 
 ## File System Structure
 
 ```
-assets/
-  temp/
+/data/
+  files/
     {user_id}/
       {creation_id}/
         original.jpg
@@ -77,29 +104,31 @@ assets/
         model.glb
         rigged.glb
         avatar.vrm
-  permanent/
-    {user_id}/
-      {creation_id}/
-        (same files, moved here on completion)
+  db/
+    heromaker.db
 ```
+
+**Note:** Files are stored directly in the creation directory. There is no `temp` vs `permanent` distinction - files stay in the same location throughout the pipeline.
 
 ## File Naming Convention
 
-Each task produces a specific output file. File existence indicates task completion.
+Each step produces a specific output file:
 
-**Task to File Mapping:**
-- `image_capture` → `original.jpg` (supports both webcam capture and file upload)
-- `image_processing` → `processed.jpg`
-- `chatgpt_render` → `rendered.png`
-- `meshy_3d` → `model.glb` (includes remeshing and texturing)
-- `meshy_rig` → `rigged.glb`
-- `convert_vrm` → `avatar.vrm`
+**Step to File Mapping:**
+- `image_processing` → `processed.jpg` (input: `original.jpg`)
+- `chatgpt_render` → `rendered.png` (input: `processed.jpg`)
+- `meshy_3d` → `model.glb` (input: `rendered.png`)
+- `meshy_rig` → `rigged.glb` (input: `model.glb`)
+- `convert_vrm` → `avatar.vrm` (input: `rigged.glb`)
+- `complete` → No output file (marks creation as complete)
+
+**Note:** The `original.jpg` file is saved when uploading via `POST /api/creations/upload`, before any steps run.
 
 ## User ID in Paths
 
-- All file paths include user_id for organization and security
-- For V2 debug mode: use `user_id = "debug"` when user_id is NULL
-- Path structure: `assets/{temp|permanent}/{user_id}/{creation_id}/`
+- All file paths include `user_id` for organization and security
+- For V2 debug mode: uses `user_id = "debug-user-uuid"`
+- Path structure: `/data/files/{user_id}/{creation_id}/`
 
 **Benefits:**
 - Better organization
@@ -120,18 +149,17 @@ Each task produces a specific output file. File existence indicates task complet
 
 ## Status Field Values
 
-**Creation Status:**
-- `pending` - Created but not started
-- `processing` - Active creation, tasks running
-- `completed` - All tasks done, character ready
-- `failed` - Task failed, can retry
-- `cancelled` - User cancelled creation
+**Creation Status (computed):**
+- `pending` - All steps are pending
+- `processing` - At least one step is processing
+- `completed` - All steps are completed
+- `failed` - At least one step failed
 
-**Task Status (inferred from files):**
-- `pending` - Task not started (file doesn't exist)
-- `processing` - Task running (current_task matches, file doesn't exist yet)
-- `completed` - Task done (file exists)
-- `failed` - Task failed (error_message set, file doesn't exist)
+**Step Status (stored in database):**
+- `pending` - Step has not started
+- `processing` - Step is currently running
+- `completed` - Step finished successfully
+- `failed` - Step failed (check `error_message`)
 
 ## Query Patterns
 
@@ -140,26 +168,35 @@ Each task produces a specific output file. File existence indicates task complet
 ```sql
 -- Get user's active creations
 SELECT * FROM creations 
-WHERE user_id = ? AND status = 'processing';
+WHERE user_id = ? 
+AND id IN (
+    SELECT DISTINCT creation_id FROM creation_steps 
+    WHERE status IN ('pending', 'processing')
+);
 
 -- Get completed public characters for gallery
 SELECT * FROM creations 
-WHERE status = 'completed' AND is_public = true 
+WHERE is_public = true 
+AND id IN (
+    SELECT creation_id FROM creation_steps 
+    GROUP BY creation_id 
+    HAVING COUNT(*) = SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)
+)
 ORDER BY created_at DESC;
 
--- Get creation with current task
-SELECT * FROM creations 
-WHERE id = ? AND current_task = ?;
+-- Get creation with all steps
+SELECT c.*, cs.* 
+FROM creations c
+LEFT JOIN creation_steps cs ON c.id = cs.creation_id
+WHERE c.id = ?;
 
--- Get creations by status
-SELECT * FROM creations 
+-- Get steps by status
+SELECT * FROM creation_steps 
 WHERE status = ?;
 ```
 
 ## Related Documentation
 
-- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Task definitions and file mappings
+- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - Step definitions and file mappings
 - [API_REFERENCE.md](../shared/API_REFERENCE.md) - API endpoints that query this schema
-- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) - See how database is used in practice
-
-
+- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - How the database is used in practice

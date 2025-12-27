@@ -9,9 +9,15 @@ from pathlib import Path
 from datetime import datetime
 import uuid
 
-# Database path
-DB_PATH = Path(__file__).parent / "heromaker.db"
-ASSETS_PATH = Path(__file__).parent.parent / "assets" / "permanent" / "debug-user-uuid"
+# Database path - check new location first, then fallback to old
+db_path_new = Path(__file__).parent.parent / "data" / "db" / "heromaker.db"
+db_path_old = Path(__file__).parent / "heromaker.db"
+DB_PATH = db_path_new if db_path_new.exists() else db_path_old
+
+# Assets path - check new location first, then fallback to old
+assets_path_new = Path(__file__).parent.parent / "data" / "files" / "debug-user-uuid"
+assets_path_old = Path(__file__).parent.parent / "assets" / "permanent" / "debug-user-uuid"
+ASSETS_PATH = assets_path_new if assets_path_new.exists() else assets_path_old
 
 # Debug user ID
 DEBUG_USER_ID = "debug-user-uuid"

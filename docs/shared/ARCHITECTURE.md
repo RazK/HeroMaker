@@ -19,13 +19,13 @@ The frontend treats the backend as the single source of truth and polls for crea
 | Backend API Service | Implements REST endpoints under `/api`, orchestrates step execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic (see `IMPLEMENTATION.md`). Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). |
 | Pipeline Engine | Encapsulated inside the API service (no separate worker). Executes sequential steps defined in `TASK_CONFIGURATION.md`, spawns Meshy/ChatGPT jobs, and writes outputs to disk. | Python modules plus helper scripts in `research/scripts/`. | Step status is tracked in database with timestamps and progress. |
 | Database | Stores users, creations, creation_steps with status, metadata, audit timestamps | PostgreSQL in production, SQLite for dev (`SETUP.md`). | Core tables: `users`, `creations`, `creation_steps`. File paths are not stored here. |
-| File Storage | Holds all intermediate and final artifacts (`assets/temp` and `assets/permanent`) | Local POSIX filesystem in V2; can be swapped for S3-compatible storage later. | Directory structure encodes `user_id` and `creation_id`; moving temp → permanent marks completion. |
+| File Storage | Holds all intermediate and final artifacts (`/data/files/{user_id}/{creation_id}/`) | Local POSIX filesystem in V2; can be swapped for S3-compatible storage later. | Directory structure encodes `user_id` and `creation_id`; files are stored directly in creation directory. |
 | External Services | ChatGPT for render + naming, Meshy for 3D pipeline, Blender VRM add-on for final conversion | HTTP APIs (OpenAI, Meshy) + local Blender CLI invoked by `convert_glb_to_vrm.py`. | API polling intervals and retries defined in `SETUP.md` & `INTEGRATIONS.md`. |
 
 ## Service Interactions
 
 1. **Creation Kickoff**  
-   `POST /api/creations/upload` accepts an image file upload, creates a row in `creations`, initializes all steps as "pending", and allocates a filesystem workspace (`assets/temp/{user}/{creation}`).
+   `POST /api/creations/upload` accepts an image file upload, creates a row in `creations`, initializes all steps as "pending", and allocates a filesystem workspace (`/data/files/{user_id}/{creation_id}/`).
 
 2. **Pipeline Execution**  
    User triggers pipeline via `POST /api/creations/{id}/run` or individual steps via `POST /api/creations/{id}/steps/{step_name}/run`. Steps execute sequentially, with dependencies validated automatically.
@@ -37,13 +37,13 @@ The frontend treats the backend as the single source of truth and polls for crea
    For ChatGPT and Meshy steps, the backend records provider task IDs in `creations.metadata`, polls on a configurable cadence, and updates step progress percentages so the frontend can render progress bars.
 
 5. **Completion**  
-   After `convert_vrm` succeeds, the `complete` step moves the entire directory tree to `assets/permanent`, sets `current_step` to null, and marks the creation `status='completed'`.
+   After `convert_vrm` succeeds, the `complete` step sets `current_step` to null and marks the creation `status='completed'`. All files remain in the creation directory.
 
 ## Data Model & Storage Strategy
 
 - **Relational Core** – Durable metadata (users, creations, creation_steps with timestamps, status, progress, optional error messages) lives in Postgres/SQLite. See `DATABASE_SCHEMA.md` for exact DDL.
 - **Filesystem Storage** – Output artifacts are stored in organized directory structure. Step status is tracked in database, not inferred from files. The backend wraps file operations in helper utilities outlined in `IMPLEMENTATION.md`.
-- **Path Convention** – Every path includes the `user_id` (or `debug` in development) and the immutable `creation_id`, e.g. `assets/temp/debug/{creation_id}/rendered.png`. VRM files are named `avatar.vrm` in each creation directory.
+- **Path Convention** – Every path includes the `user_id` (or `debug-user-uuid` in development) and the immutable `creation_id`, e.g. `/data/files/{user_id}/{creation_id}/rendered.png`. VRM files are named `avatar.vrm` in each creation directory.
 
 ## Error Handling & Resilience
 
@@ -54,7 +54,7 @@ The frontend treats the backend as the single source of truth and polls for crea
 
 ## Deployment & Environment Strategy
 
-- **Development (V2)** – SQLite, debug auth (auto-assigned user), permissive CORS, local assets folder. Uvicorn runs hot-reload, and scripts in `research/scripts/` exercise external APIs with local `.env` secrets.
+- **Development (V2)** – SQLite, debug auth (auto-assigned user), permissive CORS, local `/data` folder. Uvicorn runs hot-reload, and scripts in `research/scripts/` exercise external APIs with local `.env` secrets.
 - **Production (V3+)** – PostgreSQL, OAuth-based auth (JWTs), locked-down CORS origins, proper secret storage, and rate limiting (see `SETUP.md`). File storage can stay on-disk initially but should migrate to shared storage for multi-instance hosting.
 - **Background Processes** – No separate worker today; FastAPI process handles both HTTP requests and polling loops. Webhook support from Meshy would allow offloading polling and is a future enhancement.
 

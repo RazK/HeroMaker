@@ -1,11 +1,11 @@
 import os
 import shutil
 from pathlib import Path
-from app.config.settings import ASSETS_ROOT
+from app.config.settings import FILES_ROOT
 
 def get_creation_path(creation_id: str, user_id: str) -> Path:
-    """Get the path for a creation's assets."""
-    path = Path(ASSETS_ROOT) / user_id / creation_id
+    """Get the path for a creation's files."""
+    path = Path(FILES_ROOT) / user_id / creation_id
     path.mkdir(parents=True, exist_ok=True)
     return path
 

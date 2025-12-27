@@ -6,7 +6,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_FILE="${SCRIPT_DIR}/VERSION"
 VERSION=$(cat "${VERSION_FILE}" | tr -d '[:space:]')
-IMAGE_NAME="vrm-converter-service"
+IMAGE_NAME="vrm-converter"
 FULL_IMAGE_NAME="${IMAGE_NAME}:${VERSION}"
 TAR_FILE="${SCRIPT_DIR}/${IMAGE_NAME}-${VERSION}.tar"
 

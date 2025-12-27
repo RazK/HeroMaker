@@ -6,7 +6,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_FILE="${SCRIPT_DIR}/VERSION"
 VERSION=$(cat "${VERSION_FILE}" | tr -d '[:space:]')
-IMAGE_NAME="vrm-converter-service"
+IMAGE_NAME="vrm-converter"
 
 # Get GitHub repository info
 # Convert to lowercase for GHCR compatibility

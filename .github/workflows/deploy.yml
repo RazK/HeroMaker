@@ -42,3 +42,4 @@ jobs:
           echo "✅ Deployment completed successfully"
           echo "🌐 Application URL: ${{ secrets.RAILWAY_PUBLIC_URL }}"
 
+

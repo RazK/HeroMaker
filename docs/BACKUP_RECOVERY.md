@@ -173,3 +173,4 @@ railway run --service backend sqlite3 /app/backups/heromaker_backup_YYYYMMDD_HHM
 - [Deployment Guide](DEPLOYMENT.md)
 - [Database Schema](../backend/docs/DATABASE_SCHEMA.md)
 
+

@@ -12,7 +12,7 @@ Welcome to the HeroMaker documentation. This directory contains all design and i
 2. Run `docker-compose up -d`
 3. Access API at `http://localhost:8000`
 
-See [DOCKER_SETUP.md](./backend/DOCKER_SETUP.md) for complete Docker setup guide.
+See [DEPLOYMENT.md](../DEPLOYMENT.md) for complete Docker setup guide.
 
 ### Manual Setup
 
@@ -28,7 +28,7 @@ See [DOCKER_SETUP.md](./backend/DOCKER_SETUP.md) for complete Docker setup guide
 
 All backend development documentation:
 
-- **[DOCKER_SETUP.md](./backend/DOCKER_SETUP.md)** - ⭐ **Docker Quick Start** - Run HeroMaker with Docker (recommended)
+- **[DEPLOYMENT.md](../DEPLOYMENT.md)** - ⭐ **Docker Quick Start** - Run HeroMaker with Docker (recommended)
 - **[IMPLEMENTATION.md](./backend/IMPLEMENTATION.md)** - Complete backend implementation guide (setup + step-by-step)
 - **[DATABASE_SCHEMA.md](./backend/DATABASE_SCHEMA.md)** - Database schema, tables, indexes, and design notes
 - **[TASK_CONFIGURATION.md](./backend/TASK_CONFIGURATION.md)** - Task definitions, file mappings, and execution logic
@@ -37,10 +37,7 @@ All backend development documentation:
 
 ### Frontend Documentation (`frontend/`)
 
-**Note:** Frontend is currently being rebuilt. Previous frontend documentation may be outdated.
-
-- **[IMPLEMENTATION.md](./frontend/IMPLEMENTATION.md)** - Previous frontend implementation guide (may be outdated)
-- **[USER_JOURNEYS.md](./frontend/USER_JOURNEYS.md)** - Previous user flows (may be outdated)
+**Note:** Frontend is currently being rebuilt. See [frontend/README.md](../frontend/README.md) for current frontend setup.
 
 ### Shared Documentation (`shared/`)
 
@@ -66,7 +63,7 @@ Documentation relevant to both backend and frontend:
 **Reference:**
 - [SETUP.md](./backend/SETUP.md) - Environment setup and error handling
 - [INTEGRATIONS.md](./backend/INTEGRATIONS.md) - External API integration
-- [USER_JOURNEYS.md](./frontend/USER_JOURNEYS.md) - See how frontend uses your APIs
+- [frontend/README.md](../frontend/README.md) - Frontend setup and structure
 - [ARCHITECTURE.md](./shared/ARCHITECTURE.md) - High-level system overview
 
 ---

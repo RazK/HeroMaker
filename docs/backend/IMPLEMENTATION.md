@@ -40,7 +40,7 @@ DATABASE_URL=sqlite:///./heromaker.db  # For V2 development
 OPENAI_API_KEY=sk-...
 MESHY_API_KEY=meshy_...
 DEBUG=true
-ASSETS_ROOT=../assets
+FILES_ROOT=../data/files
 ```
 
 See [SETUP.md](./SETUP.md) for all environment variables.
@@ -262,8 +262,8 @@ sleep 2 && CREATION_ID=$(curl -s -X POST http://localhost:8000/api/creations | p
 
 **Terminal command ready:**
 ```bash
-cd /Users/razkarl/projects/HeroMaker/backend && mkdir -p assets/temp/debug/test-123 && echo "test content" > assets/temp/debug/test-123/test.txt && uvicorn app.main:app --reload --port 8000 &
-sleep 2 && curl -I http://localhost:8000/api/files/temp/debug/test-123/test.txt && echo "✅ File serving working" && pkill -f uvicorn && rm -rf assets/temp/debug/test-123
+cd /Users/razkarl/projects/HeroMaker/backend && mkdir -p data/files/debug-user-uuid/test-123 && echo "test content" > data/files/debug-user-uuid/test-123/test.txt && uvicorn app.main:app --reload --port 8000 &
+sleep 2 && curl -I http://localhost:8000/api/files/debug-user-uuid/test-123/test.txt && echo "✅ File serving working" && pkill -f uvicorn && rm -rf data/files/debug-user-uuid/test-123
 ```
 
 ---
@@ -345,5 +345,5 @@ Follow the steps above in order:
 
 ## Need Help?
 
-- See [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) to understand how frontend uses your APIs
+- See [API_REFERENCE.md](../shared/API_REFERENCE.md) for API contract
 - Check [ARCHITECTURE.md](../shared/ARCHITECTURE.md) for high-level system overview

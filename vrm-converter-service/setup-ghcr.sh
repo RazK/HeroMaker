@@ -44,7 +44,7 @@ if [ $? -eq 0 ]; then
     echo "✓ Successfully logged in to GHCR!"
     echo ""
     echo "Your images will be available at:"
-    echo "  ghcr.io/razk/heromaker/vrm-converter-service:VERSION"
+    echo "  ghcr.io/razk/heromaker/vrm-converter:VERSION"
     echo ""
     echo "To push an image, run:"
     echo "  ./push-image.sh"

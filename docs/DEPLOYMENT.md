@@ -1,6 +1,8 @@
 # HeroMaker Deployment Guide
 
-This guide covers deploying the HeroMaker application using Docker and docker-compose.
+> **For Railway deployment**, see [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) or [RAILWAY_CONFIGURATION.md](./RAILWAY_CONFIGURATION.md)
+
+This guide covers **local Docker Compose deployment** for development and testing.
 
 ## Overview
 
@@ -8,10 +10,10 @@ The HeroMaker application consists of four main components:
 
 1. **Frontend** - React application served by Nginx (port 3000 on host, 80 in container)
 2. **Backend** - FastAPI application (port 8000)
-3. **VRM Converter** - Blender-based service for GLB to VRM conversion (port 8002)
+3. **VRM Converter** - Blender-based service for GLB to VRM conversion (port 8001)
 4. **Database** - SQLite database (file-based, mounted as volume)
 
-All services communicate via a Docker network and share the `assets/` directory for file storage.
+All services communicate via a Docker network and share the `data/` directory for file storage.
 
 ## Prerequisites
 
@@ -31,12 +33,12 @@ Create a `.env` file in the project root (copy from `.env.example` if available)
 OPENAI_API_KEY=your_openai_api_key_here
 MESHY_API_KEY=your_meshy_api_key_here
 
-# Database (SQLite default)
-DATABASE_URL=sqlite:///./heromaker.db
+# Database (SQLite default - absolute path for containers)
+DATABASE_URL=sqlite:////app/data/db/heromaker.db
 
 # Application Settings
 DEBUG=false
-ASSETS_ROOT=/app/assets
+FILES_ROOT=/app/data/files
 
 # VRM Converter
 VRM_CONVERTER_SERVICE_URL=http://vrm-converter:8000
@@ -68,7 +70,7 @@ docker-compose logs -f vrm-converter
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000
-- **VRM Converter**: http://localhost:8002
+- **VRM Converter**: http://localhost:8001
 
 ### 4. Stop Services
 
@@ -76,7 +78,7 @@ docker-compose logs -f vrm-converter
 # Stop all services
 docker-compose down
 
-# Stop and remove volumes (WARNING: deletes database and assets)
+# Stop and remove volumes (WARNING: deletes database and files)
 docker-compose down -v
 ```
 
@@ -88,8 +90,7 @@ docker-compose down -v
 - **Port**: 8000 (mapped to host)
 - **Health Check**: `GET /`
 - **Volumes**:
-  - `./assets` → `/app/assets` (user uploads and generated files)
-  - `./backend/heromaker.db` → `/app/heromaker.db` (database file)
+  - `./data` → `/app/data` (user files and database)
 
 ### Frontend Service
 
@@ -102,11 +103,11 @@ docker-compose down -v
 ### VRM Converter Service
 
 - **Container**: `vrm-converter-service`
-- **Port**: 8002 (mapped to host)
+- **Port**: 8001 (mapped to host)
 - **Health Check**: `GET /health`
 - **Resource Limits**: 2 CPUs, 4GB RAM
 - **Volumes**:
-  - `./assets` → `/app/assets` (access to GLB files, writes VRM files)
+  - `./data` → `/app/data` (access to GLB files, writes VRM files)
 
 ## Environment Variables
 
@@ -121,9 +122,9 @@ docker-compose down -v
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `sqlite:///./heromaker.db` | Database connection string |
+| `DATABASE_URL` | `sqlite:////app/data/db/heromaker.db` | Database connection string (absolute path in containers) |
 | `DEBUG` | `false` | Enable debug mode |
-| `ASSETS_ROOT` | `/app/assets` | Assets directory path |
+| `FILES_ROOT` | `/app/data/files` | Files directory path |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-1` | OpenAI image model |
 | `VRM_CONVERTER_SERVICE_URL` | `http://vrm-converter:8000` | VRM converter service URL |
 | `VRM_CONVERTER_TIMEOUT` | `300` | VRM conversion timeout (seconds) |
@@ -131,55 +132,47 @@ docker-compose down -v
 
 ## Volume Management
 
-### Assets Directory
+### Data Directory
 
-The `./assets` directory is bind-mounted to all services that need file access:
+The `./data` directory is bind-mounted to all services that need file access:
 - Backend reads/writes user uploads and generated files
 - VRM converter reads GLB files and writes VRM files
+- Database is stored at `./data/db/heromaker.db`
 
-**Important**: The `assets/` directory structure:
+**Directory Structure**:
 ```
-assets/
-├── temp/
+data/
+├── files/           # User uploads and generated files
 │   └── {user_id}/
 │       └── {creation_id}/
-└── permanent/
-    └── {user_id}/
-        └── {creation_id}/
+└── db/              # Database
+    └── heromaker.db
 ```
 
-### Database File
-
-The SQLite database file (`./backend/heromaker.db`) is bind-mounted to persist data across container restarts.
-
-**Backup**: To backup the database, simply copy `./backend/heromaker.db`:
+**Backup**: To backup the database:
 ```bash
-cp ./backend/heromaker.db ./backend/heromaker.db.backup
+cp ./data/db/heromaker.db ./data/db/heromaker.db.backup
 ```
 
 ## Development Workflow
 
-### Hot Reload Development Mode
+### Development Mode
 
-For development with automatic reloading (no rebuild needed):
+For development, you can run services directly without Docker:
 
+**Backend:**
 ```bash
-# Start in development mode with hot-reload
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
-
-# Or in detached mode
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+cd backend
+uvicorn app.main:app --reload --port 8000
 ```
 
-**Development mode features:**
-- **Backend**: Auto-reloads on code changes (uvicorn --reload)
-- **Frontend**: Vite dev server with HMR (Hot Module Replacement)
-- **No rebuilds needed**: Changes appear instantly after saving
+**Frontend:**
+```bash
+cd frontend
+npm run dev
+```
 
-**Access:**
-- Frontend: http://localhost:3001 (Vite dev server - port 3001 to avoid conflicts)
-- Backend: http://localhost:8000
-- Changes to code are automatically detected and reloaded
+This gives you hot-reload without Docker overhead.
 
 ### Production Mode (Default)
 
@@ -237,7 +230,7 @@ docker-compose exec frontend /bin/sh
 
 1. **Copy project files** to the server
 2. **Create `.env` file** with production values
-3. **Ensure ports are available**: 80, 8000, 8002
+3. **Ensure ports are available**: 80, 8000, 8001
 4. **Start services**: `docker-compose up -d`
 
 ### Using a Reverse Proxy (Recommended)
@@ -276,14 +269,14 @@ alembic upgrade head
 
 1. **Check logs**: `docker-compose logs`
 2. **Verify environment variables**: Ensure `.env` file exists and has required keys
-3. **Check port conflicts**: Ensure ports 3000, 8000, 8002 are not in use
+3. **Check port conflicts**: Ensure ports 3000, 8000, 8001 are not in use
 4. **Verify Docker resources**: VRM converter needs 2GB+ RAM
 
 ### Backend Can't Connect to VRM Converter
 
 - Verify `VRM_CONVERTER_SERVICE_URL=http://vrm-converter:8000` in `.env`
 - Check that both services are on the same Docker network
-- Verify VRM converter health: `curl http://localhost:8002/health`
+- Verify VRM converter health: `curl http://localhost:8001/health`
 
 ### Frontend Can't Reach Backend
 
@@ -294,15 +287,16 @@ alembic upgrade head
 
 ### Database Issues
 
-- Ensure `./backend/heromaker.db` file exists or is created on first run
-- Check file permissions: database file must be writable
-- Verify `DATABASE_URL` in `.env` matches the mounted path
+- Ensure `./data/db/` directory exists (created automatically on first run)
+- Database file will be created at `./data/db/heromaker.db`
+- Check file permissions: database directory must be writable
+- Verify `DATABASE_URL` in `.env` matches the mounted path: `sqlite:////app/data/db/heromaker.db`
 
-### Assets Not Persisting
+### Files Not Persisting
 
-- Verify `./assets` directory exists and is writable
+- Verify `./data` directory exists and is writable
 - Check volume mounts in `docker-compose.yml`
-- Ensure services have write permissions to `/app/assets`
+- Ensure services have write permissions to `/app/data`
 
 ### VRM Converter Timeout
 
@@ -322,7 +316,7 @@ curl http://localhost:8000/
 curl http://localhost:3000/health
 
 # VRM Converter
-curl http://localhost:8002/health
+curl http://localhost:8001/health
 ```
 
 ## Resource Requirements
@@ -331,19 +325,19 @@ curl http://localhost:8002/health
 
 - **CPU**: 2 cores
 - **RAM**: 4GB (VRM converter needs 2GB+)
-- **Disk**: 10GB+ (for assets and database)
+- **Disk**: 10GB+ (for files and database)
 
 ### Recommended Requirements
 
 - **CPU**: 4 cores
 - **RAM**: 8GB
-- **Disk**: 50GB+ (for assets storage)
+- **Disk**: 50GB+ (for files storage)
 
 ## Security Considerations
 
 1. **API Keys**: Never commit `.env` file to version control
 2. **CORS**: Configure CORS in backend for production (currently allows all origins)
-3. **Firewall**: Restrict access to ports 3000, 8000, and 8002 (frontend, backend, and VRM converter)
+3. **Firewall**: Restrict access to ports 3000, 8000, and 8001 (frontend, backend, and VRM converter)
 4. **HTTPS**: Use reverse proxy with SSL/TLS for production
 5. **Database**: Consider PostgreSQL for production instead of SQLite
 
