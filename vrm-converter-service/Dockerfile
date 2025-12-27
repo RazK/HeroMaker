@@ -48,6 +48,6 @@ COPY conversion_script.py .
 # Expose the FastAPI port
 EXPOSE 8000
 
-# Start the service
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start the service (use PORT env var for Railway, default to 8000)
+CMD sh -c "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"
 
