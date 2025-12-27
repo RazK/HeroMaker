@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import creations, files
 from app.database import engine, Base
 from app.config.settings import DEBUG, ALLOWED_ORIGINS
+from app.migrations.registry import run_migrations
 
 # Configure structured logging
 logging.basicConfig(
@@ -21,6 +22,9 @@ logger.info("HeroMaker API starting...")
 
 # Create tables (for V2 SQLite convenience)
 Base.metadata.create_all(bind=engine)
+
+# Run database migrations on startup
+run_migrations()
 
 app = FastAPI(title="HeroMaker API")
 

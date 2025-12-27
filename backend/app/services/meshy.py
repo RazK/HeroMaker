@@ -1,6 +1,6 @@
 """
 Meshy API Service - Backend integration for Meshy API endpoints.
-Adapted from research/scripts/meshy_client.py
+Meshy API client for HeroMaker pipeline
 """
 
 import os

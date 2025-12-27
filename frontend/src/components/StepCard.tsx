@@ -15,7 +15,7 @@ interface StepCardProps {
 
 const STEP_DISPLAY_NAMES: Record<string, string> = {
   image_processing: 'Image Processing',
-  chatgpt_render: 'AI Rendering',
+  openai_render: 'AI Rendering',
   meshy_3d: '3D Modeling',
   meshy_rig: 'Rigging & Animating',
   convert_vrm: 'VRM Conversion',
@@ -24,7 +24,7 @@ const STEP_DISPLAY_NAMES: Record<string, string> = {
 
 const STEP_OUTPUT_FILES: Record<string, string> = {
   image_processing: 'processed.jpg',
-  chatgpt_render: 'rendered.png',
+  openai_render: 'rendered.png',
   meshy_3d: 'model.glb',
   meshy_rig: 'rigged.glb',
   convert_vrm: 'avatar.vrm',

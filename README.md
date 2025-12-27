@@ -65,17 +65,18 @@ That's it! The API is now available at `http://localhost:8000`.
 
 ## Documentation
 
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Complete Docker setup and deployment instructions
-- **[API Reference](docs/shared/API_REFERENCE.md)** - All API endpoints
-- **[Architecture](docs/shared/ARCHITECTURE.md)** - System design and overview
-- **[Full Documentation](docs/README.md)** - Complete documentation index
+- **[Local Deployment](docs/deployment/local.md)** - Local Docker Compose setup and development
+- **[Railway Deployment](docs/deployment/railway.md)** - Production deployment to Railway
+- **[API Reference](docs/api/reference.md)** - Interactive Swagger UI docs
+- **[Architecture](docs/architecture/overview.md)** - System design and overview
+- **[Backend Docs](docs/backend/)** - Backend implementation, database schema, integrations
 
 ## How It Works
 
 HeroMaker orchestrates a multi-step AI pipeline to transform 2D drawings into fully rigged 3D VRM avatars:
 
 1. **Image Processing** - Preprocess uploaded image
-2. **ChatGPT Render** - Enhance image using OpenAI's image editing API
+2. **OpenAI Render** - Enhance image using OpenAI's GPT-Image-1 model
 3. **Meshy 3D** - Generate 3D model from image
 4. **Meshy Rig** - Add rigging to 3D model
 5. **VRM Conversion** - Convert GLB to VRM format
@@ -100,7 +101,7 @@ HeroMaker orchestrates a multi-step AI pipeline to transform 2D drawings into fu
 
 ## Development
 
-See [docs/backend/IMPLEMENTATION.md](docs/backend/IMPLEMENTATION.md) for development setup and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker setup.
+See [docs/deployment/local.md](docs/deployment/local.md) for Docker setup. See `.env.example` for backend configuration options.
 
 ## License
 

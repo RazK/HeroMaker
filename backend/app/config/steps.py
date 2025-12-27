@@ -6,7 +6,7 @@ STEPS = [
         "estimated_duration": 1  # Avg: 0.00s from 62 samples (rounded to 1s minimum)
     },
     {
-        "name": "chatgpt_render",
+        "name": "openai_render",
         "input": "processed.jpg",
         "output": "rendered.png",
         "depends_on": "image_processing",
@@ -16,7 +16,7 @@ STEPS = [
         "name": "meshy_3d",
         "input": "rendered.png",
         "output": "model.glb",
-        "depends_on": "chatgpt_render",
+        "depends_on": "openai_render",
         "estimated_duration": 309  # Avg: 308.78s from 62 samples
     },
     {
