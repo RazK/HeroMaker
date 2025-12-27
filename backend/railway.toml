@@ -3,7 +3,6 @@
 
 [build]
 builder = "DOCKERFILE"
-rootDirectory = "backend"
 dockerfilePath = "Dockerfile"
 dockerContext = "."
 
