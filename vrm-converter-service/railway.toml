@@ -3,8 +3,8 @@
 
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
-dockerContext = "."
+dockerfilePath = "vrm-converter-service/Dockerfile"
+dockerContext = "vrm-converter-service"
 
 [deploy]
 startCommand = ""
