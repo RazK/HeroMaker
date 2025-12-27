@@ -37,3 +37,4 @@ echo "  - ${REGISTRY}/backend:${TAG}"
 echo "  - ${REGISTRY}/frontend:${TAG}"
 echo "  - ${REGISTRY}/vrm-converter:${TAG}"
 
+

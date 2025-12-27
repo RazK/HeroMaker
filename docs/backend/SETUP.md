@@ -22,7 +22,7 @@ DEBUG=true
 SECRET_KEY=your-secret-key-here  # For JWT tokens (V3)
 
 # File Storage
-ASSETS_ROOT=./assets
+FILES_ROOT=./data/files
 MAX_UPLOAD_SIZE=52428800  # 50MB in bytes
 
 # CORS

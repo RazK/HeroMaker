@@ -8,21 +8,19 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///./heromaker.db}
+      - DATABASE_URL=sqlite:////app/data/db/heromaker.db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MESHY_API_KEY=${MESHY_API_KEY}
       - DEBUG=${DEBUG:-false}
-      - ASSETS_ROOT=/app/assets
+      - FILES_ROOT=/app/data/files
       - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL:-gpt-image-1}
       - OPENAI_IMAGE_MODEL_FALLBACK=${OPENAI_IMAGE_MODEL_FALLBACK:-}
       - VRM_CONVERTER_SERVICE_URL=${VRM_CONVERTER_SERVICE_URL:-http://vrm-converter:8000}
       - VRM_CONVERTER_TIMEOUT=${VRM_CONVERTER_TIMEOUT:-300}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
     volumes:
-      # Mount assets directory for file storage
-      - ./assets:/app/assets
-      # Mount database file for persistence
-      - ./backend/heromaker.db:/app/heromaker.db
+      # Mount data directory (contains users/ and db/ subdirectories)
+      - ./data:/app/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
       interval: 30s
@@ -63,12 +61,12 @@ services:
     image: vrm-converter-service:${VRM_CONVERTER_VERSION:-1.0.0}
     container_name: vrm-converter-service
     ports:
-      - "8002:8000"
+      - "8001:8000"
     environment:
       - BLENDER_PATH=/usr/bin/blender
     volumes:
-      # Mount assets directory so VRM converter can access GLB files and write VRM files
-      - ./assets:/app/assets
+      # Mount data directory so VRM converter can access GLB files and write VRM files
+      - ./data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

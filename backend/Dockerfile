@@ -18,8 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend application code
 COPY app/ ./app/
 
-# Create assets directory if it doesn't exist (will be mounted as volume)
-RUN mkdir -p /app/assets
+# Create data directories if they don't exist (will be mounted as volume)
+RUN mkdir -p /app/data/files /app/data/db
 
 # Expose the FastAPI port
 EXPOSE 8000

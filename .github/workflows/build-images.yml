@@ -98,7 +98,7 @@ jobs:
       - name: Build and push VRM converter image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./vrm-converter-service
           file: ./vrm-converter-service/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-vrm-converter.outputs.tags }}

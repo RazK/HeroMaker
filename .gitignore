@@ -53,3 +53,4 @@ heromaker.db
 assets/temp/
 !assets/permanent/.gitkeep
 .env
+*.mov

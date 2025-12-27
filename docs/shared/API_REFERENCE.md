@@ -10,24 +10,7 @@ Complete API endpoint documentation for HeroMaker backend.
 
 ## Authentication
 
-### GET /api/auth/me
-
-Get current authenticated user
-
-**Headers:**
-```
-Authorization: Bearer <token>  // Optional in V2 (auto-assigns debug user)
-```
-
-**Response (V2 - Debug):**
-```json
-{
-  "id": "debug-user-uuid",
-  "email": "debug@heromaker.local",
-  "username": "Debug User",
-  "is_admin": true
-}
-```
+**Note:** In V2, authentication is handled automatically via middleware. All requests are assigned a debug user (`debug-user-uuid`). No explicit auth endpoints are required.
 
 ---
 
@@ -114,7 +97,7 @@ character_name: <optional string>
 }
 ```
 
-**Note:** Uploading automatically creates the creation, initializes all steps as "pending", and saves the uploaded file as `original.jpg` in the temp directory.
+**Note:** Uploading automatically creates the creation, initializes all steps as "pending", and saves the uploaded file as `original.jpg` in `/data/files/{user_id}/{creation_id}/`.
 
 ### GET /api/creations/{creation_id}
 
@@ -239,7 +222,9 @@ Authorization: Bearer <token>  // Optional in V2
 **Request:**
 ```json
 {
-  "character_name": "Edited Name"
+  "character_name": "Edited Name",
+  "name": "John Doe",  // Optional: Person's name
+  "age": 25  // Optional: Person's age
 }
 ```
 
@@ -274,7 +259,7 @@ Authorization: Bearer <token>  // Optional in V2
 }
 ```
 
-**Note:** This deletes the creation record from the database and removes all associated files from both temp and permanent storage.
+**Note:** This deletes the creation record from the database and removes all associated files from `/data/files/{user_id}/{creation_id}/`.
 
 ---
 
@@ -290,14 +275,16 @@ Authorization: Bearer <token>  // Optional in V2
 ```
 
 **Query Parameters:**
-- `restart`: If `true`, restart from step 1. If `false` (default), resume from first incomplete step.
+- `step_name` (optional): If provided, start from this step. If not provided, start from beginning.
+- `retry_all_following` (default: `true`): If `true` and `step_name` provided, resets the step and all following steps. If `false`, only resets the specified step.
 
 **Response:**
 ```json
 {
   "message": "Pipeline run triggered",
   "creation_id": "uuid",
-  "restart": false
+  "step_name": null,
+  "retry_all_following": true
 }
 ```
 
@@ -336,7 +323,31 @@ Authorization: Bearer <token>  // Optional in V2
 - `meshy_3d` - Generate 3D model from rendered image (Meshy API)
 - `meshy_rig` - Rig the 3D model (Meshy API)
 - `convert_vrm` - Convert rigged GLB to VRM format
-- `complete` - Move files from temp to permanent storage
+- `complete` - Mark creation as complete (no file output)
+
+### POST /api/creations/{creation_id}/steps/{step_name}/reset-and-run
+
+Reset a step and all following steps to pending, then run pipeline from that step.
+
+**Headers:**
+```
+Authorization: Bearer <token>  // Optional in V2
+```
+
+**Path Parameters:**
+- `creation_id`: UUID of the creation
+- `step_name`: Name of step to reset from
+
+**Response:**
+```json
+{
+  "message": "Steps reset and pipeline started",
+  "creation_id": "uuid",
+  "step_name": "meshy_3d"
+}
+```
+
+**Note:** This endpoint resets the specified step and all following steps to `pending`, then triggers the pipeline to run from that step.
 
 ---
 
@@ -346,17 +357,20 @@ Authorization: Bearer <token>  // Optional in V2
 
 Serve files from assets directory
 
+**Path Format:**
+- `/api/files/{user_id}/{creation_id}/{filename}`
+
 **Path Examples:**
-- `/api/files/temp/debug-user-uuid/{creation_id}/original.jpg`
-- `/api/files/temp/debug-user-uuid/{creation_id}/processed.jpg`
-- `/api/files/temp/debug-user-uuid/{creation_id}/rendered.png`
-- `/api/files/temp/debug-user-uuid/{creation_id}/model.glb`
-- `/api/files/permanent/debug-user-uuid/{creation_id}/rendered.png`
-- `/api/files/permanent/debug-user-uuid/{creation_id}/avatar.vrm`
+- `/api/files/debug-user-uuid/{creation_id}/original.jpg`
+- `/api/files/debug-user-uuid/{creation_id}/processed.jpg`
+- `/api/files/debug-user-uuid/{creation_id}/rendered.png`
+- `/api/files/debug-user-uuid/{creation_id}/model.glb`
+- `/api/files/debug-user-uuid/{creation_id}/rigged.glb`
+- `/api/files/debug-user-uuid/{creation_id}/avatar.vrm`
 
 **Security:**
 - Validates file paths (prevents directory traversal)
-- Only serves from assets/ directory
+- Only serves from `/data/files/` directory
 - Checks file exists before serving
 
 **Response:**

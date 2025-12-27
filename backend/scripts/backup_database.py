@@ -33,7 +33,7 @@ def get_database_path():
         raise ValueError(f"Unsupported database URL format: {DATABASE_URL}")
 
 DATABASE_PATH = os.getenv("DATABASE_PATH") or get_database_path()
-BACKUP_DIR = os.getenv("BACKUP_DIR", "/app/backups")
+BACKUP_DIR = os.getenv("BACKUP_DIR", "/app/data/backups")
 RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", "7"))
 
 

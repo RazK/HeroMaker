@@ -79,7 +79,7 @@ The pipeline consists of 6 steps:
 3. **3D Model Generation** (~180s) - Generate 3D model from rendered image (Meshy API)
 4. **Rigging** (~30s) - Rig the 3D model (Meshy API)
 5. **VRM Conversion** (~3s) - Convert rigged GLB to VRM format
-6. **Finalization** (~1s) - Move files to permanent storage
+6. **Complete** (~1s) - Mark creation as complete
 
 ## API Integration
 
@@ -103,8 +103,8 @@ The frontend communicates with the backend API:
 
 - The frontend polls the API every 2-3 seconds while a creation is processing
 - Progress is calculated from `estimated_completion_time` for processing steps
-- Files are served from `/api/files/temp/{user_id}/{creation_id}/{filename}` during processing
-- After completion, files are moved to permanent storage
+- Files are served from `/api/files/{user_id}/{creation_id}/{filename}`
+- All files remain in the same directory throughout the pipeline
 - The debug user ID (`debug-user-uuid`) is hardcoded for Phase 0
 
 
