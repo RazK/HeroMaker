@@ -3,6 +3,7 @@
 
 [build]
 builder = "DOCKERFILE"
+rootDirectory = "frontend"
 dockerfilePath = "Dockerfile"
 dockerContext = "."
 
