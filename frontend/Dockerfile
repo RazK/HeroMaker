@@ -26,6 +26,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built files from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Install gettext for envsubst
+RUN apk add --no-cache gettext
+
 # Copy startup script
 COPY start-nginx.sh /start-nginx.sh
 RUN chmod +x /start-nginx.sh
@@ -33,9 +36,9 @@ RUN chmod +x /start-nginx.sh
 # Expose port (Railway sets PORT env var, defaults to 80)
 EXPOSE 80
 
-# Health check (nginx listens on port from config, which defaults to 80)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
+# Health check (use PORT env var or default to 80)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-80}/health || exit 1
 
 # Start nginx with PORT support
 CMD ["/start-nginx.sh"]
