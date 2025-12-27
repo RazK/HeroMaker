@@ -59,3 +59,6 @@ assets/temp/
 !assets/permanent/.gitkeep
 .env
 *.mov
+
+# Data directory (excluded from git to speed up Railway snapshots)
+data/
