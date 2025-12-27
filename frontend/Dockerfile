@@ -15,6 +15,9 @@ RUN npm ci
 COPY . .
 
 # Build the application
+# Pass VITE_API_BASE_URL as build arg so it's available during build
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # Stage 2: Serve with Nginx
