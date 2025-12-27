@@ -21,46 +21,41 @@ This service provides an HTTP API for converting GLB (glTF Binary) files to VRM 
 - `conversion_script.py` - Blender Python script for GLB-to-VRM conversion
 - `Dockerfile` - Docker image definition
 - `requirements.txt` - Python dependencies
-- `build.sh` - Build script for Docker image
-- `push-image.sh` - Push Docker image to GHCR
-- `pull-image.sh` - Pull Docker image from GHCR
-- `setup-ghcr.sh` - Setup script for GHCR authentication
+- `railway.toml` - Railway deployment configuration
 - `VERSION` - Current version number
+
+**Note:** Docker image build and push scripts are located in `devops/scripts/build-and-push-images.sh`
 
 ## Building the Service
 
-### Option 1: Build from Dockerfile (Recommended)
+### Build from Dockerfile
 
-Use the build script which handles versioning:
-
-```bash
-cd vrm-converter-service
-./build.sh
-```
-
-Or manually:
+Build manually:
 
 ```bash
 cd vrm-converter-service
-docker build --build-arg VERSION=$(cat VERSION) -t vrm-converter-service:$(cat VERSION) -t vrm-converter-service:latest -f Dockerfile ..
+docker build --build-arg VERSION=$(cat VERSION) -t vrm-converter-service:$(cat VERSION) -t vrm-converter-service:latest -f Dockerfile .
 ```
 
 ### Versioning
 
 - Version is stored in `VERSION` file
 - Images are tagged with version: `vrm-converter-service:1.0.0`
-- To rebuild with a new version, update `VERSION` file and run `./build.sh`
+- To rebuild with a new version, update `VERSION` file and rebuild
 
 ### Publishing to GitHub Container Registry (GHCR)
 
-**First-time setup:**
+Use the centralized build script:
 
-Run the interactive setup script:
 ```bash
-./setup-ghcr.sh
+# From project root
+./devops/scripts/build-and-push-images.sh ghcr.io/YOUR_USERNAME/heromaker latest
 ```
 
-Or manually:
+This builds and pushes all services (backend, frontend, vrm-converter) to GHCR.
+
+**First-time setup:**
+
 1. Create a GitHub Personal Access Token (PAT) at https://github.com/settings/tokens
    - Select scope: `write:packages`
 2. Login to GHCR:
@@ -68,25 +63,9 @@ Or manually:
    echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
    ```
 
-**Push image:**
-```bash
-./push-image.sh
-```
+The image will be available at: `ghcr.io/YOUR_USERNAME/heromaker/vrm-converter:latest`
 
-**Pull image (on another machine):**
-```bash
-./pull-image.sh
-```
-
-The image will be available at: `ghcr.io/YOUR_USERNAME/YOUR_REPO/vrm-converter-service:VERSION`
-
-### Alternative: Docker Hub
-
-If you prefer Docker Hub:
-```bash
-docker tag vrm-converter-service:1.0.0 YOUR_DOCKERHUB_USERNAME/vrm-converter-service:1.0.0
-docker push YOUR_DOCKERHUB_USERNAME/vrm-converter-service:1.0.0
-```
+**Note:** Images are also automatically built via GitHub Actions on push to `main` branch (see `.github/workflows/build-images.yml`).
 
 ## Running the Service
 

@@ -6,7 +6,7 @@ Details for integrating with ChatGPT and Meshy APIs.
 
 ### Endpoint
 - Base URL: `https://api.openai.com/v1`
-- Task: Convert scanned image to rendered figure and generate character name
+- Step: Convert scanned image to rendered figure and generate character name
 
 ### Implementation
 
@@ -176,8 +176,8 @@ Body:
 
 ### Polling Strategy
 
-**For All Meshy Tasks:**
-1. Submit task, receive task_id
+**For All Meshy API Calls:**
+1. Submit request, receive task_id
 2. Poll every 5 seconds: `GET /v2/{endpoint}/{task_id}`
 3. Check status: `PROCESSING`, `COMPLETED`, `FAILED`
 4. Store progress percentage in creation metadata
@@ -204,7 +204,7 @@ Body:
 {
   "meshy_task_id": "task_456",
   "meshy_status": "FAILED",
-  "error_message": "Task failed: insufficient credits",
+  "error_message": "Step failed: insufficient credits",
   "retry_count": 1
 }
 ```
@@ -217,7 +217,7 @@ Meshy API may support consolidated endpoints:
 - This would reduce from 5 separate tasks to 2-3 tasks
 
 **Impact:**
-- Update task configuration (see [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md))
+- Update step configuration (see [steps.md](./steps.md))
 - Update service layer API calls
 - No database changes needed
 - Frontend adapts automatically
@@ -235,7 +235,7 @@ Meshy API may support consolidated endpoints:
 ## API Key Management
 
 **Storage:**
-- Store in environment variables (see [SETUP.md](./SETUP.md))
+- Store in environment variables (see [setup.md](./setup.md))
 - Never commit to git
 - Use `.env.example` as template
 
@@ -245,8 +245,8 @@ Meshy API may support consolidated endpoints:
 
 ## Related Documentation
 
-- [TASK_CONFIGURATION.md](./TASK_CONFIGURATION.md) - How tasks use these APIs
-- [SETUP.md](./SETUP.md) - Error handling and API key configuration
-- [USER_JOURNEYS.md](../frontend/USER_JOURNEYS.md) - See API calls in practice
+- [steps.md](./steps.md) - How steps use these APIs
+- [setup.md](./setup.md) - Error handling and API key configuration
+- [API Reference](../api/reference.md) - See API endpoints and usage
 
 

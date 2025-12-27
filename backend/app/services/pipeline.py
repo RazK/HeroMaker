@@ -20,7 +20,7 @@ from app.utils.file_utils import (
     get_file_url
 )
 from app.services import image_processing
-from app.services import chatgpt
+from app.services import openai as openai_service
 from app.services import meshy
 from app.services import vrm_conversion
 from app.services.meshy import MeshyClient, MeshyAPIError
@@ -334,11 +334,11 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
             output_path = get_task_file_path(creation_id, user_id, output_filename)
             image_processing.process_image(input_path, output_path)
             
-        elif step_name == "chatgpt_render":
-            logger.info(f"[{creation_id}] Executing chatgpt_render (this may take 1-2 minutes)...")
+        elif step_name == "openai_render":
+            logger.info(f"[{creation_id}] Executing openai_render (this may take 1-2 minutes)...")
             input_path = get_task_file_path(creation_id, user_id, step_config["input"])
             output_path = get_task_file_path(creation_id, user_id, output_filename)
-            chatgpt.render_image(input_path, output_path)
+            openai_service.render_image(input_path, output_path)
             
         elif step_name == "meshy_3d":
             logger.info(f"[{creation_id}] Executing meshy_3d (this may take 3-5 minutes)...")
@@ -382,7 +382,7 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
             input_path = get_task_file_path(creation_id, user_id, step_config["input"])
             # Always use avatar.vrm as output filename
             output_path = get_task_file_path(creation_id, user_id, "avatar.vrm")
-            # Try to find rendered.png as thumbnail (from chatgpt_render step)
+            # Try to find rendered.png as thumbnail (from openai_render step)
             thumbnail_path = get_task_file_path(creation_id, user_id, "rendered.png")
             if not thumbnail_path.exists():
                 thumbnail_path = None

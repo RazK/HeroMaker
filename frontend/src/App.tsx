@@ -194,7 +194,7 @@ function App() {
                 // Immediately mark step as processing with estimated time
                 const stepDurations: Record<string, number> = {
                   image_processing: 1,
-                  chatgpt_render: 60,
+                  openai_render: 60,
                   meshy_3d: 180,
                   meshy_rig: 30,
                   convert_vrm: 3,

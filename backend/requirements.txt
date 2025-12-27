@@ -13,10 +13,10 @@ pydantic>=2.0.0
 # Environment variables
 python-dotenv>=1.0.0
 
-# HTTP requests (for Meshy API, ChatGPT image download)
+# HTTP requests (for Meshy API, OpenAI image download)
 requests>=2.31.0
 
-# OpenAI API (for ChatGPT service)
+# OpenAI API (for GPT-Image-1 service)
 openai>=1.0.0
 
 # Image processing (optional, for future enhancements)

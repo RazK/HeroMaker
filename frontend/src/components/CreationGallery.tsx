@@ -135,7 +135,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
 
     const stepNames: Record<string, string> = {
       image_processing: 'Processing Image',
-      chatgpt_render: 'AI Rendering',
+      openai_render: 'AI Rendering',
       meshy_3d: '3D Modeling',
       meshy_rig: 'Rigging',
       convert_vrm: 'VRM Conversion',

@@ -43,6 +43,9 @@ __pycache__/
 *.so
 .Python
 
+# TypeScript build artifacts
+*.tsbuildinfo
+
 # Database
 *.db
 *.sqlite
@@ -50,13 +53,11 @@ __pycache__/
 heromaker.db
 
 # Railway environment files with secrets (keep templates, ignore actual keys)
-railway.env.backend
-railway.env.frontend
-railway.env.vrm-converter
+devops/railway/env/backend
+devops/railway/env/frontend
+devops/railway/env/vrm-converter
 
-# Test files in assets (keep structure, ignore test data)
-assets/temp/
-!assets/permanent/.gitkeep
+# Environment files
 .env
 *.mov
 
