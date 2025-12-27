@@ -49,6 +49,11 @@ __pycache__/
 *.sqlite3
 heromaker.db
 
+# Railway environment files with secrets (keep templates, ignore actual keys)
+railway.env.backend
+railway.env.frontend
+railway.env.vrm-converter
+
 # Test files in assets (keep structure, ignore test data)
 assets/temp/
 !assets/permanent/.gitkeep
