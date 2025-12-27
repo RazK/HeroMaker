@@ -16,6 +16,7 @@ fi
 
 sync_service() {
     local service=$1
+    local service_dir=$2
     local env_file="railway.env.${service}"
     
     if [ ! -f "$env_file" ]; then
@@ -23,9 +24,24 @@ sync_service() {
         return
     fi
     
+    if [ ! -d "$service_dir" ]; then
+        echo "⚠️  $service_dir directory not found, skipping $service"
+        return
+    fi
+    
     echo "📦 Syncing environment variables for $service..."
     
-    # Read env file and set variables
+    # Change to service directory (Railway CLI is linked at service level)
+    cd "$service_dir"
+    
+    # Verify we're linked to the right service
+    if ! railway status &>/dev/null; then
+        echo "  ❌ Not linked to $service. Run: cd $service_dir && railway link"
+        cd ..
+        return 1
+    fi
+    
+    # Read env file and set variables (from service directory)
     while IFS='=' read -r key value || [ -n "$key" ]; do
         # Skip comments and empty lines
         [[ "$key" =~ ^#.*$ ]] && continue
@@ -34,21 +50,40 @@ sync_service() {
         # Remove quotes from value
         value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//')
         
-        echo "  Setting $key=$value"
-        railway variables set "$key=$value" --service "$service" || true
-    done < "$env_file"
+        echo "  Setting $key"
+        # Railway CLI uses current directory's linked service
+        railway variables set "$key=$value" 2>&1 | grep -v "already exists" || true
+    done < "../$env_file"
     
+    cd ..
     echo "✅ $service synced"
 }
 
 if [ "$SERVICE" = "all" ]; then
     echo "🔄 Syncing all services..."
-    sync_service "backend"
-    sync_service "frontend"
-    sync_service "vrm-converter"
+    sync_service "backend" "backend"
+    sync_service "frontend" "frontend"
+    sync_service "vrm-converter" "vrm-converter-service"
 else
-    sync_service "$SERVICE"
+    # Map service name to directory
+    case "$SERVICE" in
+        backend)
+            sync_service "backend" "backend"
+            ;;
+        frontend)
+            sync_service "frontend" "frontend"
+            ;;
+        vrm-converter)
+            sync_service "vrm-converter" "vrm-converter-service"
+            ;;
+        *)
+            echo "❌ Unknown service: $SERVICE"
+            echo "   Use: backend, frontend, or vrm-converter"
+            exit 1
+            ;;
+    esac
 fi
 
+echo ""
 echo "✅ Done!"
 
