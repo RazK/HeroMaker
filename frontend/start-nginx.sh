@@ -4,12 +4,9 @@
 # Set default PORT if not provided
 export PORT=${PORT:-80}
 
-# Set backend URL for Railway (private networking) or local (Docker service name)
-export BACKEND_URL=${BACKEND_URL:-http://backend:8000}
-
-# Create a temporary nginx config with PORT and BACKEND_URL substituted
-# Use envsubst to replace ${PORT} and ${BACKEND_URL} with actual values
-envsubst '${PORT} ${BACKEND_URL}' < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
+# Create a temporary nginx config with PORT substituted
+# Use envsubst to replace ${PORT} with actual PORT value
+envsubst '${PORT}' < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 
 # Replace the default config with the substituted one
 mv /tmp/nginx.conf.tmp /etc/nginx/conf.d/default.conf
