@@ -60,3 +60,46 @@ def get_file_url(creation_id: str, user_id: str, filename: str) -> str:
     """
     storage = get_storage()
     return storage.get_file_url(user_id, creation_id, filename)
+
+def upload_file_to_storage(user_id: str, creation_id: str, filename: str, file_data: bytes) -> str:
+    """
+    Upload a file to storage (S3 or local filesystem).
+    
+    Args:
+        user_id: User ID
+        creation_id: Creation ID
+        filename: Filename
+        file_data: File data as bytes
+    
+    Returns:
+        Storage path or S3 key
+    """
+    storage = get_storage()
+    return storage.upload_file(user_id, creation_id, filename, file_data)
+
+def download_file_from_storage(user_id: str, creation_id: str, filename: str) -> bytes:
+    """
+    Download a file from storage (S3 or local filesystem).
+    
+    Args:
+        user_id: User ID
+        creation_id: Creation ID
+        filename: Filename
+    
+    Returns:
+        File data as bytes
+    """
+    storage = get_storage()
+    return storage.download_file(user_id, creation_id, filename)
+
+def delete_file_from_storage(user_id: str, creation_id: str, filename: str) -> None:
+    """
+    Delete a file from storage (S3 or local filesystem).
+    
+    Args:
+        user_id: User ID
+        creation_id: Creation ID
+        filename: Filename
+    """
+    storage = get_storage()
+    storage.delete_file(user_id, creation_id, filename)
