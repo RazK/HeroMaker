@@ -5,8 +5,8 @@
 export PORT=${PORT:-80}
 
 # Create a temporary nginx config with PORT substituted
-# Use sed to replace only ${PORT} (not nginx variables like $proxy_add_x_forwarded_for)
-sed "s/\${PORT}/$PORT/g" /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
+# Use envsubst to replace ${PORT} with actual PORT value
+envsubst '${PORT}' < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 
 # Replace the default config with the substituted one
 mv /tmp/nginx.conf.tmp /etc/nginx/conf.d/default.conf
