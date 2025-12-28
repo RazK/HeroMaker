@@ -6,11 +6,10 @@ from app.models import Creation, User, CreationStep
 from app.schemas.creation import CreationRequest, CreationResponse
 from app.services.auth import get_current_user
 from app.config.steps import get_step_by_name
-from app.utils.file_utils import get_creation_path, get_task_file_path
+from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
 from app.services.pipeline import run_pipeline_sequential, execute_step_sync, _initialize_creation_steps
 from app.services.pipeline import _reset_step
-import shutil
 
 router = APIRouter()
 
@@ -108,10 +107,8 @@ def delete_creation(
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
-    # Remove files
-    path = get_creation_path(creation_id, user.id)
-    if path.exists():
-        shutil.rmtree(path)
+    # Remove files using storage abstraction
+    delete_creation_files(user.id, creation_id)
 
     db.delete(creation)
     db.commit()

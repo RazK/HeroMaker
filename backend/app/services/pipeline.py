@@ -18,7 +18,6 @@ from app.models import Creation, CreationStep
 from app.config.steps import STEPS, get_step_by_name
 from app.database import SessionLocal
 from app.utils.file_utils import (
-    get_task_file_path,
     check_file_exists,
     get_file_url,
     upload_file_to_storage

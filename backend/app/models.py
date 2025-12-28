@@ -133,7 +133,7 @@ class CreationStep(Base):
     estimated_completion_time = Column(DateTime, nullable=True)  # Calculated completion time, updated when progress changes
     status = Column(String, default="pending")  # pending, processing, completed, failed
     error_message = Column(Text, nullable=True)
-    metadata_json = Column(JSON, default={}, name="metadata")  # Step-specific metadata (e.g., task IDs)
+    metadata_json = Column(JSON, default={}, name="metadata")  # Step-specific metadata (e.g., Meshy API task IDs, animation URLs)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

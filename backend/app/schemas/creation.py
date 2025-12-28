@@ -16,7 +16,7 @@ class CreationStepResponse(BaseModel):
     completed_at: Optional[datetime] = None
     estimated_completion_time: Optional[datetime] = None  # Calculated completion time, updated when progress changes
     error_message: Optional[str] = None
-    metadata_json: Optional[dict] = None  # Step-specific metadata (e.g., task IDs, animation URLs)
+    metadata_json: Optional[dict] = None  # Step-specific metadata (e.g., Meshy API task IDs, animation URLs)
     
     @classmethod
     def from_step(cls, step):

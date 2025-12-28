@@ -53,8 +53,7 @@ def cleanup_test_creations(test_client, api_base_url):
         
         from app.database import SessionLocal
         from app.models import Creation
-        from app.utils.file_utils import get_creation_path
-        import shutil
+        from app.utils.file_utils import delete_creation_files
         
         db = SessionLocal()
         try:
@@ -65,11 +64,13 @@ def cleanup_test_creations(test_client, api_base_url):
                 except:
                     pass
                 
-                # Also remove temp folder if it exists (for debug-user-uuid)
+                # Also remove temp files if they exist (for debug-user-uuid)
                 for user_id in ["debug-user-uuid", TEST_USER_ID]:
-                    temp_path = get_creation_path(creation_id, user_id)
-                    if temp_path.exists():
-                        shutil.rmtree(temp_path, ignore_errors=True)
+                    try:
+                        delete_creation_files(user_id, creation_id)
+                    except Exception:
+                        # Ignore errors during test cleanup
+                        pass
             
             db.close()
         except Exception as e:
