@@ -11,13 +11,28 @@ logger = logging.getLogger(__name__)
 def ensure_migrations_table(db: Session):
     """Create migrations tracking table if it doesn't exist."""
     try:
-        db.execute(text("""
-            CREATE TABLE IF NOT EXISTS migrations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL,
-                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
+        # Check if we're using PostgreSQL or SQLite
+        from app.config.settings import DATABASE_URL
+        is_postgres = DATABASE_URL.startswith("postgresql")
+        
+        if is_postgres:
+            # PostgreSQL syntax
+            db.execute(text("""
+                CREATE TABLE IF NOT EXISTS migrations (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) UNIQUE NOT NULL,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+        else:
+            # SQLite syntax
+            db.execute(text("""
+                CREATE TABLE IF NOT EXISTS migrations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
         db.commit()
     except Exception as e:
         db.rollback()

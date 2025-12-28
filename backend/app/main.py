@@ -21,10 +21,23 @@ logger = logging.getLogger(__name__)
 logger.info("HeroMaker API starting...")
 
 # Create tables (for V2 SQLite convenience)
-Base.metadata.create_all(bind=engine)
+# Wrap in try/except to handle database connection errors gracefully
+try:
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created/verified")
+except Exception as e:
+    logger.error(f"Failed to create database tables: {e}")
+    # Don't fail startup - let health check handle it
+    # This allows the app to start even if database is temporarily unavailable
 
 # Run database migrations on startup
-run_migrations()
+try:
+    run_migrations()
+    logger.info("Database migrations completed")
+except Exception as e:
+    logger.error(f"Failed to run migrations: {e}")
+    # Don't fail startup - migrations will retry on next restart
+    # This allows the app to start even if migrations fail temporarily
 
 app = FastAPI(title="HeroMaker API")
 

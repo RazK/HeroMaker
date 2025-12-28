@@ -29,3 +29,11 @@ VRM_CONVERTER_TIMEOUT = int(os.getenv("VRM_CONVERTER_TIMEOUT", "300"))  # 5 minu
 # Comma-separated list of allowed origins, or "*" for all origins (default for development)
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
 
+# S3 Storage Configuration (optional - only used if S3_BUCKET is set)
+# For Railway Storage Buckets (S3-compatible)
+S3_BUCKET = os.getenv("S3_BUCKET")  # Bucket name from Railway
+S3_ENDPOINT = os.getenv("S3_ENDPOINT", "https://storage.railway.app")  # Railway Storage endpoint
+S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID")  # From bucket credentials
+S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY")  # From bucket credentials
+S3_REGION = os.getenv("S3_REGION", "auto")  # Railway default region
+
