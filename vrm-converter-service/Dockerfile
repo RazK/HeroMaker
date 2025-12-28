@@ -49,5 +49,6 @@ COPY conversion_script.py .
 EXPOSE 8000
 
 # Start the service (use PORT env var for Railway, default to 8000)
-CMD sh -c "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"
+# Use --reload for hot reload in development (when DEBUG=true)
+CMD sh -c "if [ \"$DEBUG\" = \"true\" ]; then uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --reload; else uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}; fi"
 
