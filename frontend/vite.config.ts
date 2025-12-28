@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+  // Load env vars - loadEnv only reads from .env files, so also check process.env for Docker
+  const env = { ...loadEnv(mode, process.cwd(), ''), ...process.env }
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000'
   
   return {
   plugins: [react()],
@@ -24,7 +26,7 @@ export default defineConfig(({ mode }) => {
   // Development server configuration (only used in local dev, not in Docker)
   server: {
     host: '0.0.0.0', // Listen on all network interfaces
-    port: 3000,
+    port: parseInt(env.VITE_DEV_PORT || process.env.VITE_DEV_PORT || '5173'), // Use env var or default to 5173
     // Allow connections from these hosts (for mobile access)
     allowedHosts: [
       'localhost',
@@ -38,11 +40,12 @@ export default defineConfig(({ mode }) => {
     // Disable HMR for network access (it won't work from mobile anyway)
     hmr: {
       host: 'localhost',
-      clientPort: 3000,
+      clientPort: 5173,
     },
     proxy: {
       '/api': {
-        target: env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
+        // Use VITE_API_PROXY_TARGET from env (for Docker), otherwise default to localhost
+        target: apiProxyTarget,
         changeOrigin: true,
         secure: false,
         followRedirects: true,

@@ -59,6 +59,7 @@ devops/railway/env/vrm-converter
 
 # Environment files
 .env
+.env.railway
 *.mov
 
 # Data directory (excluded from git to speed up Railway snapshots)

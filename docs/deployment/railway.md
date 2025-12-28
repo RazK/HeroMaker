@@ -336,11 +336,50 @@ Mount volume at:
 
 ## Data Migration
 
-If you're migrating from volumes to managed services (Storage Buckets + PostgreSQL), follow these steps:
+If you're migrating from local development to Railway (or from volumes to managed services), you can sync all your local creations (database + files) to Railway in one step.
 
-### Migrate Files to S3
+### Option 1: Unified Sync (Recommended)
 
-1. **Ensure S3 credentials are set** in your local environment or Railway:
+**Sync both database and files in one command:**
+
+1. **Set up Railway environment variables** (if running locally):
+   ```bash
+   # PostgreSQL connection (from Railway dashboard)
+   export DATABASE_URL=postgresql://user:pass@host:port/dbname
+   
+   # S3 Storage Bucket credentials (from Railway dashboard)
+   export S3_BUCKET=your_bucket_name
+   export S3_ENDPOINT=https://storage.railway.app
+   export S3_ACCESS_KEY_ID=your_access_key_id
+   export S3_SECRET_ACCESS_KEY=your_secret_access_key
+   export S3_REGION=auto
+   ```
+
+2. **Run unified sync script**:
+   ```bash
+   # From project root
+   cd backend
+   python scripts/sync_local_to_railway.py
+   ```
+
+   This will:
+   - Migrate all users, creations, and steps from SQLite → PostgreSQL
+   - Upload all files from local filesystem → S3 Storage Bucket
+   - Skip existing records/files (idempotent - safe to run multiple times)
+   - Show progress and verify data integrity
+
+3. **Or run on Railway directly** (uses Railway environment variables):
+   ```bash
+   railway run --service backend python scripts/sync_local_to_railway.py
+   ```
+
+### Option 2: Separate Migrations
+
+If you prefer to migrate database and files separately:
+
+#### Migrate Files to S3
+
+1. **Ensure S3 credentials are set**:
    ```bash
    export S3_BUCKET=your_bucket_name
    export S3_ENDPOINT=https://storage.railway.app
@@ -351,7 +390,6 @@ If you're migrating from volumes to managed services (Storage Buckets + PostgreS
 
 2. **Run migration script**:
    ```bash
-   # From project root
    cd backend
    python scripts/migrate_files_to_s3.py
    ```
@@ -360,17 +398,15 @@ If you're migrating from volumes to managed services (Storage Buckets + PostgreS
    - Go to your Storage Bucket
    - Check that files are present with structure: `{user_id}/{creation_id}/{filename}`
 
-### Migrate Database to PostgreSQL
+#### Migrate Database to PostgreSQL
 
 1. **Set PostgreSQL connection string**:
    ```bash
    export DATABASE_URL=postgresql://user:pass@host:port/dbname
-   export SQLITE_DATABASE_URL=sqlite:///./data/db/heromaker.db
    ```
 
 2. **Run migration script**:
    ```bash
-   # From project root
    cd backend
    python scripts/migrate_to_postgres.py
    ```
