@@ -20,7 +20,8 @@ from app.database import SessionLocal
 from app.utils.file_utils import (
     get_task_file_path,
     check_file_exists,
-    get_file_url
+    get_file_url,
+    upload_file_to_storage
 )
 from app.utils.storage import get_storage
 from app.services import image_processing
@@ -314,18 +315,27 @@ def execute_meshy_rig_sync(
                 return
             user_id = creation.user_id
             
-            # Download walking.glb if available
+            # Download walking.glb if available and upload to storage
             walking_glb_url = basic_animations.get("walking_glb_url")
             if walking_glb_url:
-                walking_output_path = output_path.parent / "walking.glb"
+                # Download to temporary file first
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".glb") as tmp_file:
+                    tmp_path = Path(tmp_file.name)
                 try:
-                    client.download_file(walking_glb_url, walking_output_path)
+                    client.download_file(walking_glb_url, tmp_path)
+                    # Upload to storage (S3 or local filesystem)
+                    walking_file_data = tmp_path.read_bytes()
+                    upload_file_to_storage(user_id, step.creation_id, "walking.glb", walking_file_data)
                     step.metadata_json["walking_glb_url"] = "walking.glb"
                     flag_modified(step, "metadata_json")  # Tell SQLAlchemy the JSON field changed
                     db.commit()
-                    logger.info(f"[{step.creation_id}] Downloaded walking.glb to {walking_output_path}")
+                    logger.info(f"[{step.creation_id}] Downloaded and uploaded walking.glb to storage")
                 except Exception as e:
-                    logger.error(f"[{step.creation_id}] Failed to download walking.glb: {e}")
+                    logger.error(f"[{step.creation_id}] Failed to download/upload walking.glb: {e}")
+                finally:
+                    # Clean up temporary file
+                    if tmp_path.exists():
+                        tmp_path.unlink()
         else:
             logger.info(f"[{step.creation_id}] No basic_animations found in rigging response")
     except MeshyAPIError as e:
@@ -444,12 +454,13 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
                 # Always use avatar.vrm as output filename
                 with _get_file_path_for_processing(creation_id, user_id, "avatar.vrm", "w") as output_path:
                     # Try to find rendered.png as thumbnail (from openai_render step)
-                    thumbnail_path = None
+                    # Must keep thumbnail_path within its own context manager
                     storage = get_storage()
                     if storage.file_exists(user_id, creation_id, "rendered.png"):
-                        with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as thumb_path:
-                            thumbnail_path = thumb_path
-                    vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=thumbnail_path)
+                        with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as thumbnail_path:
+                            vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=thumbnail_path)
+                    else:
+                        vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=None)
             
         elif step_name == "complete":
             logger.info(f"[{creation_id}] Executing complete (validating final output exists)...")
