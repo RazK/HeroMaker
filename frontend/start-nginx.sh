@@ -1,6 +1,10 @@
 #!/bin/sh
 # Startup script for nginx that handles Railway's PORT environment variable
 
+echo "========================================" >&2
+echo "START-NGINX.SH SCRIPT IS RUNNING!" >&2
+echo "========================================" >&2
+
 # Set default PORT if not provided
 export PORT=${PORT:-80}
 
@@ -13,12 +17,19 @@ echo "PORT=$PORT" >&2
 echo "BACKEND_URL=$BACKEND_URL" >&2
 echo "=============================" >&2
 
+# Debug: Show original config before substitution
+echo "=== Original nginx config (proxy_pass line) ===" >&2
+grep "proxy_pass" /etc/nginx/conf.d/default.conf || echo "WARNING: proxy_pass not found in original config!" >&2
+echo "======================================" >&2
+
 # Create a temporary nginx config with PORT and BACKEND_URL substituted
 # Use sed to replace ${PORT} and ${BACKEND_URL} with actual values (more reliable than envsubst)
-sed -e "s|\${PORT}|${PORT}|g" -e "s|\${BACKEND_URL}|${BACKEND_URL}|g" < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
+# Escape special characters in BACKEND_URL for sed
+BACKEND_URL_ESCAPED=$(echo "$BACKEND_URL" | sed 's/[[\.*^$()+?{|]/\\&/g')
+sed -e "s|\${PORT}|${PORT}|g" -e "s|\${BACKEND_URL}|${BACKEND_URL_ESCAPED}|g" < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 
 # Debug: Show the substituted proxy_pass line
-echo "=== Nginx proxy_pass configuration ===" >&2
+echo "=== Nginx proxy_pass configuration (after substitution) ===" >&2
 grep "proxy_pass" /tmp/nginx.conf.tmp || echo "WARNING: proxy_pass not found in config!" >&2
 echo "======================================" >&2
 
