@@ -36,7 +36,7 @@ services:
   # Frontend Web Application
   frontend:
     build:
-      context: ./vrm-converter-service/frontend
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: heromaker-frontend
     ports:
@@ -46,12 +46,12 @@ services:
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
       - VITE_API_PROXY_TARGET=http://backend:8000
-    volumes:
+    # volumes:
       # Mount frontend source for hot reload (development only)
-      - ./frontend:/app
-      - /app/node_modules  # Prevent overwriting node_modules in container
+      # - ./frontend:/app
+      # - /app/node_modules  # Prevent overwriting node_modules in container
     # Override CMD for local dev: run Vite dev server instead of nginx
-    command: sh -c "cd /app && npm run dev -- --host 0.0.0.0 --port 80"
+    # command: sh -c "cd /app && npm run dev -- --host 0.0.0.0 --port 80"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
       interval: 30s
