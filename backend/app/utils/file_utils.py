@@ -2,45 +2,7 @@
 File utilities that use the storage abstraction layer.
 Maintains backward compatibility with existing function signatures.
 """
-import os
-import shutil
-from pathlib import Path
-from app.config.settings import FILES_ROOT
 from app.utils.storage import get_storage
-
-def get_creation_path(creation_id: str, user_id: str) -> Path:
-    """
-    Get the path for a creation's files.
-    For local storage, returns the actual directory path.
-    For S3 storage, returns a Path object for compatibility (but files are in S3).
-    """
-    storage = get_storage()
-    try:
-        # For local storage, get the actual directory path
-        dummy_path = storage.get_file_path(user_id, creation_id, ".dummy")
-        return dummy_path.parent
-    except NotImplementedError:
-        # For S3 storage, return a Path object for compatibility (not a real path)
-        return Path(FILES_ROOT) / user_id / creation_id
-    except Exception:
-        # Fallback for local storage
-        path = Path(FILES_ROOT) / user_id / creation_id
-        path.mkdir(parents=True, exist_ok=True)
-        return path
-
-def get_task_file_path(creation_id: str, user_id: str, filename: str) -> Path:
-    """
-    Get the path for a specific task file.
-    For local storage, returns the actual file path.
-    For S3 storage, returns a Path object for compatibility (but file is in S3).
-    """
-    storage = get_storage()
-    try:
-        return storage.get_file_path(user_id, creation_id, filename)
-    except NotImplementedError:
-        # S3 storage doesn't support local paths - return a Path for compatibility
-        # Callers should use storage methods directly instead
-        return Path(FILES_ROOT) / user_id / creation_id / filename
 
 def check_file_exists(creation_id: str, user_id: str, filename: str) -> bool:
     """Check if a file exists for a creation."""
@@ -103,3 +65,32 @@ def delete_file_from_storage(user_id: str, creation_id: str, filename: str) -> N
     """
     storage = get_storage()
     storage.delete_file(user_id, creation_id, filename)
+
+def delete_creation_files(user_id: str, creation_id: str) -> None:
+    """
+    Delete all files for a creation from storage (S3 or local filesystem).
+    
+    Args:
+        user_id: User ID
+        creation_id: Creation ID
+    """
+    storage = get_storage()
+    files = storage.list_files(user_id, creation_id)
+    for filename in files:
+        storage.delete_file(user_id, creation_id, filename)
+    
+    # For local storage, also remove empty directories
+    from app.utils.storage import LocalFileStorage
+    if isinstance(storage, LocalFileStorage):
+        try:
+            path = storage.get_file_path(user_id, creation_id, ".dummy")
+            creation_dir = path.parent
+            if creation_dir.exists() and not any(creation_dir.iterdir()):
+                creation_dir.rmdir()
+                # Try to remove user directory if empty
+                user_dir = creation_dir.parent
+                if user_dir.exists() and not any(user_dir.iterdir()):
+                    user_dir.rmdir()
+        except Exception:
+            # Ignore errors when cleaning up directories
+            pass
