@@ -97,6 +97,7 @@
   object-fit: cover;
   flex-shrink: 0;
   border: 2px solid var(--border-color);
+  background: var(--text-primary);
 }
 
 @media (min-width: 1024px) {
@@ -105,7 +106,7 @@
     height: 44px;
   }
 }
-
+ 
 .app-header h1 {
   margin: 0;
   font-size: 36px;

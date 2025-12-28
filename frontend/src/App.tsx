@@ -109,7 +109,7 @@ function App() {
           }}
           style={{ cursor: 'pointer' }}
         >
-          <img src="/logo.png" alt="HeroMaker Logo" className="app-logo" />
+          <img src="/logo-head-transparent.png" alt="HeroMaker Logo" className="app-logo" />
           <h1>HeroMaker</h1>
         </div>
         <div className="app-header-right">
