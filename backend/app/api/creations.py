@@ -7,6 +7,7 @@ from app.schemas.creation import CreationRequest, CreationResponse
 from app.services.auth import get_current_user
 from app.config.steps import get_step_by_name
 from app.utils.file_utils import get_creation_path, get_task_file_path
+from app.utils.storage import get_storage
 from app.services.pipeline import run_pipeline_sequential, execute_step_sync, _initialize_creation_steps
 from app.services.pipeline import _reset_step
 import shutil
@@ -133,13 +134,14 @@ async def upload_image(
     db.commit()
     db.refresh(new_creation)
     
-    # Save file as original.jpg
+    # Save file as original.jpg using storage abstraction
     output_filename = "original.jpg"
-    save_path = get_task_file_path(new_creation.id, user.id, output_filename)
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    storage = get_storage()
+    # Read file data
+    file.file.seek(0)  # Reset file pointer
+    file_data = file.file.read()
+    # Upload using storage abstraction (handles both local and S3)
+    storage.upload_file(user.id, new_creation.id, output_filename, file_data)
     
     # Initialize steps
     _initialize_creation_steps(new_creation.id, db)

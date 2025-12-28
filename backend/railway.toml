@@ -1,5 +1,10 @@
 # Railway Configuration for Backend Service
 # This file is automatically applied when deploying from backend/ directory
+#
+# NOTE: Volumes must be configured once via Railway dashboard:
+#   - Go to Backend service → Volumes tab
+#   - Mount volume at: /app/data
+#   - Use the SAME volume for VRM converter service
 
 [build]
 builder = "DOCKERFILE"

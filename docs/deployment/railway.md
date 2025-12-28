@@ -92,6 +92,23 @@ You need to configure 3 services:
 - **Private DNS**: `backend.railway.internal`
 
 #### Environment Variables
+
+**If using PostgreSQL + S3 (Recommended):**
+```
+OPENAI_API_KEY=your_openai_key_here
+MESHY_API_KEY=your_meshy_key_here
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+DEBUG=false
+S3_BUCKET=your_bucket_name
+S3_ENDPOINT=https://storage.railway.app
+S3_ACCESS_KEY_ID=your_access_key_id
+S3_SECRET_ACCESS_KEY=your_secret_access_key
+S3_REGION=auto
+VRM_CONVERTER_SERVICE_URL=http://vrm-converter:8000
+ALLOWED_ORIGINS=https://your-frontend-url.railway.app
+```
+
+**If using SQLite + Volumes (Legacy):**
 ```
 OPENAI_API_KEY=your_openai_key_here
 MESHY_API_KEY=your_meshy_key_here
@@ -102,9 +119,53 @@ VRM_CONVERTER_SERVICE_URL=http://vrm-converter:8000
 ALLOWED_ORIGINS=https://your-frontend-url.railway.app
 ```
 
-**Note**: Replace `your-frontend-url.railway.app` with your actual frontend Railway URL after deployment.
+**Note**: 
+- Replace `your-frontend-url.railway.app` with your actual frontend Railway URL after deployment.
+- Replace `Postgres` with your actual PostgreSQL service name if different.
+- For PostgreSQL, use Railway's Variable Reference `${{Postgres.DATABASE_URL}}` to automatically link the connection string.
 
-#### Persistent Volumes
+#### Storage Configuration (Recommended: Railway Managed Services)
+
+**Option 1: Railway Storage Buckets + PostgreSQL (Recommended)**
+
+For production deployments, use Railway's managed services for persistent storage:
+
+1. **Create Railway Storage Bucket** (for files):
+   - Railway dashboard → Create → **Bucket**
+   - Region: US West (or preferred)
+   - Name: `heromaker-files`
+   - Note: Buckets are private by default (good for security)
+
+2. **Create Railway PostgreSQL Database**:
+   - Railway dashboard → Create → **Database** → **PostgreSQL**
+   - Note: Hobby plan provides 5GB storage
+
+3. **Configure Backend Environment Variables**:
+   Add these variables to your backend service (via Railway dashboard):
+   ```
+   # S3 Storage (from bucket credentials)
+   S3_BUCKET=your_bucket_name
+   S3_ENDPOINT=https://storage.railway.app
+   S3_ACCESS_KEY_ID=your_access_key_id
+   S3_SECRET_ACCESS_KEY=your_secret_access_key
+   S3_REGION=auto
+   
+   # PostgreSQL (from database service - use Variable Reference)
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   ```
+   
+   **Note**: Use Railway's Variable References to automatically link the PostgreSQL connection string.
+
+4. **Benefits**:
+   - ✅ Persistent storage (survives container rebuilds)
+   - ✅ Scalable (1TB files, 5GB database on Hobby plan)
+   - ✅ Automatic backups (PostgreSQL managed service)
+   - ✅ No volume management needed
+
+**Option 2: Persistent Volumes (Legacy)**
+
+If you prefer to use volumes instead of managed services:
+
 Mount **one volume** at:
 - `/app/data` - Contains both user files and database
 
@@ -113,6 +174,11 @@ Mount **one volume** at:
 - `/app/data/db/heromaker.db` - Database file
 
 **Note**: Use 3 slashes in `DATABASE_URL` (`sqlite:////`) because the path is absolute.
+
+**Limitations**:
+- ⚠️ Volumes require manual setup in Railway dashboard
+- ⚠️ Data may be lost if volume is not properly mounted
+- ⚠️ Less scalable than managed services
 
 #### Resource Limits
 - **CPU**: 1-2 vCPU (default is fine)
@@ -195,19 +261,37 @@ Mount volume at:
 
 ## Step 4: Step-by-Step Deployment
 
-### 1. Deploy Backend Service
+### 1. Set Up Storage (If Using Managed Services)
+
+**If using Railway Storage Buckets + PostgreSQL:**
+
+1. **Create Storage Bucket**:
+   - Railway dashboard → Create → **Bucket**
+   - Name: `heromaker-files`
+   - Note the bucket credentials (Access Key ID, Secret Access Key)
+
+2. **Create PostgreSQL Database**:
+   - Railway dashboard → Create → **Database** → **PostgreSQL**
+   - Note the connection string (or use Variable Reference: `${{Postgres.DATABASE_URL}}`)
+
+3. **Migrate Existing Data** (if migrating from volumes):
+   - See "Data Migration" section below
+
+### 2. Deploy Backend Service
 
 1. Create new service → "Empty Service"
 2. **Deploy from Docker image**: `ghcr.io/YOUR_GITHUB_USERNAME/heromaker/backend:latest`
 3. Configure authentication (GitHub username + token)
-4. Configure environment variables (see above)
+4. Configure environment variables:
+   - **If using managed services**: Add S3 and PostgreSQL variables (see Storage Configuration above)
+   - **If using volumes**: Use SQLite and volume paths (see Storage Configuration above)
 5. Set health check: `/health`
-6. Mount volume: `/app/data`
+6. **If using volumes**: Mount volume at `/app/data`
 7. Deploy
 
 **Note the public URL** (e.g., `https://backend-production-xxxx.up.railway.app`)
 
-### 2. Deploy Frontend Service
+### 3. Deploy Frontend Service
 
 1. Create new service → "Empty Service"
 2. **Deploy from Docker image**: `ghcr.io/YOUR_GITHUB_USERNAME/heromaker/frontend:latest`
@@ -221,7 +305,7 @@ Mount volume at:
 
 **Note the public URL** (e.g., `https://frontend-production-xxxx.up.railway.app`)
 
-### 3. Deploy VRM Converter Service
+### 4. Deploy VRM Converter Service
 
 1. Create new service → "Empty Service"
 2. **Deploy from Docker image**: `ghcr.io/YOUR_GITHUB_USERNAME/heromaker/vrm-converter:latest`
@@ -232,7 +316,7 @@ Mount volume at:
 7. Set resource limits: 2 vCPU, 2-4GB RAM
 8. Deploy
 
-### 4. Update Backend Configuration
+### 5. Update Backend Configuration
 
 1. Go to Backend service → Settings → Variables
 2. Update `ALLOWED_ORIGINS` with frontend URL:
@@ -241,12 +325,76 @@ Mount volume at:
    ```
 3. Redeploy backend
 
-### 5. Verify Everything Works
+### 6. Verify Everything Works
 
 1. **Backend health**: `https://backend-url.railway.app/health`
 2. **Frontend health**: `https://frontend-url.railway.app/health`
 3. **VRM Converter health**: Check Railway logs (no public URL)
 4. **Test full flow**: Upload image via frontend, verify backend processes it
+
+---
+
+## Data Migration
+
+If you're migrating from volumes to managed services (Storage Buckets + PostgreSQL), follow these steps:
+
+### Migrate Files to S3
+
+1. **Ensure S3 credentials are set** in your local environment or Railway:
+   ```bash
+   export S3_BUCKET=your_bucket_name
+   export S3_ENDPOINT=https://storage.railway.app
+   export S3_ACCESS_KEY_ID=your_access_key_id
+   export S3_SECRET_ACCESS_KEY=your_secret_access_key
+   export S3_REGION=auto
+   ```
+
+2. **Run migration script**:
+   ```bash
+   # From project root
+   cd backend
+   python scripts/migrate_files_to_s3.py
+   ```
+
+3. **Verify files in Railway dashboard**:
+   - Go to your Storage Bucket
+   - Check that files are present with structure: `{user_id}/{creation_id}/{filename}`
+
+### Migrate Database to PostgreSQL
+
+1. **Set PostgreSQL connection string**:
+   ```bash
+   export DATABASE_URL=postgresql://user:pass@host:port/dbname
+   export SQLITE_DATABASE_URL=sqlite:///./data/db/heromaker.db
+   ```
+
+2. **Run migration script**:
+   ```bash
+   # From project root
+   cd backend
+   python scripts/migrate_to_postgres.py
+   ```
+
+3. **Verify data in Railway dashboard**:
+   - Go to your PostgreSQL database
+   - Check that tables and data are present
+
+### After Migration
+
+1. **Update Railway environment variables**:
+   - Set `S3_BUCKET` and S3 credentials (if not already set)
+   - Set `DATABASE_URL` to PostgreSQL connection string
+   - Remove `FILES_ROOT` (not needed for S3)
+
+2. **Redeploy backend service**:
+   - Railway will automatically use S3 and PostgreSQL
+   - Files will be served via presigned URLs
+   - Database operations will use PostgreSQL
+
+3. **Test the application**:
+   - Verify file uploads go to S3
+   - Verify database operations use PostgreSQL
+   - Check presigned URLs work correctly
 
 ---
 

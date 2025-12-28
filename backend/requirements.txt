@@ -28,3 +28,9 @@ pygltflib>=1.16.0
 # Testing (optional, for unit tests)
 pytest>=7.4.0
 
+# S3 storage (for Railway Storage Buckets)
+boto3>=1.34.0
+
+# PostgreSQL driver
+psycopg2-binary>=2.9.9
+
