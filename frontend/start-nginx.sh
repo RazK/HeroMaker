@@ -15,7 +15,8 @@ echo "=============================" >&2
 
 # Create a temporary nginx config with PORT and BACKEND_URL substituted
 # Use envsubst to replace ${PORT} and ${BACKEND_URL} with actual values
-envsubst '${PORT} ${BACKEND_URL}' < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
+# Note: envsubst expects variable names WITHOUT ${}, so use 'PORT BACKEND_URL' not '${PORT} ${BACKEND_URL}'
+envsubst 'PORT BACKEND_URL' < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 
 # Debug: Show the substituted proxy_pass line
 echo "=== Nginx proxy_pass configuration ===" >&2
