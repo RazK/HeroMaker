@@ -5,12 +5,14 @@ import './DownloadButton.css';
 interface DownloadButtonProps {
   creationId: string;
   filename: string;
+  userId?: string;
   label?: string;
 }
 
 export function DownloadButton({
   creationId,
   filename,
+  userId,
   label,
 }: DownloadButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
@@ -18,7 +20,7 @@ export function DownloadButton({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await api.downloadFile(creationId, filename);
+      await api.downloadFile(creationId, filename, userId);
     } catch (error) {
       alert(`Failed to download file: ${error instanceof Error ? error.message : String(error)}`);
     } finally {

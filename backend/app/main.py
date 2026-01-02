@@ -55,6 +55,8 @@ app.add_middleware(
 # Routers
 app.include_router(creations.router, prefix="/api/creations", tags=["creations"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])
+from app.api import auth
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
 # Health check endpoints (no /api prefix for easier monitoring)
 from app.api import health

@@ -9,6 +9,7 @@ import './StepCard.css';
 interface StepCardProps {
   step: CreationStepResponse;
   creationId: string;
+  userId: string;
   stepIndex: number;
   onStepRetry?: (stepName: string) => void;
 }
@@ -205,7 +206,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardProps) {
+export function StepCard({ step, creationId, userId, stepIndex, onStepRetry }: StepCardProps) {
   // Force re-render every second for live time updates
   const [, setTick] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
@@ -248,16 +249,16 @@ export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardP
     : outputFile;
   
   const fileUrl = showPreview
-    ? api.getFileUrl(creationId, modelFile)
+    ? api.getFileUrl(creationId, modelFile, userId)
     : null;
   
   // For rigging step, provide both URLs for toggle
   const walkingUrl = (step.step_name === 'meshy_rig' && showPreview && walkingGlbFilename)
-    ? api.getFileUrl(creationId, walkingGlbFilename)
+    ? api.getFileUrl(creationId, walkingGlbFilename, userId)
     : null;
   
   const riggedUrl = (step.step_name === 'meshy_rig' && showPreview && outputFile)
-    ? api.getFileUrl(creationId, outputFile)
+    ? api.getFileUrl(creationId, outputFile, userId)
     : null;
 
   const handleDownload = async () => {
@@ -267,7 +268,7 @@ export function StepCard({ step, creationId, stepIndex, onStepRetry }: StepCardP
     const fileToDownload = step.step_name === 'meshy_rig' ? 'avatar.vrm' : outputFile;
     
     try {
-      await api.downloadFile(creationId, fileToDownload);
+      await api.downloadFile(creationId, fileToDownload, userId);
     } catch (error) {
       console.error('Failed to download file:', error);
       alert(`Failed to download ${fileToDownload}`);

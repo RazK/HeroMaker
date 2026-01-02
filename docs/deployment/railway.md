@@ -99,6 +99,7 @@ OPENAI_API_KEY=your_openai_key_here
 MESHY_API_KEY=your_meshy_key_here
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 DEBUG=false
+JWT_SECRET_KEY=your-secure-random-key-here
 S3_BUCKET=your_bucket_name
 S3_ENDPOINT=https://storage.railway.app
 S3_ACCESS_KEY_ID=your_access_key_id
@@ -114,10 +115,18 @@ OPENAI_API_KEY=your_openai_key_here
 MESHY_API_KEY=your_meshy_key_here
 DATABASE_URL=sqlite:////app/data/db/heromaker.db
 DEBUG=false
+JWT_SECRET_KEY=your-secure-random-key-here
 FILES_ROOT=/app/data/files
 VRM_CONVERTER_SERVICE_URL=http://vrm-converter:8000
 ALLOWED_ORIGINS=https://your-frontend-url.railway.app
 ```
+
+**Generating JWT_SECRET_KEY:**
+Generate a secure random key using:
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+Use a different key for each environment (dev, staging, production). Keep it secret and never commit it to git.
 
 **Note**: 
 - Replace `your-frontend-url.railway.app` with your actual frontend Railway URL after deployment.

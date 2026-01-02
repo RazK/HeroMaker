@@ -1,0 +1,147 @@
+.header-auth {
+  position: relative;
+}
+
+.header-auth-button {
+  padding: 12px 20px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header-auth-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.header-auth-user-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header-auth-user-button:hover {
+  background: var(--bg-secondary);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.header-auth-username {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.header-auth-tokens {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-auth-chevron {
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+
+.header-auth-chevron.open {
+  transform: rotate(180deg);
+}
+
+.header-auth-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.header-auth-menu-item {
+  padding: 12px 16px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+
+.header-auth-menu-item:hover {
+  background: var(--bg-secondary);
+}
+
+.header-auth-menu-user-info {
+  cursor: default;
+  padding: 16px;
+}
+
+.header-auth-menu-user-info:hover {
+  background: var(--bg-primary);
+}
+
+.header-auth-menu-username {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.header-auth-menu-email {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.header-auth-menu-tokens {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.header-auth-menu-tokens strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.header-auth-menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+.header-auth-menu-logout {
+  color: #ff4444;
+  font-weight: 500;
+}
+
+.header-auth-menu-logout:hover {
+  background: rgba(255, 68, 68, 0.1);
+}
+
