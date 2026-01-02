@@ -64,3 +64,4 @@ devops/railway/env/vrm-converter
 
 # Data directory (excluded from git to speed up Railway snapshots)
 data/
+frontend/dev-dist/

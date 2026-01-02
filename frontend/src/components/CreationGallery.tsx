@@ -64,7 +64,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
       const filteredCreations = allCreations.filter(creation => {
         // Only show if it has an original image
         try {
-          const originalUrl = api.getFileUrl(creation.id, 'original.jpg');
+          const originalUrl = api.getFileUrl(creation.id, 'original.jpg', creation.user_id);
           return !!originalUrl;
         } catch {
           return false;
@@ -84,7 +84,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
 
   const getImageUrl = (creation: CreationResponse, filename: 'original.jpg' | 'rendered.png'): string | null => {
     try {
-      return api.getFileUrl(creation.id, filename);
+      return api.getFileUrl(creation.id, filename, creation.user_id);
     } catch {
       return null;
     }

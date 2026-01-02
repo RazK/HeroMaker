@@ -42,7 +42,8 @@ export function PipelineProgress({ creation, onStepRetry }: PipelineProgressProp
           <StepCard 
             key={step.step_name} 
             step={step} 
-            creationId={creation.id} 
+            creationId={creation.id}
+            userId={creation.user_id}
             stepIndex={index}
             onStepRetry={onStepRetry}
           />

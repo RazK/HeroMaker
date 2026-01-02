@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { HeaderUploadButtons } from './components/HeaderUploadButtons';
+import { HeaderAuth } from './components/HeaderAuth';
 import { PipelineProgress } from './components/PipelineProgress';
 import { CreationGallery } from './components/CreationGallery';
 import { HeroNameEditor } from './components/HeroNameEditor';
@@ -113,10 +114,7 @@ function App() {
           <h1>HeroMaker</h1>
         </div>
         <div className="app-header-right">
-          <div className="app-header-copyright">
-            <span className="app-header-copyright-name">Raz Karl</span> <span className="app-header-copyright-normal">&</span> <span className="app-header-copyright-name">Elad Shikley</span><br />
-            <span className="app-header-copyright-normal">Hanukkah 2025 ©</span>
-          </div>
+          <HeaderAuth />
         </div>
       </header>
       
@@ -221,6 +219,15 @@ function App() {
           </div>
         )}
       </main>
+      
+      <footer className="app-footer">
+        <div className="app-footer-content">
+          <span className="app-footer-name">Raz Karl</span>
+          <span className="app-footer-normal">&</span>
+          <span className="app-footer-name">Elad Shikley</span>
+          <span className="app-footer-normal">Hanukkah 2025 ©</span>
+        </div>
+      </footer>
     </div>
   );
 }

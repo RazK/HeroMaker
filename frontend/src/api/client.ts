@@ -1,6 +1,21 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const DEBUG_USER_ID = 'debug-user-uuid';
 
+// JWT Token management
+const JWT_TOKEN_KEY = 'heromaker_jwt_token';
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(JWT_TOKEN_KEY);
+}
+
+export function setAuthToken(token: string): void {
+  localStorage.setItem(JWT_TOKEN_KEY, token);
+}
+
+export function clearAuthToken(): void {
+  localStorage.removeItem(JWT_TOKEN_KEY);
+}
+
 export interface CreationStepResponse {
   step_name: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -45,14 +60,34 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const method = options?.method || 'GET';
   const isPolling = url.includes('/api/creations/') && method === 'GET';
   
+  // Add JWT token to headers if available
+  const token = getAuthToken();
+  const headers = new Headers(options?.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  
+  // Merge headers with existing options
+  const requestOptions: RequestInit = {
+    ...options,
+    headers,
+  };
+  
   // Log all requests except polling (to reduce spam)
   if (!isPolling) {
     console.log(`[API] ${method} ${url}`, options?.body ? '(with body)' : '');
   }
   
   const startTime = Date.now();
-  const response = await fetch(url, options);
+  const response = await fetch(url, requestOptions);
   const duration = Date.now() - startTime;
+  
+  // Handle 401 Unauthorized - clear token and trigger auth flow
+  if (response.status === 401) {
+    clearAuthToken();
+    // Dispatch custom event for auth error handling
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  }
   
   if (!response.ok) {
     const errorText = await response.text();
@@ -195,9 +230,11 @@ export const api = {
   /**
    * Get file URL for a creation file
    */
-  getFileUrl(creationId: string, filename: string): string {
-    const url = `${API_BASE_URL}/api/files/${DEBUG_USER_ID}/${creationId}/${filename}`;
-    console.log('[API] getFileUrl:', { creationId, filename, url });
+  getFileUrl(creationId: string, filename: string, userId?: string): string {
+    // Use provided userId, fallback to DEBUG_USER_ID for backward compatibility
+    const user_id = userId || DEBUG_USER_ID;
+    const url = `${API_BASE_URL}/api/files/${user_id}/${creationId}/${filename}`;
+    console.log('[API] getFileUrl:', { creationId, filename, userId: user_id, url });
     return url;
   },
 
@@ -311,9 +348,9 @@ export const api = {
   /**
    * Download a file
    */
-  async downloadFile(creationId: string, filename: string): Promise<void> {
-    const url = this.getFileUrl(creationId, filename);
-    console.log('[API] downloadFile:', { creationId, filename, url });
+  async downloadFile(creationId: string, filename: string, userId?: string): Promise<void> {
+    const url = this.getFileUrl(creationId, filename, userId);
+    console.log('[API] downloadFile:', { creationId, filename, userId, url });
     const response = await fetch(url);
     
     if (!response.ok) {
@@ -331,6 +368,63 @@ export const api = {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  /**
+   * Authentication methods
+   */
+  async signup(username: string, email: string, password: string): Promise<{ access_token: string; user: any }> {
+    console.log('[API] signup:', { username, email });
+    const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
+      `${API_BASE_URL}/api/auth/signup`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, email, password }),
+      }
+    );
+    setAuthToken(result.access_token);
+    console.log('[API] signup success');
+    return result;
+  },
+
+  async login(username: string, password: string): Promise<{ access_token: string; user: any }> {
+    console.log('[API] login:', { username });
+    const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
+      `${API_BASE_URL}/api/auth/login`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      }
+    );
+    setAuthToken(result.access_token);
+    console.log('[API] login success');
+    return result;
+  },
+
+  async logout(): Promise<void> {
+    console.log('[API] logout');
+    try {
+      await fetchJson(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+      });
+    } catch (err) {
+      // Ignore errors on logout
+      console.warn('[API] logout error (ignored):', err);
+    }
+    clearAuthToken();
+    console.log('[API] logout success');
+  },
+
+  async getMe(): Promise<any> {
+    const result = await fetchJson<any>(`${API_BASE_URL}/api/auth/me`);
+    console.log('[API] getMe success');
+    return result;
   },
 };
 
