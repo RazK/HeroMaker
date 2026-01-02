@@ -206,13 +206,17 @@ Mount **one volume** at:
 - **Private DNS**: `frontend.railway.internal`
 
 #### Environment Variables
+
+**Required: Direct backend connection**
 ```
 VITE_API_BASE_URL=https://your-backend-url.railway.app
 ```
 
-**Note**: Replace `your-backend-url.railway.app` with your actual backend Railway URL.
-
-**Alternative**: If frontend proxies to backend via nginx (configured in `nginx.conf`), you can leave this empty and the frontend will use relative `/api/*` paths.
+**Note**: 
+- Replace `your-backend-url.railway.app` with your actual backend Railway public URL
+- The frontend calls the backend directly via this URL (no nginx proxy)
+- This is set at build time, so you need to rebuild/redeploy frontend if the backend URL changes
+- Railway provides automatic SSL certificates for all public services
 
 #### Persistent Volumes
 - **None needed** - Frontend is statically built
@@ -297,10 +301,11 @@ Mount volume at:
 2. **Deploy from Docker image**: `ghcr.io/YOUR_GITHUB_USERNAME/heromaker/frontend:latest`
 3. Same authentication as backend
 4. Set health check: `/health`
-5. Set environment variable:
+5. Set environment variables:
    ```
    VITE_API_BASE_URL=https://backend-production-xxxx.up.railway.app
    ```
+   **Note**: Replace `backend-production-xxxx.up.railway.app` with your actual backend Railway URL (get this from backend service settings after deployment).
 6. Deploy
 
 **Note the public URL** (e.g., `https://frontend-production-xxxx.up.railway.app`)
@@ -448,7 +453,7 @@ Services communicate via Railway's private network using service names:
 After all services are deployed, update:
 
 1. **Backend** `ALLOWED_ORIGINS` with frontend public URL
-2. **Frontend** `VITE_API_BASE_URL` with backend public URL (if not using nginx proxy)
+2. **Frontend** `VITE_API_BASE_URL` with backend public URL (must rebuild frontend after changing this)
 
 ---
 
@@ -492,11 +497,23 @@ If Railway can't pull images:
 
 ### Service Communication Issues
 
-- Verify services are in the same Railway project
-- Verify private networking is enabled on all services
-- Check service names match (Railway uses service names, not container names)
-- Verify `VRM_CONVERTER_SERVICE_URL` uses service name: `http://vrm-converter:8000`
-- Test connectivity: `railway run --service backend curl http://vrm-converter:8000/health`
+- **Frontend can't reach backend:**
+  - Verify `VITE_API_BASE_URL` is set to backend's public Railway URL (e.g., `https://backend-xxxx.up.railway.app`)
+  - Check backend is publicly accessible (public networking enabled)
+  - Verify backend CORS settings allow frontend origin
+  - Check browser console for CORS or network errors
+  - **Note**: `VITE_API_BASE_URL` is baked into the frontend build - you must rebuild/redeploy frontend if backend URL changes
+
+- **Backend can't reach VRM converter:**
+  - Verify services are in the same Railway project
+  - Verify private networking is enabled on both services
+  - Check service names match (Railway uses service names, not container names)
+  - Railway assigns ports dynamically - check VRM converter logs for actual port:
+    ```bash
+    railway logs --service vrm-converter --lines 100 | grep "Uvicorn running"
+    ```
+  - Update `VRM_CONVERTER_SERVICE_URL` in backend: `http://vrm-converter:XXXX` (replace XXXX with actual port)
+  - Test connectivity: `railway run --service backend curl http://vrm-converter:XXXX/health`
 
 ### Volume Mount Issues
 
@@ -576,9 +593,15 @@ If you prefer Railway to build from source (simpler setup, but slower deployment
 - VRM Converter: `/health`
 
 ### Ports
-- Backend: 8000 (internal), Railway assigns public port
-- Frontend: 80 (internal), Railway assigns public port
-- VRM Converter: 8000 (internal only, no public port)
+- Backend: Railway assigns dynamically (check logs: `railway logs --service backend | grep "Uvicorn running"`), Railway assigns public port
+- Frontend: Railway assigns dynamically (usually 80), Railway assigns public port
+- VRM Converter: Railway assigns dynamically (check logs), internal only, no public port
+
+**Important**: Railway assigns ports dynamically via the `PORT` environment variable. The backend listens on whatever port Railway assigns (often 8080, not 8000). Always check the startup logs to find the actual port:
+```bash
+railway logs --service backend --lines 100 | grep "Uvicorn running"
+# Look for: "Uvicorn running on http://0.0.0.0:XXXX"
+```
 
 ### Service Names (Private Network)
 - `backend` or `backend.railway.internal`

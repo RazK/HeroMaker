@@ -98,7 +98,8 @@ docker-compose down -v
 - **Port**: 3000 (mapped to host, container runs on port 80)
 - **Health Check**: `GET /health`
 - **Dependencies**: Waits for backend to be ready
-- **Nginx Configuration**: Proxies `/api/*` requests to backend
+- **Development Mode**: Runs Vite dev server for hot reload
+- **API Communication**: Calls backend directly via `VITE_API_BASE_URL` (empty = same origin)
 
 ### VRM Converter Service
 
@@ -280,10 +281,11 @@ alembic upgrade head
 
 ### Frontend Can't Reach Backend
 
-- Verify nginx configuration in `frontend/nginx.conf`
 - Check backend is running: `curl http://localhost:8000/`
-- Verify CORS settings in backend allow frontend origin
+- Verify CORS settings in backend allow frontend origin (check `ALLOWED_ORIGINS` in `.env`)
+- In development mode, `VITE_API_BASE_URL` should be empty (uses same origin)
 - Access frontend at http://localhost:3000 (not port 80)
+- Check browser console for CORS or network errors
 
 ### Database Issues
 

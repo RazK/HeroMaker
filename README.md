@@ -79,8 +79,56 @@ HeroMaker orchestrates a multi-step AI pipeline to transform 2D drawings into fu
 2. **OpenAI Render** - Enhance image using OpenAI's GPT-Image-1 model
 3. **Meshy 3D** - Generate 3D model from image
 4. **Meshy Rig** - Add rigging to 3D model
-5. **VRM Conversion** - Convert GLB to VRM format
+5. **VRM Conversion** - Convert GLB to VRM format using Blender
 6. **Complete** - Finalize and store creation
+
+## Architecture
+
+HeroMaker consists of three main services that work together:
+
+```mermaid
+graph TB
+    subgraph "User Browser"
+        User[User]
+    end
+    
+    subgraph "Frontend Service"
+        Frontend[React SPA<br/>Nginx/Vite]
+    end
+    
+    subgraph "Backend Service"
+        Backend[FastAPI<br/>Pipeline Orchestrator]
+    end
+    
+    subgraph "VRM Converter Service"
+        VRMConverter[Blender Service<br/>GLB → VRM]
+    end
+    
+    subgraph "Storage"
+        Database[(Database)]
+        Files[File Storage]
+    end
+    
+    subgraph "External APIs"
+        OpenAI[OpenAI<br/>GPT-Image-1]
+        Meshy[Meshy<br/>3D Generation]
+    end
+    
+    User -->|HTTPS| Frontend
+    Frontend -->|Direct API Calls| Backend
+    Backend -->|Private Network| VRMConverter
+    Backend -->|API Calls| OpenAI
+    Backend -->|API Calls| Meshy
+    Backend --> Database
+    Backend --> Files
+    VRMConverter --> Files
+```
+
+**Key Architecture Decisions:**
+- **Frontend → Backend**: Direct calls via `VITE_API_BASE_URL` (no proxy needed)
+- **Backend → VRM Converter**: Private network communication (Docker network locally, Railway private network in production)
+- **Storage**: Shared volume (local) or S3 + PostgreSQL (production)
+- **Stateless Frontend**: Pre-built static files, no server-side rendering
 
 ## Tech Stack
 
@@ -95,9 +143,9 @@ HeroMaker orchestrates a multi-step AI pipeline to transform 2D drawings into fu
 - **Docker** - Containerized services
 
 ### Services
-- **Backend API** - FastAPI service (port 8000)
-- **Frontend** - React app served by Nginx (port 3000)
-- **VRM Converter** - Blender-based service for GLB→VRM conversion (port 8001)
+- **Backend API** - FastAPI service (port 8000 locally, dynamic port on Railway)
+- **Frontend** - React app (Vite dev server locally, Nginx in production)
+- **VRM Converter** - Blender-based service for GLB→VRM conversion (port 8001 locally, private network only in production)
 
 ## Development
 

@@ -2,6 +2,110 @@
 
 This document provides the high-level system view that ties together the detailed references in the rest of the documentation set. Use it to understand how the product experience, backend services, storage model, and external integrations collaborate to turn a child's drawing into a downloadable VRM avatar.
 
+## System Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Public Internet"
+        User[Users on Mobile/Desktop]
+    end
+    
+    subgraph "Railway Platform / Local Docker"
+        subgraph "Frontend Service"
+            Frontend[React SPA<br/>Nginx/Vite]
+        end
+        
+        subgraph "Backend Service"
+            Backend[FastAPI<br/>Uvicorn]
+        end
+        
+        subgraph "VRM Converter Service"
+            VRMConverter[Blender Service<br/>FastAPI]
+        end
+        
+        subgraph "Storage"
+            Database[(SQLite/PostgreSQL)]
+            Files[File Storage<br/>Local/S3]
+        end
+    end
+    
+    subgraph "External Services"
+        OpenAI[OpenAI API<br/>GPT-Image-1]
+        Meshy[Meshy API<br/>3D Generation]
+    end
+    
+    User -->|HTTPS| Frontend
+    Frontend -->|Direct API Calls<br/>VITE_API_BASE_URL| Backend
+    Backend -->|HTTP| VRMConverter
+    Backend -->|API calls| OpenAI
+    Backend -->|API calls| Meshy
+    VRMConverter -->|Read/Write| Files
+    Backend -->|Read/Write| Files
+    Backend -->|Read/Write| Database
+```
+
+## Deployment Architecture
+
+### Local Development
+
+```mermaid
+graph LR
+    subgraph "Docker Compose Network"
+        FE[Frontend<br/>Vite Dev Server<br/>:3000]
+        BE[Backend<br/>FastAPI<br/>:8000]
+        VC[VRM Converter<br/>Blender<br/>:8001]
+        VOL[./data Volume]
+    end
+    
+    FE -->|VITE_API_BASE_URL=''<br/>Same Origin| BE
+    BE -->|HTTP| VC
+    BE --> VOL
+    VC --> VOL
+```
+
+**Key Points:**
+- Frontend runs Vite dev server for hot reload
+- Frontend calls backend via same origin (no proxy needed)
+- All services share `./data` volume for files and database
+
+### Production (Railway)
+
+```mermaid
+graph TB
+    subgraph "Railway Platform"
+        subgraph "Frontend Service"
+            FE[React SPA<br/>Nginx<br/>Static Files]
+        end
+        
+        subgraph "Backend Service"
+            BE[FastAPI<br/>Uvicorn<br/>Dynamic Port]
+        end
+        
+        subgraph "VRM Converter Service"
+            VC[Blender Service<br/>Private Network Only]
+        end
+        
+        subgraph "Storage"
+            DB[(PostgreSQL<br/>or SQLite)]
+            S3[S3 Bucket<br/>or Volume]
+        end
+    end
+    
+    User[Users] -->|HTTPS| FE
+    FE -->|VITE_API_BASE_URL<br/>Backend Public URL| BE
+    BE -->|Private Network| VC
+    BE --> DB
+    BE --> S3
+    VC --> S3
+```
+
+**Key Points:**
+- Frontend is pre-built static files served by Nginx
+- Frontend calls backend directly via public URL (`VITE_API_BASE_URL`)
+- No nginx proxy - simplified architecture
+- Backend and VRM converter communicate via Railway's private network
+- Storage uses Railway managed services (PostgreSQL + S3) or volumes
+
 ## Product Experience at a Glance
 
 HeroMaker exposes three primary states in the frontend experience:
@@ -15,14 +119,29 @@ The frontend treats the backend as the single source of truth and polls for crea
 
 | Component | Responsibilities | Tech / Interfaces | Notes |
 |-----------|------------------|-------------------|-------|
-| Frontend Web Client | Browse gallery, trigger creations, upload scans, display progress/VRM viewer | Any SPA framework (prototype uses Vite-based tooling). Communicates via REST over HTTPS. | Stateless; uses polling instead of websockets for simplicity. |
-| Backend API Service | Implements REST endpoints under `/api`, orchestrates step execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic. Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). |
+| Frontend Web Client | Browse gallery, trigger creations, upload scans, display progress/VRM viewer | React 18 + TypeScript + Vite. Communicates via REST over HTTPS. | Stateless; uses polling instead of websockets for simplicity. Calls backend directly via `VITE_API_BASE_URL` (no proxy). |
+| Backend API Service | Implements REST endpoints under `/api`, orchestrates step execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic. Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). Listens on Railway-assigned port (via `PORT` env var). |
 | Pipeline Engine | Encapsulated inside the API service (no separate worker). Executes sequential steps defined in `steps.md`, spawns Meshy/OpenAI jobs, and writes outputs to disk. | Python modules in `backend/app/services/`. | Step status is tracked in database with timestamps and progress. |
+| VRM Converter Service | Converts GLB files to VRM format using Blender and VRM add-on | FastAPI + Blender. Runs as separate container/service. | Accessible only via private network (Railway) or Docker network (local). |
 | Database | Stores users, creations, creation_steps with status, metadata, audit timestamps | SQLite (dev and production). PostgreSQL supported via `DATABASE_URL` (see `.env.example`). | Core tables: `users`, `creations`, `creation_steps`. File paths are not stored here. |
-| File Storage | Holds all intermediate and final artifacts (`/data/files/{user_id}/{creation_id}/`) | Local POSIX filesystem; can be swapped for S3-compatible storage later. | Directory structure encodes `user_id` and `creation_id`; files are stored directly in creation directory. |
-| External Services | OpenAI for render + naming, Meshy for 3D pipeline, Blender VRM add-on for final conversion | HTTP APIs (OpenAI, Meshy) + VRM converter service (containerized Blender). | API polling intervals and retries defined in `integrations.md`. |
+| File Storage | Holds all intermediate and final artifacts (`/data/files/{user_id}/{creation_id}/`) | Local POSIX filesystem (dev) or S3-compatible storage (production). | Directory structure encodes `user_id` and `creation_id`; files are stored directly in creation directory. |
+| External Services | OpenAI for render + naming, Meshy for 3D pipeline | HTTP APIs (OpenAI, Meshy). | API polling intervals and retries defined in `integrations.md`. |
 
 ## Service Interactions
+
+### Frontend-Backend Communication
+
+**Local Development:**
+- Frontend (Vite dev server) calls backend via same origin (`VITE_API_BASE_URL=''`)
+- No proxy needed - direct HTTP calls within Docker network
+
+**Production (Railway):**
+- Frontend (static files served by Nginx) calls backend via public URL
+- `VITE_API_BASE_URL` set to backend's Railway public URL (e.g., `https://backend.railway.app`)
+- No nginx proxy - frontend JavaScript makes direct fetch calls to backend
+- Simplified architecture: no certificate issues, no proxy configuration needed
+
+### Pipeline Flow
 
 1. **Creation Kickoff**  
    `POST /api/creations/upload` accepts an image file upload, creates a row in `creations`, initializes all steps as "pending", and allocates a filesystem workspace (`/data/files/{user_id}/{creation_id}/`).
@@ -36,7 +155,10 @@ The frontend treats the backend as the single source of truth and polls for crea
 4. **External API Jobs**  
    For OpenAI and Meshy steps, the backend records provider task IDs in `creations.metadata`, polls on a configurable cadence, and updates step progress percentages so the frontend can render progress bars.
 
-5. **Completion**  
+5. **VRM Conversion**  
+   Backend sends GLB file to VRM converter service via private network (`http://vrm-converter:8000`). VRM converter reads GLB from shared storage, converts to VRM, writes back to storage.
+
+6. **Completion**  
    After `convert_vrm` succeeds, the `complete` step sets `current_step` to null and marks the creation `status='completed'`. All files remain in the creation directory.
 
 ## Data Model & Storage Strategy
