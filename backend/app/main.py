@@ -57,6 +57,8 @@ app.include_router(creations.router, prefix="/api/creations", tags=["creations"]
 app.include_router(files.router, prefix="/api/files", tags=["files"])
 from app.api import auth
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+from app.api import coupons
+app.include_router(coupons.router, prefix="/api/coupons", tags=["coupons"])
 
 # Health check endpoints (no /api prefix for easier monitoring)
 from app.api import health

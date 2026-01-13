@@ -426,6 +426,25 @@ export const api = {
     console.log('[API] getMe success');
     return result;
   },
+
+  /**
+   * Redeem a coupon code for tokens
+   */
+  async redeemCoupon(code: string): Promise<{ success: boolean; message: string; tokens_added: number; new_balance: number }> {
+    console.log('[API] redeemCoupon:', { code });
+    const result = await fetchJson<{ success: boolean; message: string; tokens_added: number; new_balance: number }>(
+      `${API_BASE_URL}/api/coupons/redeem`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code }),
+      }
+    );
+    console.log('[API] redeemCoupon success:', result);
+    return result;
+  },
 };
 
 export { ApiError };

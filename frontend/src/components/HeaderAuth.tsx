@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, getAuthToken } from '../api/client';
 import { AuthModal } from './AuthModal';
+import { CouponRedeem } from './CouponRedeem';
 import './HeaderAuth.css';
 
 interface User {
@@ -14,6 +15,7 @@ interface User {
 export function HeaderAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showCouponModal, setShowCouponModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +72,17 @@ export function HeaderAuth() {
     setShowUserMenu(false);
   };
 
+  const handleCouponSuccess = (newBalance: number) => {
+    if (user) {
+      setUser({ ...user, tokens: newBalance });
+    }
+  };
+
+  const handleOpenCouponModal = () => {
+    setShowUserMenu(false);
+    setShowCouponModal(true);
+  };
+
   if (!user) {
     return (
       <>
@@ -116,11 +129,19 @@ export function HeaderAuth() {
             </div>
           </div>
           <div className="header-auth-menu-divider"></div>
+          <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenCouponModal}>
+            Redeem Coupon
+          </button>
           <button className="header-auth-menu-item header-auth-menu-logout" onClick={handleLogout}>
             Log Out
           </button>
         </div>
       )}
+      <CouponRedeem
+        isOpen={showCouponModal}
+        onClose={() => setShowCouponModal(false)}
+        onSuccess={handleCouponSuccess}
+      />
     </div>
   );
 }
