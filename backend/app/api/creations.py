@@ -6,15 +6,22 @@ from typing import Optional
 from app.database import get_db, SessionLocal
 from app.models import Creation, User, CreationStep
 from app.schemas.creation import CreationRequest, CreationResponse
-from app.services.auth import get_current_user
-from app.config.steps import get_step_by_name, STEPS
+from app.services.auth import get_current_user, get_current_user_required
+from app.config.steps import get_step_by_name, STEPS, get_total_creation_cost
 from app.utils.file_utils import delete_creation_files, check_file_exists
 from app.utils.storage import get_storage
 from app.services.pipeline import run_pipeline_sequential, execute_step_sync, _initialize_creation_steps
 from app.services.pipeline import _reset_step
+from app.services.tokens import get_balance
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/cost")
+def get_creation_cost():
+    """Get the token cost for creating a new hero."""
+    return {"cost": get_total_creation_cost()}
 
 
 @router.get("/{creation_id}", response_model=CreationResponse)
@@ -124,7 +131,7 @@ async def upload_image(
         file: UploadFile = File(...),
         character_name: Optional[str] = None,
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user)
+        user: User = Depends(get_current_user_required)
 ):
     """Upload image file. Creates creation if needed, resets all steps, does NOT start pipeline."""
     # Create new creation
@@ -168,7 +175,7 @@ async def run_creation(
                                           description="If true and step_name provided, resets step and all following steps. If false, only resets the specified step."),
         background_tasks: BackgroundTasks = BackgroundTasks(),
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user)
+        user: User = Depends(get_current_user_required)
 ):
     """
     Run pipeline sequentially.
@@ -215,6 +222,17 @@ async def run_creation(
         # No step_name: always start from beginning
         start_from_step = None
         restart = True
+
+    # Check tokens BEFORE starting background task (only for fresh starts)
+    if restart and start_from_step is None:
+        cost = get_total_creation_cost()
+        if cost > 0:
+            balance = get_balance(user.id, db)
+            if balance < cost:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Insufficient tokens. Need {cost}, have {balance}"
+                )
 
     # Create new DB session for background task
     db_session = SessionLocal()

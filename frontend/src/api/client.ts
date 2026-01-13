@@ -386,6 +386,7 @@ export const api = {
       }
     );
     setAuthToken(result.access_token);
+    window.dispatchEvent(new CustomEvent('auth:login'));
     console.log('[API] signup success');
     return result;
   },
@@ -403,6 +404,7 @@ export const api = {
       }
     );
     setAuthToken(result.access_token);
+    window.dispatchEvent(new CustomEvent('auth:login'));
     console.log('[API] login success');
     return result;
   },
@@ -418,6 +420,7 @@ export const api = {
       console.warn('[API] logout error (ignored):', err);
     }
     clearAuthToken();
+    window.dispatchEvent(new CustomEvent('auth:logout'));
     console.log('[API] logout success');
   },
 
@@ -443,6 +446,15 @@ export const api = {
       }
     );
     console.log('[API] redeemCoupon success:', result);
+    return result;
+  },
+
+  /**
+   * Get the token cost for creating a new hero
+   */
+  async getCreationCost(): Promise<{ cost: number }> {
+    const result = await fetchJson<{ cost: number }>(`${API_BASE_URL}/api/creations/cost`);
+    console.log('[API] getCreationCost:', result);
     return result;
   },
 };

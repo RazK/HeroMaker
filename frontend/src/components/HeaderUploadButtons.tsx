@@ -5,9 +5,10 @@ interface HeaderUploadButtonsProps {
   onUpload: (file: File, characterName?: string) => void;
   onStartWebcam: () => void;
   disabled?: boolean;
+  isLoggedIn?: boolean;
 }
 
-export function HeaderUploadButtons({ onUpload, onStartWebcam, disabled = false }: HeaderUploadButtonsProps) {
+export function HeaderUploadButtons({ onUpload, onStartWebcam, disabled = false, isLoggedIn = false }: HeaderUploadButtonsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
@@ -22,6 +23,10 @@ export function HeaderUploadButtons({ onUpload, onStartWebcam, disabled = false 
       onUpload(file);
     }
   };
+
+  if (!isLoggedIn) {
+    return null;
+  }
 
   return (
     <div className="header-upload-buttons">
