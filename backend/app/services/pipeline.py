@@ -15,7 +15,8 @@ from sqlalchemy.orm.attributes import flag_modified
 logger = logging.getLogger(__name__)
 
 from app.models import Creation, CreationStep
-from app.config.steps import STEPS, get_step_by_name
+from app.config.steps import STEPS, get_step_by_name, get_total_creation_cost
+from app.services.tokens import get_balance, deduct_tokens
 from app.database import SessionLocal
 from app.utils.file_utils import (
     check_file_exists,
@@ -517,9 +518,20 @@ def run_pipeline_sequential(creation_id: str, user_id: str, restart: bool, db: S
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     if not creation:
         raise ValueError(f"Creation {creation_id} not found")
-    
+
     logger.info(f"[{creation_id}] Starting pipeline (restart={restart}, start_from_step={start_from_step})")
-    
+
+    # Only charge tokens for fresh pipeline starts (restart=True AND start_from_step is None)
+    # Retries and resumptions don't cost tokens
+    if restart and start_from_step is None:
+        cost = get_total_creation_cost()
+        if cost > 0:
+            balance = get_balance(user_id, db)
+            if balance < cost:
+                raise ValueError(f"Insufficient tokens. Need {cost}, have {balance}")
+            deduct_tokens(user_id, cost, db, reason=f"Creation {creation_id}")
+            logger.info(f"[{creation_id}] Deducted {cost} tokens from user {user_id}")
+
     # Initialize steps if needed
     _initialize_creation_steps(creation_id, db)
     

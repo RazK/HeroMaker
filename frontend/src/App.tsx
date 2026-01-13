@@ -6,7 +6,7 @@ import { PipelineProgress } from './components/PipelineProgress';
 import { CreationGallery } from './components/CreationGallery';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { useCreationPolling } from './hooks/useCreationPolling';
-import { api, CreationResponse, ApiError } from './api/client';
+import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import './App.css';
 
 function App() {
@@ -16,6 +16,46 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [showWebcamModal, setShowWebcamModal] = useState(false);
   const hasStartedRef = useRef<string | null>(null);
+  const [creationCost, setCreationCost] = useState<number | undefined>(undefined);
+  const [tokenBalance, setTokenBalance] = useState<number | undefined>(undefined);
+
+  // Fetch creation cost on mount (it's static)
+  useEffect(() => {
+    api.getCreationCost().then(({ cost }) => setCreationCost(cost)).catch(console.error);
+  }, []);
+
+  // Fetch token balance when auth state changes
+  const refreshTokenBalance = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setTokenBalance(undefined);
+      return;
+    }
+    try {
+      const user = await api.getMe();
+      setTokenBalance(user.tokens);
+    } catch {
+      setTokenBalance(undefined);
+    }
+  };
+
+  useEffect(() => {
+    refreshTokenBalance();
+
+    // Listen for auth events
+    const handleAuthChange = () => refreshTokenBalance();
+    const handleUnauthorized = () => setTokenBalance(undefined);
+
+    window.addEventListener('auth:login', handleAuthChange);
+    window.addEventListener('auth:logout', handleAuthChange);
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+
+    return () => {
+      window.removeEventListener('auth:login', handleAuthChange);
+      window.removeEventListener('auth:logout', handleAuthChange);
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
 
   const handleUpload = async (file: File, characterName?: string) => {
     console.log('[App] handleUpload:', { filename: file.name, characterName });
@@ -52,6 +92,8 @@ function App() {
     try {
       await api.runPipeline(creation.id);
       console.log('[App] Pipeline start successful');
+      // Refresh token balance after pipeline starts (tokens are deducted)
+      refreshTokenBalance();
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to start pipeline';
       console.error('[App] Pipeline start failed:', err);
@@ -96,10 +138,11 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-left">
-          <HeaderUploadButtons 
+          <HeaderUploadButtons
             onUpload={handleUpload}
             onStartWebcam={() => setShowWebcamModal(true)}
             disabled={isUploading}
+            isLoggedIn={tokenBalance !== undefined}
           />
         </div>
         <div 
@@ -119,7 +162,7 @@ function App() {
       </header>
       
       {showWebcamModal && (
-        <FileUpload 
+        <FileUpload
           onUpload={(file, characterName) => {
             handleUpload(file, characterName);
             setShowWebcamModal(false);
@@ -127,6 +170,8 @@ function App() {
           disabled={isUploading}
           showWebcamOnMount={true}
           onClose={() => setShowWebcamModal(false)}
+          tokenBalance={tokenBalance}
+          creationCost={creationCost}
         />
       )}
 

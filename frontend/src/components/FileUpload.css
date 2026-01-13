@@ -381,6 +381,40 @@
   transform: none;
 }
 
+.file-upload-start-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-upload-cost {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.file-upload-insufficient {
+  font-size: 14px;
+  color: var(--error-color);
+  font-weight: 500;
+}
+
+.file-upload-modal-start-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-upload-modal-cost {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.file-upload-modal-insufficient {
+  font-size: 14px;
+  color: var(--error-color);
+  font-weight: 500;
+}
+
 
 
 

@@ -7,9 +7,11 @@ interface FileUploadProps {
   disabled?: boolean;
   showWebcamOnMount?: boolean;
   onClose?: () => void;
+  tokenBalance?: number;  // User's current token balance (undefined if not logged in)
+  creationCost?: number;  // Cost to create a hero
 }
 
-export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = false, onClose }: FileUploadProps) {
+export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = false, onClose, tokenBalance, creationCost }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [characterName, setCharacterName] = useState('');
@@ -499,13 +501,23 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
               className="file-upload-name-input"
               disabled={disabled}
             />
-            <button
-              onClick={handleStartPipeline}
-              disabled={disabled}
-              className="file-upload-start-button"
-            >
-              Start Pipeline
-            </button>
+            <div className="file-upload-start-section">
+              {creationCost !== undefined && (
+                <span className="file-upload-cost">Cost: {creationCost} tokens</span>
+              )}
+              {tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost && (
+                <span className="file-upload-insufficient">
+                  Insufficient tokens (have {tokenBalance})
+                </span>
+              )}
+              <button
+                onClick={handleStartPipeline}
+                disabled={disabled || (tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost)}
+                className="file-upload-start-button"
+              >
+                Start Pipeline
+              </button>
+            </div>
           </div>
         )}
         </div>
@@ -664,13 +676,23 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
                     className="file-upload-modal-name-input"
                     disabled={disabled}
                   />
-                  <button
-                    className="file-upload-modal-start"
-                    onClick={handleStartPipelineFromModal}
-                    disabled={disabled}
-                  >
-                    Start Pipeline
-                  </button>
+                  <div className="file-upload-modal-start-section">
+                    {creationCost !== undefined && (
+                      <span className="file-upload-modal-cost">Cost: {creationCost} tokens</span>
+                    )}
+                    {tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost && (
+                      <span className="file-upload-modal-insufficient">
+                        Insufficient tokens (have {tokenBalance})
+                      </span>
+                    )}
+                    <button
+                      className="file-upload-modal-start"
+                      onClick={handleStartPipelineFromModal}
+                      disabled={disabled || (tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost)}
+                    >
+                      Start Pipeline
+                    </button>
+                  </div>
                   <button
                     className="file-upload-modal-cancel"
                     onClick={stopWebcam}
