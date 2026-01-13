@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy import Column, String, Boolean, DateTime, Text, JSON, ForeignKey, Integer
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.config.steps import STEPS
 
 class User(Base):
     __tablename__ = "users"
@@ -56,8 +56,6 @@ class Creation(Base):
     @property
     def current_step(self) -> Optional[str]:
         """Get current step: first processing step, or first pending step (in STEPS order)."""
-        from app.config.steps import STEPS
-        
         if not self.steps:
             return STEPS[0]["name"] if STEPS else None
         
@@ -82,9 +80,7 @@ class Creation(Base):
         """Get completed_at from last step's completed_at (if all steps completed)."""
         if self.status != "completed":
             return None
-        
-        from app.config.steps import STEPS
-        
+
         if not self.steps:
             return None
         
@@ -103,9 +99,7 @@ class Creation(Base):
         """Get error_message from first failed step (in STEPS order)."""
         if self.status != "failed":
             return None
-        
-        from app.config.steps import STEPS
-        
+
         if not self.steps:
             return None
         

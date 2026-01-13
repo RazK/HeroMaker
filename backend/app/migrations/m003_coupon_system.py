@@ -1,13 +1,12 @@
 """Migration: Create coupons and coupon_redemptions tables for token system."""
 from sqlalchemy import text, inspect
 from sqlalchemy.orm import Session
+from app.config.settings import DATABASE_URL
+from app.migrations.runner import logger
 
 
 def migrate(db: Session):
     """Create coupons and coupon_redemptions tables."""
-    from app.config.settings import DATABASE_URL
-    from app.migrations.runner import logger
-
     is_postgres = DATABASE_URL.startswith("postgresql")
 
     # Check existing tables
