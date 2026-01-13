@@ -136,6 +136,14 @@
   margin: 4px 0;
 }
 
+.header-auth-menu-action {
+  font-weight: 500;
+}
+
+.header-auth-menu-action:hover {
+  background: var(--bg-secondary);
+}
+
 .header-auth-menu-logout {
   color: #ff4444;
   font-weight: 500;

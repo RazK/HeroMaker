@@ -2,6 +2,8 @@
 from app.migrations import runner
 from app.migrations import m001_chatgpt_to_openai
 from app.migrations import m002_multiuser_auth
+from app.migrations import m003_coupon_system
+from app.migrations import m004_coupon_max_uses
 
 
 # Register all migrations in order
@@ -9,8 +11,8 @@ from app.migrations import m002_multiuser_auth
 MIGRATIONS = [
     ("001_chatgpt_to_openai", m001_chatgpt_to_openai.migrate),
     ("002_multiuser_auth", m002_multiuser_auth.migrate),
-    # Add future migrations here:
-    # ("003_migration_name", migration_module.migrate),
+    ("003_coupon_system", m003_coupon_system.migrate),
+    ("004_coupon_max_uses", m004_coupon_max_uses.migrate),
 ]
 
 

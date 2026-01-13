@@ -141,3 +141,32 @@ class CreationStep(Base):
     # Relationship
     creation = relationship("Creation", back_populates="steps")
 
+
+class Coupon(Base):
+    """Coupon codes that can be redeemed for tokens."""
+    __tablename__ = "coupons"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    code = Column(String, unique=True, index=True, nullable=False)  # e.g., "HERO-XXXXXX"
+    token_amount = Column(Integer, nullable=False)  # Tokens awarded on redemption
+    max_uses = Column(Integer, default=1)  # Maximum total redemptions (default: single-use)
+    current_uses = Column(Integer, default=0)  # How many times it's been redeemed
+    expires_at = Column(DateTime, nullable=True)  # NULL = never expires
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    redemptions = relationship("CouponRedemption", back_populates="coupon", cascade="all, delete-orphan")
+
+
+class CouponRedemption(Base):
+    """Tracks which users have redeemed which coupons (single-use-per-user)."""
+    __tablename__ = "coupon_redemptions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    coupon_id = Column(String, ForeignKey("coupons.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    redeemed_at = Column(DateTime, default=datetime.utcnow)
+
+    coupon = relationship("Coupon", back_populates="redemptions")
+    user = relationship("User")
