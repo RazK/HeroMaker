@@ -1,6 +1,8 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
+from app.config.steps import STEPS
+from app.models import CreationStep
 
 class CreationRequest(BaseModel):
     character_name: Optional[str] = None
@@ -53,8 +55,6 @@ class CreationResponse(BaseModel):
     @classmethod
     def from_creation(cls, creation):
         """Build CreationResponse from Creation model, including steps."""
-        from app.config.steps import STEPS
-        
         # Use model_validate to convert Creation model to response (uses @property methods)
         response = cls.model_validate(creation)
         
@@ -74,7 +74,6 @@ class CreationResponse(BaseModel):
                 response.steps.append(CreationStepResponse.from_step(step))
             else:
                 # Step not found (shouldn't happen for new creations, but handle gracefully)
-                from app.models import CreationStep
                 # Create a pending step response for missing step
                 dummy_step = CreationStep(
                     creation_id=creation.id,

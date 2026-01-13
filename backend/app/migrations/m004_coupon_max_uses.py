@@ -1,11 +1,11 @@
 """Migration: Add max_uses and current_uses columns to coupons table."""
 from sqlalchemy import text, inspect
 from sqlalchemy.orm import Session
+from app.migrations.runner import logger
 
 
 def migrate(db: Session):
     """Add max_uses and current_uses columns to coupons table."""
-    from app.migrations.runner import logger
 
     # Check existing columns
     inspector = inspect(db.bind)

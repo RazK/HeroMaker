@@ -3,13 +3,15 @@ Meshy API Service - Backend integration for Meshy API endpoints.
 Meshy API client for HeroMaker pipeline
 """
 
-import os
+import logging
 import time
 import requests
 import base64
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 from app.config.settings import MESHY_API_KEY
+
+logger = logging.getLogger(__name__)
 
 class MeshyAPIError(Exception):
     """Custom exception for Meshy API errors."""
@@ -357,14 +359,14 @@ class MeshyClient:
             progress = status.get("progress", 0)
             
             if verbose:
-                print(f"  Status: {current_status} | Progress: {progress}%")
-            
+                logger.debug(f"Task {task_id}: status={current_status}, progress={progress}%")
+
             if current_status == "SUCCEEDED":
                 if progress >= 100:
                     return status
                 else:
                     if verbose:
-                        print(f"  Waiting for progress to reach 100% (currently {progress}%)...")
+                        logger.debug(f"Task {task_id}: waiting for progress to reach 100% (currently {progress}%)")
             
             elif current_status == "FAILED":
                 error_msg = status.get("error", {}).get("message", "Unknown error")
