@@ -11,10 +11,12 @@ export function ImagePreview({ src, alt = 'Preview', className = '' }: ImagePrev
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [hasError, setHasError] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
 
-  // Reset error state when src changes
+  // Reset error state and aspect ratio when src changes
   useEffect(() => {
     setHasError(false);
+    setAspectRatio(null);
     console.log('[ImagePreview] Loading image:', src);
   }, [src]);
 
@@ -56,19 +58,27 @@ export function ImagePreview({ src, alt = 'Preview', className = '' }: ImagePrev
   return (
     <>
       <div className={`image-preview-thumbnail ${className}`} onClick={handleClick}>
-        <img 
-          src={src} 
-          alt={alt} 
-          onError={(e) => {
-            console.error('[ImagePreview] Image load error:', src, e);
-            setHasError(true);
-          }}
-          onLoad={() => {
-            console.log('[ImagePreview] Image loaded successfully:', src);
-          }}
-        />
-        <div className="image-preview-overlay">
-          <span>Click to view</span>
+        <div 
+          className="image-preview-wrapper"
+          style={aspectRatio ? { aspectRatio: String(aspectRatio) } : undefined}
+        >
+          <img 
+            src={src} 
+            alt={alt} 
+            onError={(e) => {
+              console.error('[ImagePreview] Image load error:', src, e);
+              setHasError(true);
+            }}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              const ratio = img.naturalWidth / img.naturalHeight;
+              setAspectRatio(ratio);
+              console.log('[ImagePreview] Image loaded successfully:', src, 'aspect ratio:', ratio);
+            }}
+          />
+          <div className="image-preview-overlay">
+            Click to view
+          </div>
         </div>
       </div>
 
