@@ -7,7 +7,7 @@ import { CreationGallery } from './components/CreationGallery';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
-import { loadStepConfig, getStepOrder, getStepCost } from './config/steps';
+import { loadStepConfig, getTotalCost } from './config/steps';
 import './App.css';
 
 function App() {
@@ -18,7 +18,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [showWebcamModal, setShowWebcamModal] = useState(false);
   const [showPostUploadActions, setShowPostUploadActions] = useState(false);
-  const [firstStepCost, setFirstStepCost] = useState<number>(0);
+  const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
   const [userInfo, setUserInfo] = useState<{ is_admin: boolean } | null>(null);
 
@@ -26,10 +26,7 @@ function App() {
   useEffect(() => {
     loadStepConfig()
       .then(() => {
-        const steps = getStepOrder();
-        if (steps.length > 0) {
-          setFirstStepCost(getStepCost(steps[0]));
-        }
+        setPipelineCost(getTotalCost());
       })
       .catch(console.error);
   }, []);
@@ -113,26 +110,23 @@ function App() {
     }
   };
 
-  const handleStartFirstStep = async () => {
+  const handleStartPipeline = async () => {
     if (!creation) return;
 
     setIsStarting(true);
     setError(null);
 
     try {
-      // Run only the first step
-      const steps = getStepOrder();
-      if (steps.length > 0) {
-        await api.runStep(creation.id, steps[0]);
-        window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
-      }
+      // Run full pipeline (all steps automatically)
+      await api.runPipeline(creation.id);
+      window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       
       await refreshCreditBalance();
       setShowPostUploadActions(false);
       setUploadedFilePreview(null);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Failed to start';
-      console.error('[App] Start failed:', err);
+      const message = err instanceof ApiError ? err.message : 'Failed to start pipeline';
+      console.error('[App] Pipeline start failed:', err);
       setError(message);
       await refreshCreditBalance();
     } finally {
@@ -198,7 +192,7 @@ function App() {
           showWebcamOnMount={true}
           onClose={() => setShowWebcamModal(false)}
           creditBalance={creditBalance}
-          creationCost={firstStepCost}
+          creationCost={pipelineCost}
         />
       )}
 
@@ -214,16 +208,16 @@ function App() {
             <div className="post-upload-actions-buttons">
               <button
                 className="post-upload-action-button post-upload-action-primary"
-                onClick={handleStartFirstStep}
-                disabled={isStarting || (creditBalance !== undefined && firstStepCost > creditBalance)}
+                onClick={handleStartPipeline}
+                disabled={isStarting || (creditBalance !== undefined && pipelineCost > creditBalance)}
               >
                 <span>{isStarting ? 'Starting...' : 'Start'}</span>
-                {firstStepCost > 0 && <span className="post-upload-action-cost">{firstStepCost}</span>}
+                {pipelineCost > 0 && <span className="post-upload-action-cost">🪙 {pipelineCost}</span>}
               </button>
             </div>
-            {creditBalance !== undefined && firstStepCost > creditBalance && (
+            {creditBalance !== undefined && pipelineCost > creditBalance && (
               <div className="post-upload-actions-error">
-                Insufficient credits. You have {creditBalance} but need {firstStepCost}.
+                Insufficient credits. You have {creditBalance} but need {pipelineCost}.
               </div>
             )}
           </div>
@@ -252,6 +246,7 @@ function App() {
               name={creation.name}
               age={creation.age}
               isAdmin={userInfo?.is_admin ?? false}
+              isLoggedIn={creditBalance !== undefined}
               onCharacterNameUpdated={(newName) => {
                 setCreation({ ...creation, character_name: newName });
               }}
@@ -261,24 +256,12 @@ function App() {
               onAgeUpdated={(newAge) => {
                 setCreation({ ...creation, age: newAge });
               }}
-              onDelete={() => {
-                setCreation(null);
-                setError(null);
-              }}
-              onRestart={async () => {
-                // Refresh the creation after restart
-                try {
-                  const updated = await api.getCreation(creation.id);
-                  setCreation(updated);
-                } catch (err) {
-                  console.error('[App] Failed to refresh creation after restart:', err);
-                }
-              }}
             />
 
             <PipelineProgress
               creation={creation}
               creditBalance={creditBalance}
+              isLoggedIn={creditBalance !== undefined}
               onStepRun={() => {
                 // Refresh credit balance after step starts
                 refreshCreditBalance();
@@ -292,6 +275,10 @@ function App() {
                 } catch (err) {
                   console.error('[App] Failed to refresh creation:', err);
                 }
+              }}
+              onDelete={() => {
+                setCreation(null);
+                setError(null);
               }}
             />
           </div>

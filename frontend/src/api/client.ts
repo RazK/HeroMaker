@@ -163,6 +163,23 @@ export const api = {
     return result;
   },
 
+  /**
+   * Run full pipeline (all steps sequentially)
+   * @param creationId The creation to process
+   * @param fromStep Optional step name to start from (for retry scenarios)
+   */
+  async runPipeline(creationId: string, fromStep?: string): Promise<{ message: string; creation_id: string; from_step: string }> {
+    const params = fromStep ? `?from_step=${encodeURIComponent(fromStep)}` : '';
+    console.log('[API] runPipeline:', { creationId, fromStep });
+    const result = await fetchJson<{ message: string; creation_id: string; from_step: string }>(
+      `${API_BASE_URL}/api/creations/${creationId}/run-pipeline${params}`,
+      {
+        method: 'POST',
+      }
+    );
+    console.log('[API] runPipeline result:', result);
+    return result;
+  },
 
   /**
    * Cancel a processing step
