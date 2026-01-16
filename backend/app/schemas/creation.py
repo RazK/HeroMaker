@@ -40,10 +40,9 @@ class CreationResponse(BaseModel):
     
     id: str
     character_name: Optional[str] = None
-    name: Optional[str] = None  # Person's name (for original image)
+    name: Optional[str] = None  # Creator's name (user who created this)
     age: Optional[int] = None  # Person's age (for original image)
     status: str  # Derived from steps
-    current_step: Optional[str] = None  # Derived from steps
     user_id: str
     username: Optional[str] = None  # User's username (deprecated, use name instead)
     created_at: datetime
@@ -55,26 +54,30 @@ class CreationResponse(BaseModel):
     @classmethod
     def from_creation(cls, creation):
         """Build CreationResponse from Creation model, including steps."""
-        # Use model_validate to convert Creation model to response (uses @property methods)
-        response = cls.model_validate(creation)
-        
-        # Add username from user relationship if available
-        if creation.user:
-            response.username = creation.user.username
-        else:
-            response.username = None
+        # Build response manually to avoid issues with removed properties
+        response = cls(
+            id=creation.id,
+            character_name=creation.character_name,
+            name=creation.name,
+            age=creation.age,
+            status=creation.status,
+            user_id=creation.user_id,
+            username=creation.user.username if creation.user else None,
+            created_at=creation.created_at,
+            updated_at=creation.updated_at,
+            completed_at=creation.completed_at,
+            error_message=creation.error_message,
+            steps=[],
+        )
         
         # Build steps list in STEPS config order (not DB order)
-        # Steps should be initialized, but handle gracefully if missing (e.g., old creations)
         steps_by_name = {step.step_name: step for step in creation.steps}
-        response.steps = []
         for step_config in STEPS:
             step = steps_by_name.get(step_config["name"])
             if step:
                 response.steps.append(CreationStepResponse.from_step(step))
             else:
-                # Step not found (shouldn't happen for new creations, but handle gracefully)
-                # Create a pending step response for missing step
+                # Step not found - create a pending step response
                 dummy_step = CreationStep(
                     creation_id=creation.id,
                     step_name=step_config["name"],
