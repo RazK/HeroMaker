@@ -21,5 +21,12 @@ class CouponRedeemResponse(BaseModel):
     """Response from coupon redemption."""
     success: bool
     message: str
-    tokens_added: int
+    credits_added: int
     new_balance: int
+
+
+class CouponValidateResponse(BaseModel):
+    """Response from coupon validation/preview."""
+    valid: bool
+    credits: int
+    message: str
