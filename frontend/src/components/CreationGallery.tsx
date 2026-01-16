@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
-import { api, CreationResponse } from '../api/client';
+import { api, CreationResponse, getAuthToken } from '../api/client';
 import { calculateOverallProgress } from './PipelineProgress';
 import './CreationGallery.css';
 
 interface CreationGalleryProps {
   onSelectCreation: (creation: CreationResponse) => void;
+}
+
+interface User {
+  id: string;
+  username: string;
+  is_admin?: boolean;
 }
 
 export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
@@ -13,13 +19,52 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
   const [error, setError] = useState<string | null>(null);
   const [, setTick] = useState(0);
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'failed'>('all');
+  const [ownershipFilter, setOwnershipFilter] = useState<'everyone' | 'my'>('everyone');
+  const [user, setUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'created' | 'updated'>('updated');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [hoveredCreationId, setHoveredCreationId] = useState<string | null>(null);
+  const [copiedCreationId, setCopiedCreationId] = useState<string | null>(null);
 
+  // Check auth status on mount and listen for auth changes
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        setUser(null);
+        setOwnershipFilter('everyone');
+        return;
+      }
+      try {
+        const userData = await api.getMe();
+        setUser(userData);
+      } catch {
+        setUser(null);
+        setOwnershipFilter('everyone');
+      }
+    };
+    
+    checkAuth();
+    
+    // Listen for auth events
+    const handleAuthChange = () => checkAuth();
+    window.addEventListener('auth:login', handleAuthChange);
+    window.addEventListener('auth:logout', handleAuthChange);
+    window.addEventListener('auth:unauthorized', handleAuthChange);
+    
+    return () => {
+      window.removeEventListener('auth:login', handleAuthChange);
+      window.removeEventListener('auth:logout', handleAuthChange);
+      window.removeEventListener('auth:unauthorized', handleAuthChange);
+    };
+  }, []);
+
+  // Load creations on mount and when ownership filter changes
   useEffect(() => {
     loadCreations();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownershipFilter]);
 
   // Update every second for time remaining
   useEffect(() => {
@@ -36,6 +81,9 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     setIsLoading(true);
     setError(null);
     try {
+      // Determine if we should filter by user_id
+      const userId = (ownershipFilter === 'my' && user) ? user.id : undefined;
+      
       // Load all creations - start with a large limit
       let allCreations: CreationResponse[] = [];
       let offset = 0;
@@ -43,10 +91,10 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
       let hasMore = true;
       
       while (hasMore) {
-        const result = await api.listCreations(limit, offset);
+        const result = await api.listCreations(limit, offset, userId);
         allCreations = [...allCreations, ...result.creations];
         
-        console.log(`[CreationGallery] Loaded batch: offset=${offset}, count=${result.creations.length}, total so far=${allCreations.length}`);
+        console.log(`[CreationGallery] Loaded batch: offset=${offset}, count=${result.creations.length}, total so far=${allCreations.length}, filter=${ownershipFilter}`);
         
         // If we got fewer than the limit, we've reached the end
         if (result.creations.length < limit) {
@@ -144,6 +192,17 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     return stepNames[processingStep.step_name] || processingStep.step_name;
   };
 
+  const handleCopyCreationId = async (e: React.MouseEvent, creationId: string) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(creationId);
+      setCopiedCreationId(creationId);
+      setTimeout(() => setCopiedCreationId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
+  };
+
   // Filter creations based on status and search query
   const filteredCreations = creations.filter(creation => {
     // Status filter
@@ -211,56 +270,51 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
   return (
     <div className="creation-gallery">
       <div className="creation-gallery-filters">
-        <div className="creation-gallery-status-filters">
-          <button
-            className={`creation-gallery-filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('all')}
+        {user && (
+          <select
+            className="creation-gallery-filter-select creation-gallery-ownership-select"
+            value={ownershipFilter}
+            onChange={(e) => setOwnershipFilter(e.target.value as 'my' | 'everyone')}
           >
-            All
-          </button>
-          <button
-            className={`creation-gallery-filter-btn creation-gallery-filter-btn-completed ${statusFilter === 'completed' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('completed')}
-          >
-            Succeeded
-          </button>
-          <button
-            className={`creation-gallery-filter-btn creation-gallery-filter-btn-failed ${statusFilter === 'failed' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('failed')}
-          >
-            Failed
-          </button>
-        </div>
-        <div className="creation-gallery-search-and-sort">
-          <input
-            type="text"
-            className="creation-gallery-search"
-            placeholder="Search by name, creator, or age..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <div className="creation-gallery-sort">
-            <select
-              className="creation-gallery-sort-select"
-              value={`${sortBy}-${sortOrder}`}
-              onChange={(e) => {
-                const [by, order] = e.target.value.split('-');
-                setSortBy(by as 'created' | 'updated');
-                setSortOrder(order as 'newest' | 'oldest');
-              }}
-            >
-              <option value="updated-newest">Last Modified: Newest</option>
-              <option value="updated-oldest">Last Modified: Oldest</option>
-              <option value="created-newest">Created: Newest</option>
-              <option value="created-oldest">Created: Oldest</option>
-            </select>
+            <option value="my">My Creations</option>
+            <option value="everyone">Everyone</option>
+          </select>
+        )}
+        <select
+          className="creation-gallery-filter-select creation-gallery-status-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as 'all' | 'completed' | 'failed')}
+        >
+          <option value="all">All</option>
+          <option value="completed">Succeeded</option>
+          <option value="failed">Failed</option>
+        </select>
+        <input
+          type="text"
+          className="creation-gallery-search"
+          placeholder="Search by name, creator, or age..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <select
+          className="creation-gallery-sort-select"
+          value={`${sortBy}-${sortOrder}`}
+          onChange={(e) => {
+            const [by, order] = e.target.value.split('-');
+            setSortBy(by as 'created' | 'updated');
+            setSortOrder(order as 'newest' | 'oldest');
+          }}
+        >
+          <option value="updated-newest">Last Modified: Newest</option>
+          <option value="updated-oldest">Last Modified: Oldest</option>
+          <option value="created-newest">Created: Newest</option>
+          <option value="created-oldest">Created: Oldest</option>
+        </select>
+        {filteredCreations.length !== creations.length && (
+          <div className="creation-gallery-results-count">
+            Showing {filteredCreations.length} of {creations.length} creations
           </div>
-          {filteredCreations.length !== creations.length && (
-            <div className="creation-gallery-results-count">
-              Showing {filteredCreations.length} of {creations.length} creations
-            </div>
-          )}
-        </div>
+        )}
       </div>
       {sortedCreations.length === 0 ? (
         <div className="creation-gallery-empty">
@@ -282,6 +336,8 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
               key={creation.id}
               className="creation-gallery-item"
               onClick={() => onSelectCreation(creation)}
+              onMouseEnter={() => setHoveredCreationId(creation.id)}
+              onMouseLeave={() => setHoveredCreationId(null)}
             >
               {originalUrl ? (
                 <div className="creation-gallery-image-container">
@@ -315,6 +371,29 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                     />
                   )}
                   <div className="creation-gallery-overlay">
+                    {hoveredCreationId === creation.id && (
+                      <div className="creation-gallery-overlay-top">
+                        <div className="creation-gallery-creation-id-hover">
+                          <button
+                            className="creation-gallery-copy-id-button"
+                            onClick={(e) => handleCopyCreationId(e, creation.id)}
+                            title="Copy creation ID"
+                          >
+                            {copiedCreationId === creation.id ? (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                              </svg>
+                            )}
+                          </button>
+                          <span className="creation-gallery-creation-id-text">{creation.id}</span>
+                        </div>
+                      </div>
+                    )}
                     <div className={`creation-gallery-overlay-bottom ${!isCompleted && progress !== null ? 'has-progress' : ''}`}>
                       <div className="creation-gallery-overlay-column creation-gallery-overlay-names">
                         {isCompleted && hasBothImages ? (

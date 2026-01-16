@@ -94,8 +94,14 @@
   color: var(--text-primary);
 }
 
-.coupon-modal-field input {
-  padding: 12px 14px;
+.coupon-modal-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.coupon-modal-input {
+  padding: 12px 72px 12px 14px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--bg-secondary);
@@ -105,23 +111,82 @@
   letter-spacing: 1px;
   text-transform: uppercase;
   transition: all 0.2s;
+  width: 100%;
 }
 
-.coupon-modal-field input:focus {
+.coupon-modal-input:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
 }
 
-.coupon-modal-field input:disabled {
+.coupon-modal-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.coupon-modal-field input::placeholder {
+.coupon-modal-input::placeholder {
   text-transform: none;
   letter-spacing: normal;
   font-family: inherit;
+}
+
+.coupon-modal-icon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  z-index: 1;
+}
+
+.coupon-modal-icon:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.coupon-modal-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.coupon-modal-clear {
+  right: 40px;
+}
+
+.coupon-modal-enter {
+  right: 8px;
+  font-weight: bold;
+}
+
+.coupon-modal-status-loading,
+.coupon-modal-status-valid,
+.coupon-modal-status-invalid {
+  right: 8px;
+  pointer-events: none;
+}
+
+.coupon-modal-status-valid {
+  color: #00c864;
+}
+
+.coupon-modal-status-invalid {
+  color: #ff4444;
+}
+
+.coupon-modal-status-loading {
+  color: var(--text-secondary);
 }
 
 .coupon-modal-submit {
