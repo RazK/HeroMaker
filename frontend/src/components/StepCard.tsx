@@ -210,6 +210,29 @@ export function StepCard({
     }
   };
 
+  const handleRetryAndContinue = async () => {
+    setIsRunning(true);
+    
+    try {
+      // Run pipeline starting from this step (retry and continue all following)
+      await api.runPipeline(creationId, step.step_name);
+      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
+      
+      if (onCreationRefresh) {
+        await onCreationRefresh();
+      }
+      window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId } }));
+      
+      if (onStepRun) {
+        onStepRun(step.step_name);
+      }
+    } catch (error) {
+      alert(`Failed to retry pipeline: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   // Render action button based on status
   const renderActionButton = () => {
     const isCancelled = step.status === 'failed' && step.error_message === 'Step cancelled by user';
@@ -228,42 +251,84 @@ export function StepCard({
       );
     }
 
-    // Completed: show Download button
+    // Completed: show Download and Re-run buttons
     if (step.status === 'completed') {
+      const hasCredits = creditBalance === undefined || stepCost <= creditBalance;
       return (
-        <button
-          className="step-card-action-button step-card-action-download"
-          onClick={handleDownload}
-          title={`Download ${outputFile}`}
-        >
-          Download
-        </button>
+        <div className="step-card-completed-buttons">
+          <button
+            className="step-card-action-button step-card-action-download"
+            onClick={handleDownload}
+            title={`Download ${outputFile}`}
+          >
+            Download
+          </button>
+          <button
+            className="step-card-action-button step-card-action-run"
+            onClick={() => {
+              if (window.confirm(`Re-run ${displayName}? This will overwrite the current output.`)) {
+                handleRunStep();
+              }
+            }}
+            disabled={isRunning || !hasCredits}
+            title={
+              isRunning
+                ? 'Running...'
+                : !hasCredits
+                  ? `Insufficient credits. Need ${stepCost}, have ${creditBalance}`
+                  : `Re-run this step (overwrites current output)`
+            }
+          >
+            {isRunning ? 'Running...' : (
+              <>
+                Redo
+                <span className="step-card-action-cost">🪙 {stepCost}</span>
+              </>
+            )}
+          </button>
+        </div>
       );
     }
 
-    // Failed: show Retry button (same as Run, styled the same)
+    // Failed: show Retry buttons
     if (step.status === 'failed') {
       const hasCredits = creditBalance === undefined || stepCost <= creditBalance;
       return (
-        <button
-          className="step-card-action-button step-card-action-run"
-          onClick={handleRunStep}
-          disabled={isRunning || !hasCredits}
-          title={
-            isRunning
-              ? `${displayName} is running...`
-              : !hasCredits
-                ? `Insufficient credits. Need ${stepCost}, have ${creditBalance}`
-                : `Retry ${displayName}`
-          }
-        >
-          {isRunning ? 'Running...' : (
-            <>
-              Retry
-              {stepCost > 0 && <span className="step-card-action-cost">🪙 {stepCost}</span>}
-            </>
-          )}
-        </button>
+        <div className="step-card-retry-buttons">
+          <button
+            className="step-card-action-button step-card-action-run"
+            onClick={handleRunStep}
+            disabled={isRunning || !hasCredits}
+            title={
+              isRunning
+                ? `${displayName} is running...`
+                : !hasCredits
+                  ? `Insufficient credits. Need ${stepCost}, have ${creditBalance}`
+                  : `Retry only this step`
+            }
+          >
+            {isRunning ? 'Running...' : (
+              <>
+                Retry
+                <span className="step-card-action-cost">🪙 {stepCost}</span>
+              </>
+            )}
+          </button>
+          <button
+            className="step-card-action-button step-card-action-continue"
+            onClick={handleRetryAndContinue}
+            disabled={isRunning || !hasCredits}
+            title={
+              isRunning
+                ? 'Pipeline is running...'
+                : !hasCredits
+                  ? `Insufficient credits`
+                  : `Retry this step and continue pipeline`
+            }
+          >
+            {isRunning ? '...' : 'Continue'}
+          </button>
+        </div>
       );
     }
 
@@ -286,7 +351,7 @@ export function StepCard({
           {isRunning ? 'Running...' : (
             <>
               Run
-              {stepCost > 0 && <span className="step-card-action-cost">🪙 {stepCost}</span>}
+              <span className="step-card-action-cost">🪙 {stepCost}</span>
             </>
           )}
         </button>

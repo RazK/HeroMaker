@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # Note: Task tracking moved to TaskManager in app state (main.py)
 
 from app.models import Creation, CreationStep
-from app.config.steps import STEPS, get_step_by_name, get_step_cost
+from app.config.steps import STEPS, get_step_by_name, get_step_cost, get_all_step_names
 from app.database import SessionLocal
 from app.utils.file_utils import (
     check_file_exists,
@@ -492,8 +492,8 @@ async def execute_step(
     if not step:
         raise ValueError(f"Step {step_name} not found")
     
-    # Reset step if retrying (failed state)
-    if step.status == "failed":
+    # Reset step if retrying (failed or completed state)
+    if step.status in ("failed", "completed"):
         _reset_step(step)
         db.commit()
     
@@ -623,13 +623,58 @@ async def execute_step(
 
 
 # ============================================================================
-# Old code removed - replaced by async coroutines and execute_step()
-# Removed functions:
-# - execute_step_sync
-# - can_run_step  
-# - _execute_step_actual
-# - run_steps_sequential
-# - run_steps_sequential_async
-# - execute_step_sync_async
-# - get_task_key, register_task, unregister_task, get_task, cancel_task (global state)
+# Run Pipeline (Full Sequence)
 # ============================================================================
+
+async def run_pipeline(
+    creation_id: str,
+    user_id: str,
+    from_step: Optional[str] = None,
+    mock_creation_id: Optional[str] = None,
+    db: Session = None
+) -> dict:
+    """Run full pipeline from first step (or from_step if specified).
+    
+    Executes steps sequentially, stops on failure.
+    Credits deducted per-step by execute_step().
+    
+    Args:
+        creation_id: The creation to process
+        user_id: The user who owns the creation
+        from_step: Optional step name to start from (for retry scenarios)
+        mock_creation_id: Optional creation ID to copy outputs from (for testing)
+        db: Database session
+    
+    Returns:
+        dict with "status" ("completed" or "failed") and optionally "failed_step"
+    """
+    steps_to_run = get_all_step_names()
+    
+    # If from_step specified, start from there
+    if from_step:
+        if from_step not in steps_to_run:
+            raise ValueError(f"Step {from_step} not found")
+        start_idx = steps_to_run.index(from_step)
+        steps_to_run = steps_to_run[start_idx:]
+    
+    logger.info(f"[{creation_id}] Starting pipeline with steps: {steps_to_run}")
+    
+    for step_name in steps_to_run:
+        try:
+            result = await execute_step(creation_id, user_id, step_name, db, mock_creation_id)
+            
+            # Check for cancellation or failure
+            if result.get("status") == "cancelled":
+                logger.info(f"[{creation_id}] Pipeline stopped: step {step_name} was cancelled")
+                return {"status": "cancelled", "stopped_step": step_name}
+            
+            if result.get("status") != "completed":
+                logger.info(f"[{creation_id}] Pipeline stopped: step {step_name} did not complete")
+                return {"status": "failed", "failed_step": step_name}
+                
+        except Exception as e:
+            logger.error(f"[{creation_id}] Pipeline failed at step {step_name}: {e}")
+            return {"status": "failed", "failed_step": step_name, "error": str(e)}
+    
+    logger.info(f"[{creation_id}] Pipeline completed successfully")
+    return {"status": "completed"}
