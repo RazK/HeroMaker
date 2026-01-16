@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CreationResponse, CreationStepResponse } from '../api/client';
 import { StepCard } from './StepCard';
-import { StatusBar } from './StatusBar';
+import { ControlBar } from './ControlBar';
 import { PreviewModal } from './PreviewModal';
 import { getStepByName } from '../config/steps';
 import { api } from '../api/client';
@@ -10,8 +10,10 @@ import './PipelineProgress.css';
 interface PipelineProgressProps {
   creation: CreationResponse;
   creditBalance?: number;
+  isLoggedIn: boolean;
   onStepRun?: (stepName: string) => void;
   onCreationRefresh?: () => Promise<void>;
+  onDelete?: () => void;
 }
 
 /**
@@ -38,10 +40,10 @@ export function calculateOverallProgress(creation: CreationResponse): number {
   return Math.round((completed / creation.steps.length) * 100);
 }
 
-export function PipelineProgress({ creation, creditBalance, onStepRun, onCreationRefresh }: PipelineProgressProps) {
+export function PipelineProgress({ creation, creditBalance, isLoggedIn, onStepRun, onCreationRefresh, onDelete }: PipelineProgressProps) {
   const [previewStep, setPreviewStep] = useState<CreationStepResponse | null>(null);
 
-  // Filter out convert_vrm step - it's represented in the StatusBar
+  // Filter out convert_vrm step - it's represented in the ControlBar
   const visibleSteps = creation.steps.filter((step) => step.step_name !== 'convert_vrm');
   
   // Calculate which step is ready
@@ -116,7 +118,12 @@ export function PipelineProgress({ creation, creditBalance, onStepRun, onCreatio
         })}
       </div>
       
-      <StatusBar creation={creation} />
+      <ControlBar 
+        creation={creation}
+        isLoggedIn={isLoggedIn}
+        onDelete={onDelete}
+        onCreationRefresh={onCreationRefresh}
+      />
 
       {/* Preview Modal for 3D interaction */}
       {previewStep && previewData && (

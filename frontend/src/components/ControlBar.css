@@ -1,0 +1,296 @@
+.control-bar {
+  flex-shrink: 0;
+}
+
+.control-bar-content {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+@media (min-width: 1024px) {
+  .control-bar-content {
+    gap: 16px;
+  }
+}
+
+/* Error message */
+.control-bar-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(var(--error-rgb), 0.1);
+  border: 1px solid var(--error-color);
+  border-radius: 6px;
+  color: var(--error-color);
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.control-bar-error span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control-bar-error-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--error-color);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.control-bar-error-dismiss:hover {
+  opacity: 1;
+}
+
+/* Success message */
+.control-bar-success {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(var(--success-rgb), 0.1);
+  border: 1px solid var(--success-color);
+  border-radius: 6px;
+  color: var(--success-color);
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.control-bar-success-icon {
+  font-size: 16px;
+}
+
+/* Action buttons container */
+.control-bar-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .control-bar-actions {
+    gap: 16px;
+  }
+}
+
+/* Buttons */
+.control-bar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.control-bar-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.control-bar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.control-bar-button-icon {
+  font-size: 14px;
+}
+
+/* Continue button */
+.control-bar-continue {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.control-bar-continue:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+/* Restart button */
+.control-bar-restart {
+  background: transparent;
+}
+
+.control-bar-restart:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* Delete button */
+.control-bar-delete {
+  background: transparent;
+}
+
+.control-bar-delete:hover:not(:disabled) {
+  background: rgba(var(--error-rgb), 0.1);
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+/* Download button */
+.control-bar-download {
+  background: var(--success-color);
+  border-color: var(--success-color);
+  color: white;
+}
+
+.control-bar-download:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* Mobile adjustments */
+@media (max-width: 1023px) {
+  .control-bar-content {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  
+  .control-bar-button {
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: 36px;
+  }
+  
+  .control-bar-button-icon {
+    font-size: 12px;
+  }
+  
+  .control-bar-error,
+  .control-bar-success {
+    font-size: 12px;
+    padding: 8px 10px;
+    min-height: 36px;
+  }
+}
+
+/* Modal styles */
+.control-bar-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.control-bar-modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.control-bar-modal h3 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.control-bar-modal p {
+  margin: 0 0 20px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.control-bar-modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.control-bar-modal-cancel,
+.control-bar-modal-confirm {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  font-family: inherit;
+}
+
+.control-bar-modal-cancel {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.control-bar-modal-cancel:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.control-bar-modal-delete {
+  background: var(--error-color);
+  color: white;
+}
+
+.control-bar-modal-delete:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.control-bar-modal-restart {
+  background: var(--primary-color);
+  color: white;
+}
+
+.control-bar-modal-restart:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.control-bar-modal-cancel:disabled,
+.control-bar-modal-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
