@@ -1,21 +1,17 @@
 """Creation and pipeline API endpoints."""
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, status, File, UploadFile, Form, Body
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, File, UploadFile, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 
 from app.database import get_db, SessionLocal
 from app.models import User, Creation, CreationStep
 from app.schemas.creation import CreationResponse, CreationStepResponse
-from app.services.auth import get_current_user, get_current_user_required
-from app.config.steps import STEPS, get_step_by_name, get_step_cost, calculate_steps_cost, get_all_step_names, get_steps_config
-from app.services.pipeline import _initialize_creation_steps, _reset_step, execute_step
+from app.services.auth import get_current_user_required, get_current_user_optional
+from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
+from app.services.pipeline import _initialize_creation_steps, execute_step, run_pipeline
 from app.services.task_manager import get_task_manager
-import asyncio
-from app.services.credits import get_balance, deduct_credits
-from app.utils.file_utils import delete_creation_files, check_file_exists
+from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
 
 
@@ -53,7 +49,6 @@ def get_step_status(
         creation_id: str,
         step_name: str,
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user)
 ):
     """Get status of a single step (for polling during processing)."""
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
@@ -75,7 +70,6 @@ def get_step_status(
 def get_creation(
         creation_id: str,
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user)
 ):
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     if not creation:
@@ -87,15 +81,18 @@ def get_creation(
 @router.get("/", response_model=List[CreationResponse])
 def list_creations(
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user)
+        user: Optional[User] = Depends(get_current_user_optional)
 ):
-    """List all creations accessible to the current user."""
-    if user.is_admin:
+    """List all creations. Public endpoint - shows all creations in gallery."""
+    if user and user.is_admin:
         # Admins can see all creations
         creations = db.query(Creation).order_by(Creation.updated_at.desc()).all()
-    else:
-        # Regular users can only see their own creations
+    elif user:
+        # Authenticated users see their own creations
         creations = db.query(Creation).filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
+    else:
+        # Public gallery - show all creations
+        creations = db.query(Creation).order_by(Creation.updated_at.desc()).all()
     
     return [CreationResponse.from_creation(c) for c in creations]
 
@@ -245,7 +242,7 @@ async def run_step(
         step_name: str,
         background_tasks: BackgroundTasks = BackgroundTasks(),
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user),
+        user: User = Depends(get_current_user_required),
         task_manager = Depends(get_task_manager)
 ):
     """Run a single step independently. Handles retry automatically."""
@@ -360,3 +357,65 @@ async def run_step(
     }
 
 
+@router.post("/{creation_id}/run-pipeline")
+async def run_pipeline_endpoint(
+        creation_id: str,
+        from_step: Optional[str] = Query(None, description="Step name to start from (for retry)"),
+        mock_creation_id: Optional[str] = Query(None, description="Creation ID to copy outputs from (admin testing)"),
+        db: Session = Depends(get_db),
+        user: User = Depends(get_current_user_required),
+        task_manager = Depends(get_task_manager)
+):
+    """Run full pipeline (all steps sequentially) or from a specific step.
+    
+    Steps are executed in order, credits deducted per-step.
+    If a step fails, pipeline stops there.
+    """
+    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
+    
+    # Check permissions
+    if not user.is_admin and creation.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You don't have permission to run this pipeline")
+    
+    # Validate from_step if provided
+    if from_step:
+        step_names = get_all_step_names()
+        if from_step not in step_names:
+            raise HTTPException(status_code=400, detail=f"Invalid step name: {from_step}")
+    
+    # Check if pipeline is already running (any step processing)
+    processing_steps = [s for s in creation.steps if s.status == "processing"]
+    if processing_steps:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Pipeline already running (step: {processing_steps[0].step_name})"
+        )
+    
+    # Create a new DB session for the background task
+    db_session = SessionLocal()
+    
+    async def run_pipeline_task():
+        try:
+            await run_pipeline(
+                creation_id, 
+                creation.user_id, 
+                from_step=from_step,
+                mock_creation_id=mock_creation_id,
+                db=db_session
+            )
+        except Exception as e:
+            logger.error(f"[{creation_id}] Pipeline task error: {e}", exc_info=True)
+        finally:
+            db_session.close()
+    
+    # Create pipeline task (no individual step timeout - each step has its own)
+    # Use a long timeout for the entire pipeline (e.g., 2 hours)
+    task_manager.create_task(creation_id, "pipeline", run_pipeline_task(), timeout=7200)
+    
+    return {
+        "message": "Pipeline started",
+        "creation_id": creation_id,
+        "from_step": from_step or get_all_step_names()[0]
+    }
