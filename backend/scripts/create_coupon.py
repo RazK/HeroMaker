@@ -21,10 +21,11 @@ from app.services.coupons import create_coupon, CouponError
 def main():
     parser = argparse.ArgumentParser(description="Create a coupon code")
     parser.add_argument("--code", required=True, help="Coupon code (e.g., HERO-TEST100)")
-    parser.add_argument("--tokens", type=int, required=True, help="Number of tokens to award")
+    parser.add_argument("--credits", type=int, required=True, help="Number of credits to award")
     parser.add_argument("--max-uses", type=int, default=1, help="Max redemptions (default: 1)")
     parser.add_argument("--expires", help="Expiration date (YYYY-MM-DD format)")
     parser.add_argument("--inactive", action="store_true", help="Create as inactive")
+    parser.add_argument("--multiple-per-user", action="store_true", help="Allow same user to redeem multiple times")
 
     args = parser.parse_args()
 
@@ -43,17 +44,19 @@ def main():
     try:
         coupon = create_coupon(
             code=args.code,
-            token_amount=args.tokens,
+            credit_amount=args.credits,
             db=db,
             max_uses=args.max_uses,
             expires_at=expires_at,
-            is_active=not args.inactive
+            is_active=not args.inactive,
+            allow_multiple_per_user=args.multiple_per_user
         )
 
         print(f"✅ Created coupon:")
         print(f"   Code: {coupon.code}")
-        print(f"   Tokens: {coupon.token_amount}")
+        print(f"   Credits: {coupon.credit_amount}")
         print(f"   Max uses: {coupon.max_uses}")
+        print(f"   Multiple per user: {coupon.allow_multiple_per_user}")
         print(f"   Expires: {coupon.expires_at or 'Never'}")
         print(f"   Active: {coupon.is_active}")
 
