@@ -4,24 +4,38 @@ import './RetryModal.css';
 interface RetryModalProps {
   stepName: string;
   isOpen: boolean;
+  isAdmin: boolean;
   onClose: () => void;
-  onRetry: (retryAllFollowing: boolean) => void;
+  onRetry: (retryAllFollowing: boolean, mockCreationId?: string) => void;
 }
 
-export function RetryModal({ stepName, isOpen, onClose, onRetry }: RetryModalProps) {
+export function RetryModal({ stepName, isOpen, isAdmin, onClose, onRetry }: RetryModalProps) {
   const [retryAllFollowing, setRetryAllFollowing] = useState(true);
+  const [mockCreationId, setMockCreationId] = useState('');
 
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
+  const handleRetry = () => {
     onRetry(retryAllFollowing);
+    setMockCreationId('');
     onClose();
+  };
+
+  const handleMockRetry = () => {
+    if (mockCreationId.trim()) {
+      onRetry(retryAllFollowing, mockCreationId.trim());
+      setMockCreationId('');
+      onClose();
+    }
   };
 
   const handleCancel = () => {
     setRetryAllFollowing(true); // Reset to default
+    setMockCreationId('');
     onClose();
   };
+
+  const canMock = mockCreationId.trim();
 
   return (
     <div className="retry-modal-overlay" onClick={handleCancel}>
@@ -51,11 +65,34 @@ export function RetryModal({ stepName, isOpen, onClose, onRetry }: RetryModalPro
           </label>
         </div>
         <div className="retry-modal-actions">
+          <button className="retry-modal-button retry-modal-button-confirm" onClick={handleRetry}>
+            Retry
+          </button>
+          {isAdmin && (
+            <button 
+              className="retry-modal-button retry-modal-button-mock" 
+              onClick={handleMockRetry}
+              disabled={!canMock}
+            >
+              <span>Mock</span>
+              <input
+                type="text"
+                className="retry-modal-mock-input"
+                placeholder="creation id to mock"
+                value={mockCreationId}
+                onChange={(e) => setMockCreationId(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleMockRetry();
+                  }
+                }}
+              />
+            </button>
+          )}
           <button className="retry-modal-button retry-modal-button-cancel" onClick={handleCancel}>
             Cancel
-          </button>
-          <button className="retry-modal-button retry-modal-button-confirm" onClick={handleConfirm}>
-            Retry
           </button>
         </div>
       </div>

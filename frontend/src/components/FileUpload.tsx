@@ -7,28 +7,20 @@ interface FileUploadProps {
   disabled?: boolean;
   showWebcamOnMount?: boolean;
   onClose?: () => void;
-  tokenBalance?: number;  // User's current token balance (undefined if not logged in)
+  creditBalance?: number;  // User's current credit balance (undefined if not logged in)
   creationCost?: number;  // Cost to create a hero
 }
 
-export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = false, onClose, tokenBalance, creationCost }: FileUploadProps) {
+export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = false, onClose, creditBalance, creationCost }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [characterName, setCharacterName] = useState('');
   const [showWebcam, setShowWebcam] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [cropArea, setCropArea] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
-  const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
-  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cropImageRef = useRef<HTMLImageElement>(null);
-  const cropContainerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const currentFileRef = useRef<File | null>(null);
-  const hasAppliedCropRef = useRef<boolean>(false);
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -101,13 +93,6 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
 
   const startWebcam = async () => {
     try {
-      // Reset state when opening modal
-      setCapturedImage(null);
-      setCropArea(null);
-      setIsDraggingCrop(false);
-      setCropStart(null);
-      hasAppliedCropRef.current = false; // Reset crop flag
-      
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user' } 
       });
@@ -135,21 +120,10 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    
-    // Clean up image URL
-    if (capturedImage) {
-      URL.revokeObjectURL(capturedImage);
-    }
-    
-    // Reset all state
+
+    // Reset state
     setShowWebcam(false);
-    setCapturedImage(null);
-    setCropArea(null);
-    setIsDraggingCrop(false);
-    setCropStart(null);
-    setResizeHandle(null);
-    hasAppliedCropRef.current = false; // Reset crop flag
-    
+
     // Call onClose callback if provided
     if (onClose) {
       onClose();
@@ -170,6 +144,9 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
         ctx.drawImage(video, 0, 0);
         canvas.toBlob((blob) => {
           if (blob) {
+            const file = new File([blob], 'webcam-capture.jpg', { type: 'image/jpeg' });
+            currentFileRef.current = file;
+            
             // Stop the video stream
             if (streamRef.current) {
               streamRef.current.getTracks().forEach(track => track.stop());
@@ -179,141 +156,15 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
               videoRef.current.srcObject = null;
             }
             
-            // Show captured image and enable cropping
-            const imageUrl = URL.createObjectURL(blob);
-            setCapturedImage(imageUrl);
+            // Directly upload after capturing, skip crop
+            stopWebcam();
+            onUpload(file, characterName || undefined);
           }
         }, 'image/jpeg', 0.95);
       }
     }
   };
 
-  const handleCropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cropContainerRef.current) return;
-    e.stopPropagation();
-    e.preventDefault();
-    
-    const rect = cropContainerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    if (!cropArea) {
-      // Creating new crop area
-      setIsDraggingCrop(true);
-      setCropStart({ x, y });
-      setCropArea({ x, y, width: 0, height: 0 });
-      return;
-    }
-    
-    const { x: cropX, y: cropY, width, height } = cropArea;
-    const handleSize = 15;
-    
-    // Check if clicking on a resize handle (corners)
-    if (Math.abs(x - cropX) < handleSize && Math.abs(y - cropY) < handleSize) {
-      setResizeHandle('nw');
-      setIsDraggingCrop(true);
-      setCropStart({ x: cropX, y: cropY });
-    } else if (Math.abs(x - (cropX + width)) < handleSize && Math.abs(y - cropY) < handleSize) {
-      setResizeHandle('ne');
-      setIsDraggingCrop(true);
-      setCropStart({ x: cropX + width, y: cropY });
-    } else if (Math.abs(x - cropX) < handleSize && Math.abs(y - (cropY + height)) < handleSize) {
-      setResizeHandle('sw');
-      setIsDraggingCrop(true);
-      setCropStart({ x: cropX, y: cropY + height });
-    } else if (Math.abs(x - (cropX + width)) < handleSize && Math.abs(y - (cropY + height)) < handleSize) {
-      setResizeHandle('se');
-      setIsDraggingCrop(true);
-      setCropStart({ x: cropX + width, y: cropY + height });
-    } else if (x >= cropX && x <= cropX + width && y >= cropY && y <= cropY + height) {
-      // Clicking inside crop area - move it
-      setIsDraggingCrop(true);
-      setCropStart({ x: x - cropX, y: y - cropY });
-      setResizeHandle(null);
-    } else {
-      // Clicking outside - create new crop area
-      setIsDraggingCrop(true);
-      setCropStart({ x, y });
-      setCropArea({ x, y, width: 0, height: 0 });
-      setResizeHandle(null);
-    }
-  };
-
-
-  const applyCrop = () => {
-    if (!cropArea || !cropImageRef.current || !canvasRef.current || !capturedImage) return;
-    if (cropArea.width < 10 || cropArea.height < 10) return;
-    
-    const img = cropImageRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    const imgRect = img.getBoundingClientRect();
-    const containerRect = cropContainerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    
-    // Calculate scale - image uses object-fit: cover
-    const scaleX = img.naturalWidth / imgRect.width;
-    const scaleY = img.naturalHeight / imgRect.height;
-    
-    // Map crop area to image coordinates
-    const cropX = Math.max(0, cropArea.x * scaleX);
-    const cropY = Math.max(0, cropArea.y * scaleY);
-    const cropWidth = Math.min(img.naturalWidth - cropX, cropArea.width * scaleX);
-    const cropHeight = Math.min(img.naturalHeight - cropY, cropArea.height * scaleY);
-    
-    canvas.width = cropWidth;
-    canvas.height = cropHeight;
-    
-    ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-    
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const file = new File([blob], 'webcam-capture.jpg', { type: 'image/jpeg' });
-        currentFileRef.current = file;
-        
-        if (capturedImage) {
-          URL.revokeObjectURL(capturedImage);
-        }
-        const imageUrl = URL.createObjectURL(blob);
-        hasAppliedCropRef.current = true; // Mark that we've applied a crop
-        setCapturedImage(imageUrl);
-        setCropArea(null);
-      }
-    }, 'image/jpeg', 0.95);
-  };
-
-  const skipCrop = () => {
-    if (capturedImage && canvasRef.current && cropImageRef.current) {
-      const img = cropImageRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const file = new File([blob], 'webcam-capture.jpg', { type: 'image/jpeg' });
-            currentFileRef.current = file;
-            setCropArea(null);
-          }
-        }, 'image/jpeg', 0.95);
-      }
-    }
-  };
-
-  const handleStartPipelineFromModal = () => {
-    if (currentFileRef.current) {
-      // Set preview before closing
-      if (capturedImage) {
-        setPreview(capturedImage);
-      }
-      onUpload(currentFileRef.current, characterName || undefined);
-      stopWebcam();
-    }
-  };
 
   // Cleanup on unmount
   useEffect(() => {
@@ -328,109 +179,8 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
-      if (capturedImage) {
-        URL.revokeObjectURL(capturedImage);
-      }
     };
   }, []);
-
-  // Handle crop dragging and resizing
-  useEffect(() => {
-    if (!isDraggingCrop || !cropStart || !cropContainerRef.current) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = cropContainerRef.current!.getBoundingClientRect();
-      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-      const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
-      
-      if (!cropArea) {
-        // Creating new selection
-        const startX = Math.min(cropStart.x, x);
-        const startY = Math.min(cropStart.y, y);
-        const width = Math.abs(x - cropStart.x);
-        const height = Math.abs(y - cropStart.y);
-        setCropArea({ 
-          x: startX, 
-          y: startY, 
-          width: Math.min(width, rect.width - startX), 
-          height: Math.min(height, rect.height - startY) 
-        });
-      } else if (resizeHandle) {
-        // Resizing crop area
-        let newCrop = { ...cropArea };
-        
-        if (resizeHandle === 'nw') {
-          const newWidth = cropArea.width + (cropArea.x - x);
-          const newHeight = cropArea.height + (cropArea.y - y);
-          if (newWidth > 20 && newHeight > 20) {
-            newCrop.x = x;
-            newCrop.y = y;
-            newCrop.width = newWidth;
-            newCrop.height = newHeight;
-          }
-        } else if (resizeHandle === 'ne') {
-          const newWidth = x - cropArea.x;
-          const newHeight = cropArea.height + (cropArea.y - y);
-          if (newWidth > 20 && newHeight > 20) {
-            newCrop.y = y;
-            newCrop.width = newWidth;
-            newCrop.height = newHeight;
-          }
-        } else if (resizeHandle === 'sw') {
-          const newWidth = cropArea.width + (cropArea.x - x);
-          const newHeight = y - cropArea.y;
-          if (newWidth > 20 && newHeight > 20) {
-            newCrop.x = x;
-            newCrop.width = newWidth;
-            newCrop.height = newHeight;
-          }
-        } else if (resizeHandle === 'se') {
-          const newWidth = x - cropArea.x;
-          const newHeight = y - cropArea.y;
-          if (newWidth > 20 && newHeight > 20) {
-            newCrop.width = newWidth;
-            newCrop.height = newHeight;
-          }
-        }
-        
-        // Constrain to container bounds
-        if (newCrop.x < 0) {
-          newCrop.width += newCrop.x;
-          newCrop.x = 0;
-        }
-        if (newCrop.y < 0) {
-          newCrop.height += newCrop.y;
-          newCrop.y = 0;
-        }
-        if (newCrop.x + newCrop.width > rect.width) {
-          newCrop.width = rect.width - newCrop.x;
-        }
-        if (newCrop.y + newCrop.height > rect.height) {
-          newCrop.height = rect.height - newCrop.y;
-        }
-        
-        setCropArea(newCrop);
-      } else {
-        // Moving existing crop area
-        const newX = Math.max(0, Math.min(x - cropStart.x, rect.width - cropArea.width));
-        const newY = Math.max(0, Math.min(y - cropStart.y, rect.height - cropArea.height));
-        setCropArea({ ...cropArea, x: newX, y: newY });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingCrop(false);
-      setCropStart(null);
-      setResizeHandle(null);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDraggingCrop, cropStart, cropArea, resizeHandle]);
 
   return (
     <>
@@ -503,16 +253,16 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
             />
             <div className="file-upload-start-section">
               {creationCost !== undefined && (
-                <span className="file-upload-cost">Cost: {creationCost} tokens</span>
+                <span className="file-upload-cost">Cost: {creationCost} credits</span>
               )}
-              {tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost && (
+              {creditBalance !== undefined && creationCost !== undefined && creditBalance < creationCost && (
                 <span className="file-upload-insufficient">
-                  Insufficient tokens (have {tokenBalance})
+                  Insufficient credits (have {creditBalance})
                 </span>
               )}
               <button
                 onClick={handleStartPipeline}
-                disabled={disabled || (tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost)}
+                disabled={disabled || (creditBalance !== undefined && creationCost !== undefined && creditBalance < creationCost)}
                 className="file-upload-start-button"
               >
                 Start Pipeline
@@ -528,195 +278,28 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
       {showWebcam && createPortal(
         <div className="file-upload-modal-overlay" onClick={stopWebcam}>
           <div className="file-upload-modal" onClick={(e) => e.stopPropagation()}>
-            <div 
-              className="file-upload-modal-content"
-              ref={cropContainerRef}
-              onMouseDown={capturedImage && cropArea ? handleCropMouseDown : undefined}
-            >
-              {capturedImage ? (
-                <>
-                  <img 
-                    ref={cropImageRef}
-                    src={capturedImage} 
-                    alt="Captured" 
-                    className="file-upload-modal-image"
-                    onLoad={() => {
-                      // Only initialize crop area if we haven't applied a crop yet
-                      if (cropImageRef.current && cropContainerRef.current && !cropArea && !hasAppliedCropRef.current) {
-                        const containerRect = cropContainerRef.current.getBoundingClientRect();
-                        const padding = 40;
-                        setCropArea({
-                          x: padding,
-                          y: padding,
-                          width: containerRect.width - padding * 2,
-                          height: containerRect.height - padding * 2
-                        });
-                      }
-                    }}
-                  />
-                  {cropArea && cropArea.width > 0 && cropArea.height > 0 && (
-                    <>
-                      <div 
-                        className="file-upload-crop-overlay"
-                        style={{
-                          clipPath: `polygon(
-                            0% 0%, 
-                            0% 100%, 
-                            ${cropArea.x}px 100%, 
-                            ${cropArea.x}px ${cropArea.y}px, 
-                            ${cropArea.x + cropArea.width}px ${cropArea.y}px, 
-                            ${cropArea.x + cropArea.width}px ${cropArea.y + cropArea.height}px, 
-                            ${cropArea.x}px ${cropArea.y + cropArea.height}px, 
-                            ${cropArea.x}px 100%, 
-                            100% 100%, 
-                            100% 0%
-                          )`
-                        }}
-                      />
-                      <div 
-                        className="file-upload-crop-area"
-                        style={{
-                          left: `${cropArea.x}px`,
-                          top: `${cropArea.y}px`,
-                          width: `${cropArea.width}px`,
-                          height: `${cropArea.height}px`,
-                        }}
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          handleCropMouseDown(e);
-                        }}
-                      >
-                        <div 
-                          className="file-upload-crop-handle file-upload-crop-handle-nw"
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                            if (cropArea) {
-                              setResizeHandle('nw');
-                              setIsDraggingCrop(true);
-                              setCropStart({ x: cropArea.x, y: cropArea.y });
-                            }
-                          }}
-                        />
-                        <div 
-                          className="file-upload-crop-handle file-upload-crop-handle-ne"
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                            if (cropArea) {
-                              setResizeHandle('ne');
-                              setIsDraggingCrop(true);
-                              setCropStart({ x: cropArea.x + cropArea.width, y: cropArea.y });
-                            }
-                          }}
-                        />
-                        <div 
-                          className="file-upload-crop-handle file-upload-crop-handle-sw"
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                            if (cropArea) {
-                              setResizeHandle('sw');
-                              setIsDraggingCrop(true);
-                              setCropStart({ x: cropArea.x, y: cropArea.y + cropArea.height });
-                            }
-                          }}
-                        />
-                        <div 
-                          className="file-upload-crop-handle file-upload-crop-handle-se"
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                            if (cropArea) {
-                              setResizeHandle('se');
-                              setIsDraggingCrop(true);
-                              setCropStart({ x: cropArea.x + cropArea.width, y: cropArea.y + cropArea.height });
-                            }
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="file-upload-modal-video"
-                />
-              )}
+            <div className="file-upload-modal-content">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="file-upload-modal-video"
+              />
             </div>
             <div className="file-upload-modal-controls">
-              {capturedImage && cropArea ? (
-                <>
-                  <button
-                    className="file-upload-modal-crop-apply"
-                    onClick={applyCrop}
-                    disabled={!cropArea || cropArea.width < 10 || cropArea.height < 10}
-                  >
-                    Apply Crop
-                  </button>
-                  <button
-                    className="file-upload-modal-crop-skip"
-                    onClick={skipCrop}
-                  >
-                    Skip
-                  </button>
-                  <button
-                    className="file-upload-modal-cancel"
-                    onClick={stopWebcam}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : capturedImage ? (
-                <>
-                  <input
-                    type="text"
-                    placeholder="Superhero name (optional)"
-                    value={characterName}
-                    onChange={(e) => setCharacterName(e.target.value)}
-                    className="file-upload-modal-name-input"
-                    disabled={disabled}
-                  />
-                  <div className="file-upload-modal-start-section">
-                    {creationCost !== undefined && (
-                      <span className="file-upload-modal-cost">Cost: {creationCost} tokens</span>
-                    )}
-                    {tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost && (
-                      <span className="file-upload-modal-insufficient">
-                        Insufficient tokens (have {tokenBalance})
-                      </span>
-                    )}
-                    <button
-                      className="file-upload-modal-start"
-                      onClick={handleStartPipelineFromModal}
-                      disabled={disabled || (tokenBalance !== undefined && creationCost !== undefined && tokenBalance < creationCost)}
-                    >
-                      Start Pipeline
-                    </button>
-                  </div>
-                  <button
-                    className="file-upload-modal-cancel"
-                    onClick={stopWebcam}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className="file-upload-modal-capture"
-                    onClick={capturePhoto}
-                    disabled={disabled}
-                  >
-                    Capture
-                  </button>
-                  <button
-                    className="file-upload-modal-cancel"
-                    onClick={stopWebcam}
-                  >
-                    Cancel
-                  </button>
-                </>
-              )}
+              <button
+                className="file-upload-modal-capture"
+                onClick={capturePhoto}
+                disabled={disabled}
+              >
+                Capture
+              </button>
+              <button
+                className="file-upload-modal-cancel"
+                onClick={stopWebcam}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>,

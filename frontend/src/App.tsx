@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { HeaderUploadButtons } from './components/HeaderUploadButtons';
 import { HeaderAuth } from './components/HeaderAuth';
@@ -7,44 +7,59 @@ import { CreationGallery } from './components/CreationGallery';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
+import { loadStepConfig, getStepOrder, getStepCost } from './config/steps';
 import './App.css';
 
 function App() {
   const [creation, setCreation] = useState<CreationResponse | null>(null);
+  const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWebcamModal, setShowWebcamModal] = useState(false);
-  const hasStartedRef = useRef<string | null>(null);
-  const [creationCost, setCreationCost] = useState<number | undefined>(undefined);
-  const [tokenBalance, setTokenBalance] = useState<number | undefined>(undefined);
+  const [showPostUploadActions, setShowPostUploadActions] = useState(false);
+  const [firstStepCost, setFirstStepCost] = useState<number>(0);
+  const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
+  const [userInfo, setUserInfo] = useState<{ is_admin: boolean } | null>(null);
 
-  // Fetch creation cost on mount (it's static)
+  // Load step config on mount
   useEffect(() => {
-    api.getCreationCost().then(({ cost }) => setCreationCost(cost)).catch(console.error);
+    loadStepConfig()
+      .then(() => {
+        const steps = getStepOrder();
+        if (steps.length > 0) {
+          setFirstStepCost(getStepCost(steps[0]));
+        }
+      })
+      .catch(console.error);
   }, []);
 
-  // Fetch token balance when auth state changes
-  const refreshTokenBalance = async () => {
+  // Fetch credit balance and user info when auth state changes
+  const refreshCreditBalance = async () => {
     const token = getAuthToken();
     if (!token) {
-      setTokenBalance(undefined);
+      setCreditBalance(undefined);
+      setUserInfo(null);
       return;
     }
     try {
       const user = await api.getMe();
-      setTokenBalance(user.tokens);
+      setCreditBalance(user.credits);
+      setUserInfo({ is_admin: user.is_admin });
+      // Dispatch event to notify HeaderAuth to refresh
+      window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
     } catch {
-      setTokenBalance(undefined);
+      setCreditBalance(undefined);
+      setUserInfo(null);
     }
   };
 
   useEffect(() => {
-    refreshTokenBalance();
+    refreshCreditBalance();
 
     // Listen for auth events
-    const handleAuthChange = () => refreshTokenBalance();
-    const handleUnauthorized = () => setTokenBalance(undefined);
+    const handleAuthChange = () => refreshCreditBalance();
+    const handleUnauthorized = () => setCreditBalance(undefined);
 
     window.addEventListener('auth:login', handleAuthChange);
     window.addEventListener('auth:logout', handleAuthChange);
@@ -57,47 +72,69 @@ function App() {
     };
   }, []);
 
+  // Apply bright mode class to document root for admin users
+  useEffect(() => {
+    if (userInfo?.is_admin) {
+      document.documentElement.classList.add('bright-mode');
+    } else {
+      document.documentElement.classList.remove('bright-mode');
+    }
+  }, [userInfo?.is_admin]);
+
   const handleUpload = async (file: File, characterName?: string) => {
     console.log('[App] handleUpload:', { filename: file.name, characterName });
     setIsUploading(true);
     setError(null);
 
     try {
-      const newCreation = await api.uploadImage(file, characterName);
-      console.log('[App] Upload successful:', {
+      // Create preview for the modal
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setUploadedFilePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Create creation and upload image
+      const newCreation = await api.createCreation(file, characterName);
+      console.log('[App] Creation successful:', {
         creationId: newCreation.id,
         status: newCreation.status,
-        stepsCount: newCreation.steps.length,
       });
+      
       setCreation(newCreation);
+      setShowPostUploadActions(true);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to upload image';
       console.error('[App] Upload failed:', err);
       setError(message);
+      setUploadedFilePreview(null);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleStartPipeline = async () => {
-    if (!creation) {
-      console.warn('[App] handleStartPipeline called but no creation');
-      return;
-    }
+  const handleStartFirstStep = async () => {
+    if (!creation) return;
 
-    console.log('[App] handleStartPipeline:', { creationId: creation.id });
     setIsStarting(true);
     setError(null);
 
     try {
-      await api.runPipeline(creation.id);
-      console.log('[App] Pipeline start successful');
-      // Refresh token balance after pipeline starts (tokens are deducted)
-      refreshTokenBalance();
+      // Run only the first step
+      const steps = getStepOrder();
+      if (steps.length > 0) {
+        await api.runStep(creation.id, steps[0]);
+        window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
+      }
+      
+      await refreshCreditBalance();
+      setShowPostUploadActions(false);
+      setUploadedFilePreview(null);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Failed to start pipeline';
-      console.error('[App] Pipeline start failed:', err);
+      const message = err instanceof ApiError ? err.message : 'Failed to start';
+      console.error('[App] Start failed:', err);
       setError(message);
+      await refreshCreditBalance();
     } finally {
       setIsStarting(false);
     }
@@ -113,24 +150,12 @@ function App() {
     setError(null);
   };
 
-  // Auto-start pipeline after upload
-  useEffect(() => {
-    if (creation && creation.status === 'pending' && hasStartedRef.current !== creation.id) {
-      console.log('[App] Auto-starting pipeline:', { creationId: creation.id });
-      hasStartedRef.current = creation.id;
-      handleStartPipeline();
-    }
-  }, [creation?.id, creation?.status]);
+  // Note: Auto-start removed - modal now handles pipeline start
 
-  // Poll for updates - poll if status is pending, processing, or failed (user might retry)
-  const shouldPoll = creation && (creation.status === 'pending' || creation.status === 'processing' || creation.status === 'failed');
+  // Poll for updates when there's a processing step
+  const hasProcessingStep = creation?.steps.some(s => s.status === 'processing');
+  const shouldPoll = creation && (hasProcessingStep || creation.status === 'pending');
   useCreationPolling(shouldPoll ? creation.id : null, (updatedCreation) => {
-    console.log('[App] Creation updated:', {
-      creationId: updatedCreation.id,
-      status: updatedCreation.status,
-      currentStep: updatedCreation.current_step,
-      completedSteps: updatedCreation.steps.filter(s => s.status === 'completed').length,
-    });
     setCreation(updatedCreation);
   });
 
@@ -142,14 +167,16 @@ function App() {
             onUpload={handleUpload}
             onStartWebcam={() => setShowWebcamModal(true)}
             disabled={isUploading}
-            isLoggedIn={tokenBalance !== undefined}
+            isLoggedIn={creditBalance !== undefined}
           />
         </div>
-        <div 
+        <div
           className="app-header-center"
           onClick={() => {
             setCreation(null);
             setError(null);
+            // Scroll to top smoothly
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           style={{ cursor: 'pointer' }}
         >
@@ -170,9 +197,37 @@ function App() {
           disabled={isUploading}
           showWebcamOnMount={true}
           onClose={() => setShowWebcamModal(false)}
-          tokenBalance={tokenBalance}
-          creationCost={creationCost}
+          creditBalance={creditBalance}
+          creationCost={firstStepCost}
         />
+      )}
+
+      {showPostUploadActions && creation && (
+        <div className="post-upload-actions-overlay">
+          <div className="post-upload-actions-modal">
+            <h3>Image Uploaded!</h3>
+            {uploadedFilePreview && (
+              <div className="post-upload-actions-preview">
+                <img src={uploadedFilePreview} alt="Uploaded" />
+              </div>
+            )}
+            <div className="post-upload-actions-buttons">
+              <button
+                className="post-upload-action-button post-upload-action-primary"
+                onClick={handleStartFirstStep}
+                disabled={isStarting || (creditBalance !== undefined && firstStepCost > creditBalance)}
+              >
+                <span>{isStarting ? 'Starting...' : 'Start'}</span>
+                {firstStepCost > 0 && <span className="post-upload-action-cost">{firstStepCost}</span>}
+              </button>
+            </div>
+            {creditBalance !== undefined && firstStepCost > creditBalance && (
+              <div className="post-upload-actions-error">
+                Insufficient credits. You have {creditBalance} but need {firstStepCost}.
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <main className="app-main">
@@ -196,6 +251,7 @@ function App() {
               characterName={creation.character_name}
               name={creation.name}
               age={creation.age}
+              isAdmin={userInfo?.is_admin ?? false}
               onCharacterNameUpdated={(newName) => {
                 setCreation({ ...creation, character_name: newName });
               }}
@@ -219,45 +275,22 @@ function App() {
                 }
               }}
             />
-            
-            {creation.status === 'pending' && (
-              <div className="app-pending-notice">
-                <p>Pipeline is ready to start. Starting automatically...</p>
-                {isStarting && (
-                  <div className="app-loading">
-                    <div className="spinner"></div>
-                  </div>
-                )}
-              </div>
-            )}
 
-            <PipelineProgress 
+            <PipelineProgress
               creation={creation}
-              onStepRetry={(stepName) => {
-                // Immediately mark step as processing with estimated time
-                const stepDurations: Record<string, number> = {
-                  image_processing: 1,
-                  openai_render: 60,
-                  meshy_3d: 180,
-                  meshy_rig: 30,
-                  convert_vrm: 3,
-                };
-                const duration = stepDurations[stepName] || 30;
-                
-                // Update creation to show step as processing
-                if (creation) {
-                  const updatedSteps = creation.steps.map(s => 
-                    s.step_name === stepName 
-                      ? { 
-                          ...s, 
-                          status: 'processing' as const,
-                          error_message: null,
-                          started_at: new Date().toISOString(),
-                          estimated_completion_time: new Date(Date.now() + duration * 1000).toISOString()
-                        }
-                      : s
-                  );
-                  setCreation({ ...creation, steps: updatedSteps, status: 'processing' });
+              creditBalance={creditBalance}
+              onStepRun={() => {
+                // Refresh credit balance after step starts
+                refreshCreditBalance();
+              }}
+              onCreationRefresh={async () => {
+                // Directly fetch and update creation state
+                // This ensures UI updates even when polling was stopped
+                try {
+                  const updated = await api.getCreation(creation.id);
+                  setCreation(updated);
+                } catch (err) {
+                  console.error('[App] Failed to refresh creation:', err);
                 }
               }}
             />
@@ -265,14 +298,16 @@ function App() {
         )}
       </main>
       
-      <footer className="app-footer">
-        <div className="app-footer-content">
-          <span className="app-footer-name">Raz Karl</span>
-          <span className="app-footer-normal">&</span>
-          <span className="app-footer-name">Elad Shikley</span>
-          <span className="app-footer-normal">Hanukkah 2025 ©</span>
-        </div>
-      </footer>
+      {!creation && (
+        <footer className="app-footer">
+          <div className="app-footer-content">
+            <span className="app-footer-name">Raz Karl</span>
+            <span className="app-footer-normal">&</span>
+            <span className="app-footer-name">Elad Shikley</span>
+            <span className="app-footer-normal">Hanukkah 2025 ©</span>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

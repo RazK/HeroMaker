@@ -1,7 +1,8 @@
-import { Suspense, useRef, useEffect, useState, ErrorInfo, Component } from 'react';
+import { Suspense, useRef, useEffect, useState, useMemo, ErrorInfo, Component } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneWithSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import './ModelPreview.css';
 
@@ -11,6 +12,7 @@ interface ModelPreviewProps {
   riggedUrl?: string | null;
   className?: string;
   isRigged?: boolean;
+  interactive?: boolean;  // When false, disable mouse controls (for card previews)
 }
 
 // Error boundary for model loading errors - must be outside Canvas
@@ -60,12 +62,22 @@ class ModelErrorBoundary extends Component<
 
 function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnimationPlaying }: { url: string; showSkeleton?: boolean; isRotating: boolean; resetTrigger: number; isAnimated: boolean; isAnimationPlaying: boolean }) {
   const gltf = useLoader(GLTFLoader, url);
+  const { camera } = useThree();
   const meshRef = useRef<THREE.Group>(null);
   const skeletonGroupRef = useRef<THREE.Group | null>(null);
   const bonesRef = useRef<THREE.Bone[] | null>(null);
   const modelScaleRef = useRef<number | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const actionsRef = useRef<THREE.AnimationAction[]>([]);
+  const clonedSceneRef = useRef<THREE.Group | null>(null);
+  
+  // Clone the scene on first render to avoid mutating the cached original
+  // Use SkeletonUtils.clone for proper SkinnedMesh and animation support
+  const scene = useMemo(() => {
+    const cloned = cloneWithSkeleton(gltf.scene) as THREE.Group;
+    clonedSceneRef.current = cloned;
+    return cloned;
+  }, [gltf.scene]);
 
   useEffect(() => {
     // Reset model rotation when resetTrigger changes
@@ -76,8 +88,8 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
 
   // Setup animation mixer when animations exist and isAnimated is true
   useEffect(() => {
-    if (gltf.animations.length > 0 && isAnimated && gltf.scene) {
-      mixerRef.current = new THREE.AnimationMixer(gltf.scene);
+    if (gltf.animations.length > 0 && isAnimated && scene) {
+      mixerRef.current = new THREE.AnimationMixer(scene);
       actionsRef.current = [];
       gltf.animations.forEach((clip) => {
         const action = mixerRef.current?.clipAction(clip);
@@ -103,7 +115,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
       }
       actionsRef.current = [];
     };
-  }, [gltf, isAnimated]);
+  }, [gltf.animations, scene, isAnimated]);
 
   // Pause/play animation based on isAnimationPlaying
   useEffect(() => {
@@ -133,7 +145,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
     // Update skeleton cones positions to follow bone movements
     // Convert bone world positions to local positions relative to scene (same as model)
     // Must account for scene rotation, scale, and position when converting
-    if (showSkeleton && skeletonGroupRef.current && bonesRef.current && gltf.scene) {
+    if (showSkeleton && skeletonGroupRef.current && bonesRef.current && scene) {
       bonesRef.current.forEach((bone, index) => {
         const cone = skeletonGroupRef.current?.children[index] as THREE.Mesh | undefined;
         if (cone) {
@@ -142,7 +154,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
           
           // Convert world position to local position relative to scene
           // Use worldToLocal to properly account for all transformations
-          const localPos = gltf.scene.worldToLocal(worldPos.clone());
+          const localPos = scene.worldToLocal(worldPos.clone());
           
           cone.position.copy(localPos);
           
@@ -152,31 +164,82 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
   });
 
   useEffect(() => {
-    // Center and scale the model - make it larger to fill more of the viewport
-    if (gltf.scene && meshRef.current) {
-      const box = new THREE.Box3().setFromObject(gltf.scene);
+    // Center and scale the model to fit in view
+    if (scene && meshRef.current) {
+      // Get original bounding box (precise=true for skinned meshes)
+      const box = new THREE.Box3().setFromObject(scene, true);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z);
-      // Increased scale from 2 to 3.5 to make model appear larger/closer
-      const scale = 3.5 / maxDim;
-
-
-      gltf.scene.scale.multiplyScalar(scale);
-      gltf.scene.position.sub(center.multiplyScalar(scale));
       
-      // Store the actual final scene scale (not the multiplier) for skeleton cone sizing
-      // Use the X component as it should be uniform after scaling
-      modelScaleRef.current = gltf.scene.scale.x;
-
+      // Scale to fit in view
+      const scale = 2.5 / maxDim;
+      scene.scale.multiplyScalar(scale);
+      
+      // Center the model at origin (all axes)
+      const scaledCenter = center.clone().multiplyScalar(scale);
+      scene.position.set(-scaledCenter.x, -scaledCenter.y, -scaledCenter.z);
+      
+      // Now compute where the model's visual center actually is after positioning
+      // Recalculate bounding box after transformations
+      // Use precise=true to compute actual skinned mesh vertex positions
+      scene.updateMatrixWorld(true);
+      const finalBox = new THREE.Box3().setFromObject(scene, true);
+      const finalCenter = finalBox.getCenter(new THREE.Vector3());
+      
+      // Store the center for CameraController to use
+      modelCenterRef.current.copy(finalCenter);
+      
+      // Position camera based on bounding box dimensions
+      const finalSize = finalBox.getSize(new THREE.Vector3());
+      // Camera Y at center of box, Z at distance proportional to box size
+      const cameraY = finalCenter.y;
+      const cameraZ = Math.max(finalSize.z * 2, finalSize.y * 1.5, 3); // Ensure minimum distance
+      camera.position.set(0, cameraY, cameraZ);
+      
+      // Store the home camera position for reset
+      homeCameraPositionRef.current.set(0, cameraY, cameraZ);
+      
+      // Programmatically pan the camera to look at the model's actual center
+      camera.lookAt(finalCenter);
+      
+      // Store the actual final scene scale for skeleton cone sizing
+      modelScaleRef.current = scene.scale.x;
     }
-  }, [gltf]);
+  }, [scene, camera, isAnimated]);
+  
+  // For animated models, recenter camera after animation has started
+  useEffect(() => {
+    if (isAnimated && mixerRef.current && scene) {
+      // Wait a moment for animation to update the mesh positions
+      const timeoutId = setTimeout(() => {
+        scene.updateMatrixWorld(true);
+        const animatedBox = new THREE.Box3().setFromObject(scene, true);
+        const animatedCenter = animatedBox.getCenter(new THREE.Vector3());
+        
+        // Store the center and re-position camera based on animated bounds
+        modelCenterRef.current.copy(animatedCenter);
+        
+        const animatedSize = animatedBox.getSize(new THREE.Vector3());
+        const cameraY = animatedCenter.y;
+        const cameraZ = Math.max(animatedSize.z * 2, animatedSize.y * 1.5, 3);
+        camera.position.set(0, cameraY, cameraZ);
+        
+        // Store the home camera position for reset
+        homeCameraPositionRef.current.set(0, cameraY, cameraZ);
+        
+        camera.lookAt(animatedCenter);
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAnimated, scene, camera]);
 
   useEffect(() => {
     // Add skeleton visualization with cones on bones
-    if (showSkeleton && gltf.scene && !skeletonGroupRef.current) {
+    if (showSkeleton && scene && !skeletonGroupRef.current) {
       const timeoutId = setTimeout(() => {
-        gltf.scene.traverse((object) => {
+        scene.traverse((object) => {
           if (object instanceof THREE.SkinnedMesh && object.skeleton) {
             const skeleton = object.skeleton;
             const skeletonGroup = new THREE.Group();
@@ -192,10 +255,6 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
             // Convert world positions to local positions relative to the scene
             const modelScale = modelScaleRef.current ?? 1.0;
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/b89e3547-7de1-4c89-94c3-53229b5a026e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ModelPreview.tsx:85',message:'Creating skeleton cones (SIMPLIFIED)',data:{modelScale,sceneScaleX:gltf.scene.scale.x,scenePositionX:gltf.scene.position.x,scenePositionY:gltf.scene.position.y,scenePositionZ:gltf.scene.position.z,boneCount:skeleton.bones.length},timestamp:Date.now(),sessionId:'debug-session',runId:'simplified',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
-            
             skeleton.bones.forEach((bone) => {
               // Get bone world position (already scaled and positioned)
               const worldPos = new THREE.Vector3();
@@ -204,8 +263,8 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
               // Convert world position to local position relative to scene
               // Since scene has scale and position, we need to account for that
               const localPos = worldPos.clone();
-              localPos.sub(gltf.scene.position);
-              localPos.divide(gltf.scene.scale);
+              localPos.sub(scene.position);
+              localPos.divide(scene.scale);
               
               // Calculate bone length from joint to joint
               let boneLength = 0.04 * modelScale; // Default fallback size
@@ -216,8 +275,8 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
                 const childWorldPos = new THREE.Vector3();
                 childBone.getWorldPosition(childWorldPos);
                 childLocalPos = childWorldPos.clone();
-                childLocalPos.sub(gltf.scene.position);
-                childLocalPos.divide(gltf.scene.scale);
+                childLocalPos.sub(scene.position);
+                childLocalPos.divide(scene.scale);
                 
                 // Calculate distance between bone and child bone (bone length)
                 const direction = new THREE.Vector3().subVectors(childLocalPos, localPos);
@@ -259,17 +318,15 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
             skeletonGroup.renderOrder = 1000;
             
             skeletonGroupRef.current = skeletonGroup;
-            gltf.scene.add(skeletonGroup);
-            
-            console.log('[ModelPreview] Skeleton cones created:', skeleton.bones.length);
+            scene.add(skeletonGroup);
           }
         });
       }, 300);
 
       return () => {
         clearTimeout(timeoutId);
-        if (skeletonGroupRef.current && gltf.scene) {
-          gltf.scene.remove(skeletonGroupRef.current);
+        if (skeletonGroupRef.current && scene) {
+          scene.remove(skeletonGroupRef.current);
           skeletonGroupRef.current.children.forEach((child) => {
             if (child instanceof THREE.Mesh) {
               child.geometry.dispose();
@@ -282,42 +339,57 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
         }
       };
     }
-  }, [gltf, showSkeleton]);
+  }, [scene, showSkeleton]);
 
-  return <primitive object={gltf.scene} ref={meshRef} />;
+  return <primitive object={scene} ref={meshRef} />;
 }
+
+// Shared ref for the calculated model center and home camera position
+const modelCenterRef = { current: new THREE.Vector3(0, 0, 0) };
+const homeCameraPositionRef = { current: new THREE.Vector3(0, 0, 5) };
 
 function CameraController({ 
   homePosition, 
   homeTarget,
-  resetTrigger
+  resetTrigger,
+  interactive = true
 }: { 
   homePosition: [number, number, number];
   homeTarget: [number, number, number];
   resetTrigger: number;
+  interactive?: boolean;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
-  const homePositionRef = useRef<THREE.Vector3>(new THREE.Vector3(...homePosition));
-  const homeTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(...homeTarget));
-  const initialRotationRef = useRef<number>(0);
+  const hasSetInitialTarget = useRef(false);
+
+  // Update controls target to match model center
+  useFrame(() => {
+    if (controlsRef.current && !hasSetInitialTarget.current) {
+      // Check if model center has been calculated (not at origin)
+      const center = modelCenterRef.current;
+      if (center.x !== 0 || center.y !== 0 || center.z !== 0) {
+        controlsRef.current.target.copy(center);
+        controlsRef.current.update();
+        hasSetInitialTarget.current = true;
+      }
+    }
+  });
 
   useEffect(() => {
-    // Store home position and target
-    homePositionRef.current.set(...homePosition);
-    homeTargetRef.current.set(...homeTarget);
-    // Store initial rotation (should be 0)
-    initialRotationRef.current = 0;
-  }, [homePosition, homeTarget]);
-
-  useEffect(() => {
-    // Reset camera to home position when resetTrigger changes
+    // Reset when resetTrigger changes
     if (controlsRef.current && resetTrigger > 0) {
-      camera.position.set(...homePosition);
-      controlsRef.current.target.set(...homeTarget);
+      // Use stored home position (calculated when model was centered)
+      camera.position.copy(homeCameraPositionRef.current);
+      controlsRef.current.target.copy(modelCenterRef.current);
       controlsRef.current.update();
     }
-  }, [resetTrigger, camera, homePosition, homeTarget]);
+  }, [resetTrigger, camera]);
+
+  // Don't render controls if not interactive
+  if (!interactive) {
+    return null;
+  }
 
   return (
     <OrbitControls 
@@ -326,7 +398,7 @@ function CameraController({
       enableZoom={true} 
       enableRotate={true}
       minDistance={1.5}
-      maxDistance={homePosition[2] > 7 ? 15 : 8}
+      maxDistance={12}
       target={homeTarget}
       minPolarAngle={0}
       maxPolarAngle={Math.PI}
@@ -334,7 +406,7 @@ function CameraController({
   );
 }
 
-export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRigged = false }: ModelPreviewProps) {
+export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRigged = false, interactive = true }: ModelPreviewProps) {
   const [isPlaying, setIsPlaying] = useState(true); // Controls both rotation and animation
   const [resetTrigger, setResetTrigger] = useState(0);
   
@@ -342,15 +414,9 @@ export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRig
   const modelUrl = walkingUrl || riggedUrl || url;
   const isAnimated = !!walkingUrl; // True if we're showing the animated model
   
-  // For model.glb: back off by another 20% (from 3.6 to 4.32)
-  // For rigged.glb: camera higher and angled down to look from above
-  const cameraPosition: [number, number, number] = isRigged 
-    ? [0, 2, 8.0]  // Higher Y (2) to look down, further back Z (8.0)
-    : [0, 0, 4.32];   // Another 20% further back (3.6 * 1.2 = 4.32)
-  
-  const cameraTarget: [number, number, number] = isRigged 
-    ? [0, 1.6, 0] 
-    : [0, 0, 0];
+  // Camera position - model will auto-center and camera will lookAt the center
+  const cameraPosition: [number, number, number] = [0, 0, 5];
+  const cameraTarget: [number, number, number] = [0, 0, 0];
 
   const handleTogglePlay = () => {
     // Toggle both rotation and animation together
@@ -363,7 +429,7 @@ export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRig
 
   return (
     <ModelErrorBoundary key={modelUrl}>
-      <div className={`model-preview-container ${className}`}>
+      <div className={`model-preview-container ${className}${!interactive ? ' model-preview-non-interactive' : ''}`}>
         <Canvas camera={{ position: cameraPosition, fov: 50 }}>
           <Suspense fallback={null}>
             <ambientLight intensity={0.5} />
@@ -374,42 +440,47 @@ export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRig
               homePosition={cameraPosition}
               homeTarget={cameraTarget}
               resetTrigger={resetTrigger}
+              interactive={interactive}
             />
           </Suspense>
         </Canvas>
-        <div className="model-preview-overlay">
-          <span>Drag to rotate • Scroll to zoom</span>
-        </div>
-        <button 
-          className="model-preview-rotation-toggle"
-          onClick={handleTogglePlay}
-          title={isPlaying ? "Pause" : "Play"}
-        >
-          {isPlaying ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="10" y1="8" x2="10" y2="16"/>
-              <line x1="14" y1="8" x2="14" y2="16"/>
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polygon points="10 8 16 12 10 16 10 8"/>
-            </svg>
-          )}
-        </button>
-        <button 
-          className="model-preview-reset-camera"
-          onClick={handleResetCamera}
-          title="Reset camera to home position"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-            <path d="M21 3v5h-5"/>
-            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-            <path d="M3 21v-5h5"/>
-          </svg>
-        </button>
+        {interactive && (
+          <>
+            <div className="model-preview-overlay">
+              <span>Drag to rotate • Scroll to zoom</span>
+            </div>
+            <button 
+              className="model-preview-rotation-toggle"
+              onClick={handleTogglePlay}
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="10" y1="8" x2="10" y2="16"/>
+                  <line x1="14" y1="8" x2="14" y2="16"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+              )}
+            </button>
+            <button 
+              className="model-preview-reset-camera"
+              onClick={handleResetCamera}
+              title="Reset camera to home position"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M3 21v-5h5"/>
+              </svg>
+            </button>
+          </>
+        )}
       </div>
     </ModelErrorBoundary>
   );

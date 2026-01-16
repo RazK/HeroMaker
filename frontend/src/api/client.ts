@@ -1,5 +1,4 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-const DEBUG_USER_ID = 'debug-user-uuid';
 
 // JWT Token management
 const JWT_TOKEN_KEY = 'heromaker_jwt_token';
@@ -32,7 +31,6 @@ export interface CreationResponse {
   name: string | null;
   age: number | null;
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  current_step: string | null;
   user_id: string;
   username: string | null; // Deprecated, use name instead
   created_at: string;
@@ -42,12 +40,14 @@ export interface CreationResponse {
   error_message: string | null;
 }
 
-export interface RunPipelineResponse {
-  message: string;
-  creation_id: string;
-  step_name?: string;
-  retry_all_following: boolean;
+// Step configuration from backend
+export interface StepConfig {
+  name: string;
+  display_name: string;
+  credit_cost: number;
+  output_file: string;
 }
+
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -117,55 +117,34 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   /**
-   * Upload an image file and create a new creation
+   * Create a new creation and upload the image file.
+   * Pipeline must be started separately using runPipeline().
    */
-  async uploadImage(file: File, characterName?: string): Promise<CreationResponse> {
-    console.log('[API] uploadImage:', {
+  async createCreation(file: File, characterName?: string): Promise<CreationResponse> {
+    console.log('[API] createCreation:', {
       filename: file.name,
       size: `${(file.size / 1024).toFixed(1)}KB`,
       type: file.type,
       characterName,
     });
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('image_file', file);
     if (characterName) {
       formData.append('character_name', characterName);
     }
     
-    const result = await fetchJson<CreationResponse>(`${API_BASE_URL}/api/creations/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    console.log('[API] uploadImage result:', {
+    const result = await fetchJson<CreationResponse>(
+      `${API_BASE_URL}/api/creations/create`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+    console.log('[API] createCreation result:', {
       creationId: result.id,
       status: result.status,
       stepsCount: result.steps.length,
     });
-    return result;
-  },
-
-  /**
-   * Start or restart the pipeline for a creation
-   */
-  async runPipeline(
-    creationId: string, 
-    stepName?: string, 
-    retryAllFollowing: boolean = true
-  ): Promise<RunPipelineResponse> {
-    console.log('[API] runPipeline:', { creationId, stepName, retryAllFollowing });
-    const params = new URLSearchParams();
-    if (stepName) {
-      params.append('step_name', stepName);
-    }
-    params.append('retry_all_following', String(retryAllFollowing));
-    
-    const result = await fetchJson<RunPipelineResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}/run?${params.toString()}`,
-      {
-        method: 'POST',
-      }
-    );
-    console.log('[API] runPipeline result:', result);
     return result;
   },
 
@@ -184,18 +163,19 @@ export const api = {
     return result;
   },
 
+
   /**
-   * Reset a step and all following steps, then run pipeline from that step
+   * Cancel a processing step
    */
-  async resetAndRunFromStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
-    console.log('[API] resetAndRunFromStep:', { creationId, stepName });
+  async cancelStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
+    console.log('[API] cancelStep:', { creationId, stepName });
     const result = await fetchJson<{ message: string; creation_id: string; step_name: string }>(
-      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/reset-and-run`,
+      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/cancel`,
       {
         method: 'POST',
       }
     );
-    console.log('[API] resetAndRunFromStep result:', result);
+    console.log('[API] cancelStep result:', result);
     return result;
   },
 
@@ -216,15 +196,22 @@ export const api = {
   /**
    * List all creations
    */
-  async listCreations(limit: number = 50, offset: number = 0): Promise<{ creations: CreationResponse[]; total: number }> {
-    const result = await fetchJson<{ creations: CreationResponse[]; total: number; limit: number; offset: number }>(
-      `${API_BASE_URL}/api/creations/?limit=${limit}&offset=${offset}`
+  async listCreations(limit: number = 50, offset: number = 0, userId?: string): Promise<{ creations: CreationResponse[]; total: number }> {
+    const params = new URLSearchParams();
+    params.append('limit', String(limit));
+    params.append('offset', String(offset));
+    if (userId) {
+      params.append('user_id', userId);
+    }
+    const result = await fetchJson<CreationResponse[]>(
+      `${API_BASE_URL}/api/creations/?${params.toString()}`
     );
     console.log('[API] listCreations result:', {
-      count: result.creations.length,
-      total: result.total,
+      count: result.length,
+      total: result.length,
+      userId: userId || 'all',
     });
-    return { creations: result.creations, total: result.total };
+    return { creations: result, total: result.length };
   },
 
   /**
@@ -232,9 +219,8 @@ export const api = {
    */
   getFileUrl(creationId: string, filename: string, userId?: string): string {
     // Use provided userId, fallback to DEBUG_USER_ID for backward compatibility
-    const user_id = userId || DEBUG_USER_ID;
+    const user_id = userId || 'debug-user-uuid';
     const url = `${API_BASE_URL}/api/files/${user_id}/${creationId}/${filename}`;
-    console.log('[API] getFileUrl:', { creationId, filename, userId: user_id, url });
     return url;
   },
 
@@ -373,8 +359,8 @@ export const api = {
   /**
    * Authentication methods
    */
-  async signup(username: string, email: string, password: string): Promise<{ access_token: string; user: any }> {
-    console.log('[API] signup:', { username, email });
+  async signup(username: string, email: string, password: string, name: string, dateOfBirth: string): Promise<{ access_token: string; user: any }> {
+    console.log('[API] signup:', { username, email, name });
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
       `${API_BASE_URL}/api/auth/signup`,
       {
@@ -382,7 +368,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, email, password, name, date_of_birth: dateOfBirth }),
       }
     );
     setAuthToken(result.access_token);
@@ -431,11 +417,30 @@ export const api = {
   },
 
   /**
-   * Redeem a coupon code for tokens
+   * Validate a coupon code and get its value without redeeming it
    */
-  async redeemCoupon(code: string): Promise<{ success: boolean; message: string; tokens_added: number; new_balance: number }> {
+  async validateCoupon(code: string): Promise<{ valid: boolean; credits: number; message: string }> {
+    console.log('[API] validateCoupon:', { code });
+    const result = await fetchJson<{ valid: boolean; credits: number; message: string }>(
+      `${API_BASE_URL}/api/coupons/validate`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code }),
+      }
+    );
+    console.log('[API] validateCoupon success:', result);
+    return result;
+  },
+
+  /**
+   * Redeem a coupon code for credits
+   */
+  async redeemCoupon(code: string): Promise<{ success: boolean; message: string; credits_added: number; new_balance: number }> {
     console.log('[API] redeemCoupon:', { code });
-    const result = await fetchJson<{ success: boolean; message: string; tokens_added: number; new_balance: number }>(
+    const result = await fetchJson<{ success: boolean; message: string; credits_added: number; new_balance: number }>(
       `${API_BASE_URL}/api/coupons/redeem`,
       {
         method: 'POST',
@@ -450,11 +455,35 @@ export const api = {
   },
 
   /**
-   * Get the token cost for creating a new hero
+   * Get the credit cost for running steps
    */
-  async getCreationCost(): Promise<{ cost: number }> {
-    const result = await fetchJson<{ cost: number }>(`${API_BASE_URL}/api/creations/cost`);
+  async getCreationCost(steps?: string[]): Promise<{ cost: number }> {
+    const params = new URLSearchParams();
+    if (steps && steps.length > 0) {
+      params.append('steps', steps.join(','));
+    }
+    const url = `${API_BASE_URL}/api/creations/cost${params.toString() ? `?${params.toString()}` : ''}`;
+    const result = await fetchJson<{ cost: number }>(url);
     console.log('[API] getCreationCost:', result);
+    return result;
+  },
+
+  /**
+   * Get step configuration from backend
+   */
+  async getStepsConfig(): Promise<StepConfig[]> {
+    const result = await fetchJson<{ steps: StepConfig[] }>(`${API_BASE_URL}/api/creations/steps/config`);
+    console.log('[API] getStepsConfig:', result);
+    return result.steps;
+  },
+
+  /**
+   * Get individual step status (for polling during processing)
+   */
+  async getStepStatus(creationId: string, stepName: string): Promise<CreationStepResponse> {
+    const result = await fetchJson<CreationStepResponse>(
+      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}`
+    );
     return result;
   },
 };

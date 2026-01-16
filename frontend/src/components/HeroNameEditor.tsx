@@ -7,6 +7,7 @@ interface HeroNameEditorProps {
   characterName: string | null;
   name: string | null;
   age: number | null;
+  isAdmin?: boolean;
   onCharacterNameUpdated: (newName: string) => void;
   onNameUpdated: (newName: string) => void;
   onAgeUpdated: (newAge: number | null) => void;
@@ -14,7 +15,7 @@ interface HeroNameEditorProps {
   onRestart?: () => void;
 }
 
-export function HeroNameEditor({ creationId, characterName, name, age, onCharacterNameUpdated, onNameUpdated, onAgeUpdated, onDelete, onRestart }: HeroNameEditorProps) {
+export function HeroNameEditor({ creationId, characterName, name, age, isAdmin = false, onCharacterNameUpdated, onNameUpdated, onAgeUpdated, onDelete, onRestart }: HeroNameEditorProps) {
   const [characterNameValue, setCharacterNameValue] = useState(characterName || '');
   const [nameValue, setNameValue] = useState(name || '');
   const [ageValue, setAgeValue] = useState(age?.toString() || '');
@@ -24,6 +25,18 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const handleCopyId = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(creationId);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
+  };
 
   // Sync with props when they change, but only sync if we're not currently editing
   // Use refs to track if we're in the middle of clearing a field
@@ -209,7 +222,13 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
     setIsRestarting(true);
     setError(null);
     try {
-      await api.runPipeline(creationId);
+      // Run all steps individually (new API design - independent step execution)
+      const allSteps = ['image_processing', 'openai_render', 'meshy_3d', 'meshy_rig', 'convert_vrm', 'complete'];
+      for (const stepName of allSteps) {
+        await api.runStep(creationId, stepName);
+        // Trigger immediate refresh after each step starts
+        window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId } }));
+      }
       setShowRestartConfirm(false);
       if (onRestart) {
         onRestart();
@@ -309,6 +328,34 @@ export function HeroNameEditor({ creationId, characterName, name, age, onCharact
             </button>
           )}
         </div>
+        {isAdmin && (
+          <div className="hero-name-editor-field-wrapper">
+            <span className="hero-name-editor-creation-id-label">Creation ID:</span>
+            <input
+              type="text"
+              value={creationId || ''}
+              readOnly
+              className="hero-name-editor-input-compact hero-name-editor-creation-id-input"
+            />
+            <button
+              type="button"
+              className="hero-name-editor-copy-id"
+              onClick={handleCopyId}
+              title="Copy creation ID"
+            >
+              {copySuccess ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              )}
+            </button>
+          </div>
+        )}
         <div className="hero-name-editor-actions">
           <button
             type="button"

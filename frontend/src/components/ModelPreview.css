@@ -6,13 +6,18 @@
   overflow: hidden;
   position: relative;
   flex: 1;
-  min-height: 200px;
+  min-height: 0; /* Allow shrinking */
 }
 
 .model-preview-container canvas {
   width: 100% !important;
   height: 100% !important;
   border-radius: 8px;
+}
+
+/* Non-interactive mode - disable mouse events on canvas */
+.model-preview-non-interactive canvas {
+  pointer-events: none;
 }
 
 .model-preview-loading {
@@ -66,28 +71,30 @@
   position: absolute;
   bottom: 10px;
   left: 10px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.6);
   color: white;
   border: none;
+  border-radius: 4px;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .model-preview-reset-camera {
-  left: 38px; /* Position next to rotation toggle */
+  left: 44px; /* Position next to rotation toggle */
 }
 
 .model-preview-rotation-toggle:hover,
 .model-preview-reset-camera:hover {
   opacity: 1;
+  background: rgba(0, 0, 0, 0.8);
 }
 
 .model-preview-rotation-toggle svg,
