@@ -33,8 +33,16 @@ OPENAI_IMAGE_MODEL_FALLBACK = os.getenv("OPENAI_IMAGE_MODEL_FALLBACK", None)  # 
 # VRM Converter Service Configuration
 # In docker-compose, services communicate via service name: http://vrm-converter:8000
 # For standalone/local: http://localhost:8001 (host) or http://localhost:8000 (container)
-# Default to docker-compose service name, fallback to localhost for local development
-VRM_CONVERTER_SERVICE_URL = os.getenv("VRM_CONVERTER_SERVICE_URL", "http://vrm-converter:8000")
+# Auto-detect: if VRM_CONVERTER_SERVICE_URL is not set, use Docker service name if in Docker,
+# otherwise use localhost:8001 for local development
+if os.getenv("VRM_CONVERTER_SERVICE_URL"):
+    VRM_CONVERTER_SERVICE_URL = os.getenv("VRM_CONVERTER_SERVICE_URL")
+else:
+    # Auto-detect: check if running in Docker
+    if os.path.exists("/.dockerenv"):
+        VRM_CONVERTER_SERVICE_URL = "http://vrm-converter:8000"  # Docker service name
+    else:
+        VRM_CONVERTER_SERVICE_URL = "http://localhost:8001"  # Local development
 VRM_CONVERTER_TIMEOUT = int(os.getenv("VRM_CONVERTER_TIMEOUT", "300"))  # 5 minutes default
 
 # CORS Configuration

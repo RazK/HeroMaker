@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Optional
-from sqlalchemy import Column, String, Boolean, DateTime, Text, JSON, ForeignKey, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Date, Text, JSON, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from app.database import Base
-from app.config.steps import STEPS
+from app.config.steps import STEPS, get_last_step
 
 class User(Base):
     __tablename__ = "users"
@@ -13,14 +13,27 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     google_id = Column(String, unique=True, index=True, nullable=True)
     username = Column(String, unique=True, index=True)
+    name = Column(String, nullable=True)  # User's real name (default for creation character_name)
+    date_of_birth = Column(Date, nullable=True)  # User's date of birth (used to calculate age)
     password_hash = Column(String, nullable=True)
-    tokens = Column(Integer, default=0)
+    credits = Column(Integer, default=0)
     is_admin = Column(Boolean, default=False)
     subscription_tier = Column(String, default='free')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     creations = relationship("Creation", back_populates="user")
+    
+    def calculate_age(self) -> Optional[int]:
+        """Calculate age from date_of_birth."""
+        if not self.date_of_birth:
+            return None
+        today = date.today()
+        age = today.year - self.date_of_birth.year
+        # Adjust if birthday hasn't occurred this year
+        if (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day):
+            age -= 1
+        return age
 
 class Creation(Base):
     __tablename__ = "creations"
@@ -28,7 +41,7 @@ class Creation(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"))
     character_name = Column(String, nullable=True)
-    name = Column(String, nullable=True)  # Person's name (for original image)
+    name = Column(String, nullable=True)  # Creator's name (user who created this)
     age = Column(Integer, nullable=True)  # Person's age (for original image)
     is_public = Column(Boolean, default=True)
     metadata_json = Column(JSON, default={}, name="metadata") # 'metadata' is reserved in Base
@@ -40,40 +53,28 @@ class Creation(Base):
     
     @property
     def status(self) -> str:
-        """Calculate status from steps: completed if all completed, failed if any failed, processing if any processing, else pending."""
+        """Calculate status: completed when last step done, failed if any failed, processing if any processing, else pending."""
         if not self.steps:
             return "pending"
         
-        step_statuses = [s.status for s in self.steps]
-        if all(s == "completed" for s in step_statuses):
-            return "completed"
-        elif any(s == "failed" for s in step_statuses):
-            return "failed"
-        elif any(s == "processing" for s in step_statuses):
-            return "processing"
-        return "pending"
-    
-    @property
-    def current_step(self) -> Optional[str]:
-        """Get current step: first processing step, or first pending step (in STEPS order)."""
-        if not self.steps:
-            return STEPS[0]["name"] if STEPS else None
-        
         steps_by_name = {s.step_name: s for s in self.steps}
         
-        # First processing step
-        for step_config in STEPS:
-            step = steps_by_name.get(step_config["name"])
-            if step and step.status == "processing":
-                return step_config["name"]
+        # Check if any step failed
+        if any(s.status == "failed" for s in self.steps):
+            return "failed"
         
-        # First pending step
-        for step_config in STEPS:
-            step = steps_by_name.get(step_config["name"])
-            if not step or step.status == "pending":
-                return step_config["name"]
+        # Check if any step is processing
+        if any(s.status == "processing" for s in self.steps):
+            return "processing"
         
-        return None
+        # Check if last step is completed (creation is done)
+        last_step = get_last_step()
+        if last_step:
+            last_step_record = steps_by_name.get(last_step["name"])
+            if last_step_record and last_step_record.status == "completed":
+                return "completed"
+        
+        return "pending"
     
     @property
     def completed_at(self) -> Optional[datetime]:
@@ -137,14 +138,15 @@ class CreationStep(Base):
 
 
 class Coupon(Base):
-    """Coupon codes that can be redeemed for tokens."""
+    """Coupon codes that can be redeemed for credits."""
     __tablename__ = "coupons"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     code = Column(String, unique=True, index=True, nullable=False)  # e.g., "HERO-XXXXXX"
-    token_amount = Column(Integer, nullable=False)  # Tokens awarded on redemption
+    credit_amount = Column(Integer, nullable=False)  # Credits awarded on redemption
     max_uses = Column(Integer, default=1)  # Maximum total redemptions (default: single-use)
     current_uses = Column(Integer, default=0)  # How many times it's been redeemed
+    allow_multiple_per_user = Column(Boolean, default=False)  # Allow same user to redeem multiple times
     expires_at = Column(DateTime, nullable=True)  # NULL = never expires
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

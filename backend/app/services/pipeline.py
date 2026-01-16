@@ -1,12 +1,14 @@
 """
-Pipeline Orchestration Service - Modular pipeline execution with synchronous step execution.
+Pipeline Orchestration Service - Async step execution with coroutines.
+Steps are executed as async coroutines with DB-level locking, reconciliation, and timeout support.
 """
 import time
 import logging
 import tempfile
-import shutil
+import threading
+import asyncio
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, List
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from sqlalchemy.orm import Session
@@ -14,14 +16,16 @@ from sqlalchemy.orm.attributes import flag_modified
 
 logger = logging.getLogger(__name__)
 
+# Note: Task tracking moved to TaskManager in app state (main.py)
+
 from app.models import Creation, CreationStep
-from app.config.steps import STEPS, get_step_by_name, get_total_creation_cost
-from app.services.tokens import get_balance, deduct_tokens
+from app.config.steps import STEPS, get_step_by_name, get_step_cost
 from app.database import SessionLocal
 from app.utils.file_utils import (
     check_file_exists,
     get_file_url,
-    upload_file_to_storage
+    upload_file_to_storage,
+    download_file_from_storage
 )
 from app.utils.storage import get_storage
 from app.services import image_processing
@@ -29,6 +33,7 @@ from app.services import openai as openai_service
 from app.services import meshy
 from app.services import vrm_conversion
 from app.services.meshy import MeshyClient, MeshyAPIError
+from app.services.credits import get_balance, deduct_credits
 
 
 # ============================================================================
@@ -77,6 +82,17 @@ def _reset_step(step: CreationStep) -> None:
     step.estimated_progress = None
     step.estimated_completion_time = None
     step.metadata_json = {}  # Clear step-specific metadata
+
+
+def _copy_file_from_mock_creation(mock_creation_id: str, filename: str, target_user_id: str, target_creation_id: str, db: Session) -> None:
+    """Copy a file from mock creation to target creation."""
+    mock_creation = db.query(Creation).filter(Creation.id == mock_creation_id).first()
+    if not mock_creation:
+        raise ValueError(f"Mock creation {mock_creation_id} not found")
+    
+    mock_user_id = mock_creation.user_id
+    file_data = download_file_from_storage(mock_user_id, mock_creation_id, filename)
+    upload_file_to_storage(target_user_id, target_creation_id, filename, file_data)
 
 
 @contextmanager
@@ -136,32 +152,6 @@ def _get_file_path_for_processing(creation_id: str, user_id: str, filename: str,
                     tmp_path.unlink()
 
 
-def _get_step_start_index(creation_id: str, restart: bool, db: Session) -> int:
-    """Determine starting index for pipeline execution.
-    
-    If restart=True: Start from step 0 (beginning).
-    If restart=False: Start from the first incomplete step (failed, pending, or processing).
-                     This effectively resumes from the last failed step if one exists,
-                     or from the first incomplete step otherwise.
-    """
-    if restart:
-        return 0
-    
-    # Find last completed step, start from next one (which may be failed, pending, or processing)
-    steps_by_name = {s.step_name: s for s in db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id
-    ).all()}
-    
-    start_index = 0
-    for i, step_config in enumerate(STEPS):
-        step = steps_by_name.get(step_config["name"])
-        if step and step.status == "completed":
-            start_index = i + 1
-        else:
-            # Found first incomplete step (failed, pending, or processing) - start from here
-            break
-    
-    return start_index
 
 
 # ============================================================================
@@ -343,141 +333,278 @@ def execute_meshy_rig_sync(
 
 
 # ============================================================================
-# Step Execution Logic
+# Step Coroutines (Async)
 # ============================================================================
 
-def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Session) -> dict:
+async def step_image_processing(creation_id: str, user_id: str, db: Session) -> None:
+    """Process image: original.jpg → processed.jpg"""
+    storage = get_storage()
+    loop = asyncio.get_event_loop()
+    
+    with _get_file_path_for_processing(creation_id, user_id, "original.jpg", "r") as input_path:
+        with _get_file_path_for_processing(creation_id, user_id, "processed.jpg", "w") as output_path:
+            await loop.run_in_executor(
+                None,
+                lambda: image_processing.process_image(input_path, output_path)
+            )
+
+
+async def step_openai_render(creation_id: str, user_id: str, db: Session) -> None:
+    """Render image: processed.jpg → rendered.png"""
+    storage = get_storage()
+    loop = asyncio.get_event_loop()
+    
+    with _get_file_path_for_processing(creation_id, user_id, "processed.jpg", "r") as input_path:
+        with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "w") as output_path:
+            await loop.run_in_executor(
+                None,
+                lambda: openai_service.render_image(input_path, output_path)
+            )
+
+
+async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
+    """Generate 3D model: rendered.png → model.glb"""
+    storage = get_storage()
+    loop = asyncio.get_event_loop()
+    client = MeshyClient()
+    
+    with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as input_path:
+        # Create task (sync call)
+        task_id = await loop.run_in_executor(
+            None,
+            lambda: client.create_image_to_3d_task(input_path, pose_mode="t-pose")
+        )
+        
+        logger.info(f"[{creation_id}] Meshy 3D task created: {task_id}")
+        
+        # Store task_id in DB for meshy_rig dependency
+        step = _get_creation_step(creation_id, "meshy_3d", db)
+        step.metadata_json = {"meshy_3d_task_id": task_id}
+        flag_modified(step, "metadata_json")
+        db.commit()
+        
+        # Poll and download (sync call)
+        with _get_file_path_for_processing(creation_id, user_id, "model.glb", "w") as output_path:
+            await loop.run_in_executor(
+                None,
+                lambda: execute_meshy_3d_sync(task_id, output_path, step, db, client)
+            )
+
+
+async def step_meshy_rig(creation_id: str, user_id: str, db: Session) -> None:
+    """Rig 3D model: model.glb → rigged.glb"""
+    storage = get_storage()
+    loop = asyncio.get_event_loop()
+    
+    # Get meshy_3d task_id from meshy_3d step metadata
+    meshy_3d_step = db.query(CreationStep).filter(
+        CreationStep.creation_id == creation_id,
+        CreationStep.step_name == "meshy_3d"
+    ).first()
+    
+    if not meshy_3d_step:
+        raise ValueError("meshy_3d step not found")
+    
+    step_metadata = meshy_3d_step.metadata_json or {}
+    input_task_id = step_metadata.get("meshy_3d_task_id")
+    if not input_task_id:
+        raise ValueError("No meshy_3d_task_id found in meshy_3d step metadata")
+    
+    client = MeshyClient()
+    step = _get_creation_step(creation_id, "meshy_rig", db)
+    
+    with _get_file_path_for_processing(creation_id, user_id, "rigged.glb", "w") as output_path:
+        await loop.run_in_executor(
+            None,
+            lambda: execute_meshy_rig_sync(input_task_id, output_path, step, db, client)
+        )
+
+
+async def step_convert_vrm(creation_id: str, user_id: str, db: Session) -> None:
+    """Convert GLB to VRM: rigged.glb → avatar.vrm"""
+    storage = get_storage()
+    loop = asyncio.get_event_loop()
+    
+    with _get_file_path_for_processing(creation_id, user_id, "rigged.glb", "r") as input_path:
+        with _get_file_path_for_processing(creation_id, user_id, "avatar.vrm", "w") as output_path:
+            # Try to find rendered.png as thumbnail
+            if storage.file_exists(user_id, creation_id, "rendered.png"):
+                with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as thumbnail_path:
+                    await loop.run_in_executor(
+                        None,
+                        lambda: vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=thumbnail_path)
+                    )
+            else:
+                await loop.run_in_executor(
+                    None,
+                    lambda: vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=None)
+                )
+
+
+# Step coroutine registry
+STEP_COROUTINES = {
+    "image_processing": step_image_processing,
+    "openai_render": step_openai_render,
+    "meshy_3d": step_meshy_3d,
+    "meshy_rig": step_meshy_rig,
+    "convert_vrm": step_convert_vrm,
+}
+
+
+def get_step_coroutine(step_name: str):
+    """Get step coroutine by name."""
+    return STEP_COROUTINES.get(step_name)
+
+
+# ============================================================================
+# Execute Step Function (Async) - Simplified
+# ============================================================================
+
+async def execute_step(
+    creation_id: str,
+    user_id: str,
+    step_name: str,
+    db: Session,
+    mock_creation_id: Optional[str] = None,
+    task_manager = None
+) -> dict:
     """
-    Execute a single step synchronously.
-    Validates dependencies, executes step, updates DB.
+    Execute a single step. Simplified flow (one step at a time invariant):
+    1. Validate step exists
+    2. Check input file exists
+    3. Check/deduct credits
+    4. Mark as processing
+    5. Execute step (or mock)
+    6. Mark completed/failed
     """
     step_config = get_step_by_name(step_name)
     if not step_config:
         raise ValueError(f"Step {step_name} not found")
     
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise ValueError(f"Creation {creation_id} not found")
+    storage = get_storage()
     
-    step = _get_creation_step(creation_id, step_name, db)
+    # Get step record
+    step = db.query(CreationStep).filter(
+        CreationStep.creation_id == creation_id,
+        CreationStep.step_name == step_name
+    ).first()
     
-    # Skip if already completed
-    if step.status == "completed":
-        return {"status": "completed"}
+    if not step:
+        raise ValueError(f"Step {step_name} not found")
     
-    # Reset if failed
+    # Reset step if retrying (failed state)
     if step.status == "failed":
         _reset_step(step)
+        db.commit()
     
-    # Validate dependencies
-    if step_config.get("depends_on"):
-        dep_step_config = get_step_by_name(step_config["depends_on"])
-        if dep_step_config and dep_step_config.get("output"):
-            dep_output = dep_step_config["output"]
-            if "{creation_id}" in dep_output:
-                dep_output = dep_output.format(creation_id=creation_id)
-            if not check_file_exists(creation_id, user_id, dep_output):
-                raise ValueError(f"Dependency {step_config['depends_on']} output not found: {dep_output}")
+    # Validate input file exists
+    input_filename = step_config.get("input")
+    if input_filename and not storage.file_exists(user_id, creation_id, input_filename):
+        step.status = "failed"
+        step.error_message = f"Input file not found: {input_filename}"
+        db.commit()
+        raise ValueError(f"Input file not found: {input_filename}")
     
-    # Update step: processing
-    step.started_at = datetime.utcnow()
-    step.status = "processing"
-    step.error_message = None
-    step.estimated_progress = None
+    # Validate meshy_rig dependency (needs meshy_3d task_id)
+    if step_name == "meshy_rig":
+        meshy_3d_step = db.query(CreationStep).filter(
+            CreationStep.creation_id == creation_id,
+            CreationStep.step_name == "meshy_3d"
+        ).first()
+        if not meshy_3d_step:
+            step.status = "failed"
+            step.error_message = "meshy_3d step not found"
+            db.commit()
+            raise ValueError("meshy_3d step not found")
+        
+        task_id = (meshy_3d_step.metadata_json or {}).get("meshy_3d_task_id")
+        if not task_id:
+            step.status = "failed"
+            step.error_message = "meshy_3d step must be completed first"
+            db.commit()
+            raise ValueError("meshy_3d step must be completed first")
     
-    # Initialize estimated_completion_time using estimated_duration if available
-    if step.estimated_duration:
-        step.estimated_completion_time = step.started_at + timedelta(seconds=step.estimated_duration)
-        logger.info(f"[{creation_id}] Starting step: {step_name} (estimated duration: {step.estimated_duration}s)")
-    else:
-        step.estimated_completion_time = None
-        logger.info(f"[{creation_id}] Starting step: {step_name}")
+    # Check and deduct credits
+    step_cost = step_config.get("credit_cost", 0)
+    if step_cost > 0:
+        balance = get_balance(user_id, db)
+        if balance < step_cost:
+            step.status = "failed"
+            step.error_message = f"Insufficient credits. Need {step_cost}, have {balance}"
+            db.commit()
+            raise ValueError(f"Insufficient credits. Need {step_cost}, have {balance}")
+        deduct_credits(user_id, step_cost, db, reason=f"step:{step_name}")
+        logger.info(f"[{creation_id}] Deducted {step_cost} credits for step {step_name}")
     
-    db.commit()
+    # Mark as processing (only if not already set by API endpoint)
+    if step.status != "processing" or not step.started_at:
+        step.started_at = datetime.utcnow()
+        step.status = "processing"
+        step.error_message = None
+        step.estimated_progress = None
+        if step_config.get("estimated_duration"):
+            step.estimated_completion_time = step.started_at + timedelta(
+                seconds=step_config["estimated_duration"]
+            )
+        else:
+            step.estimated_completion_time = None
+        db.commit()
+    logger.info(f"[{creation_id}] Starting step: {step_name}")
     
     # Execute step
     try:
-        output_filename = step_config.get("output")
+        # Check if cancelled before execution
+        db.refresh(step)
+        if step.status == "failed" and step.error_message == "Step cancelled by user":
+            return {"status": "cancelled"}
         
-        if step_name == "image_processing":
-            logger.info(f"[{creation_id}] Executing image_processing...")
-            with _get_file_path_for_processing(creation_id, user_id, step_config["input"], "r") as input_path:
-                with _get_file_path_for_processing(creation_id, user_id, output_filename, "w") as output_path:
-                    image_processing.process_image(input_path, output_path)
+        if mock_creation_id:
+            # Mock mode: Copy output file from mock creation
+            output_filename = step_config.get("output")
+            if not output_filename:
+                raise ValueError(f"Step {step_name} has no output file to copy")
             
-        elif step_name == "openai_render":
-            logger.info(f"[{creation_id}] Executing openai_render (this may take 1-2 minutes)...")
-            with _get_file_path_for_processing(creation_id, user_id, step_config["input"], "r") as input_path:
-                with _get_file_path_for_processing(creation_id, user_id, output_filename, "w") as output_path:
-                    openai_service.render_image(input_path, output_path)
+            logger.info(f"[{creation_id}] Mock mode: Copying {output_filename} from {mock_creation_id}")
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: _copy_file_from_mock_creation(
+                    mock_creation_id, output_filename, user_id, creation_id, db
+                )
+            )
             
-        elif step_name == "meshy_3d":
-            logger.info(f"[{creation_id}] Executing meshy_3d (this may take 3-5 minutes)...")
-            with _get_file_path_for_processing(creation_id, user_id, step_config["input"], "r") as input_path:
-                client = MeshyClient()
-                # Create task and get task_id before polling
-                logger.info(f"[{creation_id}] Creating Meshy 3D task...")
-                task_id = client.create_image_to_3d_task(input_path, pose_mode="t-pose")
-                logger.info(f"[{creation_id}] Meshy 3D task created: {task_id}, starting polling...")
-                # Store task_id in step metadata for meshy_rig dependency
-                step.metadata_json = {"meshy_3d_task_id": task_id}
-                flag_modified(step, "metadata_json")  # Tell SQLAlchemy the JSON field changed
-                db.commit()
-                # Poll and download (task already created)
-                with _get_file_path_for_processing(creation_id, user_id, output_filename, "w") as output_path:
-                    execute_meshy_3d_sync(task_id, output_path, step, db, client)
-            
-        elif step_name == "meshy_rig":
-            logger.info(f"[{creation_id}] Executing meshy_rig (this may take 3-5 minutes)...")
-            # Get meshy_3d task_id from meshy_3d step metadata
-            meshy_3d_step = db.query(CreationStep).filter(
-                CreationStep.creation_id == creation_id,
-                CreationStep.step_name == "meshy_3d"
-            ).first()
-            if not meshy_3d_step:
-                raise ValueError("meshy_3d step not found")
-            
-            step_metadata = meshy_3d_step.metadata_json or {}
-            input_task_id = step_metadata.get("meshy_3d_task_id")
-            if not input_task_id:
-                raise ValueError("No meshy_3d_task_id found in meshy_3d step metadata. meshy_3d step may need to be retried.")
-            
-            logger.info(f"[{creation_id}] Using meshy_3d_task_id from meshy_3d step: {input_task_id}")
-            client = MeshyClient()
-            logger.info(f"[{creation_id}] Creating Meshy rigging task for task_id: {input_task_id}...")
-            with _get_file_path_for_processing(creation_id, user_id, output_filename, "w") as output_path:
-                execute_meshy_rig_sync(input_task_id, output_path, step, db, client)
-            
-        elif step_name == "convert_vrm":
-            logger.info(f"[{creation_id}] Executing convert_vrm...")
-            with _get_file_path_for_processing(creation_id, user_id, step_config["input"], "r") as input_path:
-                # Always use avatar.vrm as output filename
-                with _get_file_path_for_processing(creation_id, user_id, "avatar.vrm", "w") as output_path:
-                    # Try to find rendered.png as thumbnail (from openai_render step)
-                    # Must keep thumbnail_path within its own context manager
-                    storage = get_storage()
-                    if storage.file_exists(user_id, creation_id, "rendered.png"):
-                        with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as thumbnail_path:
-                            vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=thumbnail_path)
-                    else:
-                        vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=None)
-            
-        elif step_name == "complete":
-            logger.info(f"[{creation_id}] Executing complete (validating final output exists)...")
-            # Just validate that the final output file exists
-            storage = get_storage()
-            if not storage.file_exists(user_id, creation_id, "avatar.vrm"):
-                raise FileNotFoundError(f"Final output file not found: avatar.vrm")
-            logger.info(f"[{creation_id}] Final output validated: avatar.vrm")
-            
+            # Copy meshy_3d metadata for meshy_rig dependency
+            if step_name == "meshy_3d":
+                mock_step = db.query(CreationStep).filter(
+                    CreationStep.creation_id == mock_creation_id,
+                    CreationStep.step_name == "meshy_3d"
+                ).first()
+                if mock_step and mock_step.metadata_json:
+                    step.metadata_json = mock_step.metadata_json.copy()
+                    flag_modified(step, "metadata_json")
+                    db.commit()
         else:
-            raise ValueError(f"Unknown step: {step_name}")
+            # Normal mode: Execute step coroutine
+            step_coro = get_step_coroutine(step_name)
+            if not step_coro:
+                raise ValueError(f"Step coroutine not found for {step_name}")
+            await step_coro(creation_id, user_id, db)
         
-        # Update step: completed
+        # Check if cancelled during execution
+        db.refresh(step)
+        if step.status == "failed" and step.error_message == "Step cancelled by user":
+            return {"status": "cancelled"}
+        
+        # Verify output file was created
+        output_filename = step_config.get("output")
+        if output_filename and not storage.file_exists(user_id, creation_id, output_filename):
+            raise FileNotFoundError(f"Output file {output_filename} was not created")
+        
+        # Mark as completed
         step.completed_at = datetime.utcnow()
         step.status = "completed"
         step.estimated_progress = 100
-        step.estimated_completion_time = step.completed_at  # Set to actual completion time
+        step.estimated_completion_time = step.completed_at
         duration = (step.completed_at - step.started_at).total_seconds()
         db.commit()
         logger.info(f"[{creation_id}] Step {step_name} completed in {duration:.1f}s")
@@ -485,97 +612,24 @@ def execute_step_sync(creation_id: str, user_id: str, step_name: str, db: Sessio
         return {"status": "completed"}
         
     except Exception as e:
-        # Update step: failed
-        # Re-query step to ensure we have a fresh object for commit
-        step = db.query(CreationStep).filter(
-            CreationStep.creation_id == creation_id,
-            CreationStep.step_name == step_name
-        ).first()
-        if step:
+        # Mark as failed (unless already cancelled)
+        db.refresh(step)
+        if not (step.status == "failed" and step.error_message == "Step cancelled by user"):
             step.status = "failed"
             step.error_message = str(e)
             db.commit()
-        logger.error(f"[{creation_id}] Step {step_name} failed: {str(e)}", exc_info=True)
+            logger.error(f"[{creation_id}] Step {step_name} failed: {str(e)}", exc_info=True)
         raise
 
 
 # ============================================================================
-# Pipeline Runner
+# Old code removed - replaced by async coroutines and execute_step()
+# Removed functions:
+# - execute_step_sync
+# - can_run_step  
+# - _execute_step_actual
+# - run_steps_sequential
+# - run_steps_sequential_async
+# - execute_step_sync_async
+# - get_task_key, register_task, unregister_task, get_task, cancel_task (global state)
 # ============================================================================
-
-def run_pipeline_sequential(creation_id: str, user_id: str, restart: bool, db: Session, start_from_step: Optional[str] = None) -> None:
-    """
-    Run pipeline sequentially from appropriate starting point.
-    Initializes/resets steps as needed, then executes each step in order.
-    
-    Args:
-        creation_id: Creation ID
-        user_id: User ID
-        restart: If True, restart from beginning. If False and start_from_step is None, resume from first incomplete step.
-        db: Database session
-        start_from_step: Optional step name to start from (overrides restart logic)
-    """
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise ValueError(f"Creation {creation_id} not found")
-
-    logger.info(f"[{creation_id}] Starting pipeline (restart={restart}, start_from_step={start_from_step})")
-
-    # Only charge tokens for fresh pipeline starts (restart=True AND start_from_step is None)
-    # Retries and resumptions don't cost tokens
-    if restart and start_from_step is None:
-        cost = get_total_creation_cost()
-        if cost > 0:
-            balance = get_balance(user_id, db)
-            if balance < cost:
-                raise ValueError(f"Insufficient tokens. Need {cost}, have {balance}")
-            deduct_tokens(user_id, cost, db, reason=f"Creation {creation_id}")
-            logger.info(f"[{creation_id}] Deducted {cost} tokens from user {user_id}")
-
-    # Initialize steps if needed
-    _initialize_creation_steps(creation_id, db)
-    
-    # Determine starting point
-    if start_from_step:
-        # Find the index of the step to start from
-        step_index = next((i for i, s in enumerate(STEPS) if s["name"] == start_from_step), None)
-        if step_index is None:
-            raise ValueError(f"Step {start_from_step} not found in STEPS")
-        start_index = step_index
-    else:
-        start_index = _get_step_start_index(creation_id, restart, db)
-    
-    # Reset incomplete steps to pending
-    steps_by_name = {s.step_name: s for s in db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id
-    ).all()}
-    
-    for i in range(start_index, len(STEPS)):
-        step_config = STEPS[i]
-        step = steps_by_name.get(step_config["name"])
-        if step:
-            _reset_step(step)
-    
-    db.commit()
-    
-    if start_index >= len(STEPS):
-        logger.info(f"[{creation_id}] All steps already completed")
-        return  # All steps complete
-    
-    logger.info(f"[{creation_id}] Starting from step {start_index + 1}/{len(STEPS)}: {STEPS[start_index]['name']}")
-    
-    # Execute steps sequentially
-    for i, step_config in enumerate(STEPS[start_index:], start=start_index + 1):
-        step_name = step_config["name"]
-        step = _get_creation_step(creation_id, step_name, db)
-        
-        # Skip if already completed
-        if step.status == "completed":
-            logger.info(f"[{creation_id}] Step {i}/{len(STEPS)}: {step_name} already completed, skipping")
-            continue
-        
-        logger.info(f"[{creation_id}] Step {i}/{len(STEPS)}: {step_name}")
-        # Execute step (blocks until complete)
-        execute_step_sync(creation_id, user_id, step_name, db)
-    
-    logger.info(f"[{creation_id}] Pipeline completed successfully")
