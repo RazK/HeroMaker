@@ -9,12 +9,12 @@ This script:
 2. Sets password hash for the debug user (password: HeroMaker1337!)
 3. Sets username to "debug" if not set
 4. Sets email to debug@heromaker.local if not set
-5. Sets tokens to 1000 for testing
+5. Sets credits to 1000 for testing
 6. Ensures all creations belong to this user
 
 Prerequisites:
 - Database must be accessible
-- Migrations must have been run (tokens column must exist)
+- Migrations must have been run (credits column must exist)
 """
 import os
 import sys
@@ -42,7 +42,7 @@ DEBUG_USER_ID = "debug-user-uuid"
 DEBUG_USER_EMAIL = "debug@heromaker.local"
 DEBUG_USERNAME = "debug"
 DEBUG_PASSWORD = "HeroMaker1337!"
-DEBUG_TOKENS = 1000
+DEBUG_CREDITS = 1000
 
 
 def migrate_debug_user():
@@ -61,7 +61,7 @@ def migrate_debug_user():
                 email=DEBUG_USER_EMAIL,
                 username=DEBUG_USERNAME,
                 password_hash=password_hash,
-                tokens=DEBUG_TOKENS,
+                credits=DEBUG_CREDITS,
                 is_admin=True
             )
             db.add(user)
@@ -72,20 +72,20 @@ def migrate_debug_user():
             user.username = DEBUG_USERNAME
             user.email = DEBUG_USER_EMAIL
             user.password_hash = password_hash
-            user.tokens = DEBUG_TOKENS
+            user.credits = DEBUG_CREDITS
             user.is_admin = True
         
         db.commit()
         # Use direct SQL update to ensure persistence
         password_hash_sql = hash_password(DEBUG_PASSWORD)
         db.execute(
-            text("UPDATE users SET username = :username, email = :email, password_hash = :password_hash, tokens = :tokens, is_admin = :is_admin WHERE id = :id"),
+            text("UPDATE users SET username = :username, email = :email, password_hash = :password_hash, credits = :credits, is_admin = :is_admin WHERE id = :id"),
             {
                 "id": DEBUG_USER_ID,
                 "username": DEBUG_USERNAME,
                 "email": DEBUG_USER_EMAIL,
                 "password_hash": password_hash_sql,
-                "tokens": DEBUG_TOKENS,
+                "credits": DEBUG_CREDITS,
                 "is_admin": True
             }
         )
@@ -99,7 +99,7 @@ def migrate_debug_user():
         print(f"   ID: {user.id}")
         print(f"   Username: {user.username}")
         print(f"   Email: {user.email}")
-        print(f"   Tokens: {user.tokens}")
+        print(f"   Credits: {user.credits}")
         print(f"   Password: {DEBUG_PASSWORD}")
         
         # Check for creations without user_id or with invalid user_id

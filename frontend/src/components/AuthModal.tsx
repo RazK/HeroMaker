@@ -13,6 +13,8 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -25,7 +27,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
     try {
       if (mode === 'signup') {
-        await api.signup(username, email, password);
+        await api.signup(username, email, password, name, dateOfBirth);
       } else {
         await api.login(username, password);
       }
@@ -46,6 +48,8 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setUsername('');
     setEmail('');
     setPassword('');
+    setName('');
+    setDateOfBirth('');
     setError(null);
     setMode('login');
     onClose();
@@ -98,18 +102,43 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </div>
 
           {mode === 'signup' && (
-            <div className="auth-modal-field">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                disabled={isLoading}
-              />
-            </div>
+            <>
+              <div className="auth-modal-field">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="auth-modal-field">
+                <label htmlFor="name">Name</label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="auth-modal-field">
+                <label htmlFor="dateOfBirth">Date of Birth</label>
+                <input
+                  id="dateOfBirth"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </>
           )}
 
           <div className="auth-modal-field">

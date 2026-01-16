@@ -48,7 +48,7 @@ def render_image(input_path: Path, output_path: Path) -> Path:
 
 Requirements:
 - Keep all original details: colors, clothing, accessories, features
-- Front view, full body visible, standing upright
+- Front view, full body visible, standing upright, fully contained in the view without cropping.
 - T-pose: arms extended horizontally, legs straight
 - White or simple background
 - High quality 3D render style, well-lit
