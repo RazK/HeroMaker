@@ -1,8 +1,13 @@
 .app {
-  height: 100vh;
-  max-height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* When viewing pipeline (not gallery), use fixed viewport height */
+.app:has(.app-pipeline-section) {
+  height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
 }
 
@@ -183,9 +188,13 @@
   width: 100%;
   margin: 0 auto;
   padding: 20px;
-  overflow: hidden; /* Prevent scroll - content must fit */
   display: flex;
   flex-direction: column;
+}
+
+/* Pipeline view: no scroll on main */
+.app:has(.app-pipeline-section) .app-main {
+  overflow: hidden;
 }
 
 
@@ -220,8 +229,6 @@
 .app-gallery-section {
   width: 100%;
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .app-uuid-load {
@@ -638,6 +645,8 @@
 }
 
 .post-upload-action-cost {
+  margin-left: 6px;
+  font-size: 12px;
   font-weight: 500;
   opacity: 0.9;
 }
