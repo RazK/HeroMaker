@@ -80,7 +80,7 @@ def get_current_user(
                 email=DEBUG_USER_EMAIL,
                 username="Debug User",
                 is_admin=True,
-                tokens=1000  # Give debug user tokens for testing
+                credits=1000  # Give debug user credits for testing
             )
             db.add(user)
             db.commit()

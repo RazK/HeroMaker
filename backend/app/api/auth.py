@@ -47,7 +47,9 @@ def signup(
         username=signup_data.username,
         email=signup_data.email,
         password_hash=hashed_password,
-        tokens=0  # New users start with 0 tokens
+        name=signup_data.name,
+        date_of_birth=signup_data.date_of_birth,
+        credits=0  # New users start with 0 credits
     )
     
     db.add(new_user)
@@ -103,9 +105,12 @@ def login(
 
 @router.get("/me", response_model=UserResponse)
 def get_me(
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Get current user information."""
+    # Refresh user from database to ensure we have the latest token balance
+    db.refresh(user)
     return UserResponse.from_user(user)
 
 

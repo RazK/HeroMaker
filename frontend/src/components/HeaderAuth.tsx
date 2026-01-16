@@ -8,7 +8,7 @@ interface User {
   id: string;
   username: string;
   email: string;
-  tokens: number;
+  credits: number;
   is_admin: boolean;
 }
 
@@ -27,9 +27,17 @@ export function HeaderAuth() {
     const handleUnauthorized = () => {
       setUser(null);
     };
+
+    const handleCreditsUpdated = async () => {
+      await checkAuth();
+    };
     
     window.addEventListener('auth:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    window.addEventListener('auth:credits-updated', handleCreditsUpdated);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      window.removeEventListener('auth:credits-updated', handleCreditsUpdated);
+    };
   }, []);
 
   // Close menu when clicking outside
@@ -74,7 +82,7 @@ export function HeaderAuth() {
 
   const handleCouponSuccess = (newBalance: number) => {
     if (user) {
-      setUser({ ...user, tokens: newBalance });
+      setUser({ ...user, credits: newBalance });
     }
   };
 
@@ -105,7 +113,7 @@ export function HeaderAuth() {
         onClick={() => setShowUserMenu(!showUserMenu)}
       >
         <span className="header-auth-username">{user.username}</span>
-        <span className="header-auth-tokens">🪙 {user.tokens}</span>
+        <span className="header-auth-credits">🪙 {user.credits}</span>
         <svg
           width="16"
           height="16"
@@ -124,13 +132,13 @@ export function HeaderAuth() {
           <div className="header-auth-menu-item header-auth-menu-user-info">
             <div className="header-auth-menu-username">{user.username}</div>
             <div className="header-auth-menu-email">{user.email}</div>
-            <div className="header-auth-menu-tokens">
-              Tokens: <strong>{user.tokens}</strong>
+            <div className="header-auth-menu-credits">
+              Credits: <strong>{user.credits}</strong>
             </div>
           </div>
           <div className="header-auth-menu-divider"></div>
           <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenCouponModal}>
-            Redeem Coupon
+            Redeem Coupon 🎟️
           </button>
           <button className="header-auth-menu-item header-auth-menu-logout" onClick={handleLogout}>
             Log Out

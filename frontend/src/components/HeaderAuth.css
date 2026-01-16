@@ -39,6 +39,34 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+@media (max-width: 768px) {
+  .header-auth-user-button {
+    padding: 8px 10px;
+    gap: 6px;
+    min-width: 36px;
+  }
+  
+  .header-auth-username {
+    display: none;
+  }
+  
+  .header-auth-credits {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  
+  .header-auth-button {
+    padding: 8px 10px;
+    font-size: 14px;
+    min-width: 36px;
+  }
+  
+  .header-auth-chevron {
+    width: 12px;
+    height: 12px;
+  }
+}
+
 .header-auth-user-button:hover {
   background: var(--bg-secondary);
   border-color: var(--primary-color);
@@ -52,7 +80,7 @@
   color: var(--text-primary);
 }
 
-.header-auth-tokens {
+.header-auth-credits {
   font-size: 12px;
   color: var(--text-secondary);
   display: flex;
@@ -120,12 +148,12 @@
   margin-bottom: 8px;
 }
 
-.header-auth-menu-tokens {
+.header-auth-menu-credits {
   font-size: 12px;
   color: var(--text-secondary);
 }
 
-.header-auth-menu-tokens strong {
+.header-auth-menu-credits strong {
   color: var(--text-primary);
   font-weight: 600;
 }
