@@ -69,23 +69,14 @@ def get_current_user(
 ) -> User:
     """
     Get the current authenticated user from JWT token.
-    Falls back to debug user if no token provided (for backward compatibility during migration).
+    Raises 401 if no token or invalid token.
     """
-    # If no credentials provided, fall back to debug user for backward compatibility
     if not credentials:
-        user = db.query(User).filter(User.id == DEBUG_USER_ID).first()
-        if not user:
-            user = User(
-                id=DEBUG_USER_ID,
-                email=DEBUG_USER_EMAIL,
-                username="Debug User",
-                is_admin=True,
-                credits=1000  # Give debug user credits for testing
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        return user
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     # Extract token and verify
     token = credentials.credentials
@@ -99,6 +90,40 @@ def get_current_user(
         )
     
     # Get user from database
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return user
+
+
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Get the current authenticated user from JWT token if provided.
+    Returns None if no token (for public endpoints).
+    Raises 401 only if token is provided but invalid.
+    """
+    if not credentials:
+        return None
+    
+    # Token provided - validate it
+    token = credentials.credentials
+    user_id = verify_access_token(token)
+    
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(
