@@ -58,7 +58,7 @@ class CreationResponse(BaseModel):
         response = cls(
             id=creation.id,
             character_name=creation.character_name,
-            name=creation.name,
+            name=creation.name or (creation.user.username if creation.user else None),
             age=creation.age,
             status=creation.status,
             user_id=creation.user_id,
