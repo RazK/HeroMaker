@@ -15,6 +15,8 @@ interface StepCardProps {
   outputFile?: string;  // From step config
   stepCost: number;  // From step config
   creditBalance?: number;
+  isLoggedIn: boolean;  // Whether user is logged in
+  canDownload: boolean;  // Whether user can download (owns creation or is admin)
   onStepRun?: (stepName: string) => void;
   onCreationRefresh?: () => Promise<void>;  // Called to refresh creation state after step starts
   onPreviewClick?: () => void;  // Called when 3D model is clicked to open modal
@@ -94,6 +96,8 @@ export function StepCard({
   outputFile,
   stepCost,
   creditBalance,
+  isLoggedIn,
+  canDownload,
   onStepRun,
   onCreationRefresh,
   onPreviewClick,
@@ -251,8 +255,11 @@ export function StepCard({
       );
     }
 
-    // Completed: show Download and Re-run buttons
+    // Completed: show Download and Re-run buttons (only for owners/admins)
     if (step.status === 'completed') {
+      if (!canDownload) {
+        return null; // Only owners or admins can download/redo
+      }
       const hasCredits = creditBalance === undefined || stepCost <= creditBalance;
       return (
         <div className="step-card-completed-buttons">

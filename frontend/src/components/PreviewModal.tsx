@@ -14,6 +14,7 @@ interface PreviewModalProps {
   outputFile: string;
   walkingUrl?: string | null;
   riggedUrl?: string | null;
+  canDownload: boolean;  // Whether user can download (owns creation or is admin)
 }
 
 export function PreviewModal({
@@ -27,6 +28,7 @@ export function PreviewModal({
   outputFile,
   walkingUrl,
   riggedUrl,
+  canDownload,
 }: PreviewModalProps) {
   if (!isOpen) return null;
 
@@ -68,11 +70,13 @@ export function PreviewModal({
             />
           )}
         </div>
-        <div className="preview-modal-footer">
-          <button className="preview-modal-download" onClick={handleDownload}>
-            Download
-          </button>
-        </div>
+        {canDownload && (
+          <div className="preview-modal-footer">
+            <button className="preview-modal-download" onClick={handleDownload}>
+              Download
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
