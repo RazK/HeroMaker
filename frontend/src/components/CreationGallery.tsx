@@ -18,7 +18,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, setTick] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'failed'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'failed'>('completed');
   const [ownershipFilter, setOwnershipFilter] = useState<'everyone' | 'my'>('everyone');
   const [user, setUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -81,8 +81,8 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     setIsLoading(true);
     setError(null);
     try {
-      // Determine if we should filter by user_id
-      const userId = (ownershipFilter === 'my' && user) ? user.id : undefined;
+      // Determine if we should filter to only user's creations
+      const mineOnly = ownershipFilter === 'my' && !!user;
       
       // Load all creations - start with a large limit
       let allCreations: CreationResponse[] = [];
@@ -91,7 +91,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
       let hasMore = true;
       
       while (hasMore) {
-        const result = await api.listCreations(limit, offset, userId);
+        const result = await api.listCreations(limit, offset, mineOnly);
         allCreations = [...allCreations, ...result.creations];
         
         console.log(`[CreationGallery] Loaded batch: offset=${offset}, count=${result.creations.length}, total so far=${allCreations.length}, filter=${ownershipFilter}`);
@@ -396,7 +396,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                     )}
                     <div className={`creation-gallery-overlay-bottom ${!isCompleted && progress !== null ? 'has-progress' : ''}`}>
                       <div className="creation-gallery-overlay-column creation-gallery-overlay-names">
-                        {isCompleted && hasBothImages ? (
+                        {hasBothImages ? (
                           <div className="creation-gallery-name-container">
                             {(creation.name || creation.age) && (
                               <div className="creation-gallery-name creation-gallery-name-original">
