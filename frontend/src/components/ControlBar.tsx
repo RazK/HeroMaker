@@ -5,11 +5,12 @@ import './ControlBar.css';
 interface ControlBarProps {
   creation: CreationResponse;
   isLoggedIn: boolean;
+  canDownload: boolean;  // Whether user can download (owns creation or is admin)
   onDelete?: () => void;
   onCreationRefresh?: () => Promise<void>;
 }
 
-export function ControlBar({ creation, isLoggedIn, onDelete, onCreationRefresh }: ControlBarProps) {
+export function ControlBar({ creation, isLoggedIn, canDownload, onDelete, onCreationRefresh }: ControlBarProps) {
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
@@ -29,8 +30,8 @@ export function ControlBar({ creation, isLoggedIn, onDelete, onCreationRefresh }
   );
   const hasStepsToRun = stepsToRun.length > 0;
 
-  // Hide entire control bar if not logged in and VRM not ready (nothing to show)
-  if (!isLoggedIn && !isVrmReady) {
+  // Hide entire control bar if not logged in (all actions require auth)
+  if (!isLoggedIn) {
     return null;
   }
 
@@ -169,8 +170,8 @@ export function ControlBar({ creation, isLoggedIn, onDelete, onCreationRefresh }
           </div>
         )}
 
-        {/* Download VRM button - show when ready */}
-        {isVrmReady && (
+        {/* Download VRM button - show when ready and user owns creation (or is admin) */}
+        {isVrmReady && canDownload && (
           <button
             className="control-bar-button control-bar-download"
             onClick={handleDownloadVrm}

@@ -20,7 +20,7 @@ function App() {
   const [showPostUploadActions, setShowPostUploadActions] = useState(false);
   const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
-  const [userInfo, setUserInfo] = useState<{ is_admin: boolean } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean } | null>(null);
 
   // Load step config on mount
   useEffect(() => {
@@ -42,7 +42,7 @@ function App() {
     try {
       const user = await api.getMe();
       setCreditBalance(user.credits);
-      setUserInfo({ is_admin: user.is_admin });
+      setUserInfo({ id: user.id, is_admin: user.is_admin });
       // Dispatch event to notify HeaderAuth to refresh
       window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
     } catch {
@@ -262,6 +262,8 @@ function App() {
               creation={creation}
               creditBalance={creditBalance}
               isLoggedIn={creditBalance !== undefined}
+              currentUserId={userInfo?.id}
+              isAdmin={userInfo?.is_admin ?? false}
               onStepRun={() => {
                 // Refresh credit balance after step starts
                 refreshCreditBalance();

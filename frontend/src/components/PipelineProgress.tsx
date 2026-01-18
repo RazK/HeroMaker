@@ -11,6 +11,8 @@ interface PipelineProgressProps {
   creation: CreationResponse;
   creditBalance?: number;
   isLoggedIn: boolean;
+  currentUserId?: string;
+  isAdmin: boolean;
   onStepRun?: (stepName: string) => void;
   onCreationRefresh?: () => Promise<void>;
   onDelete?: () => void;
@@ -40,7 +42,7 @@ export function calculateOverallProgress(creation: CreationResponse): number {
   return Math.round((completed / creation.steps.length) * 100);
 }
 
-export function PipelineProgress({ creation, creditBalance, isLoggedIn, onStepRun, onCreationRefresh, onDelete }: PipelineProgressProps) {
+export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentUserId, isAdmin, onStepRun, onCreationRefresh, onDelete }: PipelineProgressProps) {
   const [previewStep, setPreviewStep] = useState<CreationStepResponse | null>(null);
 
   // Filter out convert_vrm step - it's represented in the ControlBar
@@ -48,6 +50,9 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, onStepRu
   
   // Calculate which step is ready
   const readyStepName = getReadyStepName(creation.steps);
+  
+  // User can download/redo only their own creations (or if admin)
+  const canDownload = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
 
   // Get file URLs for preview modal
   const getPreviewData = (step: CreationStepResponse) => {
@@ -110,6 +115,8 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, onStepRu
               outputFile={config?.output_file}
               stepCost={config?.credit_cost || 0}
               creditBalance={creditBalance}
+              isLoggedIn={isLoggedIn}
+              canDownload={canDownload}
               onStepRun={onStepRun}
               onCreationRefresh={onCreationRefresh}
               onPreviewClick={() => handlePreviewClick(step)}
@@ -121,6 +128,7 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, onStepRu
       <ControlBar 
         creation={creation}
         isLoggedIn={isLoggedIn}
+        canDownload={canDownload}
         onDelete={onDelete}
         onCreationRefresh={onCreationRefresh}
       />
@@ -138,6 +146,7 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, onStepRu
           outputFile={previewData.outputFile}
           walkingUrl={previewData.walkingUrl}
           riggedUrl={previewData.riggedUrl}
+          canDownload={canDownload}
         />
       )}
     </div>
