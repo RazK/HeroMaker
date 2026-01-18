@@ -81,17 +81,15 @@ def get_creation(
 @router.get("/", response_model=List[CreationResponse])
 def list_creations(
         db: Session = Depends(get_db),
-        user: Optional[User] = Depends(get_current_user_optional)
+        user: Optional[User] = Depends(get_current_user_optional),
+        mine_only: bool = False
 ):
-    """List all creations. Public endpoint - shows all creations in gallery."""
-    if user and user.is_admin:
-        # Admins can see all creations
-        creations = db.query(Creation).order_by(Creation.updated_at.desc()).all()
-    elif user:
-        # Authenticated users see their own creations
+    """List creations. Public endpoint - shows all creations in gallery by default."""
+    if mine_only and user:
+        # Filter to only user's creations
         creations = db.query(Creation).filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
     else:
-        # Public gallery - show all creations
+        # Show all creations (public gallery)
         creations = db.query(Creation).order_by(Creation.updated_at.desc()).all()
     
     return [CreationResponse.from_creation(c) for c in creations]

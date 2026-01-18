@@ -213,12 +213,12 @@ export const api = {
   /**
    * List all creations
    */
-  async listCreations(limit: number = 50, offset: number = 0, userId?: string): Promise<{ creations: CreationResponse[]; total: number }> {
+  async listCreations(limit: number = 50, offset: number = 0, mineOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
     const params = new URLSearchParams();
     params.append('limit', String(limit));
     params.append('offset', String(offset));
-    if (userId) {
-      params.append('user_id', userId);
+    if (mineOnly) {
+      params.append('mine_only', 'true');
     }
     const result = await fetchJson<CreationResponse[]>(
       `${API_BASE_URL}/api/creations/?${params.toString()}`
@@ -226,7 +226,7 @@ export const api = {
     console.log('[API] listCreations result:', {
       count: result.length,
       total: result.length,
-      userId: userId || 'all',
+      mineOnly,
     });
     return { creations: result, total: result.length };
   },
@@ -349,15 +349,26 @@ export const api = {
   },
 
   /**
-   * Download a file
+   * Download a file (requires authentication)
    */
   async downloadFile(creationId: string, filename: string, userId?: string): Promise<void> {
-    const url = this.getFileUrl(creationId, filename, userId);
+    const effectiveUserId = userId || 'unknown';
+    const url = `${API_BASE_URL}/api/files/download/${effectiveUserId}/${creationId}/${filename}`;
     console.log('[API] downloadFile:', { creationId, filename, userId, url });
-    const response = await fetch(url);
+    
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       console.error('[API] downloadFile failed:', { status: response.status, filename });
+      if (response.status === 401) {
+        throw new ApiError(401, 'Authentication required to download files');
+      }
       throw new ApiError(response.status, `Failed to download file: ${filename}`);
     }
     
