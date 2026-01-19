@@ -1,0 +1,267 @@
+### Pipeline Refactor API Tests
+### Variables
+@baseUrl = http://localhost:8000
+@apiBase = {{baseUrl}}/api
+@token = 
+@creationId = 
+@mockCreationId = 
+
+### ============================================
+### 1. AUTHENTICATION
+### ============================================
+
+### Signup new user
+POST {{apiBase}}/auth/signup
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "testpass123",
+  "name": "Test User"
+}
+
+### Login
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "testpass123"
+}
+
+### Login as admin (if exists)
+POST {{apiBase}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "adminpass"
+}
+
+### Get current user (requires token)
+GET {{apiBase}}/auth/me
+Authorization: Bearer {{token}}
+
+### ============================================
+### 2. COST CALCULATION
+### ============================================
+
+### Get full pipeline cost (no auth required)
+GET {{apiBase}}/creations/cost
+
+### Get cost for specific steps
+GET {{apiBase}}/creations/cost?steps=openai_render,meshy_3d
+
+### Get cost for single step
+GET {{apiBase}}/creations/cost?steps=image_processing
+
+### Get cost for all steps explicitly
+GET {{apiBase}}/creations/cost?steps=image_processing,openai_render,meshy_3d,meshy_rig,convert_vrm,complete
+
+### ============================================
+### 3. CREATE CREATION (no pipeline run)
+### ============================================
+
+### Create creation with image upload
+POST {{apiBase}}/creations/create
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image_file"; filename="test.jpg"
+Content-Type: image/jpeg
+
+< ./test-image.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="character_name"
+
+Test Hero
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Create creation without character name
+POST {{apiBase}}/creations/create
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image_file"; filename="test.jpg"
+Content-Type: image/jpeg
+
+< ./test-image.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 4. GET CREATION
+### ============================================
+
+### Get creation details
+GET {{apiBase}}/creations/{{creationId}}
+Authorization: Bearer {{token}}
+
+### List all creations
+GET {{apiBase}}/creations/
+Authorization: Bearer {{token}}
+
+### ============================================
+### 5. RUN PIPELINE - Single Step
+### ============================================
+
+### Run single step (image_processing - free)
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["image_processing"]
+}
+
+### Run single step (openai_render - costs credits)
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["openai_render"]
+}
+
+### ============================================
+### 6. RUN PIPELINE - Multiple Steps
+### ============================================
+
+### Run first 3 steps
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["image_processing", "openai_render", "meshy_3d"]
+}
+
+### Run full pipeline
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["image_processing", "openai_render", "meshy_3d", "meshy_rig", "convert_vrm", "complete"]
+}
+
+### Run partial pipeline (skip first step)
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["meshy_3d", "meshy_rig", "convert_vrm"]
+}
+
+### ============================================
+### 7. MOCK MODE (Admin Only)
+### ============================================
+
+### Run with mock steps (admin only)
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["openai_render", "meshy_3d"],
+  "mock_steps": ["openai_render"],
+  "mock_creation_id": "{{mockCreationId}}"
+}
+
+### Run full pipeline with all steps mocked
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["image_processing", "openai_render", "meshy_3d", "meshy_rig", "convert_vrm", "complete"],
+  "mock_steps": ["openai_render", "meshy_3d", "meshy_rig", "convert_vrm"],
+  "mock_creation_id": "{{mockCreationId}}"
+}
+
+### ============================================
+### 8. ERROR CASES
+### ============================================
+
+### Invalid step name
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["invalid_step_name"]
+}
+
+### Empty steps list
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": []
+}
+
+### Mock steps not subset of steps
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["openai_render"],
+  "mock_steps": ["meshy_3d"],
+  "mock_creation_id": "{{mockCreationId}}"
+}
+
+### Mock steps without mock_creation_id
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["openai_render"],
+  "mock_steps": ["openai_render"]
+}
+
+### Invalid creation ID
+POST {{apiBase}}/creations/invalid-id-12345/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["image_processing"]
+}
+
+### Mock creation ID that doesn't exist
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["openai_render"],
+  "mock_steps": ["openai_render"],
+  "mock_creation_id": "non-existent-id"
+}
+
+### Non-admin trying to use mock mode
+POST {{apiBase}}/creations/{{creationId}}/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "steps": ["openai_render"],
+  "mock_steps": ["openai_render"],
+  "mock_creation_id": "{{mockCreationId}}"
+}
+
+### ============================================
+### 9. HEALTH & UTILITY
+### ============================================
+
+### Health check (no auth)
+GET {{baseUrl}}/health
+
+### API root
+GET {{baseUrl}}/

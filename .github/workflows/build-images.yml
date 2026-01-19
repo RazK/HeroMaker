@@ -170,6 +170,41 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # Deploy to Railway after builds complete (only on main branch, not PRs)
+  deploy:
+    needs: [build-backend, build-frontend, build-vrm-converter]
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      BACKEND_SERVICE_ID: 3970a673-db5b-4b2d-9456-93acf1da09bf
+      FRONTEND_SERVICE_ID: a71bc2c6-c912-475c-ab16-a5dbf0ba074e
+      VRM_CONVERTER_SERVICE_ID: e7afe8a4-ce76-4093-9122-72c498b4874f
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Backend
+        run: railway up --service=${{ env.BACKEND_SERVICE_ID }} --detach
+
+      - name: Deploy Frontend
+        run: railway up --service=${{ env.FRONTEND_SERVICE_ID }} --detach
+
+      - name: Deploy VRM Converter
+        run: railway up --service=${{ env.VRM_CONVERTER_SERVICE_ID }} --detach
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Services deployed to Railway:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Backend" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Frontend" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ VRM Converter" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Railway will run health checks automatically." >> $GITHUB_STEP_SUMMARY
+
   # Summary job that depends on all builds (for PR status checks)
   summary:
     needs: [changes, build-backend, build-frontend, build-vrm-converter]
