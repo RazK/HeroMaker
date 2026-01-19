@@ -49,6 +49,5 @@ assets/
 docs/
 *.md
 
-# Scripts
-scripts/
+# Scripts (keep .sh ignored, but include scripts/ for backup_database.py)
 *.sh
