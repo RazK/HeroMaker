@@ -213,7 +213,7 @@ function App() {
             >
               ×
             </button>
-            <h3>Image Uploaded!</h3>
+            <h3>Make My Hero!</h3>
             {uploadedFilePreview && (
               <div className="post-upload-actions-preview">
                 <img src={uploadedFilePreview} alt="Uploaded" />
@@ -225,7 +225,7 @@ function App() {
                 onClick={handleStartPipeline}
                 disabled={isStarting || (creditBalance !== undefined && pipelineCost > creditBalance)}
               >
-                <span>{isStarting ? 'Starting...' : 'Start'}</span>
+                <span>{isStarting ? 'Creating...' : 'Go'}</span>
                 {pipelineCost > 0 && <span className="post-upload-action-cost">🪙 {pipelineCost}</span>}
               </button>
               <button
