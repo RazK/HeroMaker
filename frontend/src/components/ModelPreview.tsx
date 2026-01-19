@@ -349,8 +349,8 @@ const modelCenterRef = { current: new THREE.Vector3(0, 0, 0) };
 const homeCameraPositionRef = { current: new THREE.Vector3(0, 0, 5) };
 
 function CameraController({ 
-  homePosition, 
-  homeTarget,
+  homePosition: _homePosition, 
+  homeTarget: _homeTarget,
   resetTrigger,
   interactive = true
 }: { 

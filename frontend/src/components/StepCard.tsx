@@ -96,7 +96,7 @@ export function StepCard({
   outputFile,
   stepCost,
   creditBalance,
-  isLoggedIn,
+  isLoggedIn: _isLoggedIn,
   canDownload,
   onStepRun,
   onCreationRefresh,
