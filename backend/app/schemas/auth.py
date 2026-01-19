@@ -96,3 +96,66 @@ class TokenResponse(BaseModel):
 class MessageResponse(BaseModel):
     message: str
 
+
+class UpdateProfileRequest(BaseModel):
+    """Request to update own profile (self-service)."""
+    name: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    current_password: Optional[str] = None  # Required if changing password
+    new_password: Optional[str] = None
+    
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            if not v.strip():
+                raise ValueError('Username cannot be empty')
+            return v.strip()
+        return v
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            if not v.strip():
+                raise ValueError('Email cannot be empty')
+            email = v.strip().lower()
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, email):
+                raise ValueError('Invalid email format')
+            return email
+        return v
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            if not v.strip():
+                raise ValueError('Name cannot be empty')
+            return v.strip()
+        return v
+    
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v) < 6:
+            raise ValueError('Password must be at least 6 characters long')
+        return v
+    
+    @field_validator('date_of_birth')
+    @classmethod
+    def validate_date_of_birth(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None:
+            if v > date.today():
+                raise ValueError('Date of birth cannot be in the future')
+            today = date.today()
+            age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
+            if age < 1:
+                raise ValueError('Date of birth must be at least 1 year ago')
+            if age > 150:
+                raise ValueError('Date of birth seems invalid (age would be over 150)')
+        return v
+

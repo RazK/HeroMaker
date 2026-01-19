@@ -263,13 +263,13 @@ export function StepCard({
       const hasCredits = creditBalance === undefined || stepCost <= creditBalance;
       return (
         <div className="step-card-completed-buttons">
-          <button
-            className="step-card-action-button step-card-action-download"
-            onClick={handleDownload}
-            title={`Download ${outputFile}`}
-          >
-            Download
-          </button>
+        <button
+          className="step-card-action-button step-card-action-download"
+          onClick={handleDownload}
+          title={`Download ${outputFile}`}
+        >
+          Download
+        </button>
           <button
             className="step-card-action-button step-card-action-run"
             onClick={() => {

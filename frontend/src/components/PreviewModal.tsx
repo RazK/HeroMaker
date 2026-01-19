@@ -71,11 +71,11 @@ export function PreviewModal({
           )}
         </div>
         {canDownload && (
-          <div className="preview-modal-footer">
-            <button className="preview-modal-download" onClick={handleDownload}>
-              Download
-            </button>
-          </div>
+        <div className="preview-modal-footer">
+          <button className="preview-modal-download" onClick={handleDownload}>
+            Download
+          </button>
+        </div>
         )}
       </div>
     </div>

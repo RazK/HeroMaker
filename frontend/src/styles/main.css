@@ -132,6 +132,62 @@ button {
   font-size: inherit;
 }
 
+/* Shared header button styles */
+.header-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+}
+
+.header-button:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.header-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.header-button-icon {
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.header-button-text {
+  display: inline;
+}
+
+@media (max-width: 900px) {
+  .header-button-text {
+    display: none;
+  }
+  
+  .header-button {
+    padding: 8px 10px;
+    min-width: 36px;
+  }
+  
+  .header-button-icon {
+    font-size: 16px;
+  }
+}
+
 
 
 

@@ -278,12 +278,12 @@ export function HeroNameEditor({ creationId, characterName, name, age, isAdmin =
         </div>
         {isAdmin && (
           <div className="hero-name-editor-field-wrapper">
-            <span className="hero-name-editor-creation-id-label">Creation ID:</span>
             <input
               type="text"
               value={creationId || ''}
               readOnly
               className="hero-name-editor-input-compact hero-name-editor-creation-id-input"
+              title="Creation ID"
             />
             <button
               type="button"
