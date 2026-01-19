@@ -5,30 +5,30 @@ on:
     branches: [main]
   workflow_dispatch: # Allow manual triggering
 
+env:
+  # Service IDs from Railway project "hero-maker"
+  BACKEND_SERVICE_ID: 3970a673-db5b-4b2d-9456-93acf1da09bf
+  FRONTEND_SERVICE_ID: a71bc2c6-c912-475c-ab16-a5dbf0ba074e
+  VRM_CONVERTER_SERVICE_ID: e7afe8a4-ce76-4093-9122-72c498b4874f
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
       - name: Deploy Backend
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service backend --detach
+        run: railway up --service=${{ env.BACKEND_SERVICE_ID }} --detach
 
       - name: Deploy Frontend
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service frontend --detach
+        run: railway up --service=${{ env.FRONTEND_SERVICE_ID }} --detach
 
       - name: Deploy VRM Converter
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service vrm-converter --detach
+        run: railway up --service=${{ env.VRM_CONVERTER_SERVICE_ID }} --detach
 
       - name: Deployment Summary
         run: |
@@ -38,5 +38,3 @@ jobs:
           echo "- ✅ Backend" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Frontend" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ VRM Converter" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Railway will run health checks automatically." >> $GITHUB_STEP_SUMMARY
