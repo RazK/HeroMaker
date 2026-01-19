@@ -2,20 +2,27 @@ import { useState, useEffect, useRef } from 'react';
 import { api, getAuthToken } from '../api/client';
 import { AuthModal } from './AuthModal';
 import { CouponRedeem } from './CouponRedeem';
+import { ProfileModal } from './ProfileModal';
 import './HeaderAuth.css';
 
 interface User {
   id: string;
   username: string;
   email: string;
+  name: string | null;
   credits: number;
   is_admin: boolean;
 }
 
-export function HeaderAuth() {
+interface HeaderAuthProps {
+  onOpenAdmin?: () => void;
+}
+
+export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +98,22 @@ export function HeaderAuth() {
     setShowCouponModal(true);
   };
 
+  const handleOpenProfile = () => {
+    setShowUserMenu(false);
+    setShowProfileModal(true);
+  };
+
+  const handleOpenAdmin = () => {
+    setShowUserMenu(false);
+    if (onOpenAdmin) {
+      onOpenAdmin();
+    }
+  };
+
+  const handleProfileUpdated = async () => {
+    await checkAuth();
+  };
+
   if (!user) {
     return (
       <>
@@ -108,11 +131,23 @@ export function HeaderAuth() {
 
   return (
     <div className="header-auth" ref={menuRef}>
+      {/* Admin button - only visible for admins */}
+      {user.is_admin && (
+        <button
+          className="header-button"
+          onClick={handleOpenAdmin}
+          title="Admin Panel"
+        >
+          <span className="header-button-text">Admin</span>
+          <span className="header-button-icon">⚙️</span>
+        </button>
+      )}
+
       <button
-        className="header-auth-user-button"
+        className="header-button header-auth-user-button"
         onClick={() => setShowUserMenu(!showUserMenu)}
       >
-        <span className="header-auth-username">{user.username}</span>
+        <span className="header-button-text">{user.username}</span>
         <span className="header-auth-credits">🪙 {user.credits}</span>
         <svg
           width="16"
@@ -137,6 +172,9 @@ export function HeaderAuth() {
             </div>
           </div>
           <div className="header-auth-menu-divider"></div>
+          <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenProfile}>
+            Edit Profile ✏️
+          </button>
           <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenCouponModal}>
             Redeem Coupon 🎟️
           </button>
@@ -145,10 +183,18 @@ export function HeaderAuth() {
           </button>
         </div>
       )}
+
       <CouponRedeem
         isOpen={showCouponModal}
         onClose={() => setShowCouponModal(false)}
         onSuccess={handleCouponSuccess}
+      />
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        onProfileUpdated={handleProfileUpdated}
       />
     </div>
   );

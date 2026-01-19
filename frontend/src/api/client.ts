@@ -514,7 +514,151 @@ export const api = {
     );
     return result;
   },
+
+  /**
+   * Update current user's profile (self-service)
+   */
+  async updateProfile(data: {
+    name?: string;
+    username?: string;
+    email?: string;
+    date_of_birth?: string;
+    current_password?: string;
+    new_password?: string;
+  }): Promise<any> {
+    console.log('[API] updateProfile:', { ...data, current_password: data.current_password ? '***' : undefined, new_password: data.new_password ? '***' : undefined });
+    const result = await fetchJson<any>(
+      `${API_BASE_URL}/api/auth/me`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      }
+    );
+    console.log('[API] updateProfile success');
+    return result;
+  },
+
+  /**
+   * Admin API methods
+   */
+  admin: {
+    // Users
+    async listUsers(): Promise<AdminUserResponse[]> {
+      console.log('[API] admin.listUsers');
+      const result = await fetchJson<AdminUserResponse[]>(`${API_BASE_URL}/api/admin/users`);
+      console.log('[API] admin.listUsers success:', { count: result.length });
+      return result;
+    },
+
+    async updateUser(userId: string, data: { credits?: number; is_admin?: boolean }): Promise<AdminUserResponse> {
+      console.log('[API] admin.updateUser:', { userId, data });
+      const result = await fetchJson<AdminUserResponse>(
+        `${API_BASE_URL}/api/admin/users/${userId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        }
+      );
+      console.log('[API] admin.updateUser success');
+      return result;
+    },
+
+    async deleteUser(userId: string): Promise<void> {
+      console.log('[API] admin.deleteUser:', { userId });
+      await fetchJson<{ message: string }>(
+        `${API_BASE_URL}/api/admin/users/${userId}`,
+        { method: 'DELETE' }
+      );
+      console.log('[API] admin.deleteUser success');
+    },
+
+    // Coupons
+    async listCoupons(): Promise<AdminCouponResponse[]> {
+      console.log('[API] admin.listCoupons');
+      const result = await fetchJson<AdminCouponResponse[]>(`${API_BASE_URL}/api/admin/coupons`);
+      console.log('[API] admin.listCoupons success:', { count: result.length });
+      return result;
+    },
+
+    async createCoupon(data: {
+      code: string;
+      credit_amount: number;
+      max_uses?: number;
+      allow_multiple_per_user?: boolean;
+      expires_at?: string;
+    }): Promise<AdminCouponResponse> {
+      console.log('[API] admin.createCoupon:', { code: data.code, credit_amount: data.credit_amount });
+      const result = await fetchJson<AdminCouponResponse>(
+        `${API_BASE_URL}/api/admin/coupons`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        }
+      );
+      console.log('[API] admin.createCoupon success');
+      return result;
+    },
+
+    async updateCoupon(couponId: string, data: { is_active?: boolean }): Promise<AdminCouponResponse> {
+      console.log('[API] admin.updateCoupon:', { couponId, data });
+      const result = await fetchJson<AdminCouponResponse>(
+        `${API_BASE_URL}/api/admin/coupons/${couponId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        }
+      );
+      console.log('[API] admin.updateCoupon success');
+      return result;
+    },
+
+    async deleteCoupon(couponId: string): Promise<void> {
+      console.log('[API] admin.deleteCoupon:', { couponId });
+      await fetchJson<{ message: string }>(
+        `${API_BASE_URL}/api/admin/coupons/${couponId}`,
+        { method: 'DELETE' }
+      );
+      console.log('[API] admin.deleteCoupon success');
+    },
+  },
 };
+
+// Admin types
+export interface CreationStats {
+  completed: number;
+  failed: number;
+  in_progress: number;
+}
+
+export interface AdminUserResponse {
+  id: string;
+  username: string;
+  email: string;
+  name: string | null;
+  date_of_birth: string | null;
+  credits: number;
+  is_admin: boolean;
+  created_at: string;
+  creation_stats: CreationStats;
+}
+
+export interface AdminCouponResponse {
+  id: string;
+  code: string;
+  credit_amount: number;
+  max_uses: number;
+  current_uses: number;
+  allow_multiple_per_user: boolean;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
 
 export { ApiError };
 

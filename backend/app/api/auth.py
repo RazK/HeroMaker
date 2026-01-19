@@ -7,7 +7,8 @@ from app.schemas.auth import (
     LoginRequest,
     UserResponse,
     TokenResponse,
-    MessageResponse
+    MessageResponse,
+    UpdateProfileRequest
 )
 from app.services.auth import (
     hash_password,
@@ -15,6 +16,7 @@ from app.services.auth import (
     create_access_token,
     get_current_user
 )
+from app.services.users import update_user
 
 router = APIRouter()
 
@@ -111,6 +113,64 @@ def get_me(
     """Get current user information."""
     # Refresh user from database to ensure we have the latest token balance
     db.refresh(user)
+    return UserResponse.from_user(user)
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_me(
+    update_data: UpdateProfileRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user's profile."""
+    # Check if trying to change password
+    if update_data.new_password:
+        if not update_data.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required to change password"
+            )
+        if not verify_password(update_data.current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+    
+    # Check username uniqueness if changing
+    if update_data.username and update_data.username != user.username:
+        existing = db.query(User).filter(User.username == update_data.username).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+    
+    # Check email uniqueness if changing
+    if update_data.email and update_data.email != user.email:
+        existing = db.query(User).filter(User.email == update_data.email).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+    
+    # Build update kwargs
+    update_kwargs = {}
+    if update_data.name is not None:
+        update_kwargs["name"] = update_data.name
+    if update_data.username is not None:
+        update_kwargs["username"] = update_data.username
+    if update_data.email is not None:
+        update_kwargs["email"] = update_data.email
+    if update_data.date_of_birth is not None:
+        update_kwargs["date_of_birth"] = update_data.date_of_birth
+    if update_data.new_password:
+        update_kwargs["password_hash"] = hash_password(update_data.new_password)
+    
+    if update_kwargs:
+        updated_user = update_user(user.id, db, **update_kwargs)
+        return UserResponse.from_user(updated_user)
+    
     return UserResponse.from_user(user)
 
 

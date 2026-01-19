@@ -31,22 +31,22 @@ export function HeaderUploadButtons({ onUpload, onStartWebcam, disabled = false,
   return (
     <div className="header-upload-buttons">
       <button
-        className="header-upload-button"
+        className="header-button"
         onClick={onStartWebcam}
         disabled={disabled}
         title="Capture with webcam"
       >
-        <span className="header-upload-button-text">Capture</span>
-        <span>🤳</span>
+        <span className="header-button-text">Capture</span>
+        <span className="header-button-icon">🤳</span>
       </button>
       <button
-        className="header-upload-button"
+        className="header-button"
         onClick={handleClick}
         disabled={disabled}
         title="Upload image"
       >
-        <span className="header-upload-button-text">Upload</span>
-        <span>📤</span>
+        <span className="header-button-text">Upload</span>
+        <span className="header-button-icon">📤</span>
       </button>
       <input
         ref={fileInputRef}

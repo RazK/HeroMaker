@@ -1,7 +1,11 @@
 .header-auth {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   position: relative;
 }
 
+/* Login button - primary colored */
 .header-auth-button {
   padding: 12px 20px;
   background: var(--primary-color);
@@ -25,40 +29,42 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-.header-auth-user-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 768px) {
-  .header-auth-user-button {
-    padding: 8px 10px;
-    gap: 6px;
-    min-width: 36px;
-  }
-  
-  .header-auth-username {
-    display: none;
-  }
-  
-  .header-auth-credits {
-    font-size: 14px;
-    font-weight: 600;
-  }
-  
+@media (max-width: 900px) {
   .header-auth-button {
     padding: 8px 10px;
     font-size: 14px;
     min-width: 36px;
+  }
+}
+
+/* User button - extends header-button, minimal overrides */
+.header-auth-user-button {
+  /* Inherits from .header-button */
+}
+
+.header-auth-credits {
+  font-size: 14px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.header-auth-chevron {
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.header-auth-chevron.open {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 900px) {
+  .header-auth-credits {
+    font-size: 14px;
+    font-weight: 600;
   }
   
   .header-auth-chevron {
@@ -67,36 +73,7 @@
   }
 }
 
-.header-auth-user-button:hover {
-  background: var(--bg-secondary);
-  border-color: var(--primary-color);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
-}
-
-.header-auth-username {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.header-auth-credits {
-  font-size: 12px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.header-auth-chevron {
-  color: var(--text-secondary);
-  transition: transform 0.2s;
-}
-
-.header-auth-chevron.open {
-  transform: rotate(180deg);
-}
-
+/* Dropdown menu */
 .header-auth-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -129,7 +106,7 @@
 
 .header-auth-menu-user-info {
   cursor: default;
-  padding: 16px;
+  padding: 16px 16px 12px 16px;
 }
 
 .header-auth-menu-user-info:hover {
@@ -180,4 +157,3 @@
 .header-auth-menu-logout:hover {
   background: rgba(255, 68, 68, 0.1);
 }
-

@@ -5,6 +5,7 @@ import { HeaderAuth } from './components/HeaderAuth';
 import { PipelineProgress } from './components/PipelineProgress';
 import { CreationGallery } from './components/CreationGallery';
 import { HeroNameEditor } from './components/HeroNameEditor';
+import { AdminPanel } from './components/AdminPanel';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
@@ -21,6 +22,7 @@ function App() {
   const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean } | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // Load step config on mount
   useEffect(() => {
@@ -169,6 +171,7 @@ function App() {
           onClick={() => {
             setCreation(null);
             setError(null);
+            setShowAdminPanel(false);
             // Scroll to top smoothly
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
@@ -178,7 +181,7 @@ function App() {
           <h1>HeroMaker</h1>
         </div>
         <div className="app-header-right">
-          <HeaderAuth />
+          <HeaderAuth onOpenAdmin={() => setShowAdminPanel(true)} />
         </div>
       </header>
       
@@ -232,7 +235,12 @@ function App() {
           </div>
         )}
 
-        {!creation ? (
+        {showAdminPanel && userInfo ? (
+          <AdminPanel
+            onClose={() => setShowAdminPanel(false)}
+            currentUserId={userInfo.id}
+          />
+        ) : !creation ? (
           <div className="app-gallery-section">
             <CreationGallery 
               onSelectCreation={handleSelectCreation}

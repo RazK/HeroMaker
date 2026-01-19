@@ -1,13 +1,7 @@
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-/* When viewing pipeline (not gallery), use fixed viewport height */
-.app:has(.app-pipeline-section) {
-  height: 100vh;
-  max-height: 100vh;
   overflow: hidden;
 }
 
@@ -190,11 +184,12 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 /* Pipeline view: no scroll on main */
 .app:has(.app-pipeline-section) .app-main {
-  overflow: hidden;
+  overflow-y: hidden;
 }
 
 
@@ -571,6 +566,7 @@
   margin: 0 0 8px 0;
   font-size: 24px;
   color: var(--text-primary);
+  text-align: center;
 }
 
 .post-upload-actions-modal p {
