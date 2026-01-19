@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import bcrypt
 from app.database import get_db
 from app.models import User
-from app.config.settings import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRATION_HOURS
+from app.config.settings import get_jwt_secret_key, JWT_ALGORITHM, JWT_EXPIRATION_HOURS
 
 # Debug user constant for V2 (kept for backward compatibility during migration)
 DEBUG_USER_ID = "debug-user-uuid"
@@ -44,7 +44,7 @@ def create_access_token(user_id: str) -> str:
         "exp": int(expire.timestamp()),   # Expiration time (unix timestamp)
         "iat": int(now.timestamp())  # Issued at (unix timestamp)
     }
-    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    token = jwt.encode(payload, get_jwt_secret_key(), algorithm=JWT_ALGORITHM)
     return token
 
 
@@ -54,7 +54,7 @@ def verify_access_token(token: str) -> Optional[str]:
     Returns None if token is invalid or expired.
     """
     try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, get_jwt_secret_key(), algorithms=[JWT_ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             return None

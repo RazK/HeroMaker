@@ -59,34 +59,36 @@ S3_REGION = os.getenv("S3_REGION", "auto")  # Railway default region
 
 # JWT Authentication Configuration
 # Security: JWT_SECRET_KEY must be set explicitly in production
-# In development (DEBUG=True), we allow a default but warn about it
+# We defer the error until JWT is actually used, so healthchecks work without it
 _jwt_secret_key = os.getenv("JWT_SECRET_KEY")
-if not _jwt_secret_key:
-    if DEBUG:
-        # Development mode: use a default but warn
-        import warnings
-        warnings.warn(
-            "JWT_SECRET_KEY not set! Using insecure default for development only. "
-            "Set JWT_SECRET_KEY environment variable for production.",
-            UserWarning
-        )
-        JWT_SECRET_KEY = "change-this-secret-key-in-production"
-    else:
-        # Production mode: fail loudly if not set
+if not _jwt_secret_key and DEBUG:
+    # Development mode: use a default but warn
+    import warnings
+    warnings.warn(
+        "JWT_SECRET_KEY not set! Using insecure default for development only. "
+        "Set JWT_SECRET_KEY environment variable for production.",
+        UserWarning
+    )
+    _jwt_secret_key = "change-this-secret-key-in-production"
+
+# Store the raw value - validation happens when actually used
+JWT_SECRET_KEY = _jwt_secret_key
+
+def get_jwt_secret_key() -> str:
+    """Get JWT secret key, raising error if not configured in production."""
+    if not JWT_SECRET_KEY:
         raise ValueError(
-            "JWT_SECRET_KEY environment variable is required in production. "
+            "JWT_SECRET_KEY environment variable is required for authentication. "
             "Set it to a secure random string (e.g., 32+ characters)."
         )
-else:
-    JWT_SECRET_KEY = _jwt_secret_key
-    # Warn if using the default value even when explicitly set
-    if JWT_SECRET_KEY == "change-this-secret-key-in-production":
+    if JWT_SECRET_KEY == "change-this-secret-key-in-production" and not DEBUG:
         import warnings
         warnings.warn(
             "JWT_SECRET_KEY is set to the default insecure value! "
             "Change it to a secure random string in production.",
             UserWarning
         )
+    return JWT_SECRET_KEY
 
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
