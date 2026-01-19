@@ -445,25 +445,6 @@ export const api = {
   },
 
   /**
-   * Validate a coupon code and get its value without redeeming it
-   */
-  async validateCoupon(code: string): Promise<{ valid: boolean; credits: number; message: string }> {
-    console.log('[API] validateCoupon:', { code });
-    const result = await fetchJson<{ valid: boolean; credits: number; message: string }>(
-      `${API_BASE_URL}/api/coupons/validate`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      }
-    );
-    console.log('[API] validateCoupon success:', result);
-    return result;
-  },
-
-  /**
    * Redeem a coupon code for credits
    */
   async redeemCoupon(code: string): Promise<{ success: boolean; message: string; credits_added: number; new_balance: number }> {

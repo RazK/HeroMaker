@@ -23,10 +23,3 @@ class CouponRedeemResponse(BaseModel):
     message: str
     credits_added: int
     new_balance: int
-
-
-class CouponValidateResponse(BaseModel):
-    """Response from coupon validation/preview."""
-    valid: bool
-    credits: int
-    message: str
