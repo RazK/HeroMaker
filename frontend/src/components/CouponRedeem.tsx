@@ -13,74 +13,24 @@ export function CouponRedeem({ isOpen, onClose, onSuccess }: CouponRedeemProps) 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ message: string; creditsAdded: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [couponCredits, setCouponCredits] = useState<number | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationStatus, setValidationStatus] = useState<'valid' | 'invalid' | null>(null);
-
-  const validateCoupon = async () => {
-    if (!code.trim()) {
-      setCouponCredits(null);
-      setError(null);
-      setValidationStatus(null);
-      return;
-    }
-
-    setIsValidating(true);
-    setError(null);
-    try {
-      const result = await api.validateCoupon(code.trim());
-      if (result.valid) {
-        setCouponCredits(result.credits);
-        setError(null);
-        setValidationStatus('valid');
-      } else {
-        setCouponCredits(null);
-        setError(result.message);
-        setValidationStatus('invalid');
-      }
-    } catch (err) {
-      setCouponCredits(null);
-      setValidationStatus('invalid');
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Failed to validate coupon code');
-      }
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const handleClearCode = () => {
-    setCode('');
-    setError(null);
-    setCouponCredits(null);
-    setValidationStatus(null);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      validateCoupon();
-    }
-  };
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!code.trim()) return;
+    
     setError(null);
     setSuccess(null);
     setIsLoading(true);
 
     try {
-      const result = await api.redeemCoupon(code);
+      const result = await api.redeemCoupon(code.trim());
       setSuccess({
         message: result.message,
         creditsAdded: result.credits_added,
       });
       onSuccess(result.new_balance);
-      // Clear the code input after success
       setCode('');
     } catch (err) {
       if (err instanceof ApiError) {
@@ -97,9 +47,12 @@ export function CouponRedeem({ isOpen, onClose, onSuccess }: CouponRedeemProps) 
     setCode('');
     setError(null);
     setSuccess(null);
-    setCouponCredits(null);
-    setValidationStatus(null);
     onClose();
+  };
+
+  const handleClearCode = () => {
+    setCode('');
+    setError(null);
   };
 
   return (
@@ -108,7 +61,7 @@ export function CouponRedeem({ isOpen, onClose, onSuccess }: CouponRedeemProps) 
         <button className="coupon-modal-close" onClick={handleClose}>×</button>
 
         <h2 className="coupon-modal-title">Redeem Coupon 🎟️</h2>
-        <p className="coupon-modal-subtitle">Enter your coupon code to add credits to your account</p>
+        <p className="coupon-modal-subtitle">Enter your coupon code to add credits</p>
 
         <form className="coupon-modal-form" onSubmit={handleSubmit}>
           {error && (
@@ -131,11 +84,8 @@ export function CouponRedeem({ isOpen, onClose, onSuccess }: CouponRedeemProps) 
                 value={code}
                 onChange={(e) => {
                   setCode(e.target.value.toUpperCase());
-                  setCouponCredits(null);
                   setError(null);
-                  setValidationStatus(null);
                 }}
-                onKeyDown={handleKeyDown}
                 placeholder="e.g., HERO-ABC123"
                 required
                 disabled={isLoading}
@@ -143,7 +93,7 @@ export function CouponRedeem({ isOpen, onClose, onSuccess }: CouponRedeemProps) 
                 autoFocus
                 className="coupon-modal-input"
               />
-              {code && (
+              {code && !isLoading && (
                 <button
                   type="button"
                   className="coupon-modal-icon coupon-modal-clear"
@@ -154,36 +104,26 @@ export function CouponRedeem({ isOpen, onClose, onSuccess }: CouponRedeemProps) 
                   ×
                 </button>
               )}
-              {isValidating ? (
-                <span className="coupon-modal-icon coupon-modal-status-loading">⏳</span>
-              ) : validationStatus === 'valid' ? (
-                <span className="coupon-modal-icon coupon-modal-status-valid">✓</span>
-              ) : validationStatus === 'invalid' ? (
-                <span className="coupon-modal-icon coupon-modal-status-invalid">✗</span>
-              ) : (
-                <button
-                  type="button"
-                  className="coupon-modal-icon coupon-modal-enter"
-                  onClick={validateCoupon}
-                  disabled={isLoading || !code.trim()}
-                  title="Validate (Enter)"
-                  tabIndex={-1}
-                >
-                  ↵
-                </button>
-              )}
             </div>
           </div>
 
-          {couponCredits && (
+          <div className="coupon-modal-footer">
             <button
               type="submit"
               className="coupon-modal-submit"
+              disabled={isLoading || !code.trim()}
+            >
+              {isLoading ? 'Redeeming...' : 'Redeem'}
+            </button>
+            <button
+              type="button"
+              className="coupon-modal-cancel"
+              onClick={handleClose}
               disabled={isLoading}
             >
-              {isLoading ? 'Redeeming...' : `Claim ${couponCredits} credits 🪙`}
+              Cancel
             </button>
-          )}
+          </div>
         </form>
       </div>
     </div>

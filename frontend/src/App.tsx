@@ -202,6 +202,17 @@ function App() {
       {showPostUploadActions && creation && (
         <div className="post-upload-actions-overlay">
           <div className="post-upload-actions-modal">
+            <button
+              className="post-upload-actions-close"
+              onClick={() => {
+                setShowPostUploadActions(false);
+                setCreation(null);
+                setUploadedFilePreview(null);
+              }}
+              disabled={isStarting}
+            >
+              ×
+            </button>
             <h3>Image Uploaded!</h3>
             {uploadedFilePreview && (
               <div className="post-upload-actions-preview">
@@ -216,6 +227,17 @@ function App() {
               >
                 <span>{isStarting ? 'Starting...' : 'Start'}</span>
                 {pipelineCost > 0 && <span className="post-upload-action-cost">🪙 {pipelineCost}</span>}
+              </button>
+              <button
+                className="post-upload-action-button post-upload-action-secondary"
+                onClick={() => {
+                  setShowPostUploadActions(false);
+                  setCreation(null);
+                  setUploadedFilePreview(null);
+                }}
+                disabled={isStarting}
+              >
+                Cancel
               </button>
             </div>
             {creditBalance !== undefined && pipelineCost > creditBalance && (
