@@ -345,6 +345,9 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                     <>
                       <img
                         src={originalUrl}
+                        loading="lazy"
+                        width={300}
+                        height={300}
                         alt={creation.character_name || 'Creation'}
                         className="creation-gallery-image creation-gallery-image-original"
                         onError={(e) => {
@@ -353,6 +356,9 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                       />
                       <img
                         src={renderedUrl!}
+                        loading="lazy"
+                        width={300}
+                        height={300}
                         alt={creation.character_name || 'Creation'}
                         className="creation-gallery-image creation-gallery-image-rendered"
                         onError={(e) => {
@@ -363,6 +369,9 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                   ) : (
                     <img
                       src={originalUrl}
+                      loading="lazy"
+                      width={300}
+                      height={300}
                       alt={creation.character_name || 'Creation'}
                       className="creation-gallery-image"
                       onError={(e) => {

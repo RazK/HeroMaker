@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse, RedirectResponse
 from pathlib import Path
 import os
+import mimetypes
 from sqlalchemy.orm import Session
 from app.config.settings import FILES_ROOT
 from app.utils.storage import get_storage
@@ -53,8 +54,12 @@ async def download_file(
             )
     except NotImplementedError:
         # S3 storage - redirect to presigned URL with download disposition
-        presigned_url = storage.get_file_url(user_id, creation_id, filename, for_download=True)
-        return RedirectResponse(url=presigned_url, status_code=302)
+        presigned_url = storage.get_file_url(user_id, creation_id, filename)
+        return RedirectResponse(
+            url=presigned_url,
+            status_code=302,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
     
     raise HTTPException(status_code=404, detail="File not found")
 
@@ -80,11 +85,30 @@ async def serve_file(user_id: str, creation_id: str, filename: str):
     try:
         file_path = storage.get_file_path(user_id, creation_id, filename)
         if file_path.exists() and file_path.is_file():
-            return FileResponse(file_path)
+            # Detect MIME type
+            mime_type, _ = mimetypes.guess_type(filename)
+            
+            # Build headers with caching
+            headers = {
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "ETag": f'"{file_path.stat().st_mtime}"'
+            }
+            
+            # Add Content-Type if we can detect it
+            if mime_type:
+                headers["Content-Type"] = mime_type
+            
+            return FileResponse(file_path, headers=headers)
     except NotImplementedError:
         # S3 storage - redirect to presigned URL
         presigned_url = storage.get_file_url(user_id, creation_id, filename)
-        return RedirectResponse(url=presigned_url, status_code=302)
+        return RedirectResponse(
+            url=presigned_url,
+            status_code=302,
+            headers={
+                "Cache-Control": "public, max-age=86400"  # 24 hours for redirects
+            }
+        )
     
     # Fallback: file not found
     raise HTTPException(status_code=404, detail="File not found")

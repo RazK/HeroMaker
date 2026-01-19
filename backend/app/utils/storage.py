@@ -39,7 +39,7 @@ class StorageBackend(ABC):
         pass
     
     @abstractmethod
-    def get_file_url(self, user_id: str, creation_id: str, filename: str, expires_in: int = 3600) -> str:
+    def get_file_url(self, user_id: str, creation_id: str, filename: str, expires_in: int = 86400) -> str:
         """Get a URL to access the file. For S3, returns presigned URL. For local, returns API path."""
         pass
     
@@ -90,7 +90,7 @@ class LocalFileStorage(StorageBackend):
             raise FileNotFoundError(f"File not found: {file_path}")
         return file_path.read_bytes()
     
-    def get_file_url(self, user_id: str, creation_id: str, filename: str, expires_in: int = 3600) -> str:
+    def get_file_url(self, user_id: str, creation_id: str, filename: str, expires_in: int = 86400) -> str:
         """Get the API URL for a local file."""
         return f"/api/files/{user_id}/{creation_id}/{filename}"
     
@@ -175,7 +175,7 @@ class S3FileStorage(StorageBackend):
             logger.error(f"Failed to download file from S3: {s3_key}, error: {e}")
             raise
     
-    def get_file_url(self, user_id: str, creation_id: str, filename: str, expires_in: int = 3600) -> str:
+    def get_file_url(self, user_id: str, creation_id: str, filename: str, expires_in: int = 86400) -> str:
         """Generate a presigned URL for S3 file access."""
         s3_key = self._get_s3_key(user_id, creation_id, filename)
         try:
