@@ -1,3 +1,7 @@
+# Local full-stack test only — NOT used for production or daily dev.
+# Usage: docker compose up --build
+# For daily dev use: bash start-dev.sh
+
 services:
   # Backend API Service
   backend:

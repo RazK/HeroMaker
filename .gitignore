@@ -1,3 +1,6 @@
+# Private docs — keep locally, never commit
+docs/ACCOUNTS.md
+
 # Logs
 logs
 *.log

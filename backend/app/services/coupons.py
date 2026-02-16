@@ -47,14 +47,15 @@ def redeem_coupon(code: str, user_id: str, db: Session) -> dict:
     if coupon.current_uses >= coupon.max_uses:
         raise CouponError("This coupon has reached its maximum number of uses")
 
-    # Check if already redeemed by this user
-    existing_redemption = db.query(CouponRedemption).filter(
-        CouponRedemption.coupon_id == coupon.id,
-        CouponRedemption.user_id == user_id
-    ).first()
+    # Check if already redeemed by this user (unless coupon allows multiple redemptions)
+    if not coupon.allow_multiple_per_user:
+        existing_redemption = db.query(CouponRedemption).filter(
+            CouponRedemption.coupon_id == coupon.id,
+            CouponRedemption.user_id == user_id
+        ).first()
 
-    if existing_redemption:
-        raise CouponError("You have already redeemed this coupon")
+        if existing_redemption:
+            raise CouponError("You have already redeemed this coupon")
 
     # Add credits to user
     new_balance = add_credits(user_id, coupon.credit_amount, db, reason=f"coupon:{code}")
