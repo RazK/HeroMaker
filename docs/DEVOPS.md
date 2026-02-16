@@ -98,10 +98,8 @@ VRM_CONVERTER_SERVICE_URL=http://localhost:8001   ← NOTE: localhost, not Docke
 DEBUG=true
 ```
 
-> ⚠️ `VRM_CONVERTER_SERVICE_URL=http://localhost:8001` is correct when backend runs in Docker
-> because the backend container reaches the host via `host.docker.internal` — actually
-> wait: this should be `http://vrm-converter:8000` when both run in Docker.
-> Use `http://localhost:8001` only if backend runs natively on Mac (not in Docker).
+> ⚠️ Use `VRM_CONVERTER_SERVICE_URL=http://vrm-converter:8000` when backend runs in Docker (both services on same Docker network).
+> Use `VRM_CONVERTER_SERVICE_URL=http://localhost:8001` only when backend runs natively on Mac (via `start-dev.sh`).
 
 ### Git Worktrees (Claude vs Cursor)
 
