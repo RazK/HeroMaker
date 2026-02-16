@@ -88,7 +88,8 @@ def create_coupon(
     db: Session,
     max_uses: int = 1,
     expires_at: datetime = None,
-    is_active: bool = True
+    is_active: bool = True,
+    allow_multiple_per_user: bool = False
 ) -> Coupon:
     """Create a new coupon (admin function).
 

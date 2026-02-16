@@ -9,6 +9,29 @@ class CreationRequest(BaseModel):
     name: Optional[str] = None
     age: Optional[int] = None
 
+class MessageResponse(BaseModel):
+    message: str
+
+class CostResponse(BaseModel):
+    cost: int
+
+class StepConfigResponse(BaseModel):
+    steps: list
+
+class StepActionResponse(BaseModel):
+    message: str
+    creation_id: str
+    step_name: str
+    status: Optional[str] = None
+    started_at: Optional[datetime] = None
+    estimated_completion_time: Optional[datetime] = None
+    already_cancelled: Optional[bool] = None
+
+class PipelineActionResponse(BaseModel):
+    message: str
+    creation_id: str
+    from_step: str
+
 class CreationStepResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     

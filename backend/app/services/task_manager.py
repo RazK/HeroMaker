@@ -171,20 +171,26 @@ class TaskManager:
     def cancel_all_tasks(self) -> int:
         """
         Cancel all tasks. Used during shutdown.
-        
+
         Returns:
             Number of tasks cancelled
         """
         cancelled = 0
-        tasks_to_wait = []
         with self._lock:
             for key, task in self._tasks.items():
                 if not task.done():
                     task.cancel()
                     cancelled += 1
-                    tasks_to_wait.append(task)
             logger.info(f"Cancelled {cancelled} tasks during shutdown")
         return cancelled
+
+    def get_all_tasks(self) -> list:
+        """
+        Get all tasks (for shutdown waiting).
+        Returns list of all tasks.
+        """
+        with self._lock:
+            return list(self._tasks.values())
 
 
 def set_task_manager(manager: Optional['TaskManager']) -> None:
@@ -198,11 +204,3 @@ def get_task_manager() -> 'TaskManager':
     if _task_manager is None:
         raise RuntimeError("TaskManager not initialized. This should be set in app lifespan.")
     return _task_manager
-    
-    def get_all_tasks(self) -> list:
-        """
-        Get all tasks (for shutdown waiting).
-        Returns list of all tasks.
-        """
-        with self._lock:
-            return list(self._tasks.values())

@@ -1,12 +1,15 @@
 """Creation and pipeline API endpoints."""
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
 from app.models import User, Creation, CreationStep
-from app.schemas.creation import CreationResponse, CreationStepResponse
+from app.schemas.creation import (
+    CreationRequest, CreationResponse, CreationStepResponse,
+    MessageResponse, CostResponse, StepConfigResponse, StepActionResponse, PipelineActionResponse
+)
 from app.services.auth import get_current_user_required, get_current_user_optional
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
 from app.services.pipeline import _initialize_creation_steps, execute_step, run_pipeline
@@ -21,7 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/cost")
+@router.get("/cost", response_model=CostResponse)
 def get_creation_cost(
     steps: Optional[str] = Query(None, description="Comma-separated list of step names")
 ):
@@ -38,7 +41,7 @@ def get_creation_cost(
     return {"cost": cost}
 
 
-@router.get("/steps/config")
+@router.get("/steps/config", response_model=StepConfigResponse)
 def get_step_config_endpoint():
     """Get step configuration for frontend (names, display names, costs, outputs)."""
     return {"steps": get_steps_config()}
@@ -78,6 +81,36 @@ def get_creation(
     return CreationResponse.from_creation(creation)
 
 
+@router.patch("/{creation_id}", response_model=CreationResponse)
+def update_creation(
+        creation_id: str,
+        update_data: CreationRequest,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_current_user_required),
+):
+    """Update a creation's metadata (character_name, name, age)."""
+    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
+
+    # Check permissions
+    if not user.is_admin and creation.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You don't have permission to update this creation")
+
+    # Apply provided fields only
+    update_dict = update_data.model_dump(exclude_unset=True)
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    for field, value in update_dict.items():
+        setattr(creation, field, value)
+
+    db.commit()
+    db.refresh(creation)
+
+    return CreationResponse.from_creation(creation)
+
+
 @router.get("/", response_model=List[CreationResponse])
 def list_creations(
         db: Session = Depends(get_db),
@@ -95,7 +128,7 @@ def list_creations(
     return [CreationResponse.from_creation(c) for c in creations]
 
 
-@router.delete("/{creation_id}")
+@router.delete("/{creation_id}", response_model=MessageResponse)
 def delete_creation(
         creation_id: str,
         db: Session = Depends(get_db),
@@ -131,7 +164,7 @@ def delete_creation(
 
 
 
-@router.post("/create")
+@router.post("/create", response_model=CreationResponse, status_code=201)
 async def create_creation(
         image_file: UploadFile = File(...),
         character_name: Optional[str] = Form(None),
@@ -177,7 +210,7 @@ async def create_creation(
 # Note: run_creation endpoint removed - sequential pipeline removed
 # Users should run steps individually using run_step endpoint
 
-@router.post("/{creation_id}/steps/{step_name}/cancel")
+@router.post("/{creation_id}/steps/{step_name}/cancel", response_model=StepActionResponse)
 async def cancel_step(
         creation_id: str,
         step_name: str,
@@ -234,11 +267,10 @@ async def cancel_step(
     }
 
 
-@router.post("/{creation_id}/steps/{step_name}/run")
+@router.post("/{creation_id}/steps/{step_name}/run", response_model=StepActionResponse)
 async def run_step(
         creation_id: str,
         step_name: str,
-        background_tasks: BackgroundTasks = BackgroundTasks(),
         db: Session = Depends(get_db),
         user: User = Depends(get_current_user_required),
         task_manager = Depends(get_task_manager)
@@ -355,7 +387,7 @@ async def run_step(
     }
 
 
-@router.post("/{creation_id}/run-pipeline")
+@router.post("/{creation_id}/run-pipeline", response_model=PipelineActionResponse)
 async def run_pipeline_endpoint(
         creation_id: str,
         from_step: Optional[str] = Query(None, description="Step name to start from (for retry)"),
@@ -377,6 +409,10 @@ async def run_pipeline_endpoint(
     if not user.is_admin and creation.user_id != user.id:
         raise HTTPException(status_code=403, detail="You don't have permission to run this pipeline")
     
+    # mock_creation_id is admin-only
+    if mock_creation_id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required for mock_creation_id")
+
     # Validate from_step if provided
     if from_step:
         step_names = get_all_step_names()
