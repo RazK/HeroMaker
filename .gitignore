@@ -1,6 +1,9 @@
 # Private docs — keep locally, never commit
 docs/ACCOUNTS.md
 
+# Local venv symlink — not part of the repo
+.venv
+
 # Logs
 logs
 *.log
