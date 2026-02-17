@@ -1,14 +1,16 @@
 """Creation and pipeline API endpoints."""
 import logging
+import mimetypes
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
 from app.models import User, Creation, CreationStep
 from app.schemas.creation import (
     CreationRequest, CreationResponse, CreationStepResponse,
-    MessageResponse, CostResponse, StepConfigResponse, StepActionResponse, PipelineActionResponse
+    MessageResponse, StepConfigResponse, PipelineActionResponse
 )
 from app.services.auth import get_current_user_required, get_current_user_optional
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
@@ -18,179 +20,94 @@ from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
 
 
-# Note: RunPipelineRequest removed - sequential pipeline removed
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/cost", response_model=CostResponse)
-def get_creation_cost(
-    steps: Optional[str] = Query(None, description="Comma-separated list of step names")
-):
-    """Get the credit cost for running steps.
-    
-    If steps provided, calculates cost for those steps.
-    Otherwise, returns cost for full creation pipeline (all steps).
-    """
-    if steps:
-        step_list = [s.strip() for s in steps.split(",")]
-    else:
-        step_list = get_all_step_names()
-    cost = calculate_steps_cost(step_list)
-    return {"cost": cost}
-
-
-@router.get("/steps/config", response_model=StepConfigResponse)
-def get_step_config_endpoint():
-    """Get step configuration for frontend (names, display names, costs, outputs)."""
-    return {"steps": get_steps_config()}
-
-
-@router.get("/{creation_id}/steps/{step_name}", response_model=CreationStepResponse)
-def get_step_status(
-        creation_id: str,
-        step_name: str,
-        db: Session = Depends(get_db),
-):
-    """Get status of a single step (for polling during processing)."""
+def _get_creation_or_404(creation_id: str, db: Session) -> Creation:
+    """Fetch creation or raise 404."""
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
-    
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
-    
-    if not step:
-        raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
-    
-    return CreationStepResponse.from_step(step)
+    return creation
 
 
-@router.get("/{creation_id}", response_model=CreationResponse)
-def get_creation(
-        creation_id: str,
-        db: Session = Depends(get_db),
-):
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    return CreationResponse.from_creation(creation)
-
-
-@router.patch("/{creation_id}", response_model=CreationResponse)
-def update_creation(
-        creation_id: str,
-        update_data: CreationRequest,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-):
-    """Update a creation's metadata (character_name, name, age)."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-
-    # Check permissions
+def _check_ownership(creation: Creation, user: User):
+    """Check user owns the creation or is admin. Raises 403 if not."""
     if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to update this creation")
+        raise HTTPException(status_code=403, detail="You don't have permission to access this creation")
 
-    # Apply provided fields only
-    update_dict = update_data.model_dump(exclude_unset=True)
-    if not update_dict:
-        raise HTTPException(status_code=400, detail="No fields to update")
 
-    for field, value in update_dict.items():
-        setattr(creation, field, value)
+# --- Public endpoints (no auth) ---
 
-    db.commit()
-    db.refresh(creation)
-
-    return CreationResponse.from_creation(creation)
+@router.get("/steps", response_model=StepConfigResponse)
+def get_steps_config_endpoint():
+    """Get step configuration and costs for frontend."""
+    config = get_steps_config()
+    total_cost = calculate_steps_cost(get_all_step_names())
+    return {"steps": config, "total_cost": total_cost}
 
 
 @router.get("/", response_model=List[CreationResponse])
 def list_creations(
-        db: Session = Depends(get_db),
-        user: Optional[User] = Depends(get_current_user_optional),
-        mine_only: bool = False
+    owner: str = Query("everyone", regex="^(everyone|my)$", description="Filter by ownership"),
+    status: str = Query("all", regex="^(all|completed|failed|pending|processing)$", description="Filter by status"),
+    db: Session = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """List creations. Public endpoint - shows all creations in gallery by default."""
-    if mine_only and user:
-        # Filter to only user's creations
-        creations = db.query(Creation).filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
+    """List creations with filters.
+
+    - Unauthenticated: only completed creations from everyone (public gallery).
+    - Authenticated, owner=everyone: all completed + all of the user's own (any status).
+    - Authenticated, owner=my: only the user's own creations.
+
+    Status filter is applied on top of the ownership filter.
+    """
+    # Note: Creation.status is a @property (not a column), so we filter in Python
+    all_creations = (
+        db.query(Creation)
+        .order_by(Creation.updated_at.desc())
+        .all()
+    )
+
+    if not user:
+        # Unauthenticated: completed only
+        results = [c for c in all_creations if c.status == "completed"]
+    elif owner == "my":
+        # Only user's own creations
+        results = [c for c in all_creations if c.user_id == user.id]
     else:
-        # Show all creations (public gallery)
-        creations = db.query(Creation).order_by(Creation.updated_at.desc()).all()
-    
-    return [CreationResponse.from_creation(c) for c in creations]
+        # everyone (authenticated): all completed + all of user's own (any status)
+        results = [c for c in all_creations if c.status == "completed" or c.user_id == user.id]
+
+    # Apply status filter
+    if status != "all":
+        results = [c for c in results if c.status == status]
+
+    return [CreationResponse.from_creation(c) for c in results]
 
 
-@router.delete("/{creation_id}", response_model=MessageResponse)
-def delete_creation(
-        creation_id: str,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
-):
-    """Delete a creation and its files. Cancels all running tasks."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions (users can only delete their own creations, unless admin)
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to delete this creation")
-    
-    # Cancel all running tasks for this creation
-    cancelled = task_manager.cancel_all_tasks_for_creation(creation_id)
-    if cancelled > 0:
-        logger.info(f"[{creation_id}] Cancelled {cancelled} tasks before deletion")
-    
-    # Delete files
-    try:
-        delete_creation_files(creation_id, creation.user_id)
-    except Exception as e:
-        logger.warning(f"Error deleting files for creation {creation_id}: {e}")
-    
-    # Delete from database (cascades to steps)
-    db.delete(creation)
-    db.commit()
-    
-    return {"message": "Creation deleted"}
-
-
-
-
-@router.post("/create", response_model=CreationResponse, status_code=201)
+@router.post("/", response_model=CreationResponse, status_code=201)
 async def create_creation(
-        image_file: UploadFile = File(...),
-        character_name: Optional[str] = Form(None),
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required)
+    image_file: UploadFile = File(...),
+    character_name: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
 ):
+    """Create a new creation and upload the image file.
+    Pipeline must be started separately using POST /{creation_id}/start.
     """
-    Create a new creation and upload the image file.
-    
-    This endpoint creates the creation record and uploads the image.
-    The pipeline must be started separately using the /{creation_id}/run endpoint.
-    """
-    # Create creation record
     new_creation = Creation(
         user_id=user.id,
         character_name=character_name,
-        name=user.name  # Creator's name (default to user's name)
+        name=user.name,
     )
     db.add(new_creation)
     db.commit()
     db.refresh(new_creation)
-    
-    # Initialize steps
+
     _initialize_creation_steps(new_creation.id, db)
-    
-    # Upload image file
+
     try:
         storage = get_storage()
         contents = await image_file.read()
@@ -201,255 +118,237 @@ async def create_creation(
         db.delete(new_creation)
         db.commit()
         raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
-    
-    # Return creation response (no pipeline run - frontend will call /run separately)
+
     db.refresh(new_creation)
     return CreationResponse.from_creation(new_creation)
 
 
-# Note: run_creation endpoint removed - sequential pipeline removed
-# Users should run steps individually using run_step endpoint
-
-@router.post("/{creation_id}/steps/{step_name}/cancel", response_model=StepActionResponse)
-async def cancel_step(
-        creation_id: str,
-        step_name: str,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
+@router.get("/{creation_id}", response_model=CreationResponse)
+def get_creation(
+    creation_id: str,
+    db: Session = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional),
 ):
-    """Cancel a running step."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to cancel this step")
-    
-    # Find the step
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
-    
-    if not step:
-        raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
-    
-    # Check if already cancelled
-    if step.status == "failed" and step.error_message == "Step cancelled by user":
-        return {
-            "message": f"Step {step_name} is already cancelled",
-            "creation_id": creation_id,
-            "step_name": step_name,
-            "already_cancelled": True
-        }
-    
-    # Only allow canceling processing steps
-    if step.status != "processing":
-        raise HTTPException(status_code=400, detail=f"Step is not processing (current status: {step.status})")
-    
-    # Mark as cancelled in DB (source of truth for cancellation)
-    step.status = "failed"
-    step.error_message = "Step cancelled by user"
-    db.commit()
-    
-    # Cancel the runtime task
-    cancelled = task_manager.cancel_task(creation_id, step_name)
-    
-    logger.info(f"[{creation_id}] Step {step_name} cancelled by user {user.id} (task cancelled: {cancelled})")
-    
-    return {
-        "message": f"Step {step_name} cancelled",
-        "creation_id": creation_id,
-        "step_name": step_name,
-        "already_cancelled": False
-    }
+    """Get full creation status with all steps.
 
-
-@router.post("/{creation_id}/steps/{step_name}/run", response_model=StepActionResponse)
-async def run_step(
-        creation_id: str,
-        step_name: str,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
-):
-    """Run a single step independently. Handles retry automatically."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to run this step")
-    
-    # Validate step_name exists
-    step_config = get_step_by_name(step_name)
-    if not step_config:
-        raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
-    
-    # Check if step is already running (before creating task)
-    if task_manager.is_running(creation_id, step_name):
-        raise HTTPException(status_code=400, detail="Step is already running")
-    
-    # Get step to check current status
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
-    
-    if not step:
-        raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
-    
-    # Check if already processing (double-check, in case status changed between checks)
-    if step.status == "processing":
-        # Double-check task manager (race condition protection)
-        if task_manager.is_running(creation_id, step_name):
-            raise HTTPException(status_code=400, detail="Step is already running")
-        # If not running but status is processing, it's stuck - execute_step will handle it
-    
-    # Create task for step execution (non-blocking)
-    db_session = SessionLocal()
-    
-    async def run_step_task():
-        try:
-            await execute_step(creation_id, creation.user_id, step_name, db_session, task_manager=task_manager)
-        except ValueError as e:
-            # Handle validation errors - mark step as failed if not already marked
-            error_msg = str(e)
-            if "already running" in error_msg or "stuck" in error_msg:
-                logger.info(f"[{creation_id}] Step {step_name} validation: {error_msg}")
-            else:
-                # Validation error (e.g., input file not found, insufficient credits)
-                # Mark step as failed since execute_step didn't get to mark it
-                try:
-                    step = db_session.query(CreationStep).filter(
-                        CreationStep.creation_id == creation_id,
-                        CreationStep.step_name == step_name
-                    ).first()
-                    if step and step.status != "failed":
-                        step.status = "failed"
-                        step.error_message = error_msg
-                        db_session.commit()
-                        logger.info(f"[{creation_id}] Marked step {step_name} as failed due to validation error: {error_msg}")
-                except Exception as db_error:
-                    logger.error(f"[{creation_id}] Failed to mark step as failed: {db_error}")
-                logger.error(f"[{creation_id}] Validation error in run_step_task for {step_name}: {error_msg}")
-        except Exception as e:
-            # Other errors - execute_step should have marked as failed, but double-check
-            error_msg = str(e)
-            try:
-                step = db_session.query(CreationStep).filter(
-                    CreationStep.creation_id == creation_id,
-                    CreationStep.step_name == step_name
-                ).first()
-                if step and step.status != "failed":
-                    step.status = "failed"
-                    step.error_message = error_msg
-                    db_session.commit()
-                    logger.info(f"[{creation_id}] Marked step {step_name} as failed due to error: {error_msg}")
-            except Exception as db_error:
-                logger.error(f"[{creation_id}] Failed to mark step as failed: {db_error}")
-            logger.error(f"[{creation_id}] Error in run_step_task for {step_name}: {error_msg}", exc_info=True)
-        finally:
-            db_session.close()
-    
-    # Get step timeout from config
-    timeout = step_config.get("timeout")  # e.g., meshy_3d: 1800s (30 min), openai_render: 300s (5 min)
-    
-    # Mark step as processing BEFORE creating background task (avoids race condition)
-    # This ensures frontend sees "processing" status immediately when it polls
-    from datetime import datetime, timedelta
-    step.started_at = datetime.utcnow()
-    step.status = "processing"
-    step.error_message = None
-    step.estimated_progress = None
-    if step_config.get("estimated_duration"):
-        step.estimated_completion_time = step.started_at + timedelta(
-            seconds=step_config["estimated_duration"]
-        )
-    else:
-        step.estimated_completion_time = None
-    db.commit()
-    
-    # Create and track task (TaskManager handles timeout and cleanup)
-    # This returns immediately, task runs in background
-    task_manager.create_task(creation_id, step_name, run_step_task(), timeout=timeout)
-    
-    return {
-        "message": "Step execution started",
-        "creation_id": creation_id,
-        "step_name": step_name,
-        "status": step.status,
-        "started_at": step.started_at.isoformat() if step.started_at else None,
-        "estimated_completion_time": step.estimated_completion_time.isoformat() if step.estimated_completion_time else None
-    }
-
-
-@router.post("/{creation_id}/run-pipeline", response_model=PipelineActionResponse)
-async def run_pipeline_endpoint(
-        creation_id: str,
-        from_step: Optional[str] = Query(None, description="Step name to start from (for retry)"),
-        mock_creation_id: Optional[str] = Query(None, description="Creation ID to copy outputs from (admin testing)"),
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
-):
-    """Run full pipeline (all steps sequentially) or from a specific step.
-    
-    Steps are executed in order, credits deducted per-step.
-    If a step fails, pipeline stops there.
+    Completed creations are publicly readable (gallery detail view).
+    Non-completed creations require auth + ownership.
     """
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to run this pipeline")
-    
-    # mock_creation_id is admin-only
+    creation = _get_creation_or_404(creation_id, db)
+    if creation.status != "completed":
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        _check_ownership(creation, user)
+    return CreationResponse.from_creation(creation)
+
+
+@router.patch("/{creation_id}", response_model=CreationResponse)
+def update_creation(
+    creation_id: str,
+    update_data: CreationRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+):
+    """Update a creation's metadata (character_name, name, age)."""
+    creation = _get_creation_or_404(creation_id, db)
+    _check_ownership(creation, user)
+
+    update_dict = update_data.model_dump(exclude_unset=True)
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    for field, value in update_dict.items():
+        setattr(creation, field, value)
+
+    db.commit()
+    db.refresh(creation)
+    return CreationResponse.from_creation(creation)
+
+
+@router.delete("/{creation_id}", response_model=MessageResponse)
+def delete_creation(
+    creation_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+    task_manager=Depends(get_task_manager),
+):
+    """Delete a creation and its files. Cancels all running tasks."""
+    creation = _get_creation_or_404(creation_id, db)
+    _check_ownership(creation, user)
+
+    cancelled = task_manager.cancel_all_tasks_for_creation(creation_id)
+    if cancelled > 0:
+        logger.info(f"[{creation_id}] Cancelled {cancelled} tasks before deletion")
+
+    try:
+        delete_creation_files(creation_id, creation.user_id)
+    except Exception as e:
+        logger.warning(f"Error deleting files for creation {creation_id}: {e}")
+
+    db.delete(creation)
+    db.commit()
+    return {"message": "Creation deleted"}
+
+
+@router.post("/{creation_id}/start", response_model=PipelineActionResponse)
+async def start_pipeline(
+    creation_id: str,
+    from_step: Optional[str] = Query(None, description="Step name to start from (for retry)"),
+    mock_creation_id: Optional[str] = Query(None, description="Creation ID to copy outputs from (admin testing)"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+    task_manager=Depends(get_task_manager),
+):
+    """Start pipeline (or resume from first failed step, or restart from a specific step).
+
+    - No params: runs from first pending/failed step
+    - from_step=X: runs from step X onward
+    - mock_creation_id=Y: copies outputs from creation Y instead of calling APIs (admin only)
+    """
+    creation = _get_creation_or_404(creation_id, db)
+    _check_ownership(creation, user)
+
     if mock_creation_id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required for mock_creation_id")
 
-    # Validate from_step if provided
     if from_step:
         step_names = get_all_step_names()
         if from_step not in step_names:
             raise HTTPException(status_code=400, detail=f"Invalid step name: {from_step}")
-    
-    # Check if pipeline is already running (any step processing)
+
+    # Check if pipeline is already running (any step processing with an active task)
     processing_steps = [s for s in creation.steps if s.status == "processing"]
     if processing_steps:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Pipeline already running (step: {processing_steps[0].step_name})"
-        )
-    
-    # Create a new DB session for the background task
+        # Check if the processing step actually has a running task (vs orphaned state)
+        truly_running = [s for s in processing_steps if task_manager.is_running(creation_id, s.step_name)]
+        if truly_running:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pipeline already running (step: {truly_running[0].step_name})",
+            )
+        # Orphaned processing steps will be reset by execute_step
+
     db_session = SessionLocal()
-    
+
     async def run_pipeline_task():
         try:
             await run_pipeline(
-                creation_id, 
-                creation.user_id, 
+                creation_id,
+                creation.user_id,
                 from_step=from_step,
                 mock_creation_id=mock_creation_id,
-                db=db_session
+                db=db_session,
             )
         except Exception as e:
             logger.error(f"[{creation_id}] Pipeline task error: {e}", exc_info=True)
         finally:
             db_session.close()
-    
-    # Create pipeline task (no individual step timeout - each step has its own)
-    # Use a long timeout for the entire pipeline (e.g., 2 hours)
+
     task_manager.create_task(creation_id, "pipeline", run_pipeline_task(), timeout=7200)
-    
+
     return {
         "message": "Pipeline started",
         "creation_id": creation_id,
-        "from_step": from_step or get_all_step_names()[0]
+        "from_step": from_step or get_all_step_names()[0],
     }
+
+
+@router.post("/{creation_id}/cancel", response_model=MessageResponse)
+async def cancel_pipeline(
+    creation_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user_required),
+    task_manager=Depends(get_task_manager),
+):
+    """Cancel all running steps for a creation."""
+    creation = _get_creation_or_404(creation_id, db)
+    _check_ownership(creation, user)
+
+    # Find and cancel all processing steps
+    processing_steps = db.query(CreationStep).filter(
+        CreationStep.creation_id == creation_id,
+        CreationStep.status == "processing",
+    ).all()
+
+    if not processing_steps:
+        raise HTTPException(status_code=400, detail="No steps are currently running")
+
+    for step in processing_steps:
+        step.status = "failed"
+        step.error_message = "Step cancelled by user"
+    db.commit()
+
+    cancelled = task_manager.cancel_all_tasks_for_creation(creation_id)
+    logger.info(f"[{creation_id}] Cancelled {len(processing_steps)} steps, {cancelled} tasks by user {user.id}")
+
+    return {"message": f"Cancelled {len(processing_steps)} running step(s)"}
+
+
+# --- File serving (moved from files.py) ---
+
+@router.get("/{creation_id}/files/{filename:path}")
+async def serve_creation_file(
+    creation_id: str,
+    filename: str,
+    download: bool = Query(False, description="Force download with Content-Disposition: attachment"),
+    db: Session = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional),
+):
+    """Serve a file for a creation. Public for previews, auth required for downloads."""
+    if ".." in filename or ".." in creation_id:
+        raise HTTPException(status_code=403, detail="Invalid path")
+
+    creation = _get_creation_or_404(creation_id, db)
+
+    # Downloads require auth + ownership
+    if download:
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required for downloads")
+        _check_ownership(creation, user)
+
+    user_id = creation.user_id
+    storage = get_storage()
+
+    if not storage.file_exists(user_id, creation_id, filename):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if download:
+        # Force download
+        try:
+            file_path = storage.get_file_path(user_id, creation_id, filename)
+            if file_path.exists() and file_path.is_file():
+                return FileResponse(
+                    file_path,
+                    filename=filename,
+                    media_type="application/octet-stream",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"},
+                )
+        except NotImplementedError:
+            presigned_url = storage.get_file_url(user_id, creation_id, filename)
+            return RedirectResponse(
+                url=presigned_url,
+                status_code=302,
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
+        raise HTTPException(status_code=404, detail="File not found")
+    else:
+        # Serve for preview
+        try:
+            file_path = storage.get_file_path(user_id, creation_id, filename)
+            if file_path.exists() and file_path.is_file():
+                mime_type, _ = mimetypes.guess_type(filename)
+                headers = {
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "ETag": f'"{file_path.stat().st_mtime}"',
+                }
+                if mime_type:
+                    headers["Content-Type"] = mime_type
+                return FileResponse(file_path, headers=headers)
+        except NotImplementedError:
+            presigned_url = storage.get_file_url(user_id, creation_id, filename)
+            return RedirectResponse(
+                url=presigned_url,
+                status_code=302,
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+        raise HTTPException(status_code=404, detail="File not found")

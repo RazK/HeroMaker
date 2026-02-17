@@ -120,7 +120,7 @@ function App() {
 
     try {
       // Run full pipeline (all steps automatically)
-      await api.runPipeline(creation.id);
+      await api.startPipeline(creation.id);
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       
       await refreshCreditBalance();
@@ -136,14 +136,27 @@ function App() {
     }
   };
 
-  const handleSelectCreation = (selectedCreation: CreationResponse) => {
+  const handleSelectCreation = async (selectedCreation: CreationResponse) => {
     console.log('[App] Creation selected:', {
       creationId: selectedCreation.id,
       status: selectedCreation.status,
       stepsCount: selectedCreation.steps.length,
     });
-    setCreation(selectedCreation);
     setError(null);
+
+    // Gallery items have no steps — fetch full creation details
+    if (selectedCreation.steps.length === 0) {
+      try {
+        const full = await api.getCreation(selectedCreation.id);
+        setCreation(full);
+      } catch (err) {
+        console.error('[App] Failed to fetch creation details:', err);
+        // Fall back to the gallery item (will show without steps)
+        setCreation(selectedCreation);
+      }
+    } else {
+      setCreation(selectedCreation);
+    }
   };
 
   // Note: Auto-start removed - modal now handles pipeline start

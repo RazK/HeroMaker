@@ -32,7 +32,7 @@ export interface CreationResponse {
   age: number | null;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   user_id: string;
-  username: string | null; // Deprecated, use name instead
+  username: string | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -48,6 +48,10 @@ export interface StepConfig {
   output_file: string;
 }
 
+export interface StepsConfigResponse {
+  steps: StepConfig[];
+  total_cost: number;
+}
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -59,36 +63,36 @@ class ApiError extends Error {
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const method = options?.method || 'GET';
   const isPolling = url.includes('/api/creations/') && method === 'GET';
-  
+
   // Add JWT token to headers if available
   const token = getAuthToken();
   const headers = new Headers(options?.headers);
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  
+
   // Merge headers with existing options
   const requestOptions: RequestInit = {
     ...options,
     headers,
   };
-  
+
   // Log all requests except polling (to reduce spam)
   if (!isPolling) {
     console.log(`[API] ${method} ${url}`, options?.body ? '(with body)' : '');
   }
-  
+
   const startTime = Date.now();
   const response = await fetch(url, requestOptions);
   const duration = Date.now() - startTime;
-  
+
   // Handle 401 Unauthorized - clear token and trigger auth flow
   if (response.status === 401) {
     clearAuthToken();
     // Dispatch custom event for auth error handling
     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   }
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     let errorMessage = `HTTP ${response.status}`;
@@ -104,21 +108,21 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     });
     throw new ApiError(response.status, errorMessage);
   }
-  
+
   const data = await response.json();
-  
+
   // Log all responses except polling (to reduce spam)
   if (!isPolling) {
     console.log(`[API] ${method} ${url} success (${duration}ms)`, data);
   }
-  
+
   return data;
 }
 
 export const api = {
   /**
    * Create a new creation and upload the image file.
-   * Pipeline must be started separately using runPipeline().
+   * Pipeline must be started separately using startPipeline().
    */
   async createCreation(file: File, characterName?: string): Promise<CreationResponse> {
     console.log('[API] createCreation:', {
@@ -132,9 +136,9 @@ export const api = {
     if (characterName) {
       formData.append('character_name', characterName);
     }
-    
+
     const result = await fetchJson<CreationResponse>(
-      `${API_BASE_URL}/api/creations/create`,
+      `${API_BASE_URL}/api/creations/`,
       {
         method: 'POST',
         body: formData,
@@ -149,96 +153,76 @@ export const api = {
   },
 
   /**
-   * Run a single step
-   */
-  async runStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
-    console.log('[API] runStep:', { creationId, stepName });
-    const result = await fetchJson<{ message: string; creation_id: string; step_name: string }>(
-      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/run`,
-      {
-        method: 'POST',
-      }
-    );
-    console.log('[API] runStep result:', result);
-    return result;
-  },
-
-  /**
-   * Run full pipeline (all steps sequentially)
+   * Start pipeline (or resume from a specific step for retry).
    * @param creationId The creation to process
    * @param fromStep Optional step name to start from (for retry scenarios)
+   * @param mockCreationId Optional creation ID to copy outputs from (admin testing)
    */
-  async runPipeline(creationId: string, fromStep?: string): Promise<{ message: string; creation_id: string; from_step: string }> {
-    const params = fromStep ? `?from_step=${encodeURIComponent(fromStep)}` : '';
-    console.log('[API] runPipeline:', { creationId, fromStep });
+  async startPipeline(creationId: string, fromStep?: string, mockCreationId?: string): Promise<{ message: string; creation_id: string; from_step: string }> {
+    const params = new URLSearchParams();
+    if (fromStep) params.append('from_step', fromStep);
+    if (mockCreationId) params.append('mock_creation_id', mockCreationId);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    console.log('[API] startPipeline:', { creationId, fromStep, mockCreationId });
     const result = await fetchJson<{ message: string; creation_id: string; from_step: string }>(
-      `${API_BASE_URL}/api/creations/${creationId}/run-pipeline${params}`,
+      `${API_BASE_URL}/api/creations/${creationId}/start${queryString}`,
       {
         method: 'POST',
       }
     );
-    console.log('[API] runPipeline result:', result);
+    console.log('[API] startPipeline result:', result);
     return result;
   },
 
   /**
-   * Cancel a processing step
+   * Cancel all running steps for a creation.
    */
-  async cancelStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
-    console.log('[API] cancelStep:', { creationId, stepName });
-    const result = await fetchJson<{ message: string; creation_id: string; step_name: string }>(
-      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/cancel`,
+  async cancelCreation(creationId: string): Promise<{ message: string }> {
+    console.log('[API] cancelCreation:', { creationId });
+    const result = await fetchJson<{ message: string }>(
+      `${API_BASE_URL}/api/creations/${creationId}/cancel`,
       {
         method: 'POST',
       }
     );
-    console.log('[API] cancelStep result:', result);
+    console.log('[API] cancelCreation result:', result);
     return result;
   },
 
   /**
-   * Get creation status with all steps
+   * Get creation status with all steps (requires auth + ownership)
    */
   async getCreation(creationId: string): Promise<CreationResponse> {
     const result = await fetchJson<CreationResponse>(`${API_BASE_URL}/api/creations/${creationId}`);
-    // Log step statuses for debugging (only log when status changes or periodically)
-    const stepStatuses = result.steps.map(s => `${s.step_name}:${s.status}`).join(', ');
-    // Log every 10th call to reduce spam (polling happens every 2s)
+    // Log step statuses for debugging (only log 10% to reduce spam)
     if (Math.random() < 0.1) {
+      const stepStatuses = result.steps.map(s => `${s.step_name}:${s.status}`).join(', ');
       console.log(`[API] getCreation ${creationId}: status=${result.status}, steps=[${stepStatuses}]`);
     }
     return result;
   },
 
   /**
-   * List all creations
+   * List creations with optional filters.
+   * @param owner 'everyone' (default) or 'my'
+   * @param status 'all' (default), 'completed', 'failed', 'pending', 'processing'
    */
-  async listCreations(limit: number = 50, offset: number = 0, mineOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
+  async listCreations(owner: string = 'everyone', status: string = 'all'): Promise<CreationResponse[]> {
     const params = new URLSearchParams();
-    params.append('limit', String(limit));
-    params.append('offset', String(offset));
-    if (mineOnly) {
-      params.append('mine_only', 'true');
-    }
-    const result = await fetchJson<CreationResponse[]>(
-      `${API_BASE_URL}/api/creations/?${params.toString()}`
-    );
-    console.log('[API] listCreations result:', {
-      count: result.length,
-      total: result.length,
-      mineOnly,
-    });
-    return { creations: result, total: result.length };
+    if (owner !== 'everyone') params.append('owner', owner);
+    if (status !== 'all') params.append('status', status);
+    const qs = params.toString();
+    const url = `${API_BASE_URL}/api/creations/${qs ? '?' + qs : ''}`;
+    const result = await fetchJson<CreationResponse[]>(url);
+    console.log('[API] listCreations result:', { owner, status, count: result.length });
+    return result;
   },
 
   /**
-   * Get file URL for a creation file
+   * Get file URL for a creation file (no user_id needed — backend looks it up)
    */
-  getFileUrl(creationId: string, filename: string, userId?: string): string {
-    // Use provided userId, fallback to DEBUG_USER_ID for backward compatibility
-    const user_id = userId || 'debug-user-uuid';
-    const url = `${API_BASE_URL}/api/files/${user_id}/${creationId}/${filename}`;
-    return url;
+  getFileUrl(creationId: string, filename: string): string {
+    return `${API_BASE_URL}/api/creations/${creationId}/files/${filename}`;
   },
 
   /**
@@ -266,11 +250,9 @@ export const api = {
   async updateNameAndAge(creationId: string, name: string, age: number | null): Promise<CreationResponse> {
     console.log('[API] updateNameAndAge:', { creationId, name, age });
     const trimmedName = name.trim();
-    // Always send name (even if empty string) so backend knows to update it
-    // Send empty string instead of null so backend can distinguish between "not provided" and "clear value"
     const body: Record<string, any> = {
-      name: trimmedName, // Send empty string if empty, not null
-      age: age !== null ? age : null, // Send null explicitly for age
+      name: trimmedName,
+      age: age !== null ? age : null,
     };
     console.log('[API] updateNameAndAge body:', body);
     const result = await fetchJson<CreationResponse>(
@@ -294,7 +276,7 @@ export const api = {
     console.log('[API] updateName:', { creationId, name });
     const trimmedName = name.trim();
     const body: Record<string, any> = {
-      name: trimmedName, // Send empty string if empty, not null
+      name: trimmedName,
     };
     console.log('[API] updateName body:', body);
     const result = await fetchJson<CreationResponse>(
@@ -317,7 +299,7 @@ export const api = {
   async updateAge(creationId: string, age: number | null): Promise<CreationResponse> {
     console.log('[API] updateAge:', { creationId, age });
     const body: Record<string, any> = {
-      age: age !== null ? age : null, // Send null explicitly for age
+      age: age !== null ? age : null,
     };
     console.log('[API] updateAge body:', body);
     const result = await fetchJson<CreationResponse>(
@@ -351,19 +333,18 @@ export const api = {
   /**
    * Download a file (requires authentication)
    */
-  async downloadFile(creationId: string, filename: string, userId?: string): Promise<void> {
-    const effectiveUserId = userId || 'unknown';
-    const url = `${API_BASE_URL}/api/files/download/${effectiveUserId}/${creationId}/${filename}`;
-    console.log('[API] downloadFile:', { creationId, filename, userId, url });
-    
+  async downloadFile(creationId: string, filename: string): Promise<void> {
+    const url = `${API_BASE_URL}/api/creations/${creationId}/files/${filename}?download=true`;
+    console.log('[API] downloadFile:', { creationId, filename, url });
+
     const headers: Record<string, string> = {};
     const token = getAuthToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     const response = await fetch(url, { headers });
-    
+
     if (!response.ok) {
       console.error('[API] downloadFile failed:', { status: response.status, filename });
       if (response.status === 401) {
@@ -371,7 +352,7 @@ export const api = {
       }
       throw new ApiError(response.status, `Failed to download file: ${filename}`);
     }
-    
+
     const blob = await response.blob();
     console.log('[API] downloadFile success:', { filename, size: `${(blob.size / 1024).toFixed(1)}KB` });
     const downloadUrl = window.URL.createObjectURL(blob);
@@ -464,35 +445,11 @@ export const api = {
   },
 
   /**
-   * Get the credit cost for running steps
+   * Get step configuration and total cost from backend
    */
-  async getCreationCost(steps?: string[]): Promise<{ cost: number }> {
-    const params = new URLSearchParams();
-    if (steps && steps.length > 0) {
-      params.append('steps', steps.join(','));
-    }
-    const url = `${API_BASE_URL}/api/creations/cost${params.toString() ? `?${params.toString()}` : ''}`;
-    const result = await fetchJson<{ cost: number }>(url);
-    console.log('[API] getCreationCost:', result);
-    return result;
-  },
-
-  /**
-   * Get step configuration from backend
-   */
-  async getStepsConfig(): Promise<StepConfig[]> {
-    const result = await fetchJson<{ steps: StepConfig[] }>(`${API_BASE_URL}/api/creations/steps/config`);
+  async getStepsConfig(): Promise<StepsConfigResponse> {
+    const result = await fetchJson<StepsConfigResponse>(`${API_BASE_URL}/api/creations/steps`);
     console.log('[API] getStepsConfig:', result);
-    return result.steps;
-  },
-
-  /**
-   * Get individual step status (for polling during processing)
-   */
-  async getStepStatus(creationId: string, stepName: string): Promise<CreationStepResponse> {
-    const result = await fetchJson<CreationStepResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}`
-    );
     return result;
   },
 
@@ -642,4 +599,3 @@ export interface AdminCouponResponse {
 }
 
 export { ApiError };
-

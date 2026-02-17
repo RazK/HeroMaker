@@ -1,67 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { api, CreationResponse, CreationStepResponse } from '../api/client';
-
-/**
- * Poll a processing step for progress updates.
- * Only polls when stepName is provided and the step is processing.
- */
-export function useStepPolling(
-  creationId: string | null,
-  stepName: string | null,
-  onStepUpdate: (step: CreationStepResponse) => void
-) {
-  const intervalRef = useRef<number | null>(null);
-  const onUpdateRef = useRef(onStepUpdate);
-
-  useEffect(() => {
-    onUpdateRef.current = onStepUpdate;
-  }, [onStepUpdate]);
-
-  useEffect(() => {
-    if (!creationId || !stepName) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
-
-    const poll = async () => {
-      try {
-        const step = await api.getStepStatus(creationId, stepName);
-        onUpdateRef.current(step);
-
-        // Stop polling when step is no longer processing
-        if (step.status !== 'processing') {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-        }
-      } catch (error) {
-        console.error(`[StepPolling] Error polling step ${stepName}:`, error);
-      }
-    };
-
-    // Clear any existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    // Poll immediately
-    poll();
-
-    // Then poll every 2 seconds
-    intervalRef.current = window.setInterval(poll, 2000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [creationId, stepName]);
-}
+import { api, CreationResponse } from '../api/client';
 
 /**
  * Hook to fetch creation on demand (not continuous polling).
@@ -115,8 +53,8 @@ export function useCreationRefresh(
 }
 
 /**
- * Legacy hook - polls creation continuously when there's a processing step.
- * @deprecated Use useStepPolling + useCreationRefresh instead
+ * Poll creation continuously when there's a processing step.
+ * Uses GET /api/creations/{id} which returns all steps.
  */
 export function useCreationPolling(
   creationId: string | null,
@@ -131,7 +69,7 @@ export function useCreationPolling(
   useEffect(() => {
     onUpdateRef.current = onUpdate;
   }, [onUpdate]);
-  
+
   useEffect(() => {
     creationIdRef.current = creationId;
   }, [creationId]);
@@ -154,17 +92,17 @@ export function useCreationPolling(
       try {
         const currentCreationId = creationIdRef.current;
         if (!currentCreationId) return;
-        
+
         pollCountRef.current++;
         const creation = await api.getCreation(currentCreationId);
-        
+
         // Log when status changes
         if (creation.status !== prevStatusRef.current) {
           const processingStep = creation.steps.find(s => s.status === 'processing');
           console.log(`[Polling] ${currentCreationId}: status=${creation.status}, processing=${processingStep?.step_name || 'none'}`);
           prevStatusRef.current = creation.status;
         }
-        
+
         onUpdateRef.current(creation);
 
         // Stop polling if completed or (failed with no processing steps)
@@ -186,14 +124,14 @@ export function useCreationPolling(
 
     poll();
     intervalRef.current = window.setInterval(poll, 2000);
-    
+
     const handleRefreshNow = (event: CustomEvent) => {
       const refreshCreationId = event.detail?.creationId;
       if (refreshCreationId === creationId) {
         poll();
       }
     };
-    
+
     window.addEventListener('creation:refresh-now', handleRefreshNow as EventListener);
 
     return () => {
@@ -205,8 +143,3 @@ export function useCreationPolling(
     };
   }, [creationId]);
 }
-
-
-
-
-

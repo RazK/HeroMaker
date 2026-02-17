@@ -37,7 +37,7 @@ export function ControlBar({ creation, isLoggedIn, canDownload, onDelete, onCrea
 
   const handleDownloadVrm = async () => {
     try {
-      await api.downloadFile(creation.id, 'avatar.vrm', creation.user_id);
+      await api.downloadFile(creation.id, 'avatar.vrm');
     } catch (err) {
       console.error('Failed to download VRM:', err);
       setError('Failed to download VRM file');
@@ -51,11 +51,9 @@ export function ControlBar({ creation, isLoggedIn, canDownload, onDelete, onCrea
     setError(null);
     
     try {
-      // Run only pending/failed steps
-      for (const step of stepsToRun) {
-        await api.runStep(creation.id, step.step_name);
-        window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
-      }
+      // Start pipeline from first pending/failed step
+      await api.startPipeline(creation.id);
+      window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       if (onCreationRefresh) {
         await onCreationRefresh();
       }
@@ -75,7 +73,7 @@ export function ControlBar({ creation, isLoggedIn, canDownload, onDelete, onCrea
     
     try {
       // Run full pipeline from the start
-      await api.runPipeline(creation.id);
+      await api.startPipeline(creation.id);
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       setShowRestartConfirm(false);
       if (onCreationRefresh) {

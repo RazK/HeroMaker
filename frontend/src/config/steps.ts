@@ -22,11 +22,11 @@ export async function loadStepConfig(): Promise<StepConfig[]> {
     return configPromise;
   }
   
-  configPromise = api.getStepsConfig().then((config) => {
-    stepConfig = config;
+  configPromise = api.getStepsConfig().then((response) => {
+    stepConfig = response.steps;
     configLoaded = true;
-    console.log('[StepsConfig] Loaded:', config);
-    return config;
+    console.log('[StepsConfig] Loaded:', response.steps, 'total_cost:', response.total_cost);
+    return response.steps;
   });
   
   return configPromise;

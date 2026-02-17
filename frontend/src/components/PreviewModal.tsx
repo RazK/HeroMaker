@@ -7,21 +7,19 @@ interface PreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   creationId: string;
-  userId: string;
   stepName: string;
   displayName: string;
   fileUrl: string;
   outputFile: string;
   walkingUrl?: string | null;
   riggedUrl?: string | null;
-  canDownload: boolean;  // Whether user can download (owns creation or is admin)
+  canDownload: boolean;
 }
 
 export function PreviewModal({
   isOpen,
   onClose,
   creationId,
-  userId,
   stepName,
   displayName,
   fileUrl,
@@ -37,7 +35,7 @@ export function PreviewModal({
 
   const handleDownload = async () => {
     try {
-      await api.downloadFile(creationId, outputFile, userId);
+      await api.downloadFile(creationId, outputFile);
     } catch (error) {
       console.error('Failed to download file:', error);
       alert(`Failed to download ${outputFile}`);

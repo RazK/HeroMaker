@@ -69,12 +69,12 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
       ? walkingGlbFilename 
       : outputFile;
     
-    const fileUrl = api.getFileUrl(creation.id, modelFile, creation.user_id);
-    const walkingUrl = walkingGlbFilename 
-      ? api.getFileUrl(creation.id, walkingGlbFilename, creation.user_id) 
+    const fileUrl = api.getFileUrl(creation.id, modelFile);
+    const walkingUrl = walkingGlbFilename
+      ? api.getFileUrl(creation.id, walkingGlbFilename)
       : null;
-    const riggedUrl = step.step_name === 'meshy_rig' 
-      ? api.getFileUrl(creation.id, outputFile, creation.user_id) 
+    const riggedUrl = step.step_name === 'meshy_rig'
+      ? api.getFileUrl(creation.id, outputFile)
       : null;
 
     return {
@@ -104,11 +104,10 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
         {visibleSteps.map((step, index) => {
           const config = getStepByName(step.step_name);
           return (
-            <StepCard 
-              key={step.step_name} 
-              step={step} 
+            <StepCard
+              key={step.step_name}
+              step={step}
               creationId={creation.id}
-              userId={creation.user_id}
               stepIndex={index}
               isReady={step.step_name === readyStepName}
               displayName={config?.display_name || step.step_name}
@@ -139,7 +138,6 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
           isOpen={true}
           onClose={handleClosePreview}
           creationId={creation.id}
-          userId={creation.user_id}
           stepName={previewStep.step_name}
           displayName={previewData.displayName}
           fileUrl={previewData.fileUrl}

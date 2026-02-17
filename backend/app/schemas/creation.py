@@ -12,20 +12,9 @@ class CreationRequest(BaseModel):
 class MessageResponse(BaseModel):
     message: str
 
-class CostResponse(BaseModel):
-    cost: int
-
 class StepConfigResponse(BaseModel):
     steps: list
-
-class StepActionResponse(BaseModel):
-    message: str
-    creation_id: str
-    step_name: str
-    status: Optional[str] = None
-    started_at: Optional[datetime] = None
-    estimated_completion_time: Optional[datetime] = None
-    already_cancelled: Optional[bool] = None
+    total_cost: int
 
 class PipelineActionResponse(BaseModel):
     message: str
@@ -34,19 +23,18 @@ class PipelineActionResponse(BaseModel):
 
 class CreationStepResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     step_name: str
     status: str  # pending, processing, completed, failed
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    estimated_completion_time: Optional[datetime] = None  # Calculated completion time, updated when progress changes
+    estimated_completion_time: Optional[datetime] = None
     error_message: Optional[str] = None
-    metadata_json: Optional[dict] = None  # Step-specific metadata (e.g., Meshy API task IDs, animation URLs)
-    
+    metadata_json: Optional[dict] = None
+
     @classmethod
     def from_step(cls, step):
         """Build CreationStepResponse from CreationStep model, excluding estimated_progress."""
-        # Exclude estimated_progress from response - frontend calculates from estimated_completion_time
         data = {
             "step_name": step.step_name,
             "status": step.status,
@@ -60,24 +48,23 @@ class CreationStepResponse(BaseModel):
 
 class CreationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     character_name: Optional[str] = None
-    name: Optional[str] = None  # Creator's name (user who created this)
-    age: Optional[int] = None  # Person's age (for original image)
-    status: str  # Derived from steps
+    name: Optional[str] = None
+    age: Optional[int] = None
+    status: str
     user_id: str
-    username: Optional[str] = None  # User's username (deprecated, use name instead)
+    username: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    completed_at: Optional[datetime] = None  # Derived from steps
+    completed_at: Optional[datetime] = None
     steps: List[CreationStepResponse] = []
-    error_message: Optional[str] = None  # Derived from failed step
-    
+    error_message: Optional[str] = None
+
     @classmethod
     def from_creation(cls, creation):
         """Build CreationResponse from Creation model, including steps."""
-        # Build response manually to avoid issues with removed properties
         response = cls(
             id=creation.id,
             character_name=creation.character_name,
@@ -92,7 +79,7 @@ class CreationResponse(BaseModel):
             error_message=creation.error_message,
             steps=[],
         )
-        
+
         # Build steps list in STEPS config order (not DB order)
         steps_by_name = {step.step_name: step for step in creation.steps}
         for step_config in STEPS:
@@ -100,14 +87,34 @@ class CreationResponse(BaseModel):
             if step:
                 response.steps.append(CreationStepResponse.from_step(step))
             else:
-                # Step not found - create a pending step response
                 dummy_step = CreationStep(
                     creation_id=creation.id,
                     step_name=step_config["name"],
                     status="pending"
                 )
                 response.steps.append(CreationStepResponse.from_step(dummy_step))
-        
-        return response
-    
 
+        return response
+
+
+class CreationGalleryResponse(BaseModel):
+    """Stripped-down creation for public gallery — no steps, no sensitive data."""
+    id: str
+    character_name: Optional[str] = None
+    name: Optional[str] = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
+
+    @classmethod
+    def from_creation(cls, creation):
+        return cls(
+            id=creation.id,
+            character_name=creation.character_name,
+            name=creation.name or (creation.user.username if creation.user else None),
+            status=creation.status,
+            created_at=creation.created_at,
+            updated_at=creation.updated_at,
+            completed_at=creation.completed_at,
+        )
