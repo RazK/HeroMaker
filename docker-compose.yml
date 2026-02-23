@@ -19,7 +19,7 @@ services:
       - FILES_ROOT=/app/data/files
       - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL:-gpt-image-1}
       - OPENAI_IMAGE_MODEL_FALLBACK=${OPENAI_IMAGE_MODEL_FALLBACK:-}
-      - VRM_CONVERTER_SERVICE_URL=${VRM_CONVERTER_SERVICE_URL:-http://vrm-converter:8000}
+      - VRM_CONVERTER_SERVICE_URL=http://vrm-converter:8000  # hardcoded: backend container must use internal Docker hostname
       - VRM_CONVERTER_TIMEOUT=${VRM_CONVERTER_TIMEOUT:-300}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
     volumes:
@@ -50,18 +50,16 @@ services:
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
       - VITE_API_PROXY_TARGET=http://backend:8000
-    volumes:
-      # Mount frontend source for hot reload (development only)
-      - ./frontend:/app
-      - /app/node_modules  # Prevent overwriting node_modules in container
-    # Override CMD for local dev: run Vite dev server instead of nginx
-    command: sh -c "cd /app && npm run dev -- --host 0.0.0.0 --port 80"
+    # volumes:  # Disabled - nginx image doesn't have npm
+    #   - ./frontend:/app
+    #   - /app/node_modules
+    # command: sh -c "cd /app && npm run dev -- --host 0.0.0.0 --port 80"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
+      test: ["CMD", "sh", "-c", "test -f /usr/share/nginx/html/index.html"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 5s
     restart: unless-stopped
     networks:
       - heromaker-network
