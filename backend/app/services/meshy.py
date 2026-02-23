@@ -177,13 +177,8 @@ class MeshyClient:
         return response.get("result")
     
     def get_image_to_3d_status(self, task_id: str) -> Dict[str, Any]:
-        """Get status of image-to-3D task."""
-        # Try v2 first, fallback to v1 if needed
-        try:
-            return self._request("GET", f"/openapi/v2/image-to-3d/{task_id}")
-        except MeshyAPIError:
-            # Fallback to v1 if v2 doesn't exist
-            return self._request("GET", f"/openapi/v1/image-to-3d/{task_id}")
+        """Get status of image-to-3D task (v1 API — v2 doesn't exist for image-to-3d)."""
+        return self._request("GET", f"/openapi/v1/image-to-3d/{task_id}")
     
     # Remesh Methods
     
@@ -357,25 +352,33 @@ class MeshyClient:
             status = status_func(task_id)
             current_status = status.get("status", "UNKNOWN")
             progress = status.get("progress", 0)
-            
+
             if verbose:
-                logger.debug(f"Task {task_id}: status={current_status}, progress={progress}%")
+                logger.info(f"Task {task_id}: status={current_status}, progress={progress}%")
 
             if current_status == "SUCCEEDED":
                 if progress >= 100:
                     return status
                 else:
                     if verbose:
-                        logger.debug(f"Task {task_id}: waiting for progress to reach 100% (currently {progress}%)")
-            
+                        logger.info(f"Task {task_id}: waiting for progress to reach 100% (currently {progress}%)")
+
             elif current_status == "FAILED":
-                error_msg = status.get("error", {}).get("message", "Unknown error")
+                # Meshy v1 uses task_error.message, v2 uses error.message
+                error_msg = (
+                    status.get("task_error", {}).get("message")
+                    or status.get("error", {}).get("message")
+                    or "Unknown error"
+                )
                 raise MeshyAPIError(f"Task {task_id} failed: {error_msg}")
-            
+
+            elif current_status not in ("PENDING", "IN_PROGRESS"):
+                logger.warning(f"Task {task_id}: unexpected status '{current_status}', treating as in-progress")
+
             elapsed = time.time() - start_time
             if elapsed > max_wait:
-                raise MeshyAPIError(f"Task {task_id} timed out after {max_wait} seconds")
-            
+                raise MeshyAPIError(f"Task {task_id} timed out after {max_wait} seconds. Last status: {current_status}, progress: {progress}%")
+
             time.sleep(poll_interval)
     
     def download_file(self, url: str, output_path: Path) -> Path:

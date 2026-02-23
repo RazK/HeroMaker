@@ -224,16 +224,24 @@ def _poll_meshy_task_with_progress(
         # Check if complete
         if current_status == "SUCCEEDED" and progress >= 100:
             return get_download_url(status)
-        
+
         # Check for failure
         if current_status == "FAILED":
-            error_msg = status.get("error", {}).get("message", "Unknown error")
+            # Meshy v1 uses task_error.message, v2 uses error.message
+            error_msg = (
+                status.get("task_error", {}).get("message")
+                or status.get("error", {}).get("message")
+                or "Unknown error"
+            )
             raise MeshyAPIError(f"Meshy task {task_id} failed: {error_msg}")
-        
+
+        if current_status not in ("PENDING", "IN_PROGRESS", "SUCCEEDED"):
+            logger.warning(f"[{step.creation_id}] Meshy task {task_id}: unexpected status '{current_status}'")
+
         # Check timeout
         elapsed = time.time() - start_time
         if elapsed > max_wait:
-            raise MeshyAPIError(f"Meshy task {task_id} timed out after {max_wait} seconds")
+            raise MeshyAPIError(f"Meshy task {task_id} timed out after {max_wait} seconds. Last status: {current_status}, progress: {progress}%")
         
         time.sleep(poll_interval)
 
@@ -492,8 +500,8 @@ async def execute_step(
     if not step:
         raise ValueError(f"Step {step_name} not found")
     
-    # Reset step if retrying (failed or completed state)
-    if step.status in ("failed", "completed"):
+    # Reset step if retrying (failed, completed, or orphaned processing state)
+    if step.status in ("failed", "completed", "processing"):
         _reset_step(step)
         db.commit()
     

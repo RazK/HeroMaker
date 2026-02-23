@@ -60,11 +60,11 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     };
   }, []);
 
-  // Load creations on mount and when ownership filter changes
+  // Load creations on mount and when ownership filter or user changes
   useEffect(() => {
     loadCreations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownershipFilter]);
+  }, [ownershipFilter, user]);
 
   // Update every second for time remaining
   useEffect(() => {
@@ -81,46 +81,23 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     setIsLoading(true);
     setError(null);
     try {
-      // Determine if we should filter to only user's creations
-      const mineOnly = ownershipFilter === 'my' && !!user;
-      
-      // Load all creations - start with a large limit
-      let allCreations: CreationResponse[] = [];
-      let offset = 0;
-      const limit = 100;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const result = await api.listCreations(limit, offset, mineOnly);
-        allCreations = [...allCreations, ...result.creations];
-        
-        console.log(`[CreationGallery] Loaded batch: offset=${offset}, count=${result.creations.length}, total so far=${allCreations.length}, filter=${ownershipFilter}`);
-        
-        // If we got fewer than the limit, we've reached the end
-        if (result.creations.length < limit) {
-          hasMore = false;
-        } else {
-          offset += limit;
-        }
-      }
-      
-      console.log(`[CreationGallery] Total creations loaded: ${allCreations.length}`);
-      console.log('[CreationGallery] Creation IDs:', allCreations.map(c => c.id));
-      console.log('[CreationGallery] Creation statuses:', allCreations.map(c => ({ id: c.id, status: c.status })));
-      
-      // Show all creations that have an original image
+      // Single API call — backend handles ownership + status filtering
+      const allCreations = await api.listCreations(ownershipFilter);
+
+      console.log(`[CreationGallery] Loaded ${allCreations.length} creations (filter=${ownershipFilter})`);
+
+      // Show all creations that have an original image URL
       const filteredCreations = allCreations.filter(creation => {
-        // Only show if it has an original image
         try {
-          const originalUrl = api.getFileUrl(creation.id, 'original.jpg', creation.user_id);
+          const originalUrl = api.getFileUrl(creation.id, 'original.jpg');
           return !!originalUrl;
         } catch {
           return false;
         }
       });
-      
+
       console.log(`[CreationGallery] Creations with original image: ${filteredCreations.length}`);
-      
+
       setCreations(filteredCreations);
     } catch (err) {
       console.error('[CreationGallery] Failed to load creations:', err);
@@ -132,7 +109,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
 
   const getImageUrl = (creation: CreationResponse, filename: string): string | null => {
     try {
-      return api.getFileUrl(creation.id, filename, creation.user_id);
+      return api.getFileUrl(creation.id, filename);
     } catch {
       return null;
     }

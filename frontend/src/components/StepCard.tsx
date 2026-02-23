@@ -8,7 +8,6 @@ import './StepCard.css';
 interface StepCardProps {
   step: CreationStepResponse;
   creationId: string;
-  userId: string;
   stepIndex: number;
   isReady: boolean;  // Calculated by parent: first non-completed step
   displayName: string;  // From step config
@@ -86,11 +85,10 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-export function StepCard({ 
-  step, 
-  creationId, 
-  userId, 
-  stepIndex, 
+export function StepCard({
+  step,
+  creationId,
+  stepIndex,
   isReady,
   displayName,
   outputFile,
@@ -132,22 +130,22 @@ export function StepCard({
     : outputFile;
   
   const fileUrl = showPreview && modelFile
-    ? api.getFileUrl(creationId, modelFile, userId)
+    ? api.getFileUrl(creationId, modelFile)
     : null;
-  
+
   const walkingUrl = (step.step_name === 'meshy_rig' && showPreview && walkingGlbFilename)
-    ? api.getFileUrl(creationId, walkingGlbFilename, userId)
+    ? api.getFileUrl(creationId, walkingGlbFilename)
     : null;
-  
+
   const riggedUrl = (step.step_name === 'meshy_rig' && showPreview && outputFile)
-    ? api.getFileUrl(creationId, outputFile, userId)
+    ? api.getFileUrl(creationId, outputFile)
     : null;
 
   const handleDownload = async () => {
     if (!outputFile) return;
     const fileToDownload = step.step_name === 'meshy_rig' ? 'avatar.vrm' : outputFile;
     try {
-      await api.downloadFile(creationId, fileToDownload, userId);
+      await api.downloadFile(creationId, fileToDownload);
     } catch (error) {
       console.error('Failed to download file:', error);
       alert(`Failed to download ${fileToDownload}`);
@@ -177,7 +175,7 @@ export function StepCard({
     
     setIsCancelling(true);
     try {
-      await api.cancelStep(creationId, step.step_name);
+      await api.cancelCreation(creationId);
       window.dispatchEvent(new CustomEvent('auth:credits-updated'));
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId } }));
       if (onStepRun) {
@@ -192,9 +190,9 @@ export function StepCard({
 
   const handleRunStep = async () => {
     setIsRunning(true);
-    
+
     try {
-      await api.runStep(creationId, step.step_name);
+      await api.startPipeline(creationId, step.step_name);
       window.dispatchEvent(new CustomEvent('auth:credits-updated'));
       
       // Directly refresh creation state (handles case when polling was stopped)
@@ -219,7 +217,7 @@ export function StepCard({
     
     try {
       // Run pipeline starting from this step (retry and continue all following)
-      await api.runPipeline(creationId, step.step_name);
+      await api.startPipeline(creationId, step.step_name);
       window.dispatchEvent(new CustomEvent('auth:credits-updated'));
       
       if (onCreationRefresh) {
@@ -335,6 +333,11 @@ export function StepCard({
           >
             {isRunning ? '...' : 'Continue'}
           </button>
+          {!hasCredits && creditBalance !== undefined && (
+            <div className="step-card-insufficient-credits">
+              Not enough credits: need {stepCost}, have {creditBalance}
+            </div>
+          )}
         </div>
       );
     }
