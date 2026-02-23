@@ -130,7 +130,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
     }
   };
 
-  const getImageUrl = (creation: CreationResponse, filename: 'original.jpg' | 'rendered.png'): string | null => {
+  const getImageUrl = (creation: CreationResponse, filename: string): string | null => {
     try {
       return api.getFileUrl(creation.id, filename, creation.user_id);
     } catch {
@@ -323,8 +323,8 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
       ) : (
         <div className="creation-gallery-grid">
           {sortedCreations.map((creation) => {
-          const originalUrl = getImageUrl(creation, 'original.jpg');
-          const renderedUrl = getImageUrl(creation, 'rendered.png');
+          const originalUrl = getImageUrl(creation, 'thumb_original.jpg');
+          const renderedUrl = getImageUrl(creation, 'thumb_rendered.png');
           const isCompleted = creation.status === 'completed';
           const hasBothImages = (originalUrl && renderedUrl) || false;
           const timeRemaining = getTimeRemaining(creation);
