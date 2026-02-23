@@ -19,8 +19,8 @@ requests>=2.31.0
 # OpenAI API (for GPT-Image-1 service)
 openai>=1.0.0
 
-# Image processing (optional, for future enhancements)
-# Pillow>=10.0.0
+# Image processing (thumbnails, resizing)
+Pillow>=10.0.0
 
 # GLB file handling (from root requirements)
 pygltflib>=1.16.0
