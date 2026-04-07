@@ -84,25 +84,11 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
       // Determine if we should filter to only user's creations
       const mineOnly = ownershipFilter === 'my' && !!user;
       
-      // Load all creations - start with a large limit
-      let allCreations: CreationResponse[] = [];
-      let offset = 0;
-      const limit = 100;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const result = await api.listCreations(limit, offset, mineOnly);
-        allCreations = [...allCreations, ...result.creations];
-        
-        console.log(`[CreationGallery] Loaded batch: offset=${offset}, count=${result.creations.length}, total so far=${allCreations.length}, filter=${ownershipFilter}`);
-        
-        // If we got fewer than the limit, we've reached the end
-        if (result.creations.length < limit) {
-          hasMore = false;
-        } else {
-          offset += limit;
-        }
-      }
+      // Load all creations in a single call (backend returns all)
+      const result = await api.listCreations(0, 0, mineOnly);
+      const allCreations = result.creations;
+
+      console.log(`[CreationGallery] Loaded ${allCreations.length} creations, filter=${ownershipFilter}`);
       
       console.log(`[CreationGallery] Total creations loaded: ${allCreations.length}`);
       console.log('[CreationGallery] Creation IDs:', allCreations.map(c => c.id));
