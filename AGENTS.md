@@ -11,6 +11,7 @@ bash scripts/setup-dev-env.sh
 ```
 
 The script is idempotent and installs backend dependencies into `.venv/`, frontend dependencies under `frontend/`, and writes a gitignored local `.env` only when one does not already exist.
+It also installs the default seed database and gallery images when no local database exists yet. To reset local data back to the seed, run `bash scripts/install-seed-data.sh --force`.
 
 If `python3 -m venv` reports that `ensurepip` is unavailable on Ubuntu, install `python3.12-venv` once and rerun the setup script.
 
