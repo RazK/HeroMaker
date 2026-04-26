@@ -35,12 +35,12 @@ test_endpoint() {
     
     if [ "$http_code" = "$expected_status" ]; then
         echo -e "${GREEN}✓ PASS${NC} (HTTP $http_code)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED+=1))
         return 0
     else
         echo -e "${RED}✗ FAIL${NC} (HTTP $http_code, expected $expected_status)"
         echo "Response: $body"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED+=1))
         return 1
     fi
 }
@@ -56,12 +56,12 @@ test_json_response() {
     
     if echo "$response" | jq -e ".$expected_key" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ PASS${NC}"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED+=1))
         return 0
     else
         echo -e "${RED}✗ FAIL${NC} (Expected key '$expected_key' not found)"
         echo "Response: $response"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED+=1))
         return 1
     fi
 }
@@ -90,10 +90,10 @@ if command -v jq &> /dev/null; then
     
     if [ "$db_status" = "healthy" ]; then
         echo -e "${GREEN}✓ PASS${NC} (Database: $db_status)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED+=1))
     else
         echo -e "${RED}✗ FAIL${NC} (Database: $db_status)"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED+=1))
     fi
 fi
 
