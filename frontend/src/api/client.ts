@@ -211,12 +211,10 @@ export const api = {
   },
 
   /**
-   * List all creations
+   * List all creations (backend always returns all — no server-side pagination)
    */
-  async listCreations(limit: number = 50, offset: number = 0, mineOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
+  async listCreations(mineOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
     const params = new URLSearchParams();
-    params.append('limit', String(limit));
-    params.append('offset', String(offset));
     if (mineOnly) {
       params.append('mine_only', 'true');
     }
@@ -225,7 +223,6 @@ export const api = {
     );
     console.log('[API] listCreations result:', {
       count: result.length,
-      total: result.length,
       mineOnly,
     });
     return { creations: result, total: result.length };

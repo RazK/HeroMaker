@@ -84,8 +84,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
       // Determine if we should filter to only user's creations
       const mineOnly = ownershipFilter === 'my' && !!user;
       
-      // Load all creations in a single call (backend returns all)
-      const result = await api.listCreations(0, 0, mineOnly);
+      const result = await api.listCreations(mineOnly);
       const allCreations = result.creations;
 
       console.log(`[CreationGallery] Loaded ${allCreations.length} creations, filter=${ownershipFilter}`);
@@ -310,7 +309,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
         <div className="creation-gallery-grid">
           {sortedCreations.map((creation) => {
           const originalUrl = getImageUrl(creation, 'thumb_original.jpg');
-          const renderedUrl = getImageUrl(creation, 'thumb_rendered.png');
+          const renderedUrl = getImageUrl(creation, 'thumb_rendered.jpg');
           const isCompleted = creation.status === 'completed';
           const hasBothImages = (originalUrl && renderedUrl) || false;
           const timeRemaining = getTimeRemaining(creation);

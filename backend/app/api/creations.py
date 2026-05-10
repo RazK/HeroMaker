@@ -113,9 +113,9 @@ def update_creation(
 
 @router.get("/", response_model=List[CreationResponse])
 def list_creations(
+        mine_only: bool = False,
         db: Session = Depends(get_db),
         user: Optional[User] = Depends(get_current_user_optional),
-        mine_only: bool = False
 ):
     """List creations. Public endpoint - shows all creations in gallery by default."""
     if mine_only and user:

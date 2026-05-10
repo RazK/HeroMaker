@@ -1,235 +1,87 @@
-name: Build and Push Docker Images
+name: Build and Deploy
 
 on:
   push:
     branches: [main]
-    tags:
-      - 'v*'
   pull_request:
     branches: [main]
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  # Detect which directories have changes
+  # Detect which service directories have changes
   changes:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
       vrm-converter: ${{ steps.filter.outputs.vrm-converter }}
     steps:
       - uses: actions/checkout@v4
-      
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
             backend:
               - 'backend/**'
-            frontend:
-              - 'frontend/**'
             vrm-converter:
               - 'vrm-converter-service/**'
 
-  build-backend:
+  # ── Production deploys (push to main only) ─────────────────────────────────
+
+  deploy-backend-production:
     needs: changes
-    # Build if: backend changed, OR it's a tag/release, OR manual trigger
-    if: needs.changes.outputs.backend == 'true' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  build-frontend:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  build-vrm-converter:
-    needs: changes
-    if: needs.changes.outputs.vrm-converter == 'true' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/vrm-converter
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./vrm-converter-service
-          file: ./vrm-converter-service/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ env.VRM_CONVERTER_VERSION || '1.0.0' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # Deploy to Railway after builds complete (only on main branch, not PRs)
-  deploy:
-    needs: [build-backend, build-frontend, build-vrm-converter]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      BACKEND_SERVICE_ID: 3970a673-db5b-4b2d-9456-93acf1da09bf
-      FRONTEND_SERVICE_ID: a71bc2c6-c912-475c-ab16-a5dbf0ba074e
-      VRM_CONVERTER_SERVICE_ID: e7afe8a4-ce76-4093-9122-72c498b4874f
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Deploy backend to Railway production
+        run: railway up --service=${{ secrets.RAILWAY_BACKEND_PROD_SERVICE_ID }} --environment=production --detach
 
-      - name: Deploy Backend
-        run: railway up --service=${{ env.BACKEND_SERVICE_ID }} --detach
-
-      - name: Deploy Frontend
-        run: railway up --service=${{ env.FRONTEND_SERVICE_ID }} --detach
-
-      - name: Deploy VRM Converter
-        run: railway up --service=${{ env.VRM_CONVERTER_SERVICE_ID }} --detach
-
-      - name: Deployment Summary
-        run: |
-          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Services deployed to Railway:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Backend" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Frontend" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ VRM Converter" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Railway will run health checks automatically." >> $GITHUB_STEP_SUMMARY
-
-  # Summary job that depends on all builds (for PR status checks)
-  summary:
-    needs: [changes, build-backend, build-frontend, build-vrm-converter]
-    if: always()
+  deploy-vrm-production:
+    needs: changes
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (needs.changes.outputs.vrm-converter == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
-      - name: Check build results
-        run: |
-          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ needs.changes.outputs.backend }}" == "true" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
-            echo "- ✅ Backend: Built" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⏭️ Backend: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ "${{ needs.changes.outputs.frontend }}" == "true" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
-            echo "- ✅ Frontend: Built" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⏭️ Frontend: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ "${{ needs.changes.outputs.vrm-converter }}" == "true" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
-            echo "- ✅ VRM Converter: Built" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⏭️ VRM Converter: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
-          fi
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy VRM converter to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only
+        working-directory: ./vrm-converter-service
+
+  # ── Staging deploy (PRs only) ───────────────────────────────────────────────
+  # Frontend preview is handled automatically by Cloudflare Pages.
+  # We only need to deploy the backend to Railway staging.
+
+  deploy-backend-staging:
+    needs: changes
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy backend to Railway staging
+        run: railway up --service=${{ secrets.RAILWAY_BACKEND_STAGING_SERVICE_ID }} --environment=staging --detach
+      - name: Post preview URL to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '**Preview deployed**\n\nFrontend: Cloudflare Pages will post the preview URL above.\nBackend (staging): See Railway dashboard for the staging backend URL.'
+            })
