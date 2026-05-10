@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Deploy backend to Railway production
-        run: railway up --service=${{ secrets.RAILWAY_BACKEND_PROD_SERVICE_ID }} --environment=production --detach
+        run: railway up --service=${{ secrets.RAILWAY_BACKEND_SERVICE_ID }} --environment=production --detach
 
   deploy-vrm-production:
     needs: changes
@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Deploy backend to Railway staging
-        run: railway up --service=${{ secrets.RAILWAY_BACKEND_STAGING_SERVICE_ID }} --environment=staging --detach
+        run: railway up --service=${{ secrets.RAILWAY_BACKEND_SERVICE_ID }} --environment=staging --detach
       - name: Post preview URL to PR
         uses: actions/github-script@v7
         with:
