@@ -1,5 +1,13 @@
 # Claude Instructions for HeroMaker
 
+## Where the product lives
+
+- **Live:** https://heromaker.up.railway.app/ (Railway, deployed from `main`).
+- Full URL map, health checks, and troubleshooting: **[docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md)**.
+- Known UX/product gaps with measurements: **[docs/PRODUCT_AUDIT_2026-08.md](docs/PRODUCT_AUDIT_2026-08.md)**.
+
+Do not go hunting through scripts for the deployment URL — it is in the two docs above.
+
 ## Git & PR Rules
 
 - **One PR per logical unit.** Even if given a list of tasks, work on them one at a time — separate branch, separate PR per topic (e.g. bug fixes, docs, new features are never mixed).

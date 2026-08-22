@@ -2,6 +2,17 @@
 
 Follow the existing project guidance in `CLAUDE.md`.
 
+## Start here
+
+- **Live product:** https://heromaker.up.railway.app/ — one public URL; `/api/*` is
+  reverse-proxied to the backend on Railway's private network.
+- **[docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md)** — every deployed and local URL, plus
+  how to tell "the site is down" apart from "my sandbox blocks egress" (a blocked
+  sandbox fails with `CONNECT tunnel failed, response 403` while DNS still resolves).
+- **[docs/PRODUCT_AUDIT_2026-08.md](docs/PRODUCT_AUDIT_2026-08.md)** — known UX and
+  product gaps, with measurements. Read before proposing UI work so you do not
+  re-discover the same findings.
+
 ## Cursor Cloud specific instructions
 
 Use the repo-local setup script to refresh dependencies after pulling changes:

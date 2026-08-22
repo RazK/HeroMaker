@@ -6,6 +6,17 @@ AI-powered character creation pipeline that transforms 2D images into 3D VRM ava
 
 > Transform drawings into animated 3D characters in minutes
 
+## 🚀 Live
+
+**https://heromaker.up.railway.app/** — the deployed product. One public URL:
+nginx serves the React build and proxies `/api/*` to the backend over Railway's
+private network, so the backend and VRM converter have no public address.
+
+Health check: `curl https://heromaker.up.railway.app/api/health`
+
+See **[docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md)** for the full picture (local URLs,
+how to verify it is up, and what to do when it is unreachable).
+
 ## Quick Start with Docker
 
 **Prerequisites:**
@@ -65,6 +76,8 @@ That's it! The API is now available at `http://localhost:8000`.
 
 ## Documentation
 
+- **[Deployments](docs/DEPLOYMENTS.md)** - Where HeroMaker is deployed live, and how to reach it
+- **[Product Audit](docs/PRODUCT_AUDIT_2026-08.md)** - UX/product findings and the gaps to close before commercializing
 - **[Local Deployment](docs/deployment/local.md)** - Local Docker Compose setup and development
 - **[Railway Deployment](docs/deployment/railway.md)** - Production deployment to Railway
 - **[API Reference](docs/api/reference.md)** - Interactive Swagger UI docs
@@ -115,7 +128,7 @@ graph TB
     end
     
     User -->|HTTPS| Frontend
-    Frontend -->|Direct API Calls| Backend
+    Frontend -->|nginx proxy /api/*| Backend
     Backend -->|Private Network| VRMConverter
     Backend -->|API Calls| OpenAI
     Backend -->|API Calls| Meshy
@@ -125,7 +138,9 @@ graph TB
 ```
 
 **Key Architecture Decisions:**
-- **Frontend → Backend**: Direct calls via `VITE_API_BASE_URL` (no proxy needed)
+- **Frontend → Backend**: same-origin `/api/*`, reverse-proxied by nginx in production
+  (`frontend/nginx.conf`) and by the Vite dev server locally. `VITE_API_BASE_URL` is left
+  empty for this; set it only to point the frontend at a backend on a *different* origin.
 - **Backend → VRM Converter**: Private network communication (Docker network locally, Railway private network in production)
 - **Storage**: Shared volume (local) or S3 + PostgreSQL (production)
 - **Stateless Frontend**: Pre-built static files, no server-side rendering
