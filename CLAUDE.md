@@ -1,5 +1,11 @@
 # Claude Instructions for HeroMaker
 
+## Answering Raz
+
+- **Bottom line first, and usually only.** A few sentences. No preamble, no story.
+- No long explanations, caveats, or justifications unless explicitly asked.
+- Details on request only. Lead with the answer, stop.
+
 ## Where the product lives
 
 - **Live:** https://heromaker.up.railway.app/ (Railway, deployed from `main`).
