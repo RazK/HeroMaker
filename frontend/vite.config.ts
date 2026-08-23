@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
         enabled: true,
         type: 'module'
       },
-      includeAssets: ['logo-head-transparent.png'],
+      includeAssets: ['logo-head-64.png', 'logo-head-192.png'],
       manifest: {
         name: 'HeroMaker',
         short_name: 'HeroMaker',
@@ -30,26 +30,48 @@ export default defineConfig(({ mode }) => {
         start_url: '/',
         icons: [
           {
-            src: 'logo-head-transparent.png',
+            src: 'logo-head-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'logo-head-transparent.png',
+            src: 'logo-head-512.png',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: 'logo-head-transparent.png',
-            sizes: '1024x1024',
+            src: 'logo-head-512.png',
+            sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'maskable'
           }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}', 'logo-head-{64,192}.png'],
+        // Keep the precache to the app shell. The three.js chunk is ~800 kB and is
+        // only needed once a 3D view opens, so it is excluded here and cached at
+        // runtime instead (see the three-chunk rule below). Same idea for images:
+        // a first-time visitor should not be pushed assets they may never look at.
+        globIgnores: ['**/ModelPreview-*.js'],
+        maximumFileSizeToCacheInBytes: 400 * 1024,
         runtimeCaching: [
+          {
+            // The 3D chunk (three.js + the model preview). Fetched the first time a
+            // model preview mounts, then served from cache on every later visit.
+            urlPattern: /\/assets\/ModelPreview-[\w-]+\.js$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'model-preview-chunk-cache',
+              expiration: {
+                maxEntries: 4,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
@@ -105,7 +127,10 @@ export default defineConfig(({ mode }) => {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
+          // three.js is deliberately NOT listed here. Naming it as a manual chunk
+          // makes Vite treat it as part of the entry graph and emit a
+          // <link rel="modulepreload"> for it, which pulls all ~800 kB on first
+          // paint and defeats the lazy import in LazyModelPreview.
         },
       },
     },

@@ -1,5 +1,5 @@
 import { ImagePreview } from './ImagePreview';
-import { ModelPreview } from './ModelPreview';
+import { LazyModelPreview as ModelPreview } from './LazyModelPreview';
 import { api } from '../api/client';
 import './PreviewModal.css';
 

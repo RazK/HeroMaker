@@ -177,7 +177,14 @@ function App() {
           }}
           style={{ cursor: 'pointer' }}
         >
-          <img src="/logo-head-transparent.png" alt="HeroMaker Logo" className="app-logo" />
+          <img
+            src="/logo-head-64.png"
+            srcSet="/logo-head-64.png 1x, /logo-head-128.png 2x"
+            width={40}
+            height={40}
+            alt="HeroMaker"
+            className="app-logo"
+          />
           <h1>HeroMaker</h1>
         </div>
         <div className="app-header-right">

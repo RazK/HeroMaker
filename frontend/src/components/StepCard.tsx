@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CreationStepResponse } from '../api/client';
 import { ImagePreview } from './ImagePreview';
-import { ModelPreview } from './ModelPreview';
+import { LazyModelPreview as ModelPreview } from './LazyModelPreview';
 import { api } from '../api/client';
 import './StepCard.css';
 
