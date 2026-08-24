@@ -103,6 +103,9 @@ function fitDistance(camera: THREE.PerspectiveCamera, size: THREE.Vector3): numb
  * has already loaded and drawn the model, so a snapshot costs one readback
  * rather than a second download.
  */
+/** Set once the model has loaded and the camera has framed it. */
+const modelFramedRef = { current: false };
+
 function SnapshotOnce({ onSnapshot }: { onSnapshot?: (d: string) => void }) {
   const { gl, scene, camera } = useThree();
   const framesRef = useRef(0);
@@ -110,14 +113,21 @@ function SnapshotOnce({ onSnapshot }: { onSnapshot?: (d: string) => void }) {
 
   useFrame(() => {
     if (doneRef.current || !onSnapshot) return;
-    // Let a few frames land so lighting and any animation pose are settled.
-    if (++framesRef.current < 8) return;
+    // Counting frames alone is not enough: a 7 MB model is still downloading
+    // at frame 8, so the readback came back blank against real data. Wait
+    // until the model has been measured and framed, then let a few frames
+    // settle so lighting and the animation pose are in place.
+    if (!modelFramedRef.current) return;
+    if (++framesRef.current < 10) return;
     doneRef.current = true;
     try {
       gl.render(scene, camera);
       // PNG, not JPEG: the canvas is transparent, and JPEG has no alpha, so
       // the model would arrive on a black rectangle.
-      onSnapshot(gl.domElement.toDataURL('image/png'));
+      const data = gl.domElement.toDataURL('image/png');
+      // A blank readback is worse than no thumbnail: it leaves an empty tile
+      // where the borrowed render at least showed the character.
+      if (data.length > 5000) onSnapshot(data);
     } catch {
       /* tainted or context-lost canvases simply produce no thumbnail */
     }
@@ -140,6 +150,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
   // Clone the scene on first render to avoid mutating the cached original
   // Use SkeletonUtils.clone for proper SkinnedMesh and animation support
   const scene = useMemo(() => {
+    modelFramedRef.current = false;
     const cloned = cloneWithSkeleton(gltf.scene) as THREE.Group;
     clonedSceneRef.current = cloned;
     return cloned;
@@ -255,6 +266,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
       
       // Store the center for CameraController to use
       modelCenterRef.current.copy(finalCenter);
+      modelFramedRef.current = true;
       
       // Position camera based on bounding box dimensions
       const finalSize = finalBox.getSize(new THREE.Vector3());
