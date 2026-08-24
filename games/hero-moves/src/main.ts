@@ -65,6 +65,10 @@ const firstHeroReady = ROSTER.length
   if (!entry || ROSTER.some((r) => r.id === id)) return
   ROSTER.push(entry)
   renderPicker()
+  // The picker grows a row as heroes land, so the card gets taller and the
+  // strip the hero is framed against gets shorter. Without this the framing
+  // stays solved for a one-hero card and the head leaves the top of the frame.
+  reframe()
   announceFirstHero?.()
   announceFirstHero = null
 }
@@ -209,8 +213,14 @@ async function beginRun(rounds = 0) {
     await startLoadingTracker()
     camNote.textContent = ''
     const state = await tracker.start()
+    // An embedded preview is never granted camera permission by its host, so
+    // the useful thing to say there is not "allow the camera" — the viewer has
+    // nothing to allow. Say where the game can actually be played instead.
+    const embedded = window.self !== window.top
     camNote.textContent =
       state === 'ready' ? ''
+      : state === 'denied' && embedded
+        ? 'This preview cannot reach the camera. Open the downloaded file directly to play.'
       : state === 'denied' ? `${tracker.error} — allow the camera and press start again.`
       : 'No camera available on this device.'
     if (state !== 'ready') return

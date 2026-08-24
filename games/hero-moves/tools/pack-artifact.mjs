@@ -21,6 +21,14 @@ import path from 'node:path'
  * it, while the player is still choosing.
  *
  * Usage: pack-artifact.mjs [dist] [out.html] [assets/avatars] [--heroes=a,b,c]
+ *                          [--standalone]
+ *
+ * `--standalone` wraps the same payload in a complete document instead of an
+ * artifact fragment, for a file somebody downloads and opens directly. That is
+ * not a nicety: the artifact viewer's iframe is never granted camera
+ * permission, so the published page can be looked at but not played. A local
+ * file:// page is a secure context and does get the camera, and it has no size
+ * ceiling either, so it carries the whole roster.
  */
 const dist = process.argv[2] ?? 'dist'
 const out = process.argv[3] ?? 'dist/hero-moves.artifact.html'
@@ -35,8 +43,12 @@ const flag = (n, d) => {
  * 1.6 MB once base64'd, against a 16 MB ceiling — so a published page carries a
  * subset, and the roster is built from whichever blocks actually arrive.
  */
-const HEROES = flag('heroes', 'Crayon_Kid,Yummy_Bear,Gingerella').split(',').filter(Boolean)
-const LIMIT = 16 * 1024 * 1024
+const standalone = process.argv.includes('--standalone')
+const HEROES = flag('heroes',
+  standalone
+    ? 'Crayon_Kid,Yummy_Bear,Superstar,Gingerella,Skelly,Cloudy'
+    : 'Crayon_Kid,Yummy_Bear,Gingerella').split(',').filter(Boolean)
+const LIMIT = standalone ? Infinity : 16 * 1024 * 1024
 
 const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8')
 const pick = (re, what) => {
@@ -98,19 +110,26 @@ const page = [
   `<script>__hmPoseModel();__hdStep('Pose tracker ready')</script>`,
 ].join('\n') + '\n'
 
+const document_ = standalone
+  ? '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8" />\n' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1,' +
+    'maximum-scale=1,user-scalable=no,viewport-fit=cover" />\n' +
+    '<meta name="theme-color" content="#241b3d" />\n</head>\n<body>\n' + page + '</body>\n</html>\n'
+  : page
+
 fs.mkdirSync(path.dirname(out), { recursive: true })
-fs.writeFileSync(out, page)
+fs.writeFileSync(out, document_)
 
 // Markup checks must ignore script and style bodies: the engine legitimately
 // carries strings like '<body' inside its own minified JS.
 const markup = page.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
-const size = Buffer.byteLength(page)
+const size = Buffer.byteLength(document_)
 const engineAt = page.indexOf(engine)
 
-const checks = [
+const checks = standalone ? [] : [
   ['no doctype', !/<!doctype/i.test(markup)],
   ['no <html>/<head>/<body>', !/<(html|head|body)[\s>]/i.test(markup)],
-  ['title in first 8KB', page.indexOf('<title>') >= 0 && page.indexOf('<title>') < 8192],
+  ['title early', page.indexOf('<title>') >= 0 && page.indexOf('<title>') < 8192],
   ['stylesheet before splash', page.indexOf('#boot') < page.indexOf('id="boot"')],
   ['splash before engine', page.indexOf('id="boot"') < engineAt],
   ['app root before engine', page.indexOf('id="app"') < engineAt],
@@ -124,6 +143,14 @@ const checks = [
 const external = [...markup.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)].map((m) => m[1])
 const badHosts = external.filter((u) => !/^https:\/\/fonts\.(googleapis|gstatic)\.com/.test(u))
 checks.push(['only google-fonts externals', badHosts.length === 0])
+if (standalone) {
+  checks.unshift(
+    ['stylesheet before splash', page.indexOf('#boot') < page.indexOf('id="boot"')],
+    ['splash before engine', page.indexOf('id="boot"') < engineAt],
+    ['engine is a classic script', !/<script type="module"/.test(page)],
+    ['every hero blocked', HEROES.every((id) => page.includes(`id="hm-avatar-${id}"`))],
+  )
+}
 
 for (const [name, ok] of checks) console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}`)
 if (badHosts.length) console.log('     blocked hosts:', badHosts.join(', '))
