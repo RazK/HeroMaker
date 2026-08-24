@@ -116,14 +116,30 @@ export const MOVES: Move[] = [
 
 export const MOVE_BY_ID = new Map(MOVES.map((m) => [m.id, m]))
 
-/** Limbs the score is computed over, and how much each one counts. */
+/**
+ * Limbs the score is computed over, and how much each one counts.
+ *
+ * Whole-limb vectors carry the weight. Measured with tools/posecheck.mjs on a
+ * pipeline avatar posed perfectly, MoveNet reports shoulders and wrists at
+ * 0.6-0.8 confidence but elbows at 0.25-0.66, and places the elbow far too
+ * close to the shoulder — these avatars have smooth sausage arms with no elbow
+ * crease for the model to find. Scoring the upper arm alone therefore graded a
+ * flawless T-pose as OK. Shoulder-to-wrist is both what the tracker sees
+ * reliably and what a dance move actually is: where your hand is relative to
+ * your shoulder. The elbow segments stay in at low weight so a bent arm still
+ * reads differently from a straight one.
+ */
 export const SCORED_LIMBS: Array<{ from: KeypointName; to: KeypointName; weight: number }> = [
-  { from: 'leftShoulder', to: 'leftElbow', weight: 1.0 },
-  { from: 'leftElbow', to: 'leftWrist', weight: 0.8 },
-  { from: 'rightShoulder', to: 'rightElbow', weight: 1.0 },
-  { from: 'rightElbow', to: 'rightWrist', weight: 0.8 },
-  { from: 'leftHip', to: 'leftKnee', weight: 0.5 },
-  { from: 'rightHip', to: 'rightKnee', weight: 0.5 },
+  { from: 'leftShoulder', to: 'leftWrist', weight: 1.0 },
+  { from: 'rightShoulder', to: 'rightWrist', weight: 1.0 },
+  { from: 'leftShoulder', to: 'leftElbow', weight: 0.3 },
+  { from: 'rightShoulder', to: 'rightElbow', weight: 0.3 },
+  { from: 'leftElbow', to: 'leftWrist', weight: 0.3 },
+  { from: 'rightElbow', to: 'rightWrist', weight: 0.3 },
+  { from: 'leftHip', to: 'leftAnkle', weight: 0.5 },
+  { from: 'rightHip', to: 'rightAnkle', weight: 0.5 },
+  { from: 'leftHip', to: 'leftKnee', weight: 0.3 },
+  { from: 'rightHip', to: 'rightKnee', weight: 0.3 },
 ]
 
 function limbAngle(s: Skeleton, from: KeypointName, to: KeypointName): number | null {
@@ -144,12 +160,17 @@ function limbAngle(s: Skeleton, from: KeypointName, to: KeypointName): number | 
 export function scorePose(live: Skeleton, target: Skeleton): number {
   let total = 0
   let got = 0
+  let scorable = 0
   for (const limb of SCORED_LIMBS) {
     const want = limbAngle(target, limb.from, limb.to)
-    const have = limbAngle(live, limb.from, limb.to)
     if (want === null) continue
-    total += limb.weight
+    scorable += limb.weight
+    const have = limbAngle(live, limb.from, limb.to)
+    // A limb the tracker cannot see is left out of the average rather than
+    // marked wrong: an uncertain elbow is the tracker's failure, not a missed
+    // dance move. The coverage floor below stops that becoming a free pass.
     if (have === null) continue
+    total += limb.weight
     let diff = Math.abs(want - have) % (Math.PI * 2)
     if (diff > Math.PI) diff = Math.PI * 2 - diff
     // Full marks within 15 degrees, nothing beyond 75.
@@ -158,7 +179,9 @@ export function scorePose(live: Skeleton, target: Skeleton): number {
     const closeness = diff <= tol ? 1 : Math.max(0, 1 - (diff - tol) / (max - tol))
     got += limb.weight * closeness
   }
-  return total > 0 ? got / total : 0
+  // Somebody half out of frame is not dancing.
+  if (scorable === 0 || total < scorable * 0.45) return 0
+  return got / total
 }
 
 export const gradeFor = (score: number) =>

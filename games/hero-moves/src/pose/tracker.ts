@@ -86,14 +86,15 @@ export class PoseTracker {
    * Run one inference. Skips if the previous one is still in flight, so a slow
    * device drops tracking frames instead of queueing them and falling behind.
    */
-  async update(now: number): Promise<Skeleton | null> {
-    if (this.state !== 'ready' || !this.model || this.busy) return null
-    if (this.video.readyState < 2) return null
+  async update(now: number, source?: TexImageSource): Promise<Skeleton | null> {
+    if (!this.model || this.busy) return null
+    if (!source && (this.state !== 'ready' || this.video.readyState < 2)) return null
+    const pixels = source ?? this.video
     this.busy = true
     const started = performance.now()
     try {
       const input = tf.tidy(() => tf.expandDims(
-        tf.cast(tf.image.resizeBilinear(tf.browser.fromPixels(this.video), [INPUT_SIZE, INPUT_SIZE]), 'int32'), 0))
+        tf.cast(tf.image.resizeBilinear(tf.browser.fromPixels(pixels as never), [INPUT_SIZE, INPUT_SIZE]), 'int32'), 0))
       const out = this.model.execute(input) as tf.Tensor
       const data = await out.data()
       input.dispose(); out.dispose()

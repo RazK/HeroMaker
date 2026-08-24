@@ -58,6 +58,8 @@ const context = await browser.newContext({
   recordVideo: { dir: videoDir, size: { width: W, height: H } },
 })
 const page = await context.newPage()
+/** Playwright starts recording at context creation, so boot is in the file. */
+const recordingStarted = Date.now()
 const problems = []
 page.on('pageerror', (e) => problems.push(`[pageerror] ${e.message}`))
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()) })
@@ -82,9 +84,9 @@ if (captions) await page.evaluate(() => {
   // harness uses and writes text over the frame; the game is untouched.
   const bar = document.createElement('div')
   bar.style.cssText = [
-    'position:fixed', 'left:50%', 'bottom:2.2vh', 'transform:translateX(-50%)',
-    'z-index:9999', 'pointer-events:none', 'max-width:80vw', 'text-align:center',
-    'font:800 clamp(15px,2.2vh,26px)/1.25 "Baloo 2",system-ui,sans-serif',
+    'position:fixed', 'left:50%', 'bottom:3.2vh', 'transform:translateX(-50%)',
+    'z-index:9999', 'pointer-events:none', 'max-width:44vw', 'text-align:center',
+    'font:800 clamp(14px,2vh,22px)/1.25 "Baloo 2",system-ui,sans-serif',
     'color:#fff8ec', 'background:rgba(24,12,40,.82)', 'padding:.5em 1.1em',
     'border-radius:999px', 'letter-spacing:.01em',
     'box-shadow:0 8px 26px rgba(0,0,0,.45)', 'opacity:0',
@@ -118,6 +120,7 @@ if (captions) await page.evaluate(() => {
 await page.waitForTimeout(2500)
 if (timescale !== 1) await page.evaluate((t) => window.__api.setTimeScale(t), timescale)
 await page.evaluate(() => window.__api.start())
+const bootSeconds = (Date.now() - recordingStarted) / 1000
 
 const deadline = Date.now() + seconds * 1000
 let samples = []
@@ -147,8 +150,12 @@ await browser.close()
 const webm = fs.readdirSync(videoDir).map((f) => path.join(videoDir, f)).find((f) => f.endsWith('.webm'))
 if (!webm) { console.error('playwright produced no video'); process.exit(1) }
 fs.mkdirSync(path.dirname(out), { recursive: true })
+// Boot is a progress bar and nobody needs to watch it. Keep three seconds of
+// finished title screen ahead of the first beat and drop everything before it.
+const leadOut = 3 / timescale
+const trim = Math.max(0, bootSeconds - leadOut)
 const speed = timescale !== 1 ? ['-vf', `setpts=PTS*${timescale},fps=30`] : []
-execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', webm, ...speed,
+execFileSync(FFMPEG, ['-y', '-loglevel', 'error', ...(trim > 0 ? ['-ss', String(trim)] : []), '-i', webm, ...speed,
   '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '22', '-movflags', '+faststart', out])
 fs.rmSync(videoDir, { recursive: true, force: true })
 

@@ -14,6 +14,8 @@ export interface Hero {
   rig: Rig
   /** Height in metres after grounding — used to frame the camera. */
   height: number
+  /** Widest extent in the frontal plane, at rest. Some heroes are wider than tall. */
+  width: number
   radius: number
   dispose(): void
 }
@@ -136,6 +138,7 @@ export async function loadHero(url: string, opts: { outline?: boolean } = {}): P
   return {
     root, vrm, rig,
     height: size.y,
+    width: size.x,
     radius: Math.max(0.25, Math.max(size.x, size.z) * 0.22),
     dispose() {
       root.removeFromParent()

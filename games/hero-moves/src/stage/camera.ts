@@ -19,10 +19,25 @@ import { clamp, damp } from '../core/math'
 /** Fraction of frame height the hero should occupy. */
 const FILL_LANDSCAPE = 0.74
 const FILL_PORTRAIT = 0.56
+/**
+ * Fraction of frame *width* the hero may occupy. Solving distance from height
+ * alone works until a hero is wider than it is tall — the roster has a cloud
+ * with legs whose arms left the frame on both sides. A move nobody can see the
+ * hands of is not a move.
+ */
+const FILL_WIDTH = 0.72
+/**
+ * Portrait is narrow enough that solving the span against 72% of the width
+ * shoves the camera so far back the hero becomes a thumbnail. A tall frame has
+ * height to spare, so the arms are allowed most of the width instead.
+ */
+const FILL_WIDTH_PORTRAIT = 0.94
 
 export interface Framing {
   /** Hero height in metres, measured after grounding. */
   heroHeight: number
+  /** Hero width in metres. Arms raise the effective span well past this. */
+  heroWidth?: number
   aspect: number
   portrait: boolean
   /** Clear screen above any UI card, in px, and the viewport height. */
@@ -71,7 +86,13 @@ export class PlayCamera {
     this.camera.updateProjectionMatrix()
 
     const halfHeight = Math.tan((this.camera.fov * Math.PI) / 360)
-    const distance = clamp(f.heroHeight / fill / (2 * halfHeight), 2.4, 9)
+    // A raised arm reaches roughly a third of body height past the shoulder, so
+    // the span to keep on screen is wider than the rest-pose bounding box.
+    const span = Math.max(f.heroWidth ?? 0, f.heroHeight * 0.34) * 1.9
+    const forHeight = f.heroHeight / fill / (2 * halfHeight)
+    const fillW = f.portrait ? FILL_WIDTH_PORTRAIT : FILL_WIDTH
+    const forWidth = span / fillW / (2 * halfHeight * f.aspect)
+    const distance = clamp(Math.max(forHeight, forWidth), 2.4, 12)
 
     // Eye a little below the chest: the hero is seen from the stalls.
     const eyeY = f.heroHeight * 0.46

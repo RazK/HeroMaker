@@ -178,7 +178,10 @@ function resize() {
   if (!hero) return
   const card = document.querySelector('.layer.sheet:not([hidden]) .card')
   const headroom = card ? card.getBoundingClientRect().top : h * 0.45
-  play.frame({ heroHeight: hero.height, aspect: w / h, portrait: h > w, headroom, viewportH: h, viewportW: w })
+  play.frame({
+    heroHeight: hero.height, heroWidth: hero.width, aspect: w / h,
+    portrait: h > w, headroom, viewportH: h, viewportW: w,
+  })
 }
 addEventListener('resize', resize)
 

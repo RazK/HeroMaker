@@ -110,12 +110,17 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 .actions { display: flex; flex-direction: column; gap: var(--space-2); }
 
 /* ---------------------------------------------------------------- hud */
-#hud { justify-content: space-between; }
-.hud-top, .hud-bottom {
+#hud { justify-content: flex-start; }
+/* Readouts live over the dark curtain, but a pale hero can drift under them. */
+#hud::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 22%;
+  background: linear-gradient(rgba(18,12,32,.62), transparent);
+  pointer-events: none;
+}
+.hud-top {
   width: 100%; display: flex; align-items: flex-start;
   justify-content: space-between; gap: var(--space-3);
 }
-.hud-bottom { align-items: flex-end; }
 
 .readout { display: flex; flex-direction: column; gap: 2px; }
 .readout .label {
@@ -129,26 +134,38 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 .readout.right { align-items: flex-end; }
 .readout .value.small { font-size: clamp(17px, 2.6vmin, 26px); }
 
-/* The move being asked for. Bottom-centre, clear of the hero's face. */
+/*
+ * The move being asked for.
+ *
+ * It used to float bottom-centre as bare text. On a bright stage floor, white
+ * text over a cream boot is invisible, and it landed on top of the hero's legs
+ * — so it lost both the words and the avatar. It is now an opaque plate in the
+ * bottom-left corner, balancing the camera panel on the right and leaving the
+ * middle of the frame to the hero, which is the only rule this HUD has.
+ */
 #movePanel {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: clamp(14px, 3.2vh, 30px);
-  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
-  width: min(420px, 76vw);
+  position: absolute; left: var(--space-4);
+  bottom: clamp(20px, 4.2vh, 40px);
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2);
+  width: min(340px, 46vw);
+  padding: var(--space-3) var(--space-3) calc(var(--space-3) + 2px);
+  border-radius: 16px;
+  background: rgba(18,12,32,.82);
+  box-shadow: 0 0 0 1px rgba(253,247,236,.14), 0 10px 30px rgba(0,0,0,.5);
 }
 #moveName {
-  font-weight: 800; letter-spacing: .06em;
-  font-size: clamp(18px, 3.2vmin, 30px);
-  text-shadow: 0 2px 14px rgba(0,0,0,.6);
+  font-weight: 800; letter-spacing: .04em; line-height: 1.05;
+  font-size: clamp(20px, 3.4vmin, 32px);
 }
 #movePhase {
   font-size: clamp(10px, 1.5vmin, 13px); font-weight: 800;
   letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
+  min-height: 1.2em;
 }
 /* Beat bar: how long is left in this phase. */
 .beat {
   width: 100%; height: 8px; border-radius: 999px;
-  background: rgba(253,247,236,.18); overflow: hidden;
+  background: rgba(253,247,236,.22); overflow: hidden;
 }
 .beat > i { display: block; height: 100%; width: 0%; background: var(--gold); border-radius: 999px; }
 .beat.copy > i { background: linear-gradient(90deg, var(--mint), var(--sky)); }
@@ -161,7 +178,7 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 
 /* Grade pop. */
 #grade {
-  position: absolute; left: 50%; top: 26%; transform: translateX(-50%);
+  position: absolute; left: 50%; bottom: 17%; transform: translateX(-50%);
   font-weight: 800; font-size: clamp(30px, 6vmin, 64px);
   letter-spacing: .02em; opacity: 0; white-space: nowrap;
   text-shadow: 0 4px 24px rgba(0,0,0,.6);
@@ -171,7 +188,7 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
   0% { opacity: 0; transform: translateX(-50%) scale(.7); }
   18% { opacity: 1; transform: translateX(-50%) scale(1.1); }
   70% { opacity: 1; transform: translateX(-50%) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-28px) scale(1); }
 }
 
 #countdown {
@@ -183,17 +200,18 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 
 /* ---------------------------------------------------------------- camera */
 #camPanel {
-  position: relative; border-radius: 12px; overflow: hidden;
-  width: clamp(150px, 22vmin, 260px); aspect-ratio: 4 / 3;
+  position: absolute; right: var(--space-4); bottom: clamp(20px, 4.2vh, 40px);
+  border-radius: 12px; overflow: hidden;
+  width: clamp(176px, 26vmin, 300px); aspect-ratio: 4 / 3;
   background: rgba(0,0,0,.45);
   box-shadow: 0 0 0 2px rgba(253,247,236,.22), 0 8px 24px rgba(0,0,0,.5);
 }
 #camPanel canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #camBadge {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 4px 7px; font-size: 10px; font-weight: 800;
+  position: absolute; left: 0; right: 0; bottom: 0; white-space: nowrap;
+  padding: 6px 8px; font-size: clamp(9px, 1.2vmin, 11px); font-weight: 800;
   letter-spacing: .12em; text-transform: uppercase;
-  background: linear-gradient(transparent, rgba(0,0,0,.75));
+  background: linear-gradient(transparent, rgba(0,0,0,.85));
   display: flex; justify-content: space-between; gap: 4px;
 }
 #camPanel.lost { box-shadow: 0 0 0 2px var(--pop), 0 8px 24px rgba(0,0,0,.5); }
@@ -261,7 +279,18 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 @media (orientation: portrait) {
   #title, #results { justify-content: flex-end; padding-bottom: clamp(12px, 3vh, 28px); }
   .card { width: min(460px, 92vw); max-height: 72vh; }
-  #movePanel { width: min(420px, 88vw); }
+  /* A phone has one column, and the hero owns it. The move plate takes the
+     foot of the screen; the camera goes up into the top corner against the
+     curtain, where it covers backdrop rather than the performer. */
+  #movePanel { left: var(--space-3); right: var(--space-3); width: auto; bottom: var(--space-3); }
+  #camPanel {
+    position: absolute; right: var(--space-3); top: clamp(64px, 11vh, 96px);
+    width: clamp(88px, 27vw, 132px);
+  }
+  /* No room for the throughput readout next to the state; the state wins. */
+  #camBadge { padding: 3px 5px; font-size: 8px; letter-spacing: .06em; }
+  #camBadge .num { display: none; }
+  #grade { bottom: 28%; }
 }
 @media (max-height: 620px) {
   .card { padding: var(--space-3) var(--space-4); gap: var(--space-2); }

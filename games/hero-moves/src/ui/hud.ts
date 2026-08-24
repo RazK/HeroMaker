@@ -42,7 +42,7 @@ export class Hud {
         el('div', { class: 'readout right' },
           el('div', { class: 'label' }, 'Move'), this.moveCount),
       ),
-      el('div', { class: 'hud-bottom' }, el('div', {}), this.camPanel),
+      this.camPanel,
       el('div', { id: 'movePanel' },
         this.movePhase, this.moveName, this.beatBar, this.matchWrap),
       this.grade,
@@ -94,7 +94,9 @@ export class Hud {
   }
 
   setFps(fps: number, ms: number) {
-    this.camFps.textContent = fps > 0 ? `${fps.toFixed(0)} FPS · ${ms.toFixed(0)}ms` : ''
+    // Below 10 fps a rounded integer reads as "0 FPS", i.e. as broken. On a
+    // machine without a GPU that number is real and worth showing honestly.
+    this.camFps.textContent = fps > 0 ? `${fps < 10 ? fps.toFixed(1) : fps.toFixed(0)} FPS · ${ms.toFixed(0)}ms` : ''
   }
 
   /**
