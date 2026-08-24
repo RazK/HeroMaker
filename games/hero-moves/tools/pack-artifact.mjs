@@ -2,83 +2,83 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 /**
- * Turns the single-file build into an Artifact-ready page that streams.
+ * Turns the artifact-mode build into a page that streams.
  *
- * The host supplies its own <!doctype>/<html>/<head>/<body>, so this emits just
- * page content — and, more importantly, orders that content so the page is
- * useful long before it has finished downloading:
+ * The host supplies its own <!doctype>/<html>/<head>/<body>, so this emits page
+ * content only — and, more importantly, orders it so the page is useful long
+ * before it has finished downloading:
  *
- *   1. styles, then the boot splash          → paints in the first few KB
+ *   1. stylesheet, then the boot splash   -> paints in the first ~10 KB
  *   2. the app root
- *   3. the engine as a *classic* script      → runs mid-parse, ~1 MB in
- *   4. one block per avatar, each followed by a progress marker
+ *   3. the engine as a *classic* script   -> runs mid-parse, not deferred
+ *   4. one block per hero, each announcing itself as it lands
+ *   5. the pose model, last               -> 6.4 MB nobody needs until start
  *
- * A module script would be deferred until the whole ~8 MB document had parsed.
- * As a classic script the engine boots at step 3 and starts playing as soon as
- * the first hero's block arrives, with the rest streaming in behind it.
+ * A module script is deferred until the whole document has parsed, which for
+ * this page means staring at nothing for thirteen megabytes. As a classic
+ * script the engine boots at step 3, and the title screen appears as soon as
+ * the first hero lands; the rest of the roster and the tracker arrive behind
+ * it, while the player is still choosing.
+ *
+ * Usage: pack-artifact.mjs [dist] [out.html] [assets/avatars] [--heroes=a,b,c]
  */
-const src = process.argv[2] ?? 'dist/index.html'
-const out = process.argv[3] ?? 'dist/hero-dash.artifact.html'
-const avatarDir = process.argv[4] ?? 'public/avatars'
-
-const html = fs.readFileSync(src, 'utf8')
-
-const cut = (open, close) => {
-  const a = html.indexOf(open)
-  if (a < 0) throw new Error(`missing ${open}`)
-  const b = html.indexOf(close, a)
-  if (b < 0) throw new Error(`unterminated ${open}`)
-  return html.slice(a + open.length, b)
-}
-const head = cut('<head>', '</head>')
-const body = cut('<body>', '</body>')
-
-/** Pull one whole element (with its content) out of a chunk of markup. */
-function take(markup, startPattern, endTag) {
-  const m = markup.match(startPattern)
-  if (!m) throw new Error(`missing ${startPattern}`)
-  const start = m.index
-  const end = markup.indexOf(endTag, start)
-  if (end < 0) throw new Error(`unterminated ${startPattern}`)
-  const element = markup.slice(start, end + endTag.length)
-  return [element, markup.slice(0, start) + markup.slice(end + endTag.length)]
+const dist = process.argv[2] ?? 'dist'
+const out = process.argv[3] ?? 'dist/hero-moves.artifact.html'
+const avatarDir = process.argv[4] ?? 'assets/avatars'
+const flag = (n, d) => {
+  const hit = process.argv.find((a) => a.startsWith(`--${n}=`))
+  return hit ? hit.slice(hit.indexOf('=') + 1) : d
 }
 
-// The engine, rewritten from a deferred module to a classic script.
-let [engine] = take(head, /<script type="module"[^>]*>/, '</script>')
-engine = engine.replace(/<script type="module"[^>]*>/, '<script>')
+/**
+ * Which heroes to ship. The pose model alone is 6.4 MB and each hero another
+ * 1.6 MB once base64'd, against a 16 MB ceiling — so a published page carries a
+ * subset, and the roster is built from whichever blocks actually arrive.
+ */
+const HEROES = flag('heroes', 'Crayon_Kid,Yummy_Bear,Gingerella').split(',').filter(Boolean)
+const LIMIT = 16 * 1024 * 1024
 
-// vite-plugin-singlefile emits <style rel="stylesheet" crossorigin>, not a bare
-// <style> — matching only the latter silently ships an unstyled page.
-const styles = head.match(/<style[^>]*>[\s\S]*?<\/style>/g)?.join('\n') ?? ''
-if (!styles.includes('splash-card')) {
-  throw new Error('stylesheet missing or does not contain the splash rules — the boot screen would render unstyled')
+const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8')
+const pick = (re, what) => {
+  const m = html.match(re)
+  if (!m) throw new Error(`missing ${what} in the build`)
+  return m
 }
-const title = head.match(/<title>[\s\S]*?<\/title>/)?.[0] ?? '<title>Hero Dash</title>'
-const fonts = head.match(/<link[^>]*fonts\.[^>]*>/g)?.join('\n') ?? ''
-const icon = head.match(/<link[^>]*rel="icon"[^>]*>/)?.[0] ?? ''
-const board = head.match(/<script id="shared-hall-of-fame"[\s\S]*?<\/script>/)?.[0] ?? ''
 
-// Splash markup + its inline script, and the app root, in document order.
-const [splash, bodyRest] = take(body, /<div id="splash"/, '</div>\n</div>')
-const splashScript = bodyRest.match(/<script>\n\(function \(\)[\s\S]*?<\/script>/)?.[0] ?? ''
-if (!splashScript) throw new Error('missing splash bootstrap script')
-const appRoot = '<div id="app"></div>'
+const title = pick(/<title>[\s\S]*?<\/title>/, 'title')[0]
+const icon = pick(/<link[^>]*rel="icon"[^>]*>/, 'icon')[0]
+const fonts = html.match(/<link[^>]*fonts\.[^>]*>/g)?.join('\n') ?? ''
+const engineSrc = pick(/<script type="module"[^>]*src="\.\/([^"]+)"/, 'engine script')[1]
 
-// One block per avatar, in roster order so the first hero arrives first.
-const ROSTER_ORDER = ['Crayon_Kid', 'Yummy_Bear', 'Superstar', 'Gingerella', 'Skelly', 'Cloudy']
+// The splash markup and its bootstrap, lifted whole out of the body.
+const splash = pick(/<div id="boot"[\s\S]*?<\/div>\n<\/div>/, 'boot splash')[0]
+const splashScript = pick(/<script>\n\(function \(\)[\s\S]*?<\/script>/, 'splash bootstrap')[0]
+
+const cssFile = fs.readdirSync(path.join(dist, 'assets')).find((f) => f.endsWith('.css'))
+if (!cssFile) throw new Error('no stylesheet emitted — build with --mode artifact')
+const css = fs.readFileSync(path.join(dist, 'assets', cssFile), 'utf8')
+if (!css.includes('#boot')) throw new Error('stylesheet has no boot rules — the splash would render unstyled')
+
+// A classic script, so it executes as the parser reaches it rather than after
+// every hero behind it has downloaded.
+const engine = '<script>' +
+  fs.readFileSync(path.join(dist, engineSrc), 'utf8').replace(/<\/script/gi, '<\\/script') +
+  '</script>'
+
+const model = fs.readFileSync('public/pose-model.json', 'utf8')
+const escapeForScript = (s) => s.replace(/<\/script/gi, '<\\/script')
+
 const NAMES = {
   Crayon_Kid: 'Crayon Kid', Yummy_Bear: 'Yummy Bear', Superstar: 'Superstar',
   Gingerella: 'Gingerella', Skelly: 'Skelly', Cloudy: 'Cloudy',
 }
-const escapeForScript = (s) => s.replace(/<\/script/gi, '<\\/script')
-
-const blocks = ROSTER_ORDER.map((id) => {
+const blocks = HEROES.map((id) => {
   const file = path.join(avatarDir, `${id}.opt.vrm`)
+  if (!fs.existsSync(file)) throw new Error(`no such hero: ${file}`)
   const base64 = fs.readFileSync(file).toString('base64')
   return (
-    `<script type="text/plain" id="hd-avatar-${id}">${escapeForScript(base64)}</script>\n` +
-    `<script>__hdAvatar(${JSON.stringify(id)},${JSON.stringify(`${NAMES[id]} is ready`)})</script>`
+    `<script type="text/plain" id="hm-avatar-${id}">${base64}</script>\n` +
+    `<script>__hmAvatar(${JSON.stringify(id)});__hdStep(${JSON.stringify(`${NAMES[id] ?? id} is ready`)})</script>`
   )
 })
 
@@ -86,39 +86,40 @@ const page = [
   title,
   icon,
   fonts,
-  styles,
-  board,
+  `<style>${css}</style>`,
   splash,
   splashScript,
-  `<script>window.__hdTotal = ${blocks.length + 1}</script>`,
-  appRoot,
+  `<script>window.__hdTotal = ${blocks.length + 2}</script>`,
+  '<div id="app"></div>',
   engine,
-  `<script>__hdStep('Building the Crayon Kingdom…')</script>`,
+  `<script>__hdStep('Building the stage…')</script>`,
   ...blocks,
-].filter(Boolean).join('\n') + '\n'
+  `<script type="application/json" id="pose-model">${escapeForScript(model)}</script>`,
+  `<script>__hmPoseModel();__hdStep('Pose tracker ready')</script>`,
+].join('\n') + '\n'
 
 fs.mkdirSync(path.dirname(out), { recursive: true })
 fs.writeFileSync(out, page)
 
-// Markup checks must ignore script/style bodies: the page legitimately carries
-// a '<!doctype html>' string inside its own JS, for republishing itself.
+// Markup checks must ignore script and style bodies: the engine legitimately
+// carries strings like '<body' inside its own minified JS.
 const markup = page.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
 const size = Buffer.byteLength(page)
-
 const engineAt = page.indexOf(engine)
+
 const checks = [
   ['no doctype', !/<!doctype/i.test(markup)],
   ['no <html>/<head>/<body>', !/<(html|head|body)[\s>]/i.test(markup)],
   ['title in first 8KB', page.indexOf('<title>') >= 0 && page.indexOf('<title>') < 8192],
-  ['splash before engine', page.indexOf('id="splash"') < engineAt],
+  ['stylesheet before splash', page.indexOf('#boot') < page.indexOf('id="boot"')],
+  ['splash before engine', page.indexOf('id="boot"') < engineAt],
   ['app root before engine', page.indexOf('id="app"') < engineAt],
+  ['pose model after the heroes', page.indexOf('id="pose-model"') >
+    Math.max(...HEROES.map((id) => page.indexOf(`id="hm-avatar-${id}"`)))],
   ['engine is a classic script', !/<script type="module"/.test(page)],
-  ['every avatar blocked', ROSTER_ORDER.every((id) => page.includes(`id="hd-avatar-${id}"`))],
-  ['avatars after engine', ROSTER_ORDER.every((id) => page.indexOf(`id="hd-avatar-${id}"`) > engineAt)],
-  ['shared board island', page.includes('id="shared-hall-of-fame"')],
-  ['under 16 MB', size < 16 * 1024 * 1024],
-  ['stylesheet before splash', page.indexOf('splash-card') < page.indexOf('id="splash"')],
-  ['splash styles present', page.includes('#splash')],
+  ['every hero blocked', HEROES.every((id) => page.includes(`id="hm-avatar-${id}"`))],
+  ['heroes after engine', HEROES.every((id) => page.indexOf(`id="hm-avatar-${id}"`) > engineAt)],
+  [`under ${(LIMIT / 1e6).toFixed(0)} MB`, size < LIMIT],
 ]
 const external = [...markup.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)].map((m) => m[1])
 const badHosts = external.filter((u) => !/^https:\/\/fonts\.(googleapis|gstatic)\.com/.test(u))
@@ -127,8 +128,10 @@ checks.push(['only google-fonts externals', badHosts.length === 0])
 for (const [name, ok] of checks) console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}`)
 if (badHosts.length) console.log('     blocked hosts:', badHosts.join(', '))
 
-const toFirstPlay = page.indexOf(`id="hd-avatar-${ROSTER_ORDER[0]}"`) + fs.statSync(path.join(avatarDir, `${ROSTER_ORDER[0]}.opt.vrm`)).size * 1.37
-console.log(`\n${out}  ${(size / 1e6).toFixed(2)} MB total`)
-console.log(`  splash paints at ~${(page.indexOf(engine) / 1e3).toFixed(0)} KB`)
-console.log(`  playable at     ~${(toFirstPlay / 1e6).toFixed(2)} MB`)
+const firstHero = page.indexOf(`id="hm-avatar-${HEROES[0]}"`) +
+  fs.statSync(path.join(avatarDir, `${HEROES[0]}.opt.vrm`)).size * 1.37
+console.log(`\n${out}  ${(size / 1e6).toFixed(2)} MB total, heroes: ${HEROES.join(', ')}`)
+console.log(`  splash paints at ~${(page.indexOf('<div id="app">') / 1e3).toFixed(0)} KB`)
+console.log(`  first hero at   ~${(firstHero / 1e6).toFixed(2)} MB`)
+console.log(`  tracker at      ~${(size / 1e6).toFixed(2)} MB`)
 if (checks.some(([, ok]) => !ok)) process.exit(1)

@@ -11,14 +11,22 @@ import { el } from './ui/dom'
 import { damp } from './core/math'
 import type { Skeleton } from './pose/keypoints'
 
-const avatarFiles = import.meta.glob('../public/avatars/*.opt.vrm', {
+/**
+ * A published page streams its heroes in as base64 blocks after the engine, so
+ * the build-time URL map is dead weight there — and worse, it would advertise
+ * heroes whose files are not on that origin at all. `import.meta.env.MODE` is
+ * replaced with a literal at build time, so this folds away entirely.
+ */
+const STREAMED = import.meta.env.MODE === 'artifact'
+
+const avatarFiles = (STREAMED ? {} : import.meta.glob('../assets/avatars/*.opt.vrm', {
   eager: true, query: '?url', import: 'default',
-}) as Record<string, string>
-const thumbFiles = import.meta.glob('../public/avatars/*.thumb.webp', {
+})) as Record<string, string>
+const thumbFiles = import.meta.glob('../assets/avatars/*.thumb.webp', {
   eager: true, query: '?url', import: 'default',
 }) as Record<string, string>
 
-const ROSTER = [
+const ALL_HEROES = [
   { id: 'Crayon_Kid', name: 'Crayon Kid' },
   { id: 'Yummy_Bear', name: 'Yummy Bear' },
   { id: 'Superstar', name: 'Superstar' },
@@ -26,6 +34,40 @@ const ROSTER = [
   { id: 'Skelly', name: 'Skelly' },
   { id: 'Cloudy', name: 'Cloudy' },
 ]
+
+/**
+ * Where a hero's bytes come from.
+ *
+ * In development the build inlines every VRM and hands back a URL. A published
+ * page cannot afford that: the whole engine, the pose model and six avatars in
+ * one script means nothing paints until the last byte has parsed. There, the
+ * packer appends one base64 block per hero *after* the engine, so the game is
+ * on screen and choosing a hero while the rest is still arriving.
+ */
+function heroSource(id: string): string | null {
+  const block = document.getElementById(`hm-avatar-${id}`)
+  if (block?.textContent) return `data:application/octet-stream;base64,${block.textContent.trim()}`
+  return Object.entries(avatarFiles).find(([k]) => k.includes(`${id}.opt`))?.[1] ?? null
+}
+
+/** Only heroes whose bytes are actually present; a published page may ship a subset. */
+const ROSTER = ALL_HEROES.filter((h) => heroSource(h.id) !== null)
+
+let announceFirstHero: (() => void) | null = null
+/** Resolves as soon as one hero can be posed, so boot never waits for all of them. */
+const firstHeroReady = ROSTER.length
+  ? Promise.resolve()
+  : new Promise<void>((resolve) => { announceFirstHero = resolve })
+
+// Called by the packed page once a hero's block has finished arriving.
+;(window as unknown as Record<string, unknown>).__hmAvatar = (id: string) => {
+  const entry = ALL_HEROES.find((h) => h.id === id)
+  if (!entry || ROSTER.some((r) => r.id === id)) return
+  ROSTER.push(entry)
+  renderPicker()
+  announceFirstHero?.()
+  announceFirstHero = null
+}
 
 const boot = {
   step: (label: string) => (window as { __hdStep?: (l: string) => void }).__hdStep?.(label),
@@ -62,7 +104,7 @@ const titleLayer = el('div', { class: 'layer sheet', id: 'title' })
 const resultsLayer = el('div', { class: 'layer sheet', id: 'results', hidden: true })
 app.append(titleLayer, hud.hud, hud.countdownLayer, resultsLayer)
 
-const heroName = el('h2', {}, ROSTER[0].name)
+const heroName = el('h2', {}, ROSTER[0]?.name ?? 'Loading heroes…')
 const pickerEl = el('div', { class: 'picker', style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px' })
 const startBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'START DANCING')
 const camNote = el('p', { class: 'hint' }, '')
@@ -91,7 +133,7 @@ function renderPicker() {
     btn.append(el('span', {}, r.name))
     return btn
   }))
-  heroName.textContent = ROSTER[selected].name
+  heroName.textContent = ROSTER[selected]?.name ?? 'Loading heroes…'
 }
 
 // ---------------------------------------------------------------- results
@@ -150,7 +192,8 @@ async function selectHero(i: number) {
   selected = i
   renderPicker()
   const entry = ROSTER[i]
-  const url = Object.entries(avatarFiles).find(([k]) => k.includes(`${entry.id}.opt`))?.[1]
+  if (!entry) return
+  const url = heroSource(entry.id)
   if (!url) return
   if (hero) { scene.remove(hero.root); hero.dispose() }
   hero = await loadHero(url)
@@ -162,6 +205,9 @@ async function selectHero(i: number) {
 
 async function beginRun(rounds = 0) {
   if (tracker.state !== 'ready') {
+    camNote.textContent = 'Getting the pose tracker ready…'
+    await startLoadingTracker()
+    camNote.textContent = ''
     const state = await tracker.start()
     camNote.textContent =
       state === 'ready' ? ''
@@ -251,7 +297,21 @@ renderer.setAnimationLoop(() => {
  * Model bytes come from a block in the page for the published build, where no
  * fetch of any kind is permitted, and from a plain file during development.
  */
+let announceModelBlock: (() => void) | null = null
+/**
+ * The pose model is 6.4 MB, and nothing needs it until somebody presses start.
+ * On a published page it therefore streams in *behind* the engine and the
+ * heroes, and this resolves when its block lands. Locally there is no block and
+ * the file is fetched instead.
+ */
+const modelBlockReady = new Promise<void>((resolve) => { announceModelBlock = resolve })
+;(window as unknown as Record<string, unknown>).__hmPoseModel = () => {
+  announceModelBlock?.()
+  announceModelBlock = null
+}
+
 async function loadPoseModelSpec() {
+  if (STREAMED) await modelBlockReady
   const node = document.getElementById('pose-model')
   if (node?.textContent) {
     const spec = JSON.parse(node.textContent)
@@ -263,15 +323,27 @@ async function loadPoseModelSpec() {
   return res.json()
 }
 
+/**
+ * Loading the tracker does not block the title screen: a player picks a hero
+ * while it arrives, and `beginRun` waits on this instead.
+ */
+let trackerReady: Promise<void> | null = null
+function startLoadingTracker() {
+  trackerReady ??= loadPoseModelSpec()
+    .then((spec) => tracker.loadModel(spec))
+    .then(() => { boot.step('Pose tracker ready') })
+  return trackerReady
+}
+
 // ---------------------------------------------------------------- boot
 ;(async () => {
   try {
     boot.step('Waking up the stage…')
+    await firstHeroReady
     renderPicker()
     await selectHero(0)
 
-    boot.step('Loading the pose tracker…')
-    await tracker.loadModel(await loadPoseModelSpec())
+    startLoadingTracker().catch((err) => boot.fail((err as Error).message))
 
     play.setPresentation(true)
     resize()

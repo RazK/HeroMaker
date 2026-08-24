@@ -15,7 +15,7 @@ import { MOVES, scorePose, gradeFor } from './pose/moves'
 import { PoseTracker } from './pose/tracker'
 import { LIMBS } from './pose/keypoints'
 
-const files = import.meta.glob('../public/avatars/*.opt.vrm', {
+const files = import.meta.glob('../assets/avatars/*.opt.vrm', {
   eager: true, query: '?url', import: 'default',
 }) as Record<string, string>
 

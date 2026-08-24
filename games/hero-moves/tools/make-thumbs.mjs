@@ -2,7 +2,7 @@ import { chromium } from 'playwright'
 import fs from 'node:fs'
 
 const url = process.argv[2] ?? 'http://127.0.0.1:5181/thumbs.html'
-const outDir = process.argv[3] ?? 'public/avatars'
+const outDir = process.argv[3] ?? 'assets/avatars'
 const browser = await chromium.launch({
   executablePath: process.env.PW_EXE || undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'],

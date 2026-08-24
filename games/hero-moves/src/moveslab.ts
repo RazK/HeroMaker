@@ -4,7 +4,7 @@ import { loadHero } from './avatar/loader'
 import { PoseSolver } from './pose/solver'
 import { MOVES } from './pose/moves'
 
-const files = import.meta.glob('../public/avatars/*.opt.vrm', {
+const files = import.meta.glob('../assets/avatars/*.opt.vrm', {
   eager: true, query: '?url', import: 'default',
 }) as Record<string, string>
 
