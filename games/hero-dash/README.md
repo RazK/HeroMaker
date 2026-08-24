@@ -1,5 +1,10 @@
 # Hero Dash
 
+> **Parked.** Complete and playable, but not the direction — an endless runner
+> shows the back of the avatar, and the back is the half the pipeline invents
+> rather than the half the kid drew. See [`../README.md`](../README.md) for the
+> reasoning and for the parts worth reusing. Tagged `hero-dash-v1`.
+
 An endless runner starring the rigged VRM avatars that the HeroMaker pipeline
 generates from kids' drawings. Standalone — it does not touch the HeroMaker
 frontend or backend at runtime.
