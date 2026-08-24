@@ -129,6 +129,18 @@ pipeline steps that call OpenAI and Meshy will fail without outbound access and
 valid API keys, but everything else — auth, gallery, creation view, 3D preview —
 works against local SQLite and local files.
 
+## Refreshing staging with production data
+
+```bash
+RAILWAY_API_TOKEN=<workspace token> \
+  .venv/bin/python scripts/clone_env_data.py --from production --to staging
+```
+
+Files (`--files-only`) copy from anywhere, because S3 is plain HTTPS. The
+database half needs raw TCP to Railway's Postgres proxy on a non-443 port, so it
+has to run from an unrestricted machine - not from CI or a sandboxed agent. See
+the script's docstring for why the failure looks like a successful connection.
+
 ## Known gaps in this page
 
 - The Railway **project/service IDs** are not recorded here (they live in the

@@ -12,6 +12,16 @@ Usage:
     ... --limit 20         only the N most recent creations (and their files)
     ... --skip-files       database rows only
 
+Running it from a sandboxed agent
+---------------------------------
+The database half needs raw TCP to Railway's Postgres proxy on a non-443 port.
+If you are behind a TLS-terminating egress proxy this cannot work, and the
+symptoms are misleading: HTTPS_PROXY answers the CONNECT with "200 Connection
+Established", then silently drops the connection because Postgres opens with a
+plaintext SSLRequest rather than a TLS ClientHello. `railway ssh` is not a way
+around it either - the CLI shells out to an ssh binary. Run the database half
+from an unrestricted machine; --files-only works anywhere, since S3 is HTTPS.
+
 Safety
 ------
 The destination can never be production. The check is on the resolved
@@ -21,8 +31,11 @@ renamed. The source is only ever read.
 import argparse
 import json
 import os
+import socket
 import sys
-from typing import Dict, List
+import threading
+import urllib.parse
+from typing import Dict, List, Tuple
 
 import requests
 
@@ -34,6 +47,81 @@ BACKEND_SERVICE_ID = "3970a673-db5b-4b2d-9456-93acf1da09bf"
 
 # Order matters: parents before children, so foreign keys resolve.
 TABLES = ["users", "creations", "creation_steps", "coupons", "coupon_redemptions"]
+
+
+def _pipe(a: socket.socket, b: socket.socket) -> None:
+    try:
+        while True:
+            chunk = a.recv(65536)
+            if not chunk:
+                break
+            b.sendall(chunk)
+    except OSError:
+        pass
+    finally:
+        for s in (a, b):
+            try:
+                s.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            s.close()
+
+
+def tunnel_through_proxy(target_host: str, target_port: int, proxy_url: str) -> int:
+    """
+    Listen on a local port and forward each connection to target_host:target_port
+    through an HTTP CONNECT proxy. Returns the local port.
+
+    Postgres is raw TCP, so a client behind an egress proxy - a CI runner, a
+    sandboxed agent - cannot reach it directly even when the proxy would allow
+    the CONNECT. psycopg2 has no proxy support, so we give it a local address
+    that happens to be a tunnel.
+    """
+    proxy = urllib.parse.urlparse(proxy_url)
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(8)
+    local_port = listener.getsockname()[1]
+
+    def serve() -> None:
+        while True:
+            try:
+                client, _ = listener.accept()
+            except OSError:
+                return
+            try:
+                upstream = socket.create_connection((proxy.hostname, proxy.port), timeout=30)
+                upstream.sendall(
+                    f"CONNECT {target_host}:{target_port} HTTP/1.1\r\n"
+                    f"Host: {target_host}:{target_port}\r\n\r\n".encode()
+                )
+                header = b""
+                while b"\r\n\r\n" not in header:
+                    piece = upstream.recv(1)
+                    if not piece:
+                        break
+                    header += piece
+                if b" 200 " not in header.split(b"\r\n")[0]:
+                    client.close()
+                    upstream.close()
+                    continue
+            except OSError:
+                client.close()
+                continue
+            threading.Thread(target=_pipe, args=(client, upstream), daemon=True).start()
+            threading.Thread(target=_pipe, args=(upstream, client), daemon=True).start()
+
+    threading.Thread(target=serve, daemon=True).start()
+    return local_port
+
+
+def via_proxy(db_url: str, proxy_url: str) -> str:
+    """Rewrite a Postgres URL to point at a local tunnel to the same server."""
+    u = urllib.parse.urlparse(db_url)
+    local_port = tunnel_through_proxy(u.hostname, u.port or 5432, proxy_url)
+    netloc = f"{u.username}:{u.password}@127.0.0.1:{local_port}"
+    return urllib.parse.urlunparse(u._replace(netloc=netloc))
 
 
 def graphql(session: requests.Session, query: str, variables: dict) -> dict:
@@ -199,6 +287,13 @@ def main() -> None:
 
     src_db = service_vars(session, src_id, POSTGRES_SERVICE_ID)["DATABASE_PUBLIC_URL"]
     dst_db = service_vars(session, dst_id, POSTGRES_SERVICE_ID)["DATABASE_PUBLIC_URL"]
+
+    # Behind an egress proxy, reach Postgres through a CONNECT tunnel.
+    proxy_url = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    if proxy_url and not args.files_only:
+        print(f"  (tunnelling Postgres through {proxy_url})")
+        src_db = via_proxy(src_db, proxy_url)
+        dst_db = via_proxy(dst_db, proxy_url)
     src_backend = service_vars(session, src_id, BACKEND_SERVICE_ID)
     dst_backend = service_vars(session, dst_id, BACKEND_SERVICE_ID)
 
