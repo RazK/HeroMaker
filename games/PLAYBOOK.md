@@ -99,8 +99,9 @@ unfinished-looking build got shown.
 * Some avatars need grounding — their bounding box does not start at y=0.
 * The **front is drawn by a child; the back is extrapolated by the pipeline.**
   Frame the front.
-* Raw exports are ~5.5 MB. `hero-dash/tools/optimize_vrm.py` takes them to
-  ~1.2 MB with no visible loss, and makes the texture survive a strict CSP.
+* Raw exports are ~5.5 MB, of which ~1.46 MB is a VRM metadata thumbnail that
+  nothing renders. `scripts/optimize_vrm.py` takes them to ~1.2 MB with no
+  visible loss, and makes the texture survive a strict CSP.
 
 ## Publishing constraints — established, do not re-derive
 

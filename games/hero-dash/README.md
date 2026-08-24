@@ -57,7 +57,7 @@ pipeline's VRMs are ~5.5 MB each, which is too heavy to ship six of; each is
 run through the optimizer first:
 
 ```
-../../.venv/bin/python tools/optimize_vrm.py in.vrm out.opt.vrm [--size=1024] [--quality=88]
+.venv/bin/python scripts/optimize_vrm.py in.vrm out.opt.vrm [--size=1024] [--quality=88]
 ```
 
 It drops the unused VRM meta thumbnail, re-encodes the avatar texture as WebP,

@@ -33,7 +33,7 @@ Hero Dash is kept because most of it is not about running:
 
 | Piece | What it does |
 |---|---|
-| `hero-dash/tools/optimize_vrm.py` | 5.5 MB pipeline VRM → ~1.2 MB, no visible loss. Also makes the texture load under a strict CSP. |
+| `scripts/optimize_vrm.py` | 5.5 MB pipeline VRM → ~1.2 MB, no visible loss. Also makes the texture load under a strict CSP. |
 | `hero-dash/src/avatar/loader.ts` | Loads a VRM from a URL or an inlined `data:` URI, grounds it, adds a drawn outline, and dodges the CSP traps. |
 | `hero-dash/src/avatar/rig.ts`, `poses.ts`, `animator.ts` | Rotation-only procedural animation on the normalized humanoid rig — the reason one pose library reads correctly on a superhero, a bear, a star and a cloud. The axis conventions are documented at the top of `poses.ts` and were expensive to work out. |
 | `hero-dash/src/core/heroCam.ts` | Webcam body tracking with no downloaded model: learns the empty room, then reads the player's silhouette. Works offline and inside the artifact sandbox. |

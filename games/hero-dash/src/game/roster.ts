@@ -1,6 +1,6 @@
 /**
  * Heroes baked into the build, all real creations pulled from the live
- * HeroMaker gallery and run through tools/optimize_vrm.py.
+ * HeroMaker gallery and run through scripts/optimize_vrm.py.
  */
 export interface RosterEntry {
   id: string
