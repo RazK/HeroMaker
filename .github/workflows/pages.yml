@@ -1,0 +1,98 @@
+# Publishes games/hero-moves to GitHub Pages.
+#
+# The game needs a webcam, and a webcam needs a secure context with a real
+# origin. A downloaded file opens as content:// on Android and file:// on
+# desktop, and an embedded artifact preview is never granted camera permission
+# by its host — so an https origin is the only way to actually play it on a
+# phone. This is that origin, and it is deliberately separate from the
+# HeroMaker product deploy on Railway.
+#
+# Nothing built here is committed: the avatars and the pose model are already
+# in the repo, and dist/ is produced on each run.
+name: Publish Hero Moves to Pages
+
+on:
+  push:
+    branches: [main, claude/heromaker-game-creation-nmdhhf]
+    paths:
+      - 'games/hero-moves/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; let a run in progress finish rather than
+# publishing a half-built site.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: games/hero-moves
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: games/hero-moves/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # The build also emits the harness pages (a stand-in dancer, a move
+      # contact sheet, a scoring probe) and a copy of the tracker weights in
+      # their original sharded form. None of it is reachable from the game.
+      - name: Drop what the site does not serve
+        run: rm -rf dist/model dist/dancer.html dist/moveslab.html dist/posecheck.html
+
+      - name: Lay out the site
+        run: |
+          mkdir -p ../../_site/hero-moves
+          cp -r dist/* ../../_site/hero-moves/
+          cat > ../../_site/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>HeroMaker</title>
+          <style>
+            :root { color-scheme: dark }
+            body { margin:0; min-height:100dvh; display:grid; place-content:center;
+                   gap:1rem; text-align:center; background:#150f26; color:#fdf7ec;
+                   font:600 16px/1.5 ui-rounded, "Segoe UI", system-ui, sans-serif }
+            a { display:inline-block; padding:.7em 1.6em; border-radius:999px;
+                background:#ffd23f; color:#17101f; font-weight:800; text-decoration:none }
+          </style>
+          <h1>HeroMaker</h1>
+          <p>Playable things built on the avatar pipeline.</p>
+          <p><a href="./hero-moves/">Hero Moves</a></p>
+          HTML
+
+      - uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for this repository the first time this runs, so
+          # nobody has to find the setting.
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
