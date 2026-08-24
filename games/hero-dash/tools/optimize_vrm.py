@@ -9,6 +9,7 @@ reads it). Typical result: 5.5 MB -> ~1.1 MB.
 
 Usage: optimize_vrm.py IN.vrm OUT.vrm [--size=1024] [--quality=88]
 """
+import base64
 import io
 import json
 import struct
@@ -146,14 +147,27 @@ def optimize(src, dst, max_size=1024, quality=88):
 
     repacked = pack_attributes(js, blob)
 
+    # Every image bufferView becomes empty: its bytes now live either in a
+    # data: URI on the image, or nowhere at all if nothing sampled it.
+    image_views = {img["bufferView"]: idx for idx, img in enumerate(images) if "bufferView" in img}
+
+    # Move textures out of bufferViews and onto the image as a data: URI.
+    # A published artifact runs under a CSP where GLTFLoader's usual route for
+    # embedded images — a blob: URL fetched by ImageBitmapLoader — is refused by
+    # connect-src. A data: URI on the image loads as a plain <img>, which needs
+    # only img-src, so the texture survives any sane policy.
+    for idx, img in enumerate(images):
+        payload, mime = new_payloads[idx]
+        img.pop("bufferView", None)
+        img.pop("mimeType", None)
+        if payload and mime:
+            img["uri"] = f"data:{mime};base64," + base64.b64encode(payload).decode("ascii")
+
     # Rebuild the binary blob, rewriting offsets as we go.
-    replaced = {img["bufferView"]: idx for idx, img in enumerate(images)}
     out_blob = bytearray()
     for i, bv in enumerate(views):
-        if i in replaced:
-            payload, mime = new_payloads[replaced[i]]
-            if mime:
-                images[replaced[i]]["mimeType"] = mime
+        if i in image_views:
+            payload = b""
         elif i in repacked:
             payload = repacked[i]
         else:
@@ -171,6 +185,9 @@ def optimize(src, dst, max_size=1024, quality=88):
     meta = js.get("extensions", {}).get("VRM", {}).get("meta", {})
     if meta.get("texture") is not None and js["textures"][meta["texture"]]["source"] not in used_images:
         meta.pop("texture", None)
+    for idx, img in enumerate(images):
+        if idx not in used_images:
+            img["uri"] = "data:image/png;base64,"  # referenced by nothing, kept valid
 
     before = Path(src).stat().st_size
     after = write_glb(dst, js, out_blob)

@@ -19,6 +19,54 @@ export interface Hero {
 const loader = new GLTFLoader()
 loader.register((parser) => new VRMLoaderPlugin(parser))
 
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes.buffer
+}
+
+function dataUriToArrayBuffer(uri: string): ArrayBuffer {
+  const comma = uri.indexOf(',')
+  if (comma < 0) throw new Error('malformed data URI')
+  const meta = uri.slice(0, comma)
+  const payload = uri.slice(comma + 1)
+  if (meta.includes(';base64')) return base64ToArrayBuffer(payload)
+  const text = decodeURIComponent(payload)
+  const bytes = new Uint8Array(text.length)
+  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i)
+  return bytes.buffer
+}
+
+/**
+ * GLTFLoader reaches for ImageBitmapLoader when `createImageBitmap` exists, and
+ * that loader pulls textures with `fetch()`. Under a published artifact's CSP
+ * that fetch is refused, so hide the global for the duration of the load and
+ * let three fall back to TextureLoader, which uses a plain <img>.
+ */
+async function withImageElementTextures<T>(fn: () => Promise<T>): Promise<T> {
+  const globals = globalThis as { createImageBitmap?: unknown }
+  const original = globals.createImageBitmap
+  if (original === undefined) return fn()
+  globals.createImageBitmap = undefined
+  try { return await fn() } finally { globals.createImageBitmap = original }
+}
+
+/**
+ * Load a VRM from a URL or from an inlined `data:` URI.
+ *
+ * The single-file build inlines every avatar, and a published artifact's CSP
+ * blocks `fetch()` to `data:` — so decode it here and hand the bytes straight
+ * to the parser rather than letting the loader go near the network.
+ */
+function loadGltf(url: string) {
+  if (!url.startsWith('data:')) return loader.loadAsync(url)
+  const buffer = dataUriToArrayBuffer(url)
+  return new Promise<Awaited<ReturnType<typeof loader.loadAsync>>>((resolve, reject) => {
+    loader.parse(buffer, '', resolve, reject)
+  })
+}
+
 /** Adds a fat, drawn-looking outline so the hero reads against the paper world. */
 function addOutline(scene: THREE.Object3D, thickness: number) {
   const additions: Array<{ parent: THREE.Object3D; mesh: THREE.Object3D }> = []
@@ -46,7 +94,7 @@ function addOutline(scene: THREE.Object3D, thickness: number) {
 }
 
 export async function loadHero(url: string, opts: { outline?: boolean } = {}): Promise<Hero> {
-  const gltf = await loader.loadAsync(url)
+  const gltf = await withImageElementTextures(() => loadGltf(url))
   const vrm = gltf.userData.vrm as VRM
   if (!vrm) throw new Error('not a VRM file')
 

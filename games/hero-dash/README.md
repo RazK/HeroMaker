@@ -78,6 +78,8 @@ documented at the top of that file — read them before editing a pose.
 | `tools/showcase.mjs URL OUTDIR` | Same, but captures one shot per gameplay state. |
 | `tools/make-thumbs.mjs URL OUTDIR` | Saves the thumbnails from `thumbs.html`. |
 | `tools/camtest.mjs URL VIDEO.y4m OUT` | Drives Hero Cam against a synthetic player clip. |
+| `tools/pack-artifact.mjs IN OUT` | Strips the document wrapper for publishing as an Artifact, and validates the result. |
+| `tools/csp-server.mjs FILE [port]` | Serves the packed page behind an Artifact-like CSP. |
 | `tools/make_test_video.py OUT.y4m` | Generates that clip: stands, steps, jumps, crouches, poses. |
 
 The harnesses run headless on SwiftShader at roughly 10 fps, so they set
@@ -88,6 +90,29 @@ at a fixed 60 Hz internally, so this changes nothing about collision behaviour.
 npm run build && npx vite preview
 PW_EXE=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1) \
   TIME_SCALE=2 node tools/showcase.mjs http://127.0.0.1:5181/ /tmp/shots
+```
+
+## Publishing as an Artifact
+
+**Always test through `tools/csp-server.mjs` before publishing.** A published
+artifact runs under a strict CSP, and a plain static server does not reproduce
+it — the page loads fine locally and then fails in the sandbox. Two rules fall
+out of that policy, and both are already handled:
+
+- `connect-src` refuses `fetch()` to `data:`, so `avatar/loader.ts` decodes
+  inlined avatars itself and calls `GLTFLoader.parse()` rather than letting the
+  loader touch the network.
+- `img-src` may refuse `blob:`, which is how GLTFLoader normally serves
+  textures packed in a bufferView. `optimize_vrm.py` therefore writes the
+  texture as a `data:` URI on the image, and the loader hides
+  `createImageBitmap` during load so three falls back to `<img>` instead of
+  `fetch()`-ing a blob.
+
+```bash
+npm run build:single
+node tools/pack-artifact.mjs dist/index.html dist/hero-dash.artifact.html
+node tools/csp-server.mjs dist/hero-dash.artifact.html 5197
+PW_EXE=... TIME_SCALE=3 node tools/play.mjs http://127.0.0.1:5197/ /tmp/shots
 ```
 
 ## Hall of Fame
