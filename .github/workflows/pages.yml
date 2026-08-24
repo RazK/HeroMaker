@@ -77,12 +77,11 @@ jobs:
           <p><a href="./hero-moves/">Hero Moves</a></p>
           HTML
 
-      - uses: actions/configure-pages@v5
-        with:
-          # Turns Pages on for this repository the first time this runs, so
-          # nobody has to find the setting.
-          enablement: true
-
+      # No configure-pages step: the game is built with a relative base, so it
+      # needs nothing from it, and its enablement option cannot work here — a
+      # workflow token is not allowed to create a Pages site, only to deploy to
+      # one. Pages must be switched to "GitHub Actions" once, by hand, in
+      # Settings -> Pages.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
