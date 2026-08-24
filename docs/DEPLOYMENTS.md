@@ -85,10 +85,28 @@ the fastest way to split the two failure modes apart:
 | 504 | 504/timeout | the backend itself is down — check its deploy and logs |
 | 200 | `/health/detailed` unhealthy | backend up, database connection bad |
 
-**`VITE_API_PROXY_TARGET` must be set on the frontend service** to
-`http://backend.railway.internal:8000`. If it is missing, `start-nginx.sh` now
-defaults to that on Railway and logs a warning, but set it explicitly — the bare
-`backend` hostname it used to fall back to only resolves under docker-compose.
+There are **two working wiring modes**, and which one is live depends on
+whether `VITE_API_BASE_URL` was baked into the frontend image at build time:
+
+| Mode | Set at build | Browser calls | nginx `/api/` proxy |
+|---|---|---|---|
+| **Direct** (currently live) | `VITE_API_BASE_URL=https://heromaker-backend.up.railway.app` | the backend's public URL | unused; `/api/*` falls through to the SPA |
+| Same-origin proxy | `VITE_API_BASE_URL` empty | `/api/*` on the frontend origin | proxies to `VITE_API_PROXY_TARGET` |
+
+Direct mode depends on the backend's `ALLOWED_ORIGINS` containing the frontend
+origin, or the browser blocks the calls on CORS. Verify with:
+
+```bash
+curl -sS -o /dev/null -D - -H 'Origin: https://heromaker.up.railway.app' \
+  https://heromaker-backend.up.railway.app/api/creations/ | grep -i access-control-allow-origin
+```
+
+Either way, **set `VITE_API_PROXY_TARGET` on the frontend service** to
+`http://backend.railway.internal:8000`. It costs nothing in direct mode and is
+what keeps same-origin mode working. If it is missing, `start-nginx.sh` now
+defaults to that on Railway and logs a warning — the bare `backend` hostname it
+used to fall back to only resolves under docker-compose, and an unset value there
+is what took `/api/*` down with 504s while the homepage kept returning 200.
 
 Note also that the service worker caches API responses (`NetworkFirst` with an
 `api-cache` fallback), so a returning visitor can keep seeing a working site
