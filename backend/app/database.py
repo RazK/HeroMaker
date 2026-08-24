@@ -25,9 +25,19 @@ if "sqlite" in DATABASE_URL:
         # Fix DATABASE_URL to use 4 slashes for absolute paths (SQLAlchemy requirement)
         DATABASE_URL = f"sqlite:///{db_path}"  # 4 slashes: sqlite:////absolute/path
 
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
+_is_sqlite = "sqlite" in DATABASE_URL
+
+# pool_pre_ping issues a cheap liveness check before handing out a pooled
+# connection. Without it, a Postgres restart leaves the pool full of dead
+# sockets and every request fails with "SSL SYSCALL error: EOF detected"
+# until the backend itself is restarted. pool_recycle keeps connections
+# younger than the idle timeouts that proxies and managed Postgres apply.
+_engine_kwargs = {"connect_args": {"check_same_thread": False}} if _is_sqlite else {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

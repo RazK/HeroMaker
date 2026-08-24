@@ -65,6 +65,35 @@ Run everything with `./start-dev.sh`, or manually (see `AGENTS.md`):
 Note the local split: the Vite dev server proxies `/api` to `127.0.0.1:8000`
 (`VITE_API_PROXY_TARGET`), mirroring what nginx does in production.
 
+## Outage playbook
+
+The site can look healthy while being completely unusable: nginx serves the
+static build, so `GET /` returns 200 while every `/api/*` request 504s. Check
+the API, not the homepage.
+
+```bash
+curl -sS https://heromaker.up.railway.app/api/creations/steps/config   # via nginx
+curl -sS https://heromaker-backend.up.railway.app/health/detailed      # backend direct
+```
+
+The backend has its own public URL, `heromaker-backend.up.railway.app`, which is
+the fastest way to split the two failure modes apart:
+
+| Through nginx | Backend direct | Meaning |
+|---|---|---|
+| 504 | 200 | nginx cannot reach the backend — check `VITE_API_PROXY_TARGET` on the **frontend** service |
+| 504 | 504/timeout | the backend itself is down — check its deploy and logs |
+| 200 | `/health/detailed` unhealthy | backend up, database connection bad |
+
+**`VITE_API_PROXY_TARGET` must be set on the frontend service** to
+`http://backend.railway.internal:8000`. If it is missing, `start-nginx.sh` now
+defaults to that on Railway and logs a warning, but set it explicitly — the bare
+`backend` hostname it used to fall back to only resolves under docker-compose.
+
+Note also that the service worker caches API responses (`NetworkFirst` with an
+`api-cache` fallback), so a returning visitor can keep seeing a working site
+while new visitors get errors. Always confirm an outage in a private window.
+
 ## If you cannot reach the live URL
 
 The host resolves publicly (`heromaker.up.railway.app`). If a request fails:
