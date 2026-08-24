@@ -24,9 +24,20 @@ else
 fi
 echo "API proxy target: ${API_PROXY_TARGET}"
 
+# API_READ_ONLY=true rejects anything that could change data. Set it whenever
+# API_PROXY_TARGET points at an environment other than this one's own backend.
+if [ "${API_READ_ONLY}" = "true" ]; then
+    export API_METHOD_GUARD='limit_except GET HEAD OPTIONS { deny all; }'
+    echo "API access: READ-ONLY (writes rejected at the proxy)"
+else
+    export API_METHOD_GUARD=''
+    echo "API access: read-write"
+fi
+
 # Substitute PORT and API_PROXY_TARGET in nginx config
 sed -e "s|\${PORT}|${PORT}|g" \
     -e "s|\${API_PROXY_TARGET}|${API_PROXY_TARGET}|g" \
+    -e "s|\${API_METHOD_GUARD}|${API_METHOD_GUARD}|g" \
     < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 mv /tmp/nginx.conf.tmp /etc/nginx/conf.d/default.conf
 

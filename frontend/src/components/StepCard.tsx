@@ -86,6 +86,10 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/** "Tap" reads wrong with a mouse and "Click" reads wrong on a phone. */
+const POINTER_VERB =
+  typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches ? 'Tap' : 'Click';
+
 export function StepCard({ 
   step, 
   creationId, 
@@ -410,7 +414,7 @@ export function StepCard({
               <div 
                 className="step-card-model-clickable"
                 onClick={onPreviewClick}
-                title="Click to interact with 3D model"
+                title={`${POINTER_VERB} to interact with 3D model`}
               >
                 <ModelPreview 
                   url={fileUrl} 
@@ -419,7 +423,7 @@ export function StepCard({
                   riggedUrl={riggedUrl}
                   interactive={false}
                 />
-                <div className="step-card-model-hint">Click to interact</div>
+                <div className="step-card-model-hint">{POINTER_VERB} to interact</div>
               </div>
             )}
           </div>

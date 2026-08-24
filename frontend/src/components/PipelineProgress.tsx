@@ -65,6 +65,24 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
     visibleSteps.find((s) => s.step_name === selectedStepName) ?? autoStep;
   const stagedIndex = visibleSteps.findIndex((s) => s.step_name === stagedStep?.step_name);
 
+  /**
+   * Preview image for a rail item. Image steps use their own output; the two
+   * 3D steps have no image output, so they borrow the render and carry a glyph
+   * that says which stage they are.
+   */
+  const railPreview = (step: CreationStepResponse): { src: string | null; glyph: string | null } => {
+    const out = getStepByName(step.step_name)?.output_file;
+    if (!out || step.status !== 'completed') return { src: null, glyph: null };
+    const isImage = /\.(jpe?g|png)$/i.test(out);
+    const file = isImage ? `thumb_${out}` : 'thumb_rendered.png';
+    const glyph = isImage ? null : step.step_name === 'meshy_rig' ? '\u25B6' : '\u25C6';
+    try {
+      return { src: api.getFileUrl(creation.id, file, creation.user_id), glyph };
+    } catch {
+      return { src: null, glyph };
+    }
+  };
+
   // Get file URLs for preview modal
   const getPreviewData = (step: CreationStepResponse) => {
     const config = getStepByName(step.step_name);
@@ -148,9 +166,25 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
                   className={`pipeline-rail-item is-${step.status}`}
                   aria-current={isActive ? 'true' : undefined}
                   aria-label={`Show ${config?.display_name || step.step_name}`}
+                  title={config?.display_name || step.step_name}
                   onClick={() => setSelectedStepName(step.step_name)}
                 >
-                  <span className="pipeline-rail-index">{index + 1}</span>
+                  <span className="pipeline-rail-thumb">
+                    {(() => {
+                      const { src, glyph } = railPreview(step);
+                      return (
+                        <>
+                          {src ? (
+                            <img src={src} alt="" loading="lazy" />
+                          ) : (
+                            <span className="pipeline-rail-empty" aria-hidden="true" />
+                          )}
+                          {glyph && <span className="pipeline-rail-glyph" aria-hidden="true">{glyph}</span>}
+                        </>
+                      );
+                    })()}
+                    <span className="pipeline-rail-index">{index + 1}</span>
+                  </span>
                   <span className="pipeline-rail-label">
                     {config?.display_name || step.step_name}
                   </span>

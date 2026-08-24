@@ -37,7 +37,7 @@
 }
 
 .pipeline-rail {
-  flex: 0 0 168px;
+  flex: 0 0 128px;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -48,16 +48,24 @@
   overflow-y: auto;
 }
 
+/* Share the rail's height evenly so the previews are as large as the column
+   allows, instead of four small tiles above a block of empty space. */
 .pipeline-rail > li {
   display: flex;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .pipeline-rail-item {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2);
+  /* Without these the label pushes the item wider than the rail and runs off
+     the edge of the screen instead of ellipsing. */
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--card-background);
@@ -83,17 +91,69 @@
   box-shadow: inset 3px 0 0 var(--primary-color);
 }
 
+/* The preview is the item; the number rides on top of it. */
+.pipeline-rail-thumb {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  display: block;
+}
+
+.pipeline-rail-thumb img {
+  width: 100%;
+  height: 100%;
+  /* contain, not cover: cover crops the character's head off, which is the
+     one part of the preview that identifies it. */
+  object-fit: contain;
+  display: block;
+  background: var(--bg-tertiary);
+}
+
+.pipeline-rail-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-tertiary);
+}
+
+/*
+ * The two 3D steps have no image of their own, so they show the render. This
+ * chip is what tells them apart from step 2 and from each other.
+ */
+.pipeline-rail-glyph {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
 .pipeline-rail-index {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-pill);
   display: grid;
   place-items: center;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--border-color);
-  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
 }
 
 .pipeline-rail-item.is-completed .pipeline-rail-index {
@@ -111,11 +171,20 @@
   color: #fff;
 }
 
+/*
+ * No labels in the rail. At any width that leaves room for the stage they
+ * truncate to "Image Pr..." and read worse than the picture does; the stage
+ * header names whichever step is open, and each item keeps a title tooltip
+ * and an aria-label for hover and assistive tech.
+ */
 .pipeline-rail-label {
-  min-width: 0;
-  max-width: 100%;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -143,25 +212,20 @@
   }
 
   .pipeline-rail-item {
-    flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    text-align: center;
-    font-size: 11px;
-    /* Without this the label overflows the card and collides with its
-       neighbour instead of wrapping. */
+    padding: 0;
     overflow: hidden;
+    border-radius: var(--radius-md);
   }
 
-  /* At ~90px per item every label would ellipse to a couple of words, so
-     let them use two lines instead of truncating. */
-  .pipeline-rail-label {
-    white-space: normal;
-    line-height: 1.25;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    text-overflow: clip;
+  /*
+   * At ~90px wide there is no room for a readable label, and four boxes of
+   * shrunken text is harder to scan than four pictures. Show the preview
+   * only - the stage header names whichever step is open.
+   */
+  .pipeline-rail-thumb {
+    width: 100%;
+    height: 62px;
+    border-radius: 0;
   }
 
   .pipeline-rail-item[aria-current='true'] {
