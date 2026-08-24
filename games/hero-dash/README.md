@@ -87,6 +87,8 @@ documented at the top of that file — read them before editing a pose.
 | `tools/csp-server.mjs FILE [port]` | Serves the packed page behind an Artifact-like CSP. |
 | `tools/loadtest.mjs URL OUTDIR` | Loads the page over a throttled link (`KBPS=`) and screenshots the boot sequence. |
 | `tools/lanetest.mjs` | Projects the hero into screen space to check the controls are not mirrored. |
+| `tools/fitcheck.mjs URL` | Reports whether the menu and score cards fit, at every viewport size that matters. |
+| `tools/sizeshots.mjs URL OUTDIR` | Screenshots the menu and score screens at phone sizes. |
 | `tools/make_test_video.py OUT.y4m` | Generates that clip: stands, steps, jumps, crouches, poses. |
 
 The harnesses run headless on SwiftShader at roughly 10 fps, so they set
@@ -146,6 +148,24 @@ node tools/csp-server.mjs dist/hero-dash.artifact.html 5197
 PW_EXE=... TIME_SCALE=3 node tools/play.mjs http://127.0.0.1:5197/ /tmp/shots
 PW_EXE=... KBPS=1200 node tools/loadtest.mjs http://127.0.0.1:5197/ /tmp/load
 ```
+
+## Layout
+
+**Test at the height the game actually gets, not at a device resolution.** The
+artifact viewer stacks its own title bar on the phone's status and nav bars, so
+a handset that reports 385x835 hands the page roughly 385x560. The menu fitted
+fine at 430x900 and scrolled inside its own card on a real phone.
+
+`tools/fitcheck.mjs` measures card overflow across seven viewport sizes and
+must report `worst overflow: 0px`. Two media queries do the work — a moderate
+pass under 660px of height and a last-resort pass under 500px — and both live
+at the *end* of `ui/style.css`, because they restate properties the component
+rules already set and CSS breaks specificity ties by document order.
+
+In portrait the hero is framed in the clear band above the card, sized and
+positioned from the card's measured height rather than a fixed constant, and
+lifted by shifting the camera frustum (`setViewOffset`) rather than by tilting
+the camera, which would foreshorten the avatar and crop their head.
 
 ## Hall of Fame
 

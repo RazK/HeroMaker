@@ -144,16 +144,75 @@ export class Game {
   }
 
   private portrait = false
+  /** Pixels of clear screen above the menu/score card, and the viewport height. */
+  private headroom = 0
+  private viewportH = 1
+  private canvasW = 1
+  private canvasH = 1
+  private viewOffsetApplied = false
 
   /**
-   * On the menu and score screens a card covers the middle of the screen, so
-   * the hero is framed off to the side (landscape) or high up (portrait).
+   * Tell the camera how much room the UI has left for the hero.
+   *
+   * On a phone inside the artifact viewer the card can take three quarters of
+   * the screen, so a fixed camera offset either buries the hero behind the card
+   * or leaves them tiny. Measuring the card and solving for the framing keeps
+   * the hero fully visible whatever the UI ends up doing.
+   */
+  setHeadroom(pixels: number, viewportHeight: number) {
+    this.headroom = Math.max(0, pixels)
+    this.viewportH = Math.max(1, viewportHeight)
+  }
+
+  private get band() {
+    return this.headroom > 0 ? clamp(this.headroom / this.viewportH, 0.12, 1) : 0.45
+  }
+
+  /**
+   * Camera offset for the menu and score screens, as [sideways, look-down].
+   *
+   * Landscape puts the card on the left and the hero to its right. Portrait
+   * stacks them, and the hero is lifted into the band above the card by
+   * shifting the frustum (see applyPresentationFrustum), not by tilting the
+   * camera down — tilting would foreshorten the avatar and crop their head.
    */
   private presentationOffset(): [number, number] {
-    return this.portrait ? [0, -0.95] : [-1.85, 0]
+    return this.portrait ? [0, 0] : [-1.85, 0]
+  }
+
+  /**
+   * Slide the rendered window down inside the frustum, like a tilt-shift lens,
+   * so a camera pointed level at the hero still draws them in the clear band
+   * above the card.
+   */
+  private applyPresentationFrustum(active: boolean) {
+    const wantOffset = active && this.portrait && this.headroom > 0
+    if (!wantOffset) {
+      if (this.viewOffsetApplied) {
+        this.camera.clearViewOffset()
+        this.viewOffsetApplied = false
+      }
+      return
+    }
+    const w = this.canvasW, h = this.canvasH
+    this.camera.setViewOffset(w, h, 0, (h - this.headroom) / 2, w, h)
+    this.viewOffsetApplied = true
+  }
+
+  /** How far back the presentation camera sits, so the hero fits the band. */
+  private presentationDistance(): number {
+    if (!this.portrait) return 3.3
+    const halfHeight = Math.tan((this.camera.fov * Math.PI) / 360)
+    // Enough distance that the hero plus a margin spans no more than the band.
+    // Allowance above the measured height: the victory pose puts both arms
+    // over the head, which the rest-pose bounding box does not include.
+    const needed = (this.hero ? this.hero.height : 1.7) * 1.45
+    return clamp(needed / (2 * halfHeight * this.band), 2.6, 10)
   }
 
   resize(w: number, h: number) {
+    this.canvasW = w
+    this.canvasH = h
     this.portrait = h > w
     this.camera.aspect = w / h
     // Keep the hero comfortably in frame on tall phone screens.
@@ -480,7 +539,8 @@ export class Game {
     } else if (this.phase === 'over') {
       const a = this.elapsed * 0.5
       const [ox, oy] = this.presentationOffset()
-      desired = new THREE.Vector3(x + Math.sin(a) * 1.5 + ox, 1.72, this.z + 3.5)
+      const dist = this.presentationDistance() + 0.2
+      desired = new THREE.Vector3(x + Math.sin(a) * 1.5 + ox, 1.72, this.z + dist)
       look = new THREE.Vector3(x + ox * 0.95, 0.88 + oy, this.z)
     } else {
       const back = 5.0 + this.speed * 0.09
@@ -501,6 +561,8 @@ export class Game {
       damp(this.camLook.z, look.z, rate * 1.6, dt),
     )
 
+    this.applyPresentationFrustum(this.phase === 'menu' || this.phase === 'countdown' || this.phase === 'over')
+
     const speedT = clamp((this.speed - CFG.speedStart) / (CFG.speedMax - CFG.speedStart), 0, 1)
     const baseFov = this.portrait ? 72 : 58
     const wantFov = this.phase === 'running' ? baseFov + speedT * 7 + (this.stats.heroTime ? 5 : 0) : baseFov
@@ -508,6 +570,7 @@ export class Game {
       this.camera.fov = damp(this.camera.fov, wantFov, 3, dt)
       this.camera.updateProjectionMatrix()
     }
+
 
     this.camera.position.copy(this.camPos)
     if (this.shake > 0) {
@@ -567,6 +630,11 @@ export class Game {
 
   get countdownValue() { return Math.ceil(this.countdown) }
   get currentStats(): Stats { return { ...this.stats } }
+
+  /** End the run immediately. Used by the layout harness to reach the score card. */
+  forceGameOver() {
+    if (this.phase === 'running') { this.stats.hearts = 0; this.gameOver() }
+  }
 
   /** Steer to an absolute lane — used by Hero Cam, which reads position not taps. */
   requestLane(lane: number) {

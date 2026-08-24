@@ -37,20 +37,6 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 @media (orientation: portrait) {
   .layer.sheet { background: linear-gradient(to bottom, rgba(43,33,64,.05), rgba(43,33,64,.58) 45%); }
 }
-/* Keep the hero visible next to the card rather than behind it. */
-@media (orientation: landscape) {
-  #menu, #over { align-items: flex-start; padding-left: clamp(16px, 5vw, 90px); }
-  #menu .card, #over .card { max-width: min(560px, 56vw); }
-}
-@media (orientation: portrait) {
-  /* Card sits low so the hero is framed above it. */
-  #menu, #over { justify-content: flex-end; padding-bottom: clamp(10px, 2.5vh, 26px); }
-  #menu .card, #over .card { max-height: 68vh; padding: 14px 14px 16px; border-radius: 22px; }
-  #menu h1 { font-size: clamp(30px, 8vmin, 46px); }
-  #menu .keys { display: none; }          /* touch players get the swipe hint instead */
-  #menu .picker { gap: 7px; }
-  #menu .hint { display: none; }
-}
 .layer[hidden] { display: none; }
 
 .card {
@@ -351,4 +337,67 @@ a { color: var(--grape); }
 @media (prefers-reduced-motion: reduce) {
   .splash-runner i, #splashFill { animation: none; }
   #splash { transition: none; }
+}
+
+
+/* =====================================================================
+ * Responsive overrides
+ *
+ * These live at the end on purpose: they restate properties the component
+ * rules above already set, and CSS resolves ties by document order. Sitting
+ * earlier in the file, a media block silently loses to the base rule.
+ * ===================================================================== */
+
+/* Keep the hero visible next to the card rather than behind it. */
+@media (orientation: landscape) {
+  #menu, #over { align-items: flex-start; padding-left: clamp(16px, 5vw, 90px); }
+  #menu .card, #over .card { max-width: min(560px, 56vw); }
+}
+@media (orientation: portrait) {
+  /* Card sits low so the hero is framed above it. */
+  #menu, #over { justify-content: flex-end; padding-bottom: clamp(8px, 2vh, 24px); }
+  #menu .card, #over .card { max-height: 92vh; padding: 14px 14px 16px; border-radius: 22px; }
+  #menu h1 { font-size: clamp(28px, 8vmin, 46px); }
+  #menu .keys { display: none; }          /* touch players get the swipe hint instead */
+  #menu .picker { gap: 7px; }
+  #menu .hint { display: none; }
+}
+
+/*
+ * Short viewports. The artifact viewer adds its own title bar on top of the
+ * phone's status and nav bars, so the page often gets barely 550 CSS px of
+ * height — the menu has to fit in that without becoming a scroller.
+ * tools/fitcheck.mjs measures this.
+ */
+@media (max-height: 660px) {
+  .card { padding: 12px 13px 14px; }
+  .stack { gap: 8px; }
+  #menu .tag, #menu .blurb { display: none; }
+  #menu h1 { font-size: clamp(24px, 6vmin, 34px); }
+  .hero-name { font-size: clamp(18px, 3.4vmin, 24px); }
+  .pick img { width: clamp(34px, 9vmin, 46px); height: clamp(34px, 9vmin, 46px); }
+  .pick { padding: 5px 4px 4px; gap: 3px; font-size: clamp(9px, 2.4vmin, 12px); }
+  .picker { gap: 6px; }
+  .field > span { font-size: 10px; padding-left: .7em; }
+  .name-input { padding: .4em .8em; }
+  .btn { font-size: clamp(15px, 3.4vmin, 20px); padding: .42em 1em; }
+  /* PLAY keeps the width it deserves; Hero Cam rides alongside it. */
+  .actions { flex-direction: row; gap: 8px; }
+  .actions .btn { width: auto; flex: 1 1 0; }
+  .actions .btn:first-child { flex: 1.5 1 0; }
+  #menu .keys, #menu .hint { display: none; }
+  .stats-grid { gap: 6px; }
+  .stat b { font-size: clamp(16px, 3vmin, 22px); }
+  .board .row { padding: .22em .5em; }
+}
+
+/* Genuinely tiny: hero names are worth more than the pixels, so they only go
+   when there is nothing else left to give. */
+@media (max-height: 500px) {
+  .pick span { display: none; }
+  .field > span { display: none; }
+  .stack { gap: 6px; }
+  .stat { padding: .3em .3em .28em; }
+  /* Top five is a leaderboard; the rest is scrollback nobody reads here. */
+  .board .row:nth-child(n+6) { display: none; }
 }

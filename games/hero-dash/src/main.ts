@@ -90,6 +90,8 @@ const heroNameEl = el('h2', { class: 'hero-name' })
 const heroBlurbEl = el('p', { class: 'blurb' })
 const nameInput = el('input', {
   class: 'name-input', value: playerName, placeholder: 'Anonymous', maxLength: 14,
+  // The visible label is hidden on very short screens; keep it named regardless.
+  ariaLabel: 'Player name',
 }) as HTMLInputElement
 nameInput.addEventListener('input', () => {
   playerName = nameInput.value.trim()
@@ -237,6 +239,19 @@ const game = new Game(renderer, input, audio, {
 
 function show(active: HTMLElement | null) {
   for (const l of [loadingLayer, menuLayer, hudLayer, countdownLayer, overLayer]) l.hidden = l !== active
+  measureHeadroom()
+}
+
+/**
+ * Tell the camera how much clear screen sits above the menu/score card, so it
+ * can frame the hero in that band instead of behind the card.
+ */
+function measureHeadroom() {
+  requestAnimationFrame(() => {
+    const card = document.querySelector('.layer.sheet:not([hidden]) .card')
+    const top = card ? card.getBoundingClientRect().top : app.clientHeight * 0.45
+    game.setHeadroom(top, app.clientHeight)
+  })
 }
 
 function showToast(text: string, kind: 'good' | 'bad') {
@@ -340,6 +355,7 @@ function beginRun() {
 function resize() {
   const w = app.clientWidth, h = app.clientHeight
   game.resize(w, h)
+  measureHeadroom()
 }
 addEventListener('resize', resize)
 
@@ -375,6 +391,7 @@ renderer.setAnimationLoop(() => {
   show(loadingLayer)
   resize()
   renderPicker()
+  measureHeadroom()
   // Heroes stream in after the engine boots; light each one up as it lands.
   ;(window as any).__hdOnStep = () => renderPicker()
   try {
@@ -402,6 +419,7 @@ renderer.setAnimationLoop(() => {
   act: (a: string) => input.push(a as any),
   stats: () => game.currentStats,
   debug: () => game.debugSnapshot(),
+  endRun: () => game.forceGameOver(),
   setTimeScale: (n: number) => { game.timeScale = n },
   onStep: (fn: ((dt: number) => void) | null) => { game.onStep = fn },
   phase: () => game.phase,
