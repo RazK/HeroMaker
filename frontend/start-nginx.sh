@@ -14,7 +14,9 @@ export PORT=${PORT:-80}
 if [ -n "${VITE_API_PROXY_TARGET}" ]; then
     export API_PROXY_TARGET="${VITE_API_PROXY_TARGET}"
 elif [ -n "${RAILWAY_ENVIRONMENT}" ]; then
-    export API_PROXY_TARGET="http://backend.railway.internal:8000"
+    # Railway injects PORT into each service; the backend binds it, so the
+    # private-network target must use that port, not the local-dev 8000.
+    export API_PROXY_TARGET="http://backend.railway.internal:${BACKEND_PORT:-8080}"
     echo "WARNING: VITE_API_PROXY_TARGET is not set. Defaulting to ${API_PROXY_TARGET}"
     echo "         Set it explicitly on the frontend service to override."
 else
