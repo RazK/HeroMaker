@@ -434,8 +434,9 @@ export class Game {
     hero.root.rotation.y = damp(hero.root.rotation.y, -drift, 12, dt)
     hero.root.rotation.z = damp(hero.root.rotation.z, this.state === 'fly' ? Math.sin(this.elapsed * 1.6) * 0.12 : 0, 4, dt)
 
-    // Blink while invulnerable
-    const blink = this.invuln > 0 && Math.floor(this.invuln * 12) % 2 === 0
+    // Blink while invulnerable — off only a third of the time, so the hero
+    // still reads during the stumble instead of vanishing.
+    const blink = this.invuln > 0 && Math.floor(this.invuln * 15) % 3 === 0
     hero.root.visible = !blink
 
     this.heroShadow.position.set(x, 0.012, this.z)
