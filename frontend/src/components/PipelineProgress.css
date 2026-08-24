@@ -59,11 +59,11 @@
 .pipeline-rail-item {
   flex: 1;
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  /* Without these the label pushes the item wider than the rail and runs off
-     the edge of the screen instead of ellipsing. */
+  align-items: stretch;
+  /* The preview IS the tile - no padding, no inner gap. Letterboxing a
+     portrait character inside a padded box left more empty space than
+     picture. */
+  padding: 0;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border-color);
@@ -97,7 +97,7 @@
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   overflow: hidden;
   background: var(--bg-tertiary);
   display: block;
@@ -106,11 +106,19 @@
 .pipeline-rail-thumb img {
   width: 100%;
   height: 100%;
-  /* contain, not cover: cover crops the character's head off, which is the
-     one part of the preview that identifies it. */
-  object-fit: contain;
+  /* Fill the tile rather than letterboxing a portrait image inside it, and
+     anchor to the top so a crop takes the feet, never the face. */
+  object-fit: cover;
+  object-position: center top;
   display: block;
   background: var(--bg-tertiary);
+}
+
+/* Stills captured from the 3D stage are transparent PNGs; contain keeps the
+   whole character visible against the tile rather than cropping it. */
+.pipeline-rail-thumb img[src^='data:'] {
+  object-fit: contain;
+  object-position: center;
 }
 
 .pipeline-rail-empty {
@@ -214,7 +222,7 @@
   .pipeline-rail-item {
     padding: 0;
     overflow: hidden;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
   }
 
   /*
@@ -224,7 +232,7 @@
    */
   .pipeline-rail-thumb {
     width: 100%;
-    height: 62px;
+    height: 78px;
     border-radius: 0;
   }
 

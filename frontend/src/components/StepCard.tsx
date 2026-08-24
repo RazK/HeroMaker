@@ -20,6 +20,7 @@ interface StepCardProps {
   onStepRun?: (stepName: string) => void;
   onCreationRefresh?: () => Promise<void>;  // Called to refresh creation state after step starts
   onPreviewClick?: () => void;  // Called when 3D model is clicked to open modal
+  onSnapshot?: (dataUrl: string) => void;  // A still of the rendered model, for the rail
 }
 
 function parseDate(dateStr: string): number {
@@ -105,6 +106,7 @@ export function StepCard({
   onStepRun,
   onCreationRefresh,
   onPreviewClick,
+  onSnapshot,
 }: StepCardProps) {
   const [, setTick] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
@@ -417,6 +419,7 @@ export function StepCard({
                 title={`${POINTER_VERB} to interact with 3D model`}
               >
                 <ModelPreview 
+                  onSnapshot={onSnapshot}
                   url={fileUrl} 
                   isRigged={step.step_name === 'meshy_rig'} 
                   walkingUrl={walkingUrl}

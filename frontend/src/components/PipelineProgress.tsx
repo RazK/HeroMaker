@@ -45,9 +45,24 @@ export function calculateOverallProgress(creation: CreationResponse): number {
 export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentUserId, isAdmin, onStepRun, onCreationRefresh, onDelete }: PipelineProgressProps) {
   const [previewStep, setPreviewStep] = useState<CreationStepResponse | null>(null);
   const [selectedStepName, setSelectedStepName] = useState<string | null>(null);
+  // Stills captured from the 3D stage, keyed by step. Model steps have no image
+  // on disk, so this is what stops their rail tile duplicating the AI render.
+  const [snapshots, setSnapshots] = useState<Record<string, string>>({});
 
-  // Filter out convert_vrm step - it's represented in the ControlBar
-  const visibleSteps = creation.steps.filter((step) => step.step_name !== 'convert_vrm');
+  /*
+   * The rail tells a three-part story: the drawing, the AI render, and the
+   * finished hero. convert_vrm lives in the ControlBar, and meshy_3d is an
+   * internal stage whose output is a GLB with no preview of its own - shown
+   * beside the rigged model it produced a tile identical to its neighbours.
+   *
+   * It stays visible whenever it is NOT completed, so a failure or a run in
+   * progress is never hidden from the person waiting on it.
+   */
+  const visibleSteps = creation.steps.filter((step) => {
+    if (step.step_name === 'convert_vrm') return false;
+    if (step.step_name === 'meshy_3d') return step.status !== 'completed';
+    return true;
+  });
   
   // Calculate which step is ready
   const readyStepName = getReadyStepName(creation.steps);
@@ -73,9 +88,12 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
   const railPreview = (step: CreationStepResponse): { src: string | null; glyph: string | null } => {
     const out = getStepByName(step.step_name)?.output_file;
     if (!out || step.status !== 'completed') return { src: null, glyph: null };
+    const captured = snapshots[step.step_name];
+    if (captured) return { src: captured, glyph: '\u25B6' };
     const isImage = /\.(jpe?g|png)$/i.test(out);
     const file = isImage ? `thumb_${out}` : 'thumb_rendered.png';
-    const glyph = isImage ? null : step.step_name === 'meshy_rig' ? '\u25B6' : '\u25C6';
+    // Only the animated hero carries a glyph now; nothing else is a model.
+    const glyph = isImage ? null : '\u25B6';
     try {
       return { src: api.getFileUrl(creation.id, file, creation.user_id), glyph };
     } catch {
@@ -150,6 +168,11 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
                 onStepRun={onStepRun}
                 onCreationRefresh={onCreationRefresh}
                 onPreviewClick={() => handlePreviewClick(stagedStep)}
+                onSnapshot={(dataUrl) =>
+                  setSnapshots((prev) =>
+                    prev[stagedStep.step_name] ? prev : { ...prev, [stagedStep.step_name]: dataUrl }
+                  )
+                }
               />
             );
           })()}

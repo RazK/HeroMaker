@@ -13,6 +13,8 @@ interface ModelPreviewProps {
   className?: string;
   isRigged?: boolean;
   interactive?: boolean;  // When false, disable mouse controls (for card previews)
+  /** Called once with a still of the rendered model, for use as a thumbnail. */
+  onSnapshot?: (dataUrl: string) => void;
 }
 
 // Error boundary for model loading errors - must be outside Canvas
@@ -91,6 +93,37 @@ function fitDistance(camera: THREE.PerspectiveCamera, size: THREE.Vector3): numb
   const fitWidth = size.x / 2 / (Math.tan(vFov / 2) * camera.aspect);
   // Half the depth keeps the near face of the model out of the camera.
   return Math.max(fitHeight, fitWidth) * frameMargin() + size.z / 2;
+}
+
+/**
+ * Grabs a single still of the canvas once the model has settled.
+ *
+ * The rigged model has no image on disk, so without this its rail tile has to
+ * borrow the AI render and ends up identical to the tile next to it. The stage
+ * has already loaded and drawn the model, so a snapshot costs one readback
+ * rather than a second download.
+ */
+function SnapshotOnce({ onSnapshot }: { onSnapshot?: (d: string) => void }) {
+  const { gl, scene, camera } = useThree();
+  const framesRef = useRef(0);
+  const doneRef = useRef(false);
+
+  useFrame(() => {
+    if (doneRef.current || !onSnapshot) return;
+    // Let a few frames land so lighting and any animation pose are settled.
+    if (++framesRef.current < 8) return;
+    doneRef.current = true;
+    try {
+      gl.render(scene, camera);
+      // PNG, not JPEG: the canvas is transparent, and JPEG has no alpha, so
+      // the model would arrive on a black rectangle.
+      onSnapshot(gl.domElement.toDataURL('image/png'));
+    } catch {
+      /* tainted or context-lost canvases simply produce no thumbnail */
+    }
+  });
+
+  return null;
 }
 
 function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnimationPlaying }: { url: string; showSkeleton?: boolean; isRotating: boolean; resetTrigger: number; isAnimated: boolean; isAnimationPlaying: boolean }) {
@@ -439,7 +472,7 @@ function CameraController({
   );
 }
 
-export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRigged = false, interactive = true }: ModelPreviewProps) {
+export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRigged = false, interactive = true, onSnapshot }: ModelPreviewProps) {
   const [isPlaying, setIsPlaying] = useState(true); // Controls both rotation and animation
   const [resetTrigger, setResetTrigger] = useState(0);
   
@@ -463,7 +496,13 @@ export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRig
   return (
     <ModelErrorBoundary key={modelUrl}>
       <div className={`model-preview-container ${className}${!interactive ? ' model-preview-non-interactive' : ''}`}>
-        <Canvas camera={{ position: cameraPosition, fov: 50 }}>
+        <Canvas
+          camera={{ position: cameraPosition, fov: 50 }}
+          /* Required for toDataURL: without it the drawing buffer is cleared
+             before we can read it back. */
+          gl={{ preserveDrawingBuffer: Boolean(onSnapshot) }}
+        >
+          <SnapshotOnce onSnapshot={onSnapshot} />
           <Suspense fallback={null}>
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1} />
