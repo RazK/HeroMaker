@@ -36,7 +36,7 @@ export class PlayCamera {
   private distance = 4
   private eyeY = 0.8
   private lookY = 0.9
-  private cardPortrait = false
+  private cardVisible = false
   private offsetApplied = false
   private pos = new THREE.Vector3(0, 1, 4)
   private target = new THREE.Vector3(0, 1, 0)
@@ -50,10 +50,22 @@ export class PlayCamera {
   private offsetTarget = 0
   private lastFraming: Framing | null = null
 
+  /** Is a card covering the middle, on a screen too narrow to step aside on? */
+  private get cardPortrait() {
+    return this.cardVisible && (this.lastFraming?.portrait ?? false)
+  }
+
   /** Solve and apply the framing. Called on resize and when the hero changes. */
   frame(f: Framing) {
     this.lastFraming = f
-    const fill = f.portrait ? FILL_PORTRAIT : FILL_LANDSCAPE
+    // With a card at the bottom of a portrait screen the hero only owns the
+    // strip above it, so the fill is solved against that strip rather than the
+    // whole viewport — otherwise the head, which is the thing a child drew,
+    // is the first thing to leave the frame.
+    const band = this.cardPortrait && f.headroom && f.viewportH
+      ? Math.min(FILL_PORTRAIT, (f.headroom * 0.84) / f.viewportH)
+      : null
+    const fill = band ?? (f.portrait ? FILL_PORTRAIT : FILL_LANDSCAPE)
     this.camera.aspect = f.aspect
     this.camera.fov = f.portrait ? 42 : 38
     this.camera.updateProjectionMatrix()
@@ -77,9 +89,9 @@ export class PlayCamera {
    * the frame shifts down and the hero sits above the card instead.
    */
   setPresentation(card: boolean) {
-    const portrait = this.lastFraming?.portrait ?? false
-    this.offsetTarget = card && !portrait ? -1.25 : 0
-    this.cardPortrait = card && portrait
+    this.cardVisible = card
+    this.offsetTarget = card && !(this.lastFraming?.portrait ?? false) ? -1.25 : 0
+    if (this.lastFraming) this.frame(this.lastFraming)
   }
 
   /** `beat` is 0..1 within the current beat; the camera breathes with it. */

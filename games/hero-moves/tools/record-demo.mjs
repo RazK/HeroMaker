@@ -24,6 +24,15 @@ const seconds = Number(flag('seconds', 60))
 const W = Number(flag('w', 1280))
 const H = Number(flag('h', 720))
 const base = flag('url', 'http://127.0.0.1:5183')
+/**
+ * Runs the game clock slower than wall-clock so the pose tracker, which is
+ * CPU-bound in this sandbox, gets a realistic number of samples per move. The
+ * footage is sped back up by the same factor afterwards, so the finished video
+ * plays at true speed. Pair with the dancer clip rendered at the same `scale`.
+ */
+const timescale = Number(flag('timescale', 1))
+/** Burn short captions into the frames so the recording explains itself. */
+const captions = process.argv.includes('--captions')
 
 const FFMPEG = process.env.FFMPEG
   ?? (fs.existsSync('/usr/local/bin/ffmpeg') ? '/usr/local/bin/ffmpeg' : 'ffmpeg')
@@ -68,8 +77,46 @@ if (avatarIndex > 0) {
   await page.waitForTimeout(2500)
 }
 
+if (captions) await page.evaluate(() => {
+  // Injected only while recording. It reads the same public hooks the test
+  // harness uses and writes text over the frame; the game is untouched.
+  const bar = document.createElement('div')
+  bar.style.cssText = [
+    'position:fixed', 'left:50%', 'bottom:2.2vh', 'transform:translateX(-50%)',
+    'z-index:9999', 'pointer-events:none', 'max-width:80vw', 'text-align:center',
+    'font:800 clamp(15px,2.2vh,26px)/1.25 "Baloo 2",system-ui,sans-serif',
+    'color:#fff8ec', 'background:rgba(24,12,40,.82)', 'padding:.5em 1.1em',
+    'border-radius:999px', 'letter-spacing:.01em',
+    'box-shadow:0 8px 26px rgba(0,0,0,.45)', 'opacity:0',
+    'transition:opacity .28s ease',
+  ].join(';')
+  document.body.appendChild(bar)
+
+  const LINE = {
+    title: 'Pick a hero drawn by a kid',
+    countdown: 'Get ready…',
+    coach: 'Watch — your hero shows the move',
+    copy: 'Now copy it. The webcam sees you (bottom right)',
+    grade: 'Scored on limb angles, not on your size',
+    results: 'Final score',
+  }
+  let shown = ''
+  const tick = () => {
+    const phase = window.__api.phase()
+    const line = LINE[phase] ?? ''
+    if (line !== shown) {
+      shown = line
+      bar.style.opacity = '0'
+      setTimeout(() => { bar.textContent = line; bar.style.opacity = line ? '1' : '0' }, 200)
+    }
+    requestAnimationFrame(tick)
+  }
+  tick()
+})
+
 // Linger on the title so the recording opens on something legible.
 await page.waitForTimeout(2500)
+if (timescale !== 1) await page.evaluate((t) => window.__api.setTimeScale(t), timescale)
 await page.evaluate(() => window.__api.start())
 
 const deadline = Date.now() + seconds * 1000
@@ -100,7 +147,8 @@ await browser.close()
 const webm = fs.readdirSync(videoDir).map((f) => path.join(videoDir, f)).find((f) => f.endsWith('.webm'))
 if (!webm) { console.error('playwright produced no video'); process.exit(1) }
 fs.mkdirSync(path.dirname(out), { recursive: true })
-execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', webm,
+const speed = timescale !== 1 ? ['-vf', `setpts=PTS*${timescale},fps=30`] : []
+execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', webm, ...speed,
   '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '22', '-movflags', '+faststart', out])
 fs.rmSync(videoDir, { recursive: true, force: true })
 

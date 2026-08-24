@@ -53,6 +53,8 @@ const COACH = 4 * BEAT, COPY = 4 * BEAT, GRADE = 2 * BEAT
 const CYCLE = COACH + COPY + GRADE
 const LEAD_IN = 4 * BEAT
 const OFFSET = Number(params.get('offset') ?? 0)
+/** Stretches the schedule to match a slowed capture; see main.ts timeScale. */
+const SCALE = Number(params.get('scale') ?? 1)
 /** Index performed as the wrong shape, to prove the scorer is not rubber-stamping. */
 const FLUB = Number(params.get('flub') ?? 4)
 
@@ -61,7 +63,8 @@ const NEUTRAL: MoveAngles = {
   leftLeg: -80, leftShin: -85, rightLeg: -100, rightShin: -95,
 }
 
-function followAngles(t: number): MoveAngles {
+function followAngles(tReal: number): MoveAngles {
+  const t = tReal / SCALE
   const local = t - LEAD_IN - OFFSET
   if (local < 0) return NEUTRAL
   const i = Math.floor(local / CYCLE)
@@ -137,6 +140,8 @@ function angleAt(t: number): MoveAngles {
     renderer.render(scene, cam)
   }
   ;(window as any).__setTime(0)
-  ;(window as any).__duration = FOLLOW ? LEAD_IN + order.length * CYCLE + 2 : order.length * HOLD
+  ;(window as any).__duration = FOLLOW
+    ? (LEAD_IN + order.length * CYCLE + 2) * SCALE
+    : order.length * HOLD
   ;(window as any).__ready = true
 })()

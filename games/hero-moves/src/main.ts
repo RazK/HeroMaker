@@ -169,7 +169,7 @@ async function beginRun() {
       : 'No camera available on this device.'
     if (state !== 'ready') return
   }
-  game.start(performance.now() / 1000)
+  game.start(clock)
 }
 
 function resize() {
@@ -188,12 +188,24 @@ function reframe() { requestAnimationFrame(() => requestAnimationFrame(resize)) 
 // ---------------------------------------------------------------- loop
 let last = performance.now()
 let heroBob = 0
+/**
+ * Stretches game time. Only used for capture: this sandbox has no GPU, so
+ * MoveNet runs at ~1 fps instead of the 60+ it manages on real hardware, and a
+ * beat would pass with barely a sample in it. Recording slowed down and then
+ * speeding the footage back up shows the game at the rate a player sees, using
+ * the real pipeline throughout.
+ */
+let timeScale = 1
+/** Game clock, which advances at `timeScale` and drives everything timed. */
+let clock = 0
 
 renderer.setAnimationLoop(() => {
   const now = performance.now()
-  const dt = Math.min(0.05, (now - last) / 1000)
+  const realDt = Math.min(0.1, (now - last) / 1000)
   last = now
-  const t = now / 1000
+  const dt = realDt * timeScale
+  clock += dt
+  const t = clock
   const beat = (t / beatSeconds) % 1
 
   void tracker.update(now)
@@ -270,6 +282,7 @@ async function loadPoseModelSpec() {
   start: () => beginRun(),
   pick: (i: number) => selectHero(i),
   state: () => game.state,
+  setTimeScale: (n: number) => { timeScale = n },
   phase: () => game.state.phase,
   tracker: () => ({ state: tracker.state, fps: tracker.fps, ms: tracker.lastInferenceMs }),
 }

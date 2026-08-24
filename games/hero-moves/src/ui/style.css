@@ -20,6 +20,10 @@
   --mint: #3ddc97;
   --sky: #56b8ff;
   --grape: #9b6bd6;
+  /* Accents come in two weights: the bright one for dark stage backgrounds,
+     the deep one for text sitting on paper. Never use the bright one on paper —
+     #9b6bd6 on #fdf7ec is 3.4:1, which reads as a smudge on a phone. */
+  --grape-ink: #6a3ba8;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -67,13 +71,13 @@ h1 {
 }
 /* Cards are paper, so type inside them flips to ink. */
 .card h1 { color: var(--ink); }
-.card h1 em { color: var(--grape); }
+.card h1 em { color: var(--grape-ink); }
 h1 em {
   font-style: normal; display: block; color: var(--gold);
   font-size: .52em; letter-spacing: .18em; margin-bottom: .35em;
 }
 h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
-.tag { margin: 0; font-weight: 600; opacity: .72; font-size: clamp(13px, 1.9vmin, 16px); }
+.tag { margin: 0; font-weight: 600; opacity: .78; font-size: clamp(13px, 1.9vmin, 16px); }
 .num { font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- chrome */
@@ -116,7 +120,7 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 .readout { display: flex; flex-direction: column; gap: 2px; }
 .readout .label {
   font-size: clamp(9px, 1.3vmin, 11px); font-weight: 800;
-  letter-spacing: .16em; text-transform: uppercase; opacity: .6;
+  letter-spacing: .16em; text-transform: uppercase; opacity: .78;
 }
 .readout .value {
   font-size: clamp(26px, 4.4vmin, 46px); font-weight: 800; line-height: 1;
@@ -216,11 +220,11 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 }
 .stat b { font-size: clamp(18px, 3vmin, 28px); font-variant-numeric: tabular-nums; }
 .stat span {
-  font-size: clamp(9px, 1.3vmin, 11px); opacity: .62;
+  font-size: clamp(9px, 1.3vmin, 11px); opacity: .8;
   font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
 }
 
-.hint { margin: 0; font-size: clamp(11px, 1.6vmin, 13px); opacity: .6; font-weight: 600; line-height: 1.5; }
+.hint { margin: 0; font-size: clamp(11px, 1.6vmin, 13px); opacity: .78; font-weight: 600; line-height: 1.5; }
 
 /* ---------------------------------------------------------------- boot */
 #boot {
@@ -242,7 +246,7 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 #bootFill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--pop)); transition: width .35s ease; }
 #bootFill.indeterminate { width: 34%; animation: drift 1.4s ease-in-out infinite alternate; }
 @keyframes drift { from { transform: translateX(-60%); } to { transform: translateX(180%); } }
-#bootWhat { font-size: clamp(11px, 1.6vmin, 13px); opacity: .7; font-weight: 700; min-height: 1.3em; text-align: center; }
+#bootWhat { font-size: clamp(11px, 1.6vmin, 13px); opacity: .85; font-weight: 700; min-height: 1.3em; text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .boot-dots i, #bootFill, #grade.show, #countdown span { animation: none; }
