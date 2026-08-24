@@ -5,6 +5,7 @@ import { ControlBar } from './ControlBar';
 import { PreviewModal } from './PreviewModal';
 import { getStepByName } from '../config/steps';
 import { api } from '../api/client';
+import { webModel } from '../api/webModel';
 import './PipelineProgress.css';
 
 interface PipelineProgressProps {
@@ -189,12 +190,13 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
       ? walkingGlbFilename 
       : outputFile;
     
-    const fileUrl = api.getFileUrl(creation.id, modelFile, creation.user_id);
+    // The modal is a preview too, so it takes the web-sized copies.
+    const fileUrl = api.getFileUrl(creation.id, webModel(modelFile), creation.user_id);
     const walkingUrl = walkingGlbFilename 
-      ? api.getFileUrl(creation.id, walkingGlbFilename, creation.user_id) 
+      ? api.getFileUrl(creation.id, webModel(walkingGlbFilename), creation.user_id) 
       : null;
     const riggedUrl = step.step_name === 'meshy_rig' 
-      ? api.getFileUrl(creation.id, outputFile, creation.user_id) 
+      ? api.getFileUrl(creation.id, webModel(outputFile), creation.user_id) 
       : null;
 
     return {

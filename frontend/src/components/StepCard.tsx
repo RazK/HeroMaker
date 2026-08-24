@@ -3,6 +3,7 @@ import { CreationStepResponse } from '../api/client';
 import { ImagePreview } from './ImagePreview';
 import { LazyModelPreview as ModelPreview } from './LazyModelPreview';
 import { api } from '../api/client';
+import { webModel } from '../api/webModel';
 import './StepCard.css';
 
 interface StepCardProps {
@@ -137,16 +138,21 @@ export function StepCard({
     ? walkingGlbFilename 
     : outputFile;
   
+  // Previews load the web-sized copy; the share link below keeps the original.
   const fileUrl = showPreview && modelFile
+    ? api.getFileUrl(creationId, webModel(modelFile), userId)
+    : null;
+
+  const shareFileUrl = showPreview && modelFile
     ? api.getFileUrl(creationId, modelFile, userId)
     : null;
-  
+
   const walkingUrl = (step.step_name === 'meshy_rig' && showPreview && walkingGlbFilename)
-    ? api.getFileUrl(creationId, walkingGlbFilename, userId)
+    ? api.getFileUrl(creationId, webModel(walkingGlbFilename), userId)
     : null;
   
   const riggedUrl = (step.step_name === 'meshy_rig' && showPreview && outputFile)
-    ? api.getFileUrl(creationId, outputFile, userId)
+    ? api.getFileUrl(creationId, webModel(outputFile), userId)
     : null;
 
   const handleDownload = async () => {
@@ -161,8 +167,10 @@ export function StepCard({
   };
 
   const handleShareVrm = async () => {
-    if (!fileUrl) return;
-    const shareLink = getKalidoFace3DShareLink(fileUrl);
+    // The untouched file, not the web-sized copy: an outside viewer has to be
+    // able to read it with a strict glTF loader.
+    if (!shareFileUrl) return;
+    const shareLink = getKalidoFace3DShareLink(shareFileUrl);
     const success = await copyToClipboard(shareLink);
     if (success) {
       setShareCopied(true);

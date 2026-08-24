@@ -291,3 +291,150 @@ def test_warming_never_fails_a_completed_step(monkeypatch):
     monkeypatch.setattr(files_api, "get_storage", lambda: Broken({}))
 
     pipeline._warm_thumbnails("u1", "c1", "processed.jpg")  # must not raise
+
+
+# --- web-optimised models: what stops a phone downloading 7.4 MB to see a hero ---
+
+def _glb_with_texture(px=1024) -> bytes:
+    """
+    A minimal but real GLB: one textured triangle, uint32 indices, uint16 joints,
+    float weights - the same wasteful shapes the pipeline's models arrive in.
+
+    The texture is smooth gradients with fine grain, which is roughly how a baked
+    avatar texture behaves under compression. A flat or sparse image would make
+    the size assertions meaningless.
+    """
+    import json, math, random, struct
+    rng = random.Random(7)
+    tex = Image.new("RGB", (px, px))
+    tex.putdata([
+        (
+            max(0, min(255, int(128 + 90 * math.sin(x / 90.0)) + n)),
+            max(0, min(255, int(128 + 90 * math.cos(y / 70.0)) + n)),
+            max(0, min(255, ((x * y // 512) % 256) + n)),
+        )
+        for y in range(px) for x in range(px) for n in (rng.randrange(-18, 18),)
+    ])
+    png = io.BytesIO(); tex.save(png, "PNG"); png = png.getvalue()
+
+    pos = struct.pack("<9f", 0, 0, 0, 1, 0, 0, 0, 1, 0)
+    idx = struct.pack("<3I", 0, 1, 2)
+    joints = struct.pack("<12H", *([0] * 12))
+    weights = struct.pack("<12f", *([1.0, 0.0, 0.0, 0.0] * 3))
+
+    blob = bytearray()
+    views, offs = [], []
+    for payload in (pos, idx, joints, weights, png):
+        blob += b"\x00" * (-len(blob) % 4)
+        offs.append(len(blob))
+        views.append({"buffer": 0, "byteOffset": len(blob), "byteLength": len(payload)})
+        blob += payload
+
+    js = {
+        "asset": {"version": "2.0"},
+        "scene": 0, "scenes": [{"nodes": [0]}], "nodes": [{"mesh": 0}],
+        "meshes": [{"primitives": [{
+            "attributes": {"POSITION": 0, "JOINTS_0": 2, "WEIGHTS_0": 3},
+            "indices": 1, "material": 0}]}],
+        "materials": [{"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}],
+        "textures": [{"source": 0}], "images": [{"bufferView": 4, "mimeType": "image/png"}],
+        "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"},
+            {"bufferView": 1, "componentType": 5125, "count": 3, "type": "SCALAR"},
+            {"bufferView": 2, "componentType": 5123, "count": 3, "type": "VEC4"},
+            {"bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC4"},
+        ],
+        "bufferViews": views, "buffers": [{"byteLength": len(blob)}],
+    }
+    js_bytes = json.dumps(js, separators=(",", ":")).encode()
+    js_bytes += b" " * (-len(js_bytes) % 4)
+    blob += b"\x00" * (-len(blob) % 4)
+    total = 12 + 8 + len(js_bytes) + 8 + len(blob)
+    out = bytearray(struct.pack("<III", 0x46546C67, 2, total))
+    out += struct.pack("<II", len(js_bytes), 0x4E4F534A) + js_bytes
+    out += struct.pack("<II", len(blob), 0x004E4942) + bytes(blob)
+    return bytes(out)
+
+
+def test_web_model_is_smaller_and_keeps_the_geometry():
+    """
+    A production walking.glb is 7.4 MB, which is what the 3D stage waits on.
+    The optimised copy must be much smaller while describing the same model.
+    """
+    import json, struct
+    from app.utils.glb_optimize import optimize_glb, _read_glb
+
+    original = _glb_with_texture()
+    out = optimize_glb(original)
+
+    assert out is not None
+    assert len(out) < len(original) / 3, f"{len(out)}B is not much smaller than {len(original)}B"
+
+    before, _ = _read_glb(original)
+    after, _ = _read_glb(out)
+    # Same mesh, same triangle, same skeleton binding.
+    assert len(after["meshes"]) == len(before["meshes"])
+    assert after["accessors"][0]["count"] == before["accessors"][0]["count"]
+    assert after["accessors"][1]["count"] == before["accessors"][1]["count"]
+    # Attributes packed down, not dropped.
+    assert after["accessors"][1]["componentType"] == 5123, "uint32 indices were not narrowed"
+    assert after["accessors"][2]["componentType"] == 5121, "uint16 joints were not narrowed"
+    assert after["accessors"][3]["componentType"] == 5121, "float weights were not quantised"
+    assert after["accessors"][3]["normalized"] is True
+    # The texture survives, as a data URI.
+    assert after["images"][0]["uri"].startswith("data:image/webp;base64,")
+
+
+def test_non_glb_input_is_declined_rather_than_corrupted():
+    from app.utils.glb_optimize import optimize_glb
+    assert optimize_glb(b"this is not a GLB at all") is None
+
+
+def test_web_model_is_served_generated_once_and_leaves_the_original_alone(monkeypatch):
+    glb = _glb_with_texture()
+    storage = StubS3Storage({"u1/c1/walking.glb": glb})
+    monkeypatch.setattr(files_api, "get_storage", lambda: storage)
+
+    app = FastAPI()
+    app.include_router(files_api.router, prefix="/api/files")
+    client = TestClient(app, follow_redirects=False)
+
+    resp = client.get("/api/files/u1/c1/web_walking.glb")
+    assert resp.status_code == 302
+    assert "web_walking.glb" in resp.headers["location"]
+
+    stored = storage.objects["u1/c1/web_walking.glb"]
+    assert len(stored) < len(glb) / 3
+    # The original is untouched - downloads and VRM sharing depend on it.
+    assert storage.objects["u1/c1/walking.glb"] == glb
+
+    uploads = storage.uploads
+    client.get("/api/files/u1/c1/web_walking.glb")
+    assert storage.uploads == uploads, "the model was re-optimized instead of served from cache"
+
+
+def test_web_prefix_on_a_non_model_is_not_treated_as_an_optimisation(monkeypatch):
+    """'web_' only means something for a GLB or VRM; anything else is a filename."""
+    storage = StubS3Storage({"u1/c1/web_notes.txt": b"hello"})
+    monkeypatch.setattr(files_api, "get_storage", lambda: storage)
+    app = FastAPI()
+    app.include_router(files_api.router, prefix="/api/files")
+    client = TestClient(app, follow_redirects=False)
+
+    resp = client.get("/api/files/u1/c1/web_notes.txt")
+    assert resp.status_code == 302
+    assert "web_notes.txt" in resp.headers["location"]
+
+
+def test_an_unoptimizable_model_still_serves(monkeypatch):
+    """Better a large model than a broken preview."""
+    storage = StubS3Storage({"u1/c1/walking.glb": b"not really a GLB"})
+    monkeypatch.setattr(files_api, "get_storage", lambda: storage)
+    app = FastAPI()
+    app.include_router(files_api.router, prefix="/api/files")
+    client = TestClient(app, follow_redirects=False)
+
+    resp = client.get("/api/files/u1/c1/web_walking.glb")
+    assert resp.status_code == 302
+    assert "walking.glb" in resp.headers["location"]
+    assert "u1/c1/web_walking.glb" not in storage.objects

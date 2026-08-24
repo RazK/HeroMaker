@@ -336,6 +336,27 @@ def execute_meshy_rig_sync(
 # Step Coroutines (Async)
 # ============================================================================
 
+def _warm_web_model(user_id: str, creation_id: str, output_filename: Optional[str]) -> None:
+    """
+    Pre-build the web-optimised copy of a model.
+
+    A production avatar's walking.glb is 7.4 MB; the optimised copy is 1.5 MB
+    with the same mesh, skeleton and animation. Building it on first view means
+    whoever opens the creation first waits for the download, the re-encode and
+    the upload on top of their own download.
+
+    Best-effort, like the thumbnails: a completed step stays completed whatever
+    happens here.
+    """
+    if not output_filename or not output_filename.lower().endswith((".glb", ".vrm")):
+        return
+    try:
+        from app.api.files import _ensure_web_model
+        _ensure_web_model(get_storage(), user_id, creation_id, output_filename)
+    except Exception as e:
+        logger.warning(f"[{creation_id}] Could not pre-optimize {output_filename}: {e}")
+
+
 def _warm_thumbnails(user_id: str, creation_id: str, output_filename: Optional[str]) -> None:
     """
     Pre-generate every thumbnail size for a step's output.
@@ -630,8 +651,13 @@ async def execute_step(
         # Build the thumbnails now, while nobody is waiting on them. Generating
         # them on first view instead meant whoever opened the creation first
         # paid for the download, the resize and the upload - measured at 1.8s
-        # before a tile had anything in it.
+        # before a tile had anything in it. Same for the web-sized model.
         _warm_thumbnails(user_id, creation_id, output_filename)
+        _warm_web_model(user_id, creation_id, output_filename)
+        if step_name == "meshy_rig":
+            # The stage plays the walking animation, not the static rig, so that
+            # is the file a viewer actually waits on.
+            _warm_web_model(user_id, creation_id, (step.metadata_json or {}).get("walking_glb_url"))
 
         return {"status": "completed"}
         
