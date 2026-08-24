@@ -415,3 +415,26 @@
   pointer-events: none;
   white-space: nowrap;
 }
+
+
+@media (max-width: 699px) {
+  /*
+   * The stage's own header was 45px of a 286px stage. Tighten it so the
+   * height goes to the character instead.
+   */
+  .step-card-header {
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1);
+    min-height: 0;
+  }
+
+  .step-card-title {
+    font-size: 13px;
+  }
+
+  .step-card-header button {
+    padding: var(--space-1) var(--space-2);
+    font-size: 12px;
+    min-height: 32px;
+  }
+}

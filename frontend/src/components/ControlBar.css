@@ -333,3 +333,19 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+
+@media (max-width: 699px) {
+  /*
+   * The success row costs ~54px of the stage's height to repeat what the
+   * finished hero and the Download button already communicate. Errors still
+   * get their row - those the user cannot infer.
+   */
+  .control-bar-success {
+    display: none;
+  }
+
+  .control-bar-content {
+    padding: var(--space-2);
+  }
+}

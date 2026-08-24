@@ -60,6 +60,39 @@ class ModelErrorBoundary extends Component<
   }
 }
 
+
+/**
+ * How much empty space to leave around the model. 1.0 is edge-to-edge; higher
+ * values pull the camera back. Overridable per-page via ?frame= while we settle
+ * on a value.
+ */
+const DEFAULT_FRAME_MARGIN = 1.12;
+
+function frameMargin(): number {
+  if (typeof window !== 'undefined') {
+    const q = new URLSearchParams(window.location.search).get('frame');
+    const parsed = q ? Number(q) : NaN;
+    if (Number.isFinite(parsed) && parsed > 0.5 && parsed < 4) return parsed;
+  }
+  return DEFAULT_FRAME_MARGIN;
+}
+
+/**
+ * Distance at which `box` exactly fills the viewport, for this camera's field
+ * of view AND aspect ratio.
+ *
+ * The previous version used max(size.z * 2, size.y * 1.5, 3) with no aspect
+ * term, so on a narrow stage - a phone - the model was pushed far further away
+ * than it needed to be and rendered tiny inside a mostly empty canvas.
+ */
+function fitDistance(camera: THREE.PerspectiveCamera, size: THREE.Vector3): number {
+  const vFov = (camera.fov * Math.PI) / 180;
+  const fitHeight = size.y / 2 / Math.tan(vFov / 2);
+  const fitWidth = size.x / 2 / (Math.tan(vFov / 2) * camera.aspect);
+  // Half the depth keeps the near face of the model out of the camera.
+  return Math.max(fitHeight, fitWidth) * frameMargin() + size.z / 2;
+}
+
 function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnimationPlaying }: { url: string; showSkeleton?: boolean; isRotating: boolean; resetTrigger: number; isAnimated: boolean; isAnimationPlaying: boolean }) {
   const gltf = useLoader(GLTFLoader, url);
   const { camera } = useThree();
@@ -194,7 +227,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
       const finalSize = finalBox.getSize(new THREE.Vector3());
       // Camera Y at center of box, Z at distance proportional to box size
       const cameraY = finalCenter.y;
-      const cameraZ = Math.max(finalSize.z * 2, finalSize.y * 1.5, 3); // Ensure minimum distance
+      const cameraZ = fitDistance(camera as THREE.PerspectiveCamera, finalSize);
       camera.position.set(0, cameraY, cameraZ);
       
       // Store the home camera position for reset
@@ -222,7 +255,7 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
         
         const animatedSize = animatedBox.getSize(new THREE.Vector3());
         const cameraY = animatedCenter.y;
-        const cameraZ = Math.max(animatedSize.z * 2, animatedSize.y * 1.5, 3);
+        const cameraZ = fitDistance(camera as THREE.PerspectiveCamera, animatedSize);
         camera.position.set(0, cameraY, cameraZ);
         
         // Store the home camera position for reset
