@@ -1,41 +1,170 @@
 .pipeline-progress {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
-.pipeline-steps {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+/*
+ * One step at full size, the rest as a compact rail.
+ *
+ * The previous layout gave all four steps an equal quarter of the screen, so
+ * the finished hero - the thing people actually came for - rendered at about
+ * 310px wide with a third of each card left as padding. Height is the scarce
+ * dimension for a roughly square avatar on a wide screen, which is why the
+ * rail sits beside the stage on desktop rather than below it.
+ */
+.pipeline-layout {
+  display: flex;
+  gap: var(--space-3);
   flex: 1;
   min-height: 0;
 }
 
-/* Medium screens (768-1200px): 2x2 grid */
-@media (max-width: 1199px) {
-  .pipeline-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* Narrow screens (<768px): 2x2 compact grid */
-@media (max-width: 767px) {
-  .pipeline-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-}
-
-/* Make cards fill their grid cells */
-.pipeline-steps > * {
-  min-height: 0;
+.pipeline-stage {
+  flex: 1;
   min-width: 0;
-  height: 100%;
+  min-height: 0;
+  display: flex;
+}
+
+.pipeline-stage > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pipeline-rail {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.pipeline-rail > li {
+  display: flex;
+}
+
+.pipeline-rail-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-background);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pipeline-rail-item:hover {
+  border-color: var(--primary-color);
+}
+
+.pipeline-rail-item:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.pipeline-rail-item[aria-current='true'] {
+  border-color: var(--primary-color);
+  box-shadow: inset 3px 0 0 var(--primary-color);
+}
+
+.pipeline-rail-index {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.pipeline-rail-item.is-completed .pipeline-rail-index {
+  background: var(--success-color);
+  color: #fff;
+}
+
+.pipeline-rail-item.is-processing .pipeline-rail-index {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.pipeline-rail-item.is-failed .pipeline-rail-index {
+  background: var(--error-color);
+  color: #fff;
+}
+
+.pipeline-rail-label {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Below 900px the rail becomes a strip under the stage, so the hero keeps the
+ * full width of the screen instead of competing with a sidebar.
+ */
+@media (max-width: 899px) {
+  .pipeline-layout {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .pipeline-rail {
+    flex: 0 0 auto;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: var(--space-2);
+  }
+
+  .pipeline-rail > li {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .pipeline-rail-item {
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    text-align: center;
+    font-size: 11px;
+    /* Without this the label overflows the card and collides with its
+       neighbour instead of wrapping. */
+    overflow: hidden;
+  }
+
+  /* At ~90px per item every label would ellipse to a couple of words, so
+     let them use two lines instead of truncating. */
+  .pipeline-rail-label {
+    white-space: normal;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    text-overflow: clip;
+  }
+
+  .pipeline-rail-item[aria-current='true'] {
+    box-shadow: inset 0 3px 0 var(--primary-color);
+  }
 }

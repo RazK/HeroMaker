@@ -44,6 +44,7 @@ export function calculateOverallProgress(creation: CreationResponse): number {
 
 export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentUserId, isAdmin, onStepRun, onCreationRefresh, onDelete }: PipelineProgressProps) {
   const [previewStep, setPreviewStep] = useState<CreationStepResponse | null>(null);
+  const [selectedStepName, setSelectedStepName] = useState<string | null>(null);
 
   // Filter out convert_vrm step - it's represented in the ControlBar
   const visibleSteps = creation.steps.filter((step) => step.step_name !== 'convert_vrm');
@@ -53,6 +54,16 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
   
   // User can download/redo only their own creations (or if admin)
   const canDownload = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
+
+  // The stage shows one step at full size. Default to the most advanced thing
+  // worth looking at: the last completed step, or whatever is running now.
+  const autoStep =
+    visibleSteps.find((s) => s.status === 'processing') ??
+    [...visibleSteps].reverse().find((s) => s.status === 'completed') ??
+    visibleSteps[0];
+  const stagedStep =
+    visibleSteps.find((s) => s.step_name === selectedStepName) ?? autoStep;
+  const stagedIndex = visibleSteps.findIndex((s) => s.step_name === stagedStep?.step_name);
 
   // Get file URLs for preview modal
   const getPreviewData = (step: CreationStepResponse) => {
@@ -100,29 +111,54 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
 
   return (
     <div className="pipeline-progress">
-      <div className="pipeline-steps">
-        {visibleSteps.map((step, index) => {
-          const config = getStepByName(step.step_name);
-          return (
-            <StepCard 
-              key={step.step_name} 
-              step={step} 
-              creationId={creation.id}
-              userId={creation.user_id}
-              stepIndex={index}
-              isReady={step.step_name === readyStepName}
-              displayName={config?.display_name || step.step_name}
-              outputFile={config?.output_file}
-              stepCost={config?.credit_cost || 0}
-              creditBalance={creditBalance}
-              isLoggedIn={isLoggedIn}
-              canDownload={canDownload}
-              onStepRun={onStepRun}
-              onCreationRefresh={onCreationRefresh}
-              onPreviewClick={() => handlePreviewClick(step)}
-            />
-          );
-        })}
+      <div className="pipeline-layout">
+        <div className="pipeline-stage">
+          {stagedStep && (() => {
+            const config = getStepByName(stagedStep.step_name);
+            return (
+              <StepCard
+                key={stagedStep.step_name}
+                step={stagedStep}
+                creationId={creation.id}
+                userId={creation.user_id}
+                stepIndex={stagedIndex}
+                isReady={stagedStep.step_name === readyStepName}
+                displayName={config?.display_name || stagedStep.step_name}
+                outputFile={config?.output_file}
+                stepCost={config?.credit_cost || 0}
+                creditBalance={creditBalance}
+                isLoggedIn={isLoggedIn}
+                canDownload={canDownload}
+                onStepRun={onStepRun}
+                onCreationRefresh={onCreationRefresh}
+                onPreviewClick={() => handlePreviewClick(stagedStep)}
+              />
+            );
+          })()}
+        </div>
+
+        <ol className="pipeline-rail">
+          {visibleSteps.map((step, index) => {
+            const config = getStepByName(step.step_name);
+            const isActive = step.step_name === stagedStep?.step_name;
+            return (
+              <li key={step.step_name}>
+                <button
+                  type="button"
+                  className={`pipeline-rail-item is-${step.status}`}
+                  aria-current={isActive ? 'true' : undefined}
+                  aria-label={`Show ${config?.display_name || step.step_name}`}
+                  onClick={() => setSelectedStepName(step.step_name)}
+                >
+                  <span className="pipeline-rail-index">{index + 1}</span>
+                  <span className="pipeline-rail-label">
+                    {config?.display_name || step.step_name}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       </div>
       
       <ControlBar 
