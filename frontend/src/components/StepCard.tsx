@@ -411,7 +411,15 @@ export function StepCard({
 
         {step.status === 'completed' && showPreview && fileUrl && (
           <div className="step-card-preview">
-            {isImageStep && <ImagePreview src={fileUrl} alt={displayName} />}
+            {isImageStep && (
+              <ImagePreview
+                src={fileUrl}
+                alt={displayName}
+                /* 512px copy of the same picture, painted while the full-size
+                   render downloads. */
+                placeholderSrc={outputFile ? api.getFileUrl(creationId, `thumb_512_${outputFile}`, userId) : undefined}
+              />
+            )}
             {isModelStep && (
               <div 
                 className="step-card-model-clickable"

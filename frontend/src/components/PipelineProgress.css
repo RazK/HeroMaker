@@ -240,3 +240,75 @@
     box-shadow: inset 0 3px 0 var(--primary-color);
   }
 }
+
+
+/*
+ * A tile must never read as empty while its picture is in flight. The thumb
+ * carries a moving sheen underneath the image, so the worst case is "clearly
+ * loading" rather than "clearly broken". With the 128px variants the images
+ * usually beat the first sweep.
+ */
+.pipeline-rail-thumb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    var(--bg-tertiary) 30%,
+    rgba(255, 255, 255, 0.14) 50%,
+    var(--bg-tertiary) 70%
+  );
+  background-size: 300% 100%;
+  animation: pipeline-rail-shimmer 1.1s ease-in-out infinite;
+}
+
+.pipeline-rail-thumb img,
+.pipeline-rail-empty {
+  position: relative;
+  z-index: 1;
+}
+
+/* The badge and the stage glyph ride on top of the picture, not under it. */
+.pipeline-rail-index,
+.pipeline-rail-glyph {
+  z-index: 2;
+}
+
+/*
+ * Once the picture has decoded, or there is no picture coming, stop animating.
+ * The class is set in React rather than with :has(), which is still missing in
+ * enough browsers that it cannot be the thing a layout depends on.
+ */
+.pipeline-rail-thumb.is-settled::before {
+  animation: none;
+  background: var(--bg-tertiary);
+}
+
+@keyframes pipeline-rail-shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -150% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-rail-thumb::before { animation: none; }
+}
+
+/*
+ * A model stage that has not been opened yet has no picture of its own, so it
+ * borrows the AI render. Left untreated that is a tile pixel-identical to the
+ * one beside it. Draining the colour and darkening it says "this is the same
+ * character, at a stage you have not looked at yet" - and the play chip in the
+ * corner says which stage.
+ */
+.pipeline-rail-thumb.is-borrowed img {
+  filter: saturate(0.25) brightness(0.82);
+}
+
+.pipeline-rail-thumb.is-borrowed::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.28), rgba(15, 23, 42, 0.05));
+  pointer-events: none;
+}

@@ -97,7 +97,26 @@ body {
 }
 
 #root {
+  /*
+   * Not 100vh. On a phone that is the *large* viewport - the height the page
+   * would have with the URL bar hidden - which is taller than what you can
+   * see. It pushed the document past the screen and left a band of empty
+   * background below the app that you could scroll into. --app-height is the
+   * measured visual viewport (see viewportHeight.ts); dvh and vh are fallbacks
+   * for the first paint and for anything without a script.
+   */
   min-height: 100vh;
+  min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
+}
+
+html,
+body {
+  /* Nothing at document level should scroll: the app is exactly one screen
+     tall and every scrollable region lives inside it. */
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* Utility classes */

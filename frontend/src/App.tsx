@@ -156,7 +156,7 @@ function App() {
   });
 
   return (
-    <div className="app">
+    <div className={`app${creation && !showAdminPanel ? ' app-viewing-creation' : ''}`}>
       <header className="app-header">
         <div className="app-header-left">
           <HeaderUploadButtons

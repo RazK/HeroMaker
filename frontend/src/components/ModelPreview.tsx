@@ -106,6 +106,66 @@ function fitDistance(camera: THREE.PerspectiveCamera, size: THREE.Vector3): numb
 /** Set once the model has loaded and the camera has framed it. */
 const modelFramedRef = { current: false };
 
+/**
+ * Trim the transparent surround off a canvas readback.
+ *
+ * The stage is landscape and the character is an upright figure in the middle
+ * of it, so a raw snapshot is mostly empty pixels. Dropped into a portrait rail
+ * tile it letterboxed down to a figure a few pixels tall. Cropping to what was
+ * actually drawn means the tile shows the hero at tile size.
+ *
+ * Returns null if the readback is blank or unreadable, so the caller can fall
+ * back to the full frame.
+ */
+function cropToSubject(source: HTMLCanvasElement): string | null {
+  const w = source.width;
+  const h = source.height;
+  if (!w || !h) return null;
+
+  const work = document.createElement('canvas');
+  work.width = w;
+  work.height = h;
+  const ctx = work.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(source, 0, 0);
+
+  let data: Uint8ClampedArray;
+  try {
+    data = ctx.getImageData(0, 0, w, h).data;
+  } catch {
+    return null;
+  }
+
+  let top = h, left = w, right = -1, bottom = -1;
+  // Ignore near-transparent pixels: anti-aliased edges and any faint clear
+  // colour would otherwise defeat the crop entirely.
+  const ALPHA_FLOOR = 12;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] <= ALPHA_FLOOR) continue;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+    }
+  }
+  if (right < left || bottom < top) return null;
+
+  const pad = Math.round(Math.max(right - left, bottom - top) * 0.06);
+  left = Math.max(0, left - pad);
+  top = Math.max(0, top - pad);
+  right = Math.min(w - 1, right + pad);
+  bottom = Math.min(h - 1, bottom + pad);
+
+  const out = document.createElement('canvas');
+  out.width = right - left + 1;
+  out.height = bottom - top + 1;
+  const outCtx = out.getContext('2d');
+  if (!outCtx) return null;
+  outCtx.drawImage(work, left, top, out.width, out.height, 0, 0, out.width, out.height);
+  return out.toDataURL('image/png');
+}
+
 function SnapshotOnce({ onSnapshot }: { onSnapshot?: (d: string) => void }) {
   const { gl, scene, camera } = useThree();
   const framesRef = useRef(0);
@@ -124,7 +184,7 @@ function SnapshotOnce({ onSnapshot }: { onSnapshot?: (d: string) => void }) {
       gl.render(scene, camera);
       // PNG, not JPEG: the canvas is transparent, and JPEG has no alpha, so
       // the model would arrive on a black rectangle.
-      const data = gl.domElement.toDataURL('image/png');
+      const data = cropToSubject(gl.domElement) ?? gl.domElement.toDataURL('image/png');
       // A blank readback is worse than no thumbnail: it leaves an empty tile
       // where the borrowed render at least showed the character.
       if (data.length > 5000) onSnapshot(data);

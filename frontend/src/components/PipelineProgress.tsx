@@ -36,6 +36,80 @@ function getReadyStepName(steps: CreationStepResponse[]): string | null {
   return null; // All completed
 }
 
+/**
+ * The rail shows stages, not raw pipeline steps.
+ *
+ * The backend runs five steps; two of them are plumbing as far as the person
+ * waiting is concerned. convert_vrm produces a download, not a picture, and
+ * lives in the ControlBar. meshy_3d produces an untextured GLB that is only
+ * ever an input to meshy_rig - shown on its own it was a tile identical to the
+ * one next to it.
+ *
+ * The previous rule hid meshy_3d once it completed, which meant the rail had
+ * four tiles during a run and three afterwards: the tile you were watching
+ * disappeared at the moment it succeeded and everything after it renumbered.
+ * Grouping instead keeps the rail at a fixed three from the moment a creation
+ * exists to the moment it finishes - only the third tile's contents change as
+ * modelling hands over to rigging.
+ */
+const RAIL_STAGES: { key: string; label: string; stepNames: string[] }[] = [
+  { key: 'drawing', label: 'The Drawing', stepNames: ['image_processing'] },
+  { key: 'render', label: 'AI Rendering', stepNames: ['openai_render'] },
+  { key: 'hero', label: '3D Hero', stepNames: ['meshy_3d', 'meshy_rig'] },
+];
+
+export interface RailStage {
+  key: string;
+  label: string;
+  /** Every backend step this tile stands for, in pipeline order. */
+  steps: CreationStepResponse[];
+  /** The one the tile opens on the big stage. */
+  step: CreationStepResponse;
+  /** The one the tile takes its picture from - not always the same. */
+  previewStep: CreationStepResponse;
+  status: CreationStepResponse['status'];
+}
+
+/**
+ * Roll the backend's steps up into the tiles the rail shows.
+ *
+ * A stage is only 'completed' when its *last* step is - so "3D Hero" does not
+ * claim to be done while rigging is still to run. A failure anywhere in the
+ * group surfaces on the tile rather than being hidden behind a completed
+ * sibling, which is what answers "what if rigging is skipped or fails": the
+ * tile shows the untextured model it did get, and the stage below says why
+ * there is no rigged one.
+ */
+export function buildStages(steps: CreationStepResponse[]): RailStage[] {
+  const byName = new Map(steps.map((s) => [s.step_name, s]));
+
+  return RAIL_STAGES.flatMap(({ key, label, stepNames }) => {
+    const members = stepNames.map((n) => byName.get(n)).filter(Boolean) as CreationStepResponse[];
+    if (members.length === 0) return [];
+
+    const last = members[members.length - 1];
+    const status: CreationStepResponse['status'] =
+      members.some((m) => m.status === 'failed') ? 'failed'
+      : members.some((m) => m.status === 'processing') ? 'processing'
+      : last.status === 'completed' ? 'completed'
+      : last.status;
+
+    // Open the most advanced thing that exists: the running step if there is
+    // one, otherwise the last that finished, otherwise the first.
+    const step =
+      members.find((m) => m.status === 'processing') ??
+      [...members].reverse().find((m) => m.status === 'completed') ??
+      members[0];
+
+    // The picture comes from the last step that actually produced output. While
+    // rigging runs, the tile shows the model that modelling already made rather
+    // than sitting empty for the several minutes rigging takes.
+    const previewStep = [...members].reverse().find((m) => m.status === 'completed') ?? step;
+
+    return [{ key, label, steps: members, step, previewStep, status }];
+  });
+}
+
 export function calculateOverallProgress(creation: CreationResponse): number {
   if (creation.steps.length === 0) return 0;
   const completed = creation.steps.filter((s) => s.status === 'completed').length;
@@ -48,22 +122,12 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
   // Stills captured from the 3D stage, keyed by step. Model steps have no image
   // on disk, so this is what stops their rail tile duplicating the AI render.
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
+  // Which rail pictures have finished decoding. Drives the loading sheen, which
+  // is what stops a tile reading as broken while its image is in flight.
+  const [loadedThumbs, setLoadedThumbs] = useState<Record<string, boolean>>({});
 
-  /*
-   * The rail tells a three-part story: the drawing, the AI render, and the
-   * finished hero. convert_vrm lives in the ControlBar, and meshy_3d is an
-   * internal stage whose output is a GLB with no preview of its own - shown
-   * beside the rigged model it produced a tile identical to its neighbours.
-   *
-   * It stays visible whenever it is NOT completed, so a failure or a run in
-   * progress is never hidden from the person waiting on it.
-   */
-  const visibleSteps = creation.steps.filter((step) => {
-    if (step.step_name === 'convert_vrm') return false;
-    if (step.step_name === 'meshy_3d') return step.status !== 'completed';
-    return true;
-  });
-  
+  const stages = buildStages(creation.steps);
+
   // Calculate which step is ready
   const readyStepName = getReadyStepName(creation.steps);
   
@@ -71,33 +135,42 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
   const canDownload = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
 
   // The stage shows one step at full size. Default to the most advanced thing
-  // worth looking at: the last completed step, or whatever is running now.
-  const autoStep =
-    visibleSteps.find((s) => s.status === 'processing') ??
-    [...visibleSteps].reverse().find((s) => s.status === 'completed') ??
-    visibleSteps[0];
-  const stagedStep =
-    visibleSteps.find((s) => s.step_name === selectedStepName) ?? autoStep;
-  const stagedIndex = visibleSteps.findIndex((s) => s.step_name === stagedStep?.step_name);
+  // worth looking at: whatever is running now, or the last thing that finished.
+  const autoStage =
+    stages.find((s) => s.status === 'processing') ??
+    [...stages].reverse().find((s) => s.status === 'completed') ??
+    stages[0];
+  const stagedStage =
+    stages.find((s) => s.steps.some((step) => step.step_name === selectedStepName)) ?? autoStage;
+  const stagedStep = stagedStage?.step;
+  const stagedIndex = stages.findIndex((s) => s.key === stagedStage?.key);
 
   /**
    * Preview image for a rail item. Image steps use their own output; the two
    * 3D steps have no image output, so they borrow the render and carry a glyph
    * that says which stage they are.
    */
-  const railPreview = (step: CreationStepResponse): { src: string | null; glyph: string | null } => {
+  const railPreview = (
+    step: CreationStepResponse
+  ): { src: string | null; glyph: string | null; borrowed: boolean } => {
     const out = getStepByName(step.step_name)?.output_file;
-    if (!out || step.status !== 'completed') return { src: null, glyph: null };
+    if (!out || step.status !== 'completed') return { src: null, glyph: null, borrowed: false };
     const captured = snapshots[step.step_name];
-    if (captured) return { src: captured, glyph: '\u25B6' };
+    if (captured) return { src: captured, glyph: '\u25B6', borrowed: false };
     const isImage = /\.(jpe?g|png)$/i.test(out);
-    const file = isImage ? `thumb_${out}` : 'thumb_rendered.png';
+    // 128px, not 512px: the tiles are ~90px wide, so the large variant was
+    // four times the pixels and four times the wait for no visible gain.
+    const file = isImage ? `thumb_128_${out}` : 'thumb_128_rendered.png';
     // Only the animated hero carries a glyph now; nothing else is a model.
     const glyph = isImage ? null : '\u25B6';
     try {
-      return { src: api.getFileUrl(creation.id, file, creation.user_id), glyph };
+      // A model step has no picture of its own until the stage has been opened
+      // and snapshotted, so until then it borrows the render. Flagged, because
+      // an unflagged borrow is a tile identical to its neighbour - the "three
+      // of these look the same" problem.
+      return { src: api.getFileUrl(creation.id, file, creation.user_id), glyph, borrowed: !isImage };
     } catch {
-      return { src: null, glyph };
+      return { src: null, glyph, borrowed: false };
     }
   };
 
@@ -179,38 +252,64 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
         </div>
 
         <ol className="pipeline-rail">
-          {visibleSteps.map((step, index) => {
-            const config = getStepByName(step.step_name);
-            const isActive = step.step_name === stagedStep?.step_name;
+          {stages.map((stage, index) => {
+            const isActive = stage.key === stagedStage?.key;
             return (
-              <li key={step.step_name}>
+              <li key={stage.key}>
                 <button
                   type="button"
-                  className={`pipeline-rail-item is-${step.status}`}
+                  className={`pipeline-rail-item is-${stage.status}`}
                   aria-current={isActive ? 'true' : undefined}
-                  aria-label={`Show ${config?.display_name || step.step_name}`}
-                  title={config?.display_name || step.step_name}
-                  onClick={() => setSelectedStepName(step.step_name)}
+                  aria-label={`Show ${stage.label}`}
+                  title={stage.label}
+                  onClick={() => setSelectedStepName(stage.step.step_name)}
                 >
-                  <span className="pipeline-rail-thumb">
-                    {(() => {
-                      const { src, glyph } = railPreview(step);
-                      return (
-                        <>
-                          {src ? (
-                            <img src={src} alt="" loading="lazy" />
-                          ) : (
-                            <span className="pipeline-rail-empty" aria-hidden="true" />
-                          )}
-                          {glyph && <span className="pipeline-rail-glyph" aria-hidden="true">{glyph}</span>}
-                        </>
+                  {(() => {
+                    const { src, glyph, borrowed } = railPreview(stage.previewStep);
+                    // A tile is "settled" when nothing more is coming: its
+                    // picture has decoded, or the stage is not running and has
+                    // nothing to show. A stage that IS running keeps the sheen,
+                    // because a picture really is on its way.
+                    const settled = src
+                      ? Boolean(loadedThumbs[stage.previewStep.step_name])
+                      : stage.status !== 'processing';
+                    const settle = () =>
+                      setLoadedThumbs((prev) =>
+                        prev[stage.previewStep.step_name]
+                          ? prev
+                          : { ...prev, [stage.previewStep.step_name]: true }
                       );
-                    })()}
-                    <span className="pipeline-rail-index">{index + 1}</span>
-                  </span>
-                  <span className="pipeline-rail-label">
-                    {config?.display_name || step.step_name}
-                  </span>
+                    return (
+                      <span
+                        className={`pipeline-rail-thumb${settled ? ' is-settled' : ''}${
+                          borrowed ? ' is-borrowed' : ''
+                        }`}
+                      >
+                        {/*
+                          * No lazy loading here: the rail is on screen the
+                          * moment a creation opens, and deferring these left
+                          * tiles blank for seconds. They are a few KB each.
+                          */}
+                        {src ? (
+                          <img
+                            src={src}
+                            alt=""
+                            width={128}
+                            height={128}
+                            decoding="async"
+                            fetchPriority="high"
+                            onLoad={settle}
+                            onError={settle}
+                          />
+                        ) : (
+                          <span className="pipeline-rail-empty" aria-hidden="true" />
+                        )}
+                        {glyph && <span className="pipeline-rail-glyph" aria-hidden="true">{glyph}</span>}
+                        <span className="pipeline-rail-index">{index + 1}</span>
+                      </span>
+                    );
+                  })()}
+                  <span className="pipeline-rail-label">{stage.label}</span>
                 </button>
               </li>
             );

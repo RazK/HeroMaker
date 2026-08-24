@@ -20,6 +20,31 @@ THUMBNAIL_SIZE = (512, 512)
 THUMB_PREFIX = "thumb_"
 THUMB_QUALITY = 82
 
+# Callers may ask for a specific edge length: thumb_128_rendered.png. The rail
+# tiles are ~90px wide, so sending them a 512px image is four times the pixels
+# and four times the wait. Restricted to a whitelist so the endpoint cannot be
+# used to generate unbounded variants.
+THUMB_SIZES = {128, 256, 512}
+
+
+def _parse_thumb_request(filename: str) -> tuple[str, int]:
+    """
+    Split a thumbnail request into (original filename, max edge length).
+
+    "thumb_rendered.png"      -> ("rendered.png", 512)
+    "thumb_128_rendered.png"  -> ("rendered.png", 128)
+    "thumb_9999_rendered.png" -> ("rendered.png", 512)
+
+    A size outside the whitelist is served at the default rather than 404ing on
+    a filename that does not exist, so a stale client never gets a broken tile.
+    """
+    rest = filename[len(THUMB_PREFIX):]
+    head, _, tail = rest.partition("_")
+    if head.isdigit() and tail:
+        size = int(head)
+        return tail, size if size in THUMB_SIZES else THUMBNAIL_SIZE[0]
+    return rest, THUMBNAIL_SIZE[0]
+
 
 def _thumb_key(filename: str) -> str:
     """
@@ -32,12 +57,18 @@ def _thumb_key(filename: str) -> str:
     return str(Path(filename).with_suffix(".jpg"))
 
 
-def _render_thumbnail(data: bytes) -> Optional[bytes]:
-    """Resize image bytes down to THUMBNAIL_SIZE. Returns None if it is not an image."""
+def _thumb_name(original_filename: str, size: int) -> str:
+    """Stored filename for one size of one original. 512 keeps the legacy name."""
+    prefix = THUMB_PREFIX if size == THUMBNAIL_SIZE[0] else f"{THUMB_PREFIX}{size}_"
+    return _thumb_key(f"{prefix}{original_filename}")
+
+
+def _render_thumbnail(data: bytes, size: int = THUMBNAIL_SIZE[0]) -> Optional[bytes]:
+    """Resize image bytes down to a square bound. Returns None if it is not an image."""
     try:
         from PIL import Image
         with Image.open(io.BytesIO(data)) as img:
-            img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
+            img.thumbnail((size, size), Image.LANCZOS)
             if img.mode in ("RGBA", "LA", "P"):
                 # Flatten transparency onto white so JPEG encoding is valid.
                 background = Image.new("RGB", img.size, (255, 255, 255))
@@ -54,7 +85,9 @@ def _render_thumbnail(data: bytes) -> Optional[bytes]:
         return None
 
 
-def _ensure_thumbnail(storage, user_id: str, creation_id: str, original_filename: str) -> Optional[str]:
+def _ensure_thumbnail(
+    storage, user_id: str, creation_id: str, original_filename: str, size: int = THUMBNAIL_SIZE[0]
+) -> Optional[str]:
     """
     Make sure a thumbnail exists for the given original, generating it once and
     caching it in whatever storage backend is configured.
@@ -65,7 +98,7 @@ def _ensure_thumbnail(storage, user_id: str, creation_id: str, original_filename
 
     Returns the stored thumbnail filename, or None if one could not be made.
     """
-    thumb_filename = _thumb_key(THUMB_PREFIX + original_filename)
+    thumb_filename = _thumb_name(original_filename, size)
 
     if storage.file_exists(user_id, creation_id, thumb_filename):
         return thumb_filename
@@ -76,7 +109,7 @@ def _ensure_thumbnail(storage, user_id: str, creation_id: str, original_filename
         logger.error(f"Thumbnail source unreadable {user_id}/{creation_id}/{original_filename}: {e}")
         return None
 
-    thumb = _render_thumbnail(original)
+    thumb = _render_thumbnail(original, size)
     if thumb is None:
         return None
 
@@ -90,6 +123,25 @@ def _ensure_thumbnail(storage, user_id: str, creation_id: str, original_filename
         f"Generated thumbnail {thumb_filename} "
         f"({len(original)/1024:.0f}KB -> {len(thumb)/1024:.0f}KB)"
     )
+
+    # The page asks for more than one size at once - a 128px tile in the rail
+    # and a 512px stand-in on the stage - so make the rest from the copy of the
+    # original already in memory. Downloading a multi-megabyte render once per
+    # size was a large part of why a cold creation showed empty tiles.
+    for other in sorted(THUMB_SIZES):
+        if other == size:
+            continue
+        sibling = _thumb_name(original_filename, other)
+        try:
+            if storage.file_exists(user_id, creation_id, sibling):
+                continue
+            data = _render_thumbnail(original, other)
+            if data is not None:
+                storage.upload_file(user_id, creation_id, sibling, data)
+        except Exception as e:
+            # A missing sibling only costs one extra request later on.
+            logger.warning(f"Could not pre-generate {sibling}: {e}")
+
     return thumb_filename
 
 
@@ -179,13 +231,16 @@ async def serve_file(user_id: str, creation_id: str, filename: str):
     storage = get_storage()
 
     is_thumbnail = filename.startswith(THUMB_PREFIX)
-    original_filename = filename[len(THUMB_PREFIX):] if is_thumbnail else filename
+    if is_thumbnail:
+        original_filename, thumb_size = _parse_thumb_request(filename)
+    else:
+        original_filename, thumb_size = filename, THUMBNAIL_SIZE[0]
 
     if not storage.file_exists(user_id, creation_id, original_filename):
         raise HTTPException(status_code=404, detail="File not found")
 
     if is_thumbnail:
-        thumb_filename = _ensure_thumbnail(storage, user_id, creation_id, original_filename)
+        thumb_filename = _ensure_thumbnail(storage, user_id, creation_id, original_filename, thumb_size)
         if thumb_filename:
             return _serve(storage, user_id, creation_id, thumb_filename, max_age=31536000)
         # Could not make one (not an image, unreadable) - fall back to the original.

@@ -95,10 +95,56 @@ def test_thumbnail_is_generated_once_then_cached(client_and_storage):
     client, storage, _ = client_and_storage
 
     client.get("/api/files/u1/c1/thumb_rendered.png")
-    assert storage.uploads == 1
+    after_first = storage.uploads
+    assert after_first >= 1
 
     client.get("/api/files/u1/c1/thumb_rendered.png")
-    assert storage.uploads == 1, "thumbnail was regenerated instead of served from cache"
+    assert storage.uploads == after_first, "thumbnail was regenerated instead of served from cache"
+
+
+def test_sized_variants_are_served_at_the_size_asked_for(client_and_storage):
+    """The rail tiles are ~90px wide; sending them the 512px copy is four times
+    the pixels and four times the wait."""
+    client, storage, _ = client_and_storage
+
+    resp = client.get("/api/files/u1/c1/thumb_128_rendered.png")
+
+    assert resp.status_code == 302
+    assert "thumb_128_rendered.jpg" in resp.headers["location"]
+    with Image.open(io.BytesIO(storage.objects["u1/c1/thumb_128_rendered.jpg"])) as img:
+        assert max(img.size) <= 128
+    assert len(storage.objects["u1/c1/thumb_128_rendered.jpg"]) < len(
+        storage.objects["u1/c1/thumb_rendered.jpg"]
+    )
+
+
+def test_every_size_is_made_from_a_single_download(client_and_storage):
+    """A cold creation asks for 128 (rail) and 512 (stage stand-in) at once. Each
+    size must not cost its own download of a multi-megabyte original."""
+    client, storage, _ = client_and_storage
+
+    client.get("/api/files/u1/c1/thumb_128_rendered.png")
+    assert storage.downloads == 1
+
+    for size in sorted(files_api.THUMB_SIZES):
+        name = files_api._thumb_name("rendered.png", size)
+        assert f"u1/c1/{name}" in storage.objects, f"{name} was not pre-generated"
+
+    # The other sizes are already there, so nothing is fetched again.
+    client.get("/api/files/u1/c1/thumb_rendered.png")
+    client.get("/api/files/u1/c1/thumb_256_rendered.png")
+    assert storage.downloads == 1
+
+
+def test_unknown_size_falls_back_to_the_default(client_and_storage):
+    """The size is whitelisted so the endpoint cannot be driven to generate
+    unbounded variants."""
+    client, storage, _ = client_and_storage
+
+    resp = client.get("/api/files/u1/c1/thumb_9999_rendered.png")
+
+    assert resp.status_code == 302
+    assert "thumb_9999_rendered" not in resp.headers["location"]
 
 
 def test_non_image_falls_back_to_the_original(client_and_storage):

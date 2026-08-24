@@ -146,3 +146,26 @@
   object-fit: contain;
   transition: transform 0.2s;
 }
+
+/*
+ * Progressive load. The small copy sits underneath and the full-size render
+ * fades in on top once it has decoded, so the stage always has a picture in it
+ * rather than an empty rectangle while a multi-megabyte PNG downloads.
+ */
+.image-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  /* Hide the JPEG compression of the small copy while it is standing in. */
+  filter: blur(1px);
+  transform: scale(1.02);
+}
+
+.image-preview-full {
+  position: relative;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+
+.image-preview-full.is-loaded {
+  opacity: 1;
+}
