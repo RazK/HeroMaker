@@ -6,6 +6,15 @@
 - No long explanations, caveats, or justifications unless explicitly asked.
 - Details on request only. Lead with the answer, stop.
 
+## Asking Raz for credentials
+
+Whenever asking for a token, key, or credential, always include:
+- **the exact name to give it** (so it is obvious what to revoke later)
+- where to create it
+- what scope/permissions it needs
+
+Never ask for a credential without supplying the name.
+
 ## Where the product lives
 
 - **Live:** https://heromaker.up.railway.app/ (Railway, deployed from `main`).
