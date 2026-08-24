@@ -24,6 +24,29 @@ else
 fi
 echo "API proxy target: ${API_PROXY_TARGET}"
 
+# What nginx must send as Host and as TLS SNI. With a literal proxy_pass nginx
+# derives these itself, but proxy_pass now takes a variable so it can
+# re-resolve, and $proxy_host is empty in that form.
+#
+# Host keeps the port (that is what $proxy_host would have been); SNI must not
+# have one, because a TLS server name is a hostname and nothing else.
+API_PROXY_HOST=$(echo "${API_PROXY_TARGET}" | sed -e 's|^[a-z]*://||' -e 's|/.*$||')
+API_PROXY_SNI=$(echo "${API_PROXY_HOST}" | sed -e 's|:.*$||')
+export API_PROXY_HOST API_PROXY_SNI
+echo "API proxy host:   ${API_PROXY_HOST}  (SNI ${API_PROXY_SNI})"
+
+# nginx needs an explicit resolver to look a name up at request time. Take the
+# container's own nameservers so this works for a public hostname and for
+# Railway's IPv6-only private DNS alike; IPv6 addresses need square brackets.
+NAMESERVERS=$(awk '/^nameserver/ { print ($2 ~ /:/) ? "["$2"]" : $2 }' /etc/resolv.conf | head -3 | tr '\n' ' ')
+if [ -n "${NAMESERVERS}" ]; then
+    export API_RESOLVER="resolver ${NAMESERVERS}valid=10s ipv6=on;"
+else
+    export API_RESOLVER=""
+    echo "WARNING: no nameserver in /etc/resolv.conf; the backend address will be pinned at startup"
+fi
+echo "API resolver:     ${API_RESOLVER:-<none>}"
+
 # API_READ_ONLY=true rejects anything that could change data. Set it whenever
 # API_PROXY_TARGET points at an environment other than this one's own backend.
 if [ "${API_READ_ONLY}" = "true" ]; then
@@ -37,6 +60,9 @@ fi
 # Substitute PORT and API_PROXY_TARGET in nginx config
 sed -e "s|\${PORT}|${PORT}|g" \
     -e "s|\${API_PROXY_TARGET}|${API_PROXY_TARGET}|g" \
+    -e "s|\${API_PROXY_HOST}|${API_PROXY_HOST}|g" \
+    -e "s|\${API_PROXY_SNI}|${API_PROXY_SNI}|g" \
+    -e "s|\${API_RESOLVER}|${API_RESOLVER}|g" \
     -e "s|\${API_METHOD_GUARD}|${API_METHOD_GUARD}|g" \
     < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 mv /tmp/nginx.conf.tmp /etc/nginx/conf.d/default.conf
