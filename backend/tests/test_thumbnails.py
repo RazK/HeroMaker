@@ -156,3 +156,35 @@ def test_local_storage_still_serves_a_real_thumbnail(monkeypatch, tmp_path):
     assert resp.headers["content-type"] == "image/jpeg"
     assert len(resp.content) < len(original) / 5
     assert (tmp_path / "u1" / "c1" / "thumb_rendered.jpg").exists()
+
+
+# --- S3 key prefixing: what keeps staging off production's objects ---
+
+def _s3_storage(monkeypatch, prefix):
+    """Build an S3FileStorage with a stubbed boto client and the given prefix."""
+    import app.utils.storage as storage_mod
+    monkeypatch.setenv("S3_BUCKET", "bucket")
+    monkeypatch.setenv("S3_ACCESS_KEY_ID", "id")
+    monkeypatch.setenv("S3_SECRET_ACCESS_KEY", "secret")
+    if prefix is None:
+        monkeypatch.delenv("S3_PREFIX", raising=False)
+    else:
+        monkeypatch.setenv("S3_PREFIX", prefix)
+    monkeypatch.setattr(storage_mod.boto3, "client", lambda *a, **k: object())
+    return storage_mod.S3FileStorage()
+
+
+def test_no_prefix_keeps_production_keys_unchanged(monkeypatch):
+    s = _s3_storage(monkeypatch, None)
+    assert s._get_s3_key("u", "c", "rendered.png") == "u/c/rendered.png"
+
+
+@pytest.mark.parametrize("prefix", ["staging", "/staging/", "staging/"])
+def test_prefix_is_applied_and_normalised(monkeypatch, prefix):
+    s = _s3_storage(monkeypatch, prefix)
+    assert s._get_s3_key("u", "c", "rendered.png") == "staging/u/c/rendered.png"
+
+
+def test_listing_is_scoped_to_the_prefix(monkeypatch):
+    s = _s3_storage(monkeypatch, "staging")
+    assert s._get_s3_key("u", "c", "") == "staging/u/c/"

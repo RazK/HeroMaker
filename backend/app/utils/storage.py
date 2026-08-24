@@ -130,6 +130,10 @@ class S3FileStorage(StorageBackend):
         self.access_key_id = os.getenv("S3_ACCESS_KEY_ID")
         self.secret_access_key = os.getenv("S3_SECRET_ACCESS_KEY")
         self.region = os.getenv("S3_REGION", "auto")
+        # Optional key prefix, so several environments can share one bucket
+        # without ever touching each other's objects. Production leaves this
+        # unset; staging sets S3_PREFIX=staging.
+        self.prefix = os.getenv("S3_PREFIX", "").strip().strip("/")
         
         if not all([self.bucket_name, self.access_key_id, self.secret_access_key]):
             raise ValueError("S3 credentials not fully configured. Required: S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY")
@@ -143,11 +147,20 @@ class S3FileStorage(StorageBackend):
             region_name=self.region
         )
         
-        logger.info(f"Initialized S3 storage: bucket={self.bucket_name}, endpoint={self.endpoint_url}")
+        logger.info(
+            f"Initialized S3 storage: bucket={self.bucket_name}, "
+            f"endpoint={self.endpoint_url}, prefix={self.prefix or '(none)'}"
+        )
     
     def _get_s3_key(self, user_id: str, creation_id: str, filename: str) -> str:
-        """Get the S3 key for a file (maintains same structure as local: {user_id}/{creation_id}/{filename})."""
-        return f"{user_id}/{creation_id}/{filename}"
+        """
+        Key for a file: {prefix/}{user_id}/{creation_id}/{filename}.
+
+        The prefix is what keeps staging from reading, overwriting or deleting
+        production's objects when both point at the same bucket.
+        """
+        key = f"{user_id}/{creation_id}/{filename}"
+        return f"{self.prefix}/{key}" if self.prefix else key
     
     def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes) -> str:
         """Upload a file to S3."""
@@ -208,7 +221,8 @@ class S3FileStorage(StorageBackend):
     
     def list_files(self, user_id: str, creation_id: str) -> list[str]:
         """List all files for a creation in S3."""
-        prefix = f"{user_id}/{creation_id}/"
+        # Build via _get_s3_key so the environment prefix is applied here too.
+        prefix = self._get_s3_key(user_id, creation_id, "")
         try:
             response = self.s3_client.list_objects_v2(
                 Bucket=self.bucket_name,
