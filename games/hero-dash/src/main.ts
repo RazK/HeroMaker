@@ -4,7 +4,7 @@ import { Game, type Phase, type Stats } from './game/game'
 import { Input } from './core/input'
 import { Audio } from './core/audio'
 import { loadHero, type Hero } from './avatar/loader'
-import { ROSTER, thumbUrl } from './game/roster'
+import { ROSTER, avatarReady, avatarSource, thumbUrl } from './game/roster'
 import { HallOfFame, type Entry } from './game/hallOfFame'
 import { el, fmt } from './ui/dom'
 import { CFG } from './game/config'
@@ -59,6 +59,7 @@ loadingLayer.append(el('div', { class: 'spinner' }), loadingLabel)
 
 // ---- HUD
 const scoreEl = el('div', { class: 'pill', id: 'score' }, '0')
+const multEl = el('div', { class: 'pill mult', id: 'mult' }, '×3 SCORE')
 const heartsEl = el('div', { class: 'hearts' })
 const starsEl = el('div', { class: 'pill' }, '⭐ 0')
 const distEl = el('div', { class: 'pill' }, '0 m')
@@ -69,9 +70,8 @@ const powerLabel = el('div', { id: 'powerLabel' }, 'HERO POWER')
 const powerWrap = el('div', { id: 'powerWrap' }, el('div', { id: 'powerBar' }, powerFill), powerLabel)
 hudLayer.append(
   el('div', { class: 'hud-row' },
-    el('div', { style: 'display:flex;flex-direction:column;gap:6px;align-items:flex-start' }, scoreEl, distEl),
-    el('div', { style: 'display:flex;flex-direction:column;gap:6px;align-items:flex-end' },
-      el('div', { class: 'pill' }, heartsEl), starsEl),
+    el('div', { class: 'hud-col left' }, scoreEl, distEl, multEl),
+    el('div', { class: 'hud-col right' }, el('div', { class: 'pill' }, heartsEl), starsEl),
   ),
   comboEl, toastEl, powerWrap,
   el('div', { id: 'touch' }, el('div', { class: 'hint' }, 'swipe ⟵ ⟶ ↑ ↓   ·   tap = POSE')),
@@ -86,12 +86,10 @@ countdownLayer.classList.remove('sheet')
 
 // ---------------------------------------------------------------- Menu
 const pickerEl = el('div', { class: 'picker' })
-const heroNameEl = el('h2', {})
-const heroBlurbEl = el('p', { class: 'tag' })
+const heroNameEl = el('h2', { class: 'hero-name' })
+const heroBlurbEl = el('p', { class: 'blurb' })
 const nameInput = el('input', {
-  class: 'pick', value: playerName, placeholder: 'your name',
-  maxLength: 14,
-  style: 'pointer-events:auto;text-align:center;padding:.5em;font:inherit;font-weight:900',
+  class: 'name-input', value: playerName, placeholder: 'Anonymous', maxLength: 14,
 }) as HTMLInputElement
 nameInput.addEventListener('input', () => {
   playerName = nameInput.value.trim()
@@ -152,7 +150,7 @@ function renderPicker() {
   pickerEl.replaceChildren(...ROSTER.map((r, i) => {
     const thumb = thumbUrl(r.id)
     const btn = el('button', {
-      class: `pick${i === selected ? ' active' : ''}`,
+      class: `pick${i === selected ? ' active' : ''}${avatarReady(r) ? '' : ' pending'}`,
       onclick: () => { audio.uiClick(); selectHero(i) },
     })
     if (thumb) btn.append(el('img', { src: thumb, alt: r.name, loading: 'lazy' }))
@@ -163,24 +161,33 @@ function renderPicker() {
   heroBlurbEl.textContent = ROSTER[selected].blurb
 }
 
+const nameField = el('label', { class: 'field' },
+  el('span', {}, 'Player name'),
+  nameInput,
+)
+
 menuLayer.append(
   el('div', { class: 'card' },
-    el('h1', {}, 'HERO DASH'),
-    el('p', { class: 'tag' }, 'Your drawing came to life. Now run for it.'),
-    heroNameEl, heroBlurbEl,
-    pickerEl,
-    el('div', {}, nameInput),
-    el('div', {}, playBtn),
-    el('div', {}, camBtn),
-    camPanel,
-    el('div', { class: 'keys' },
-      el('div', { class: 'key' }, '← →', el('i', {}, 'move')),
-      el('div', { class: 'key' }, '↑', el('i', {}, 'jump')),
-      el('div', { class: 'key' }, '↓', el('i', {}, 'slide')),
-      el('div', { class: 'key' }, 'SHIFT', el('i', {}, 'star pose')),
+    el('div', { class: 'stack' },
+      el('header', { class: 'titles' },
+        el('h1', {}, 'HERO DASH'),
+        el('p', { class: 'tag' }, 'Your drawing came to life. Now run for it.'),
+      ),
+      el('section', { class: 'chosen' }, heroNameEl, heroBlurbEl),
+      pickerEl,
+      nameField,
+      el('div', { class: 'actions' }, playBtn, camBtn),
+      camPanel,
+      el('div', { class: 'keys' },
+        el('div', { class: 'key' }, '← →', el('i', {}, 'move')),
+        el('div', { class: 'key' }, '↑', el('i', {}, 'jump')),
+        el('div', { class: 'key' }, '↓', el('i', {}, 'slide')),
+        el('div', { class: 'key' }, 'SHIFT', el('i', {}, 'star pose')),
+      ),
+      el('p', { class: 'hint' },
+        'Purple walls have a star-shaped hole. Strike the star pose to fly through — ',
+        'gates and stars fill your Hero Power.'),
     ),
-    el('p', { class: 'muted', style: 'margin-top:1em' },
-      'Purple walls have a star-shaped hole — hit SHIFT to strike the pose and fly through.'),
   ),
 )
 
@@ -195,8 +202,15 @@ const publishNote = el('p', { class: 'muted' },
 const againBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'RUN AGAIN')
 const menuBtn = el('button', { class: 'btn ghost', onclick: () => showMenu() }, 'CHANGE HERO')
 overLayer.append(
-  el('div', { class: 'card' }, overTitle, overStats, boardTitle, boardEl,
-    el('div', {}, againBtn, menuBtn), el('div', {}, publishBtn), publishNote),
+  el('div', { class: 'card' },
+    el('div', { class: 'stack' },
+      el('header', { class: 'titles' }, overTitle),
+      overStats,
+      el('section', { class: 'stack tight' }, boardTitle, boardEl),
+      el('div', { class: 'actions' }, againBtn, menuBtn, publishBtn),
+      publishNote,
+    ),
+  ),
 )
 
 function renderBoard(highlight?: Entry) {
@@ -241,7 +255,11 @@ function updateHud(s: Stats) {
     el('span', { class: i < s.hearts ? '' : 'heart-lost' }, '❤️')))
   powerFill.style.width = `${(s.heroTime ? 1 : s.power) * 100}%`
   powerWrap.classList.toggle('ready', s.power >= 1 || s.heroTime)
-  powerLabel.textContent = s.heroTime ? 'HERO TIME!' : s.power >= 1 ? 'HERO POWER READY' : 'HERO POWER'
+  powerLabel.textContent = s.heroTime
+    ? `HERO TIME — ×${s.multiplier} SCORE`
+    : s.power >= 1 ? 'HERO POWER READY — FLYING NOW' : 'HERO POWER — FILL IT TO FLY'
+  multEl.hidden = !s.heroTime
+  multEl.textContent = `×${s.multiplier} SCORE`
   comboEl.classList.toggle('on', s.combo >= 5)
   comboEl.textContent = `×${s.combo}`
 }
@@ -270,6 +288,9 @@ function finishRun() {
     el('div', { class: 'stat' }, el('b', {}, `${fmt(s.distance)}m`), el('span', {}, 'distance')),
     el('div', { class: 'stat' }, el('b', {}, `${s.stars}`), el('span', {}, 'stars')),
     el('div', { class: 'stat' }, el('b', {}, `${s.gates}`), el('span', {}, 'poses nailed')),
+    el('div', { class: 'stat wide' },
+      el('b', {}, `${s.heroTimes}`),
+      el('span', {}, s.heroTimes === 1 ? 'hero time' : 'hero times')),
   )
   renderBoard(entry)
   publishBtn.hidden = !hall.canPublish
@@ -295,7 +316,7 @@ async function selectHero(i: number) {
   if (!hero) {
     show(loadingLayer)
     loadingLabel.textContent = `Waking up ${entry.name}…`
-    hero = await loadHero(entry.url)
+    hero = await loadHero(await avatarSource(entry))
     heroCache.set(entry.id, hero)
   }
   game.setHero(hero)
@@ -354,12 +375,19 @@ renderer.setAnimationLoop(() => {
   show(loadingLayer)
   resize()
   renderPicker()
+  // Heroes stream in after the engine boots; light each one up as it lands.
+  ;(window as any).__hdOnStep = () => renderPicker()
   try {
     await selectHero(0)
     show(menuLayer)
+    ;(window as any).__hdSplashDone?.()
+    ;(window as any).__hdReadyAt = Math.round(performance.now())
     ;(window as any).__ready = true
   } catch (err) {
-    loadingLabel.textContent = 'Could not load hero: ' + (err as Error).message
+    const message = 'Could not load hero: ' + (err as Error).message
+    loadingLabel.textContent = message
+    // Report on the splash too — it may still be covering the screen.
+    ;(window as any).__hdFail?.(message)
     ;(window as any).__ready = 'error:' + (err as Error).message
   }
 })()

@@ -6,6 +6,8 @@ import { makeRng } from '../core/math'
 
 export type ObstacleKind = 'low' | 'high' | 'full' | 'gate'
 
+const SCENERY_START = 4
+
 export interface Entity {
   kind: ObstacleKind | 'star'
   object: THREE.Object3D
@@ -92,7 +94,12 @@ export class Track {
   private nextZ = CFG.graceDistance
   private rng = makeRng(1)
   private scenery: THREE.Object3D[] = []
-  private sceneryZ = -40
+  /**
+   * Scenery starts just ahead of the start line. The menu camera looks back
+   * down the road at the hero, and anything generated behind them lines up
+   * with their silhouette — a tree growing out of the hero's head.
+   */
+  private sceneryZ = SCENERY_START
   private road!: THREE.Mesh
   private ground!: THREE.Mesh
 
@@ -153,7 +160,7 @@ export class Track {
     this.nextZ = CFG.graceDistance
     for (const s of this.scenery) this.group.remove(s)
     this.scenery.length = 0
-    this.sceneryZ = -40
+    this.sceneryZ = SCENERY_START
   }
 
   /** Tall props get their own material so they can fade as the camera nears. */

@@ -20,6 +20,8 @@ export const CFG = {
 
   /** Hero Time: full meter buys this many seconds of flight. */
   powerDuration: 6.5,
+  /** ...and triples everything scored during it. This is the whole point of it. */
+  heroTimeMultiplier: 3,
   powerPerStar: 0.030,
   powerPerGate: 0.16,
   powerFlightHeight: 2.6,
@@ -28,6 +30,8 @@ export const CFG = {
   scorePerMetre: 1,
   scorePerStar: 10,
   scorePerGate: 75,
+  /** Star combos climb to this and stop, so Hero Time's x3 still stands out. */
+  maxComboBonus: 5,
 
   /** Track slices are generated this far ahead and recycled this far behind. */
   spawnAhead: 190,
@@ -40,5 +44,12 @@ export const CFG = {
   fogFar: 175,
 }
 
-export const laneX = (lane: number) => (lane - (CFG.lanes - 1) / 2) * CFG.laneWidth
+/**
+ * Lane index -> world X.
+ *
+ * Negated on purpose. The chase camera looks along +Z, and three.js cameras
+ * look down their own -Z, so the camera's right axis is world -X: without this
+ * sign, lane 2 renders on the LEFT of the screen and every control is mirrored.
+ */
+export const laneX = (lane: number) => -(lane - (CFG.lanes - 1) / 2) * CFG.laneWidth
 export const roadWidth = CFG.lanes * CFG.laneWidth + CFG.shoulder * 2

@@ -49,7 +49,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   #menu h1 { font-size: clamp(30px, 8vmin, 46px); }
   #menu .keys { display: none; }          /* touch players get the swipe hint instead */
   #menu .picker { gap: 7px; }
-  #menu .card > p:last-child { display: none; }
+  #menu .hint { display: none; }
 }
 .layer[hidden] { display: none; }
 
@@ -58,12 +58,43 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   border: 4px solid var(--ink);
   border-radius: 26px;
   box-shadow: 0 12px 0 rgba(43,33,64,.35), 0 26px 60px rgba(0,0,0,.3);
-  padding: clamp(18px, 3.4vmin, 34px);
+  padding: clamp(16px, 2.6vmin, 26px);
   text-align: center;
-  max-width: min(660px, 92vw);
+  width: min(560px, 92vw);
   max-height: 92vh;
   overflow: auto;
 }
+
+/* One vertical rhythm for the whole card. Nothing inside sets its own margins. */
+.stack { display: flex; flex-direction: column; gap: clamp(10px, 1.8vmin, 17px); }
+.stack.tight { gap: clamp(5px, 1vmin, 9px); }
+.stack > * { margin: 0; }
+.titles { display: flex; flex-direction: column; gap: .25em; }
+.chosen { display: flex; flex-direction: column; gap: .15em; }
+.hero-name { margin: 0; }
+.blurb { margin: 0; font-weight: 800; opacity: .68; font-size: clamp(12px, 1.9vmin, 16px); }
+.hint { margin: 0; font-weight: 800; opacity: .62; font-size: clamp(11px, 1.6vmin, 14px); line-height: 1.45; }
+
+/* Buttons fill the row so nothing sits at a random width. */
+.actions { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.actions .btn { margin: 0; width: 100%; }
+
+.field { display: flex; flex-direction: column; gap: 5px; align-items: stretch; text-align: left; }
+.field > span {
+  font-weight: 900; font-size: clamp(10px, 1.5vmin, 12px);
+  text-transform: uppercase; letter-spacing: .09em; opacity: .6;
+  padding-left: .9em;
+}
+.name-input {
+  pointer-events: auto;
+  font: inherit; font-weight: 900; text-align: center;
+  padding: .55em .9em;
+  border: 3px solid var(--ink); border-radius: 999px;
+  background: #fff; color: var(--ink);
+  box-shadow: 0 4px 0 rgba(43,33,64,.3);
+  width: 100%;
+}
+.name-input:focus-visible { outline: 3px solid var(--pop); outline-offset: 2px; }
 
 h1 {
   margin: 0 0 .1em; line-height: .92;
@@ -81,14 +112,15 @@ h2 { margin: 0 0 .35em; font-size: clamp(22px, 4vmin, 36px); font-weight: 900; }
 .btn {
   pointer-events: auto; cursor: pointer;
   font: inherit; font-weight: 900;
-  font-size: clamp(17px, 2.7vmin, 26px);
-  padding: .55em 1.4em; margin: .3em;
+  font-size: clamp(16px, 2.4vmin, 23px);
+  padding: .55em 1.4em; margin: 0;
   color: var(--paper); background: var(--pop);
   border: 4px solid var(--ink); border-radius: 999px;
   box-shadow: 0 6px 0 var(--ink);
   transition: transform .07s, box-shadow .07s, filter .12s;
 }
 .btn:hover { filter: brightness(1.07); }
+.btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
 .btn.secondary { background: var(--sky); }
 .btn.ghost { background: var(--paper); color: var(--ink); }
@@ -97,6 +129,14 @@ h2 { margin: 0 0 .35em; font-size: clamp(22px, 4vmin, 36px); font-weight: 900; }
 /* ---------- HUD ---------- */
 #hud { padding: clamp(8px, 1.8vmin, 18px); justify-content: flex-start; }
 .hud-row { display: flex; width: 100%; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.hud-col { display: flex; flex-direction: column; gap: 6px; }
+.hud-col.left { align-items: flex-start; }
+.hud-col.right { align-items: flex-end; }
+.pill.mult {
+  background: var(--gold); border-color: var(--ink);
+  animation: multPulse .45s infinite alternate;
+}
+@keyframes multPulse { from { transform: scale(1); } to { transform: scale(1.07); } }
 
 .pill {
   background: rgba(253,246,230,.92);
@@ -107,7 +147,7 @@ h2 { margin: 0 0 .35em; font-size: clamp(22px, 4vmin, 36px); font-weight: 900; }
   font-size: clamp(14px, 2.2vmin, 22px);
   white-space: nowrap;
 }
-#score { font-size: clamp(20px, 3.6vmin, 38px); }
+#score { font-size: clamp(20px, 3.6vmin, 38px); font-variant-numeric: tabular-nums; }
 .hearts { letter-spacing: .05em; font-size: clamp(16px, 2.6vmin, 26px); }
 .heart-lost { opacity: .25; filter: grayscale(1); }
 
@@ -162,21 +202,35 @@ h2 { margin: 0 0 .35em; font-size: clamp(22px, 4vmin, 36px); font-weight: 900; }
 @keyframes pop { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* ---------- Avatar picker ---------- */
-.picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; margin: 1em 0; }
+.picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .pick {
   pointer-events: auto; cursor: pointer;
   border: 3px solid var(--ink); border-radius: 16px;
-  background: #ffffff; padding: 8px 4px;
-  font-weight: 900; font-size: clamp(11px, 1.6vmin, 14px);
+  background: #ffffff; padding: 7px 5px 6px;
+  font: inherit; font-weight: 900; color: var(--ink);
+  font-size: clamp(10px, 1.5vmin, 13px); line-height: 1.15;
   box-shadow: 0 4px 0 rgba(43,33,64,.3);
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  transition: transform .08s, background .12s;
 }
-.pick img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 10px; background: #e8f4ff; }
+.pick:focus-visible { outline: 3px solid var(--pop); outline-offset: 2px; }
+.pick img {
+  /* A square sized by height, so all six heroes fit the card without it
+     becoming a scroller and without a wide empty plate around the art. */
+  width: clamp(44px, 7.2vmin, 70px);
+  height: clamp(44px, 7.2vmin, 70px);
+  object-fit: contain;
+  border-radius: 12px; background: #e8f4ff;
+}
 .pick.active { background: var(--gold); transform: translateY(-3px); }
 .pick[disabled] { opacity: .5; }
+/* Hero whose payload is still downloading. */
+.pick.pending { opacity: .55; }
+.pick.pending img { filter: grayscale(1); }
+.pick.pending span::after { content: ' …'; }
 
 /* ---------- Hall of fame ---------- */
-.board { width: 100%; margin: .6em 0; font-weight: 800; }
+.board { width: 100%; font-weight: 800; display: flex; flex-direction: column; gap: 2px; }
 .board .row {
   display: grid; grid-template-columns: 2.2em 1fr auto;
   gap: .6em; align-items: center;
@@ -184,16 +238,22 @@ h2 { margin: 0 0 .35em; font-size: clamp(22px, 4vmin, 36px); font-weight: 900; }
   font-size: clamp(13px, 2vmin, 17px);
 }
 .board .row:nth-child(odd) { background: rgba(123,94,167,.10); }
+.board .row > :last-child { font-variant-numeric: tabular-nums; }
 .board .row.you { background: var(--gold); outline: 3px solid var(--ink); }
 .board .rank { text-align: center; }
 .board .who { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: .8em 0; }
-.stat { border: 3px solid var(--ink); border-radius: 14px; padding: .4em; background: #fff; }
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.stat {
+  border: 3px solid var(--ink); border-radius: 14px; padding: .45em .3em .4em;
+  background: #fff; display: flex; flex-direction: column; gap: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.stat.wide { grid-column: 1 / -1; }
 .stat b { display: block; font-size: clamp(19px, 3.2vmin, 30px); }
 .stat span { font-size: clamp(10px, 1.5vmin, 13px); opacity: .7; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
 
-.keys { display: flex; flex-wrap: wrap; gap: .5em; justify-content: center; margin: .6em 0 0; }
+.keys { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
 .key { border: 3px solid var(--ink); border-radius: 10px; padding: .18em .6em; background: #fff; font-weight: 900; font-size: clamp(11px, 1.7vmin, 15px); }
 .key i { font-style: normal; opacity: .65; margin-left: .4em; font-weight: 800; }
 
@@ -227,3 +287,68 @@ a { color: var(--grape); }
   pointer-events: none;
 }
 #camHud .camPreview { width: clamp(88px, 13vmin, 140px); height: auto; aspect-ratio: 4/3; opacity: .9; }
+
+/* ---------- Boot splash ----------
+   Styled here so the rules are in the document head and the splash can paint
+   before the payload below it has finished arriving. */
+#splash {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, #5bb8f5 0%, #bfe4ff 55%, #fdf6e6 100%);
+  transition: opacity .4s ease;
+}
+#splash.gone { opacity: 0; pointer-events: none; }
+#splash.failed .splash-what { color: var(--pop); opacity: 1; }
+#splash.failed .splash-runner { display: none; }
+
+.splash-card {
+  background: var(--paper);
+  border: 4px solid var(--ink); border-radius: 26px;
+  box-shadow: 0 12px 0 rgba(43,33,64,.35), 0 26px 60px rgba(0,0,0,.25);
+  padding: clamp(20px, 4vmin, 38px) clamp(24px, 5vmin, 52px);
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  width: min(420px, 86vw);
+}
+.splash-title {
+  font-weight: 900; line-height: .92; text-align: center;
+  font-size: clamp(32px, 7vmin, 58px); color: var(--pop);
+  text-shadow: 3px 3px 0 var(--ink), -1px -1px 0 var(--ink);
+  transform: rotate(-1.6deg);
+}
+/* Three dots hopping in sequence — a runner's footfalls, not a spinner. */
+.splash-runner { display: flex; gap: 10px; height: 18px; align-items: flex-end; }
+.splash-runner i {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--grape); border: 2px solid var(--ink);
+  animation: hop .72s infinite ease-in-out;
+}
+.splash-runner i:nth-child(2) { animation-delay: .12s; background: var(--sky); }
+.splash-runner i:nth-child(3) { animation-delay: .24s; background: var(--gold); }
+@keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-11px); } }
+
+.splash-bar {
+  width: 100%; height: 16px; border-radius: 999px; overflow: hidden;
+  background: rgba(43,33,64,.12); border: 3px solid var(--ink);
+  box-shadow: 0 4px 0 rgba(43,33,64,.28);
+}
+#splashFill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold), var(--pop));
+  transition: width .35s ease;
+}
+/* Before the first payload marker lands, breathe rather than fake a number. */
+#splashFill.indeterminate {
+  width: 38%;
+  animation: drift 1.4s ease-in-out infinite alternate;
+}
+@keyframes drift { from { transform: translateX(-70%); } to { transform: translateX(160%); } }
+
+.splash-what {
+  font-weight: 800; font-size: clamp(12px, 1.9vmin, 15px);
+  opacity: .72; text-align: center; min-height: 1.3em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-runner i, #splashFill { animation: none; }
+  #splash { transition: none; }
+}

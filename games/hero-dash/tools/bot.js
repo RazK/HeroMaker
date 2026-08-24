@@ -1,8 +1,6 @@
 (() => {
   window.__bot = { on: true, actions: {}, crashes: 0 }
   const act = (a) => { window.__input.push(a); window.__bot.actions[a] = (window.__bot.actions[a] ?? 0) + 1 }
-  const LANE_W = 2.2
-  const laneOf = (x) => Math.max(0, Math.min(2, Math.round(x / LANE_W + 1)))
   let cooldown = 0
   // Decide once per simulation step, so the bot is unaffected by render fps.
   window.__api.onStep((dt) => {
@@ -18,7 +16,7 @@
       if (e.kind === 'star') continue
       const dz = e.z - d.z
       if (dz < 0.4 || dz > 12) continue
-      if (e.kind !== 'gate' && laneOf(e.x) !== lane) continue
+      if (e.kind !== 'gate' && e.lane !== lane) continue
       if (!best || dz < best.dz) best = { dz, kind: e.kind }
     }
 
@@ -26,7 +24,7 @@
     for (const e of d.entities) {
       if (e.kind === 'star' || e.kind === 'gate') continue
       const dz = e.z - d.z
-      if (dz > 0.3 && dz < 10) blocked.add(laneOf(e.x))
+      if (dz > 0.3 && dz < 10) blocked.add(e.lane)
     }
 
     if (!best) {
@@ -34,7 +32,7 @@
       for (const e of d.entities) {
         if (e.kind !== 'star') continue
         const dz = e.z - d.z
-        if (dz > 4 && dz < 30) counts[laneOf(e.x)] += 1
+        if (dz > 4 && dz < 30) counts[e.lane] += 1
       }
       let want = lane, bestCount = counts[lane]
       for (const l of [lane - 1, lane + 1]) {

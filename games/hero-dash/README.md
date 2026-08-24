@@ -20,8 +20,13 @@ blocks, jump the low ones, slide under the limbo bars, and hit the purple
 **pose gates** — walls with a star-shaped hole that only let you through if
 your hero is in the star pose. Stars and clean gates fill the Hero Power meter;
 a full meter triggers **Hero Time**: the hero takes off in a flying pose, the
-camera swings around to the front, and everything is magnetised for ~6 s.
-Three crashes ends the run.
+camera swings around to the front, everything is magnetised, and — the point of
+it — everything scores **×3** for ~6 s. Three crashes ends the run.
+
+One thing to know before touching lane code: `laneX()` in `game/config.ts` is
+negated on purpose. three.js cameras look down their own -Z, so a camera facing
++Z has world -X on its right; without that sign every control is mirrored.
+`tools/lanetest.mjs` checks it.
 
 | Action | Keyboard | Touch | Hero Cam |
 |---|---|---|---|
@@ -80,6 +85,8 @@ documented at the top of that file — read them before editing a pose.
 | `tools/camtest.mjs URL VIDEO.y4m OUT` | Drives Hero Cam against a synthetic player clip. |
 | `tools/pack-artifact.mjs IN OUT` | Strips the document wrapper for publishing as an Artifact, and validates the result. |
 | `tools/csp-server.mjs FILE [port]` | Serves the packed page behind an Artifact-like CSP. |
+| `tools/loadtest.mjs URL OUTDIR` | Loads the page over a throttled link (`KBPS=`) and screenshots the boot sequence. |
+| `tools/lanetest.mjs` | Projects the hero into screen space to check the controls are not mirrored. |
 | `tools/make_test_video.py OUT.y4m` | Generates that clip: stands, steps, jumps, crouches, poses. |
 
 The harnesses run headless on SwiftShader at roughly 10 fps, so they set
@@ -93,6 +100,30 @@ PW_EXE=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1) \
 ```
 
 ## Publishing as an Artifact
+
+`tools/pack-artifact.mjs` does more than strip the document wrapper — it orders
+the page so it is useful long before it has finished arriving:
+
+1. styles, then the boot splash — paints in the first ~14 KB
+2. the app root
+3. the engine, rewritten from a deferred module to a **classic** script, so it
+   runs mid-parse about 1 MB in (the single-file build is bundled as an iife
+   for exactly this reason)
+4. one `<script type="text/plain">` block per avatar, each followed by a
+   progress marker
+
+A module script is deferred until the whole ~10 MB document has parsed. As a
+classic script the engine boots at step 3 and the game is playable as soon as
+the first hero's block lands — about 2.6 MB in — with the rest streaming in
+behind it and lighting up in the picker as they arrive.
+
+The marker after each block is what declares it complete: a block's element
+exists the moment the parser opens the tag, while its text is still streaming,
+so reading it on sight yields a truncated payload.
+
+Measure it with `tools/loadtest.mjs`, which throttles the connection and
+screenshots the boot sequence. At 1.2 Mbps: first paint ~1.2 s, playable ~17 s,
+versus a blank page for the whole download before this.
 
 **Always test through `tools/csp-server.mjs` before publishing.** A published
 artifact runs under a strict CSP, and a plain static server does not reproduce
@@ -110,9 +141,10 @@ out of that policy, and both are already handled:
 
 ```bash
 npm run build:single
-node tools/pack-artifact.mjs dist/index.html dist/hero-dash.artifact.html
+node tools/pack-artifact.mjs dist/index.html dist/hero-dash.artifact.html public/avatars
 node tools/csp-server.mjs dist/hero-dash.artifact.html 5197
 PW_EXE=... TIME_SCALE=3 node tools/play.mjs http://127.0.0.1:5197/ /tmp/shots
+PW_EXE=... KBPS=1200 node tools/loadtest.mjs http://127.0.0.1:5197/ /tmp/load
 ```
 
 ## Hall of Fame

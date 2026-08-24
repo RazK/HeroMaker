@@ -15,6 +15,10 @@ const STEP = 1 / 60
 
 export interface Stats {
   score: number
+  /** Live score multiplier, so the HUD can show what the player is earning. */
+  multiplier: number
+  /** How many times Hero Time triggered this run. */
+  heroTimes: number
   distance: number
   stars: number
   gates: number
@@ -65,8 +69,8 @@ export class Game {
   private elapsed = 0
 
   private stats: Stats = {
-    score: 0, distance: 0, stars: 0, gates: 0, bestCombo: 0,
-    hearts: CFG.hearts, combo: 0, power: 0, heroTime: false, speed: 0,
+    score: 0, multiplier: 1, heroTimes: 0, distance: 0, stars: 0, gates: 0,
+    bestCombo: 0, hearts: CFG.hearts, combo: 0, power: 0, heroTime: false, speed: 0,
   }
   private heroTimeLeft = 0
   private shake = 0
@@ -166,8 +170,8 @@ export class Game {
     this.state = 'run'; this.stateTime = 0; this.invuln = 0
     this.heroTimeLeft = 0; this.shake = 0; this.elapsed = 0
     this.stats = {
-      score: 0, distance: 0, stars: 0, gates: 0, bestCombo: 0,
-      hearts: CFG.hearts, combo: 0, power: 0, heroTime: false, speed: CFG.speedStart,
+      score: 0, multiplier: 1, heroTimes: 0, distance: 0, stars: 0, gates: 0,
+      bestCombo: 0, hearts: CFG.hearts, combo: 0, power: 0, heroTime: false, speed: CFG.speedStart,
     }
     this.track.reset((Math.random() * 0xffffffff) >>> 0)
     this.input.clear()
@@ -222,10 +226,12 @@ export class Game {
   }
 
   private changeLane(to: number) {
-    this.laneFrom = this.currentLaneX()
+    const from = this.lane
+    this.laneFrom = this.currentLaneX()   // world X, so the slide starts where we are
     this.lane = to
     this.laneT = 0
-    if (this.hero) this.hero.animator.lean = to > this.laneFrom ? 1 : -1
+    // Bank toward the direction of travel on screen, not toward a world axis.
+    if (this.hero) this.hero.animator.lean = to > from ? 1 : -1
   }
 
   private currentLaneX(): number {
@@ -236,16 +242,20 @@ export class Game {
     this.stats.combo = 0
   }
 
-  private addScore(n: number) { this.stats.score += n }
+  private addScore(n: number) { this.stats.score += n * this.multiplier }
+
+  private get multiplier() { return this.stats.heroTime ? CFG.heroTimeMultiplier : 1 }
 
   private triggerHeroTime() {
     this.heroTimeLeft = CFG.powerDuration
     this.stats.power = 0
     this.stats.heroTime = true
+    this.stats.heroTimes += 1
+    this.stats.multiplier = CFG.heroTimeMultiplier
     this.state = 'fly'
     this.stateTime = 0
     this.audio.powerUp()
-    this.events.onToast?.('HERO TIME!', 'good')
+    this.events.onToast?.(`HERO TIME!  ×${CFG.heroTimeMultiplier} SCORE`, 'good')
   }
 
   private crash(e: Entity) {
@@ -301,7 +311,7 @@ export class Game {
           this.stats.stars += 1
           this.stats.combo += 1
           this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo)
-          this.addScore(CFG.scorePerStar * (1 + Math.floor(this.stats.combo / 10)))
+          this.addScore(CFG.scorePerStar * Math.min(CFG.maxComboBonus, 1 + Math.floor(this.stats.combo / 10)))
           if (!flying) this.stats.power = Math.min(1, this.stats.power + CFG.powerPerStar)
           this.audio.star(this.stats.combo)
           this.bursts.emit(e.object.position, 4, '#ffd23f', 4, 0.4)
@@ -387,6 +397,7 @@ export class Game {
       this.heroTimeLeft -= dt
       if (this.heroTimeLeft <= 0) {
         this.stats.heroTime = false
+        this.stats.multiplier = 1
         this.state = 'run'
         this.stateTime = 0
         this.audio.powerDown()
@@ -457,8 +468,10 @@ export class Game {
       // Slow hero-shot orbit in front of the avatar.
       const a = this.elapsed * 0.28
       const [ox, oy] = this.presentationOffset()
-      desired = new THREE.Vector3(x + Math.sin(a) * 1.2 + ox, 1.30 + Math.sin(a * 0.7) * 0.18, this.z + 3.3)
-      look = new THREE.Vector3(x + ox * 0.95, 0.92 + oy, this.z)
+      // Looking slightly down puts grass behind the hero instead of the
+      // treeline, so scenery never appears to grow out of their head.
+      desired = new THREE.Vector3(x + Math.sin(a) * 1.2 + ox, 1.62 + Math.sin(a * 0.7) * 0.16, this.z + 3.3)
+      look = new THREE.Vector3(x + ox * 0.95, 0.82 + oy, this.z)
     } else if (this.stats.heroTime) {
       // Swing to a heroic three-quarter front angle so the flight pose reads.
       const a = 0.72 + Math.sin(this.elapsed * 0.6) * 0.22
@@ -467,8 +480,8 @@ export class Game {
     } else if (this.phase === 'over') {
       const a = this.elapsed * 0.5
       const [ox, oy] = this.presentationOffset()
-      desired = new THREE.Vector3(x + Math.sin(a) * 1.5 + ox, 1.45, this.z + 3.5)
-      look = new THREE.Vector3(x + ox * 0.95, 0.95 + oy, this.z)
+      desired = new THREE.Vector3(x + Math.sin(a) * 1.5 + ox, 1.72, this.z + 3.5)
+      look = new THREE.Vector3(x + ox * 0.95, 0.88 + oy, this.z)
     } else {
       const back = 5.0 + this.speed * 0.09
       const high = 2.80 + this.y * 0.40 + this.speed * 0.018
@@ -572,7 +585,9 @@ export class Game {
       state: this.state,
       entities: this.track.entities
         .filter((e) => !e.done && e.z > this.z - 2 && e.z < this.z + 40)
-        .map((e) => ({ kind: e.kind, z: e.z, x: e.object.position.x })),
+        // Lane index, not world X: the mapping between them is a rendering
+        // detail and test harnesses must not have to re-derive it.
+        .map((e) => ({ kind: e.kind, z: e.z, x: e.object.position.x, lane: e.lane })),
     }
   }
 }
