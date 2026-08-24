@@ -204,10 +204,15 @@ let clock = 0
 
 renderer.setAnimationLoop(() => {
   const now = performance.now()
-  const realDt = Math.min(0.1, (now - last) / 1000)
+  const elapsed = (now - last) / 1000
   last = now
-  const dt = realDt * timeScale
-  clock += dt
+  // Two clocks on purpose. Animation is stepped by a tightly clamped dt so a
+  // stalled frame cannot fling the rig across the screen. The game clock is
+  // stepped by the real gap, so choreography keeps wall-clock time however
+  // slowly the page renders — on a machine with no GPU the old shared clamp
+  // ran the music at a tenth speed and the run never reached its last move.
+  const dt = Math.min(0.1, elapsed) * timeScale
+  clock += Math.min(0.5, elapsed) * timeScale
   const t = clock
   const beat = (t / beatSeconds) % 1
 

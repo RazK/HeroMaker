@@ -33,6 +33,8 @@ export interface Move {
   name: string
   angles: MoveAngles
   skeleton: Skeleton
+  /** Per-limb scoring weights, solved from the move. See `salientWeights`. */
+  weights: number[] | null
 }
 
 // Body proportions of the canonical performer, in normalised image space.
@@ -93,15 +95,26 @@ export function skeletonFromAngles(a: MoveAngles): Skeleton {
   return s
 }
 
+/** The stance a move is a departure from: arms down, feet apart, standing. */
+export const NEUTRAL_ANGLES: MoveAngles = {
+  leftArm: -62, leftForearm: -72, rightArm: 242, rightForearm: 252,
+  leftLeg: -80, leftShin: -85, rightLeg: -100, rightShin: -95,
+}
+
 const move = (id: string, name: string, angles: MoveAngles): Move =>
-  ({ id, name, angles, skeleton: skeletonFromAngles(angles) })
+  ({ id, name, angles, skeleton: skeletonFromAngles(angles), weights: null })
 
 export const MOVES: Move[] = [
   move('t', 'T-POSE', { leftArm: 0, leftForearm: 0, rightArm: 180, rightForearm: 180 }),
   move('y', 'Y-POSE', { leftArm: 45, leftForearm: 45, rightArm: 135, rightForearm: 135 }),
-  move('up', 'HANDS UP', { leftArm: 75, leftForearm: 85, rightArm: 105, rightForearm: 95 }),
-  move('leftUp', 'LEFT HAND UP', { leftArm: 80, leftForearm: 88, rightArm: 180, rightForearm: 180 }),
-  move('rightUp', 'RIGHT HAND UP', { leftArm: 0, leftForearm: 0, rightArm: 100, rightForearm: 92 }),
+  // Hands are held out from the head, not beside it. Measured with
+  // tools/posecheck.mjs: a wrist raised against the skull disappears into the
+  // hair and the tracker puts it back down at the hip, so a flawless LEFT HAND
+  // UP graded MISS. Angling the arm out costs the pose nothing and makes it
+  // legible in silhouette, which is the rule every move here is chosen by.
+  move('up', 'HANDS UP', { leftArm: 66, leftForearm: 74, rightArm: 114, rightForearm: 106 }),
+  move('leftUp', 'LEFT HAND UP', { leftArm: 64, leftForearm: 72, rightArm: 180, rightForearm: 180 }),
+  move('rightUp', 'RIGHT HAND UP', { leftArm: 0, leftForearm: 0, rightArm: 116, rightForearm: 108 }),
   move('star', 'STAR JUMP', {
     leftArm: 50, leftForearm: 50, rightArm: 130, rightForearm: 130,
     leftLeg: -60, leftShin: -62, rightLeg: -120, rightShin: -118,
@@ -157,27 +170,61 @@ function limbAngle(s: Skeleton, from: KeypointName, to: KeypointName): number | 
  * the player stands, how tall they are, or how far from the camera — only what
  * shape they are making. Which is what a dance move is.
  */
-export function scorePose(live: Skeleton, target: Skeleton): number {
+/**
+ * How much each limb should count for one particular move.
+ *
+ * A flat weight table rewards standing still. Every arms-only move here leaves
+ * the legs in the neutral stance, so a third of the marks went to a player who
+ * simply had legs — enough that performing the wrong move still graded GOOD.
+ * A limb that the move does not ask you to change earns a floor; a limb the
+ * move swings a long way from neutral earns full marks. The move is scored on
+ * what makes it that move.
+ */
+function salientWeights(target: Skeleton): number[] {
+  const neutral = skeletonFromAngles(NEUTRAL_ANGLES)
+  return SCORED_LIMBS.map((limb) => {
+    const want = limbAngle(target, limb.from, limb.to)
+    const base = limbAngle(neutral, limb.from, limb.to)
+    if (want === null || base === null) return limb.weight
+    let diff = Math.abs(want - base) % (Math.PI * 2)
+    if (diff > Math.PI) diff = Math.PI * 2 - diff
+    // Fully salient once the limb is 50 degrees off the neutral stance.
+    const salience = Math.min(1, diff / ((Math.PI * 5) / 18))
+    return limb.weight * (0.22 + 0.78 * salience)
+  })
+}
+
+/** Weights are solved lazily so the module has no initialisation order to get wrong. */
+function weightsFor(target: Skeleton, move?: Move): number[] {
+  if (!move) return salientWeights(target)
+  if (!move.weights) move.weights = salientWeights(move.skeleton)
+  return move.weights
+}
+
+export function scorePose(live: Skeleton, target: Skeleton, move?: Move): number {
+  const weights = weightsFor(target, move)
   let total = 0
   let got = 0
   let scorable = 0
-  for (const limb of SCORED_LIMBS) {
+  for (let i = 0; i < SCORED_LIMBS.length; i++) {
+    const limb = SCORED_LIMBS[i]
+    const weight = weights[i]
     const want = limbAngle(target, limb.from, limb.to)
     if (want === null) continue
-    scorable += limb.weight
+    scorable += weight
     const have = limbAngle(live, limb.from, limb.to)
     // A limb the tracker cannot see is left out of the average rather than
     // marked wrong: an uncertain elbow is the tracker's failure, not a missed
     // dance move. The coverage floor below stops that becoming a free pass.
     if (have === null) continue
-    total += limb.weight
+    total += weight
     let diff = Math.abs(want - have) % (Math.PI * 2)
     if (diff > Math.PI) diff = Math.PI * 2 - diff
     // Full marks within 15 degrees, nothing beyond 75.
     const tol = Math.PI / 12
     const max = (Math.PI * 5) / 12
     const closeness = diff <= tol ? 1 : Math.max(0, 1 - (diff - tol) / (max - tol))
-    got += limb.weight * closeness
+    got += weight * closeness
   }
   // Somebody half out of frame is not dancing.
   if (scorable === 0 || total < scorable * 0.45) return 0

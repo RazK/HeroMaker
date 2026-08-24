@@ -92,7 +92,7 @@ export class Game {
     s.seesPlayer = !!skeleton && bodyConfidence(skeleton) > 0.25
 
     if (s.phase === 'copy' && skeleton) {
-      s.liveScore = scorePose(skeleton, s.move.skeleton)
+      s.liveScore = scorePose(skeleton, s.move.skeleton, s.move)
       if (s.liveScore > s.bestThisMove) s.bestThisMove = s.liveScore
     }
 

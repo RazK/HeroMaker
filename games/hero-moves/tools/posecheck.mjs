@@ -22,7 +22,8 @@ for (const r of rows) {
 const avg = rows.filter((r) => !r.error).reduce((a, r) => a + r.score, 0) / rows.length
 console.log(`\nmean ${avg.toFixed(2)}`)
 if (process.argv.includes('--raw')) {
-  for (const r of rows.slice(0, 2)) {
+  const pick = rows.filter((r) => r.score !== undefined && r.score < 0.5)
+  for (const r of (pick.length ? pick : rows.slice(0, 1))) {
     console.log(`\n${r.move} keypoints (x, y, score):`)
     for (const [k, v] of Object.entries(r.raw ?? {})) console.log(`  ${k.padEnd(15)} ${v.join('  ')}`)
   }

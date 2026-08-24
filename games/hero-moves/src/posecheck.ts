@@ -73,7 +73,7 @@ async function loadModelSpec() {
       return { limb: `${a}->${b}`, deg: +deg.toFixed(0) }
     }).sort((x, y) => y.deg - x.deg).slice(0, 3)
 
-    const score = scorePose(seen, move.skeleton)
+    const score = scorePose(seen, move.skeleton, move)
     const raw = Object.fromEntries(Object.entries(seen).map(([k, v]) =>
       [k, [+v.x.toFixed(2), +v.y.toFixed(2), +v.score.toFixed(2)]]))
     rows.push({ move: move.name, score: +score.toFixed(2), grade: gradeFor(score), worst, raw })
