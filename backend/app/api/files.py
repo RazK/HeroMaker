@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse, RedirectResponse
+import io
 from pathlib import Path
+from typing import Optional
 import os
 import mimetypes
 import logging
@@ -14,30 +16,101 @@ from app.database import get_db
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-THUMBNAIL_SIZE = (300, 300)
+THUMBNAIL_SIZE = (512, 512)
 THUMB_PREFIX = "thumb_"
+THUMB_QUALITY = 82
 
 
-def _generate_thumbnail(original_path: Path, thumb_path: Path) -> bool:
-    """Generate a thumbnail from the original image. Returns True on success."""
+def _thumb_key(filename: str) -> str:
+    """
+    Storage key for a thumbnail request.
+
+    Thumbnails are always JPEG, so the stored key always ends in .jpg no matter
+    what extension the caller asked for. The frontend can keep requesting
+    thumb_rendered.png; it is served the .jpg object with the right Content-Type.
+    """
+    return str(Path(filename).with_suffix(".jpg"))
+
+
+def _render_thumbnail(data: bytes) -> Optional[bytes]:
+    """Resize image bytes down to THUMBNAIL_SIZE. Returns None if it is not an image."""
     try:
         from PIL import Image
-        with Image.open(original_path) as img:
+        with Image.open(io.BytesIO(data)) as img:
             img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
-            # Save as JPEG for smaller size, regardless of original format
-            if img.mode in ("RGBA", "P"):
+            if img.mode in ("RGBA", "LA", "P"):
+                # Flatten transparency onto white so JPEG encoding is valid.
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                rgba = img.convert("RGBA")
+                background.paste(rgba, mask=rgba.split()[-1])
+                img = background
+            elif img.mode != "RGB":
                 img = img.convert("RGB")
-            thumb_path_jpg = thumb_path.with_suffix(".jpg")
-            img.save(thumb_path_jpg, "JPEG", quality=80, optimize=True)
-            # If the requested path was .png, also save there for compatibility
-            if thumb_path.suffix != ".jpg":
-                os.replace(thumb_path_jpg, thumb_path)
-            else:
-                thumb_path = thumb_path_jpg
-        return True
+            out = io.BytesIO()
+            img.save(out, "JPEG", quality=THUMB_QUALITY, optimize=True)
+            return out.getvalue()
     except Exception as e:
         logger.error(f"Failed to generate thumbnail: {e}")
-        return False
+        return None
+
+
+def _ensure_thumbnail(storage, user_id: str, creation_id: str, original_filename: str) -> Optional[str]:
+    """
+    Make sure a thumbnail exists for the given original, generating it once and
+    caching it in whatever storage backend is configured.
+
+    Works for local disk and S3 alike - it goes through the storage interface
+    rather than touching paths, which is why S3 deployments used to fall back to
+    serving the full-size original for every gallery tile.
+
+    Returns the stored thumbnail filename, or None if one could not be made.
+    """
+    thumb_filename = _thumb_key(THUMB_PREFIX + original_filename)
+
+    if storage.file_exists(user_id, creation_id, thumb_filename):
+        return thumb_filename
+
+    try:
+        original = storage.download_file(user_id, creation_id, original_filename)
+    except Exception as e:
+        logger.error(f"Thumbnail source unreadable {user_id}/{creation_id}/{original_filename}: {e}")
+        return None
+
+    thumb = _render_thumbnail(original)
+    if thumb is None:
+        return None
+
+    try:
+        storage.upload_file(user_id, creation_id, thumb_filename, thumb)
+    except Exception as e:
+        logger.error(f"Failed to store thumbnail {thumb_filename}: {e}")
+        return None
+
+    logger.info(
+        f"Generated thumbnail {thumb_filename} "
+        f"({len(original)/1024:.0f}KB -> {len(thumb)/1024:.0f}KB)"
+    )
+    return thumb_filename
+
+
+def _serve(storage, user_id: str, creation_id: str, filename: str, max_age: int):
+    """Serve a stored file: directly from disk locally, via presigned redirect on S3."""
+    headers = {"Cache-Control": f"public, max-age={max_age}, immutable"}
+    try:
+        path = storage.get_file_path(user_id, creation_id, filename)
+        if path.exists() and path.is_file():
+            mime_type, _ = mimetypes.guess_type(path.name)
+            if mime_type:
+                headers["Content-Type"] = mime_type
+            headers["ETag"] = f'"{path.stat().st_mtime}"'
+            return FileResponse(path, headers=headers)
+        raise HTTPException(status_code=404, detail="File not found")
+    except NotImplementedError:
+        return RedirectResponse(
+            url=storage.get_file_url(user_id, creation_id, filename),
+            status_code=302,
+            headers={"Cache-Control": f"public, max-age={max_age}"},
+        )
 
 
 @router.get("/download/{user_id}/{creation_id}/{filename:path}")
@@ -95,72 +168,27 @@ async def download_file(
 async def serve_file(user_id: str, creation_id: str, filename: str):
     """
     Serve a file for previews. Public endpoint.
-    For local storage, returns the file directly.
-    For S3 storage, redirects to a presigned URL.
 
-    Supports thumbnail requests: prefix filename with 'thumb_' (e.g. thumb_rendered.png)
-    to get a 300px thumbnail. Generated on first request and cached on disk.
+    Prefix a filename with 'thumb_' to get a downscaled JPEG (e.g.
+    thumb_rendered.png). Thumbnails are generated on first request and cached in
+    the configured storage backend, so this works on local disk and S3 alike.
     """
-    # Basic security check
     if ".." in filename or ".." in user_id or ".." in creation_id:
         raise HTTPException(status_code=403, detail="Invalid path")
 
     storage = get_storage()
 
-    # Handle thumbnail requests
     is_thumbnail = filename.startswith(THUMB_PREFIX)
-    if is_thumbnail:
-        original_filename = filename[len(THUMB_PREFIX):]
-    else:
-        original_filename = filename
+    original_filename = filename[len(THUMB_PREFIX):] if is_thumbnail else filename
 
-    # Check if original file exists
     if not storage.file_exists(user_id, creation_id, original_filename):
         raise HTTPException(status_code=404, detail="File not found")
 
-    # For local storage, serve file directly
-    try:
-        original_path = storage.get_file_path(user_id, creation_id, original_filename)
+    if is_thumbnail:
+        thumb_filename = _ensure_thumbnail(storage, user_id, creation_id, original_filename)
+        if thumb_filename:
+            return _serve(storage, user_id, creation_id, thumb_filename, max_age=31536000)
+        # Could not make one (not an image, unreadable) - fall back to the original.
+        logger.warning(f"Serving full-size fallback for thumb of {original_filename}")
 
-        if is_thumbnail:
-            thumb_path = original_path.parent / filename
-            # Generate thumbnail if it doesn't exist yet
-            if not thumb_path.exists():
-                if not _generate_thumbnail(original_path, thumb_path):
-                    # Fallback to original if thumbnail generation fails
-                    return FileResponse(original_path, headers={
-                        "Cache-Control": "public, max-age=31536000, immutable",
-                    })
-            file_path = thumb_path
-        else:
-            file_path = original_path
-
-        if file_path.exists() and file_path.is_file():
-            # Detect MIME type
-            mime_type, _ = mimetypes.guess_type(file_path.name)
-
-            # Build headers with caching
-            headers = {
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "ETag": f'"{file_path.stat().st_mtime}"'
-            }
-
-            # Add Content-Type if we can detect it
-            if mime_type:
-                headers["Content-Type"] = mime_type
-
-            return FileResponse(file_path, headers=headers)
-    except NotImplementedError:
-        # S3 storage - redirect to presigned URL (thumbnails not supported for S3 yet)
-        presigned_url = storage.get_file_url(user_id, creation_id, original_filename)
-        return RedirectResponse(
-            url=presigned_url,
-            status_code=302,
-            headers={
-                "Cache-Control": "public, max-age=86400"  # 24 hours for redirects
-            }
-        )
-
-    # Fallback: file not found
-    raise HTTPException(status_code=404, detail="File not found")
-
+    return _serve(storage, user_id, creation_id, original_filename, max_age=31536000)

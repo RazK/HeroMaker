@@ -5,6 +5,7 @@ Automatically switches based on environment variables.
 """
 import os
 from abc import ABC, abstractmethod
+import mimetypes
 from pathlib import Path
 from typing import Optional, BinaryIO
 import logging
@@ -151,11 +152,15 @@ class S3FileStorage(StorageBackend):
     def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes) -> str:
         """Upload a file to S3."""
         s3_key = self._get_s3_key(user_id, creation_id, filename)
+        # Without an explicit ContentType every object comes back as
+        # binary/octet-stream, which browsers then have to sniff.
+        content_type, _ = mimetypes.guess_type(filename)
         try:
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
-                Body=file_data
+                Body=file_data,
+                ContentType=content_type or "application/octet-stream",
             )
             logger.debug(f"Uploaded file to S3: {s3_key}")
             return s3_key
