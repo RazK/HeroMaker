@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#bfe4ff" />
+<title>Hero Dash</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8F%83%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap" rel="stylesheet" />
+<script id="shared-hall-of-fame" type="application/json">[]</script>
+</head>
+<body>
+<div id="app"></div>
+
+<!--
+  Boot splash. Lives at the top of the body and is styled by rules already in
+  the head, so the browser can paint it while the rest of the page — which is
+  mostly avatar data — is still arriving. tools/pack-artifact.mjs interleaves
+  __hdStep() calls between the payload blocks, which turns that download into a
+  real progress bar instead of a blank screen.
+-->
+<div id="splash" role="status" aria-live="polite">
+  <div class="splash-card">
+    <div class="splash-title">HERO DASH</div>
+    <div class="splash-runner"><i></i><i></i><i></i></div>
+    <div class="splash-bar"><div id="splashFill" class="indeterminate"></div></div>
+    <div id="splashWhat" class="splash-what">Getting the crayons out…</div>
+  </div>
+</div>
+<script>
+(function () {
+  var fill = document.getElementById('splashFill')
+  var what = document.getElementById('splashWhat')
+  var done = 0
+  // A block's element exists as soon as the parser opens the tag, but its text
+  // is still streaming in. The marker emitted *after* each block is the only
+  // safe signal that it is complete, so readiness is tracked here, not by
+  // looking for the element.
+  window.__hdReady = []
+  // pack-artifact sets this to the number of payload blocks it interleaved.
+  // Without it (dev builds) the bar just breathes instead of lying.
+  window.__hdTotal = window.__hdTotal || 0
+  window.__hdStep = function (label) {
+    done++
+    if (window.__hdTotal > 0 && fill) {
+      fill.classList.remove('indeterminate')
+      fill.style.width = Math.min(100, Math.round((done / window.__hdTotal) * 100)) + '%'
+    }
+    if (label && what) what.textContent = label
+    // The game listens for this so heroes light up in the picker as they land.
+    if (window.__hdOnStep) { try { window.__hdOnStep(label) } catch (e) {} }
+  }
+  window.__hdAvatar = function (id, label) {
+    window.__hdReady.push(id)
+    window.__hdStep(label)
+  }
+  window.__hdFail = function (message) {
+    if (what) what.textContent = message
+    var el = document.getElementById('splash')
+    if (el) el.classList.add('failed')
+  }
+  window.__hdSplashDone = function () {
+    var el = document.getElementById('splash')
+    if (!el) return
+    if (fill) fill.style.width = '100%'
+    el.classList.add('gone')
+    setTimeout(function () { el.remove() }, 450)
+  }
+})()
+</script>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,403 @@
+:root {
+  --ink: #2b2140;
+  --paper: #fdf6e6;
+  --pop: #ff5c8a;
+  --gold: #ffd23f;
+  --grape: #7b5ea7;
+  --sky: #3e8fd0;
+  --ui: clamp(14px, 1.7vmin, 19px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* Several elements below set an explicit display, which would beat [hidden]. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: #bfe4ff; color: var(--ink);
+  font-family: "Baloo 2", "Nunito", ui-rounded, "Segoe UI Rounded", system-ui, sans-serif;
+  font-size: var(--ui);
+  touch-action: none; user-select: none;
+  overscroll-behavior: none;
+}
+
+#app { position: fixed; inset: 0; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.layer {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.layer.sheet {
+  background: radial-gradient(115% 105% at 20% 45%, rgba(43,33,64,.58), rgba(43,33,64,.05) 72%);
+  pointer-events: auto;
+}
+@media (orientation: portrait) {
+  .layer.sheet { background: linear-gradient(to bottom, rgba(43,33,64,.05), rgba(43,33,64,.58) 45%); }
+}
+.layer[hidden] { display: none; }
+
+.card {
+  background: var(--paper);
+  border: 4px solid var(--ink);
+  border-radius: 26px;
+  box-shadow: 0 12px 0 rgba(43,33,64,.35), 0 26px 60px rgba(0,0,0,.3);
+  padding: clamp(16px, 2.6vmin, 26px);
+  text-align: center;
+  width: min(560px, 92vw);
+  max-height: 92vh;
+  overflow: auto;
+}
+
+/* One vertical rhythm for the whole card. Nothing inside sets its own margins. */
+.stack { display: flex; flex-direction: column; gap: clamp(10px, 1.8vmin, 17px); }
+.stack.tight { gap: clamp(5px, 1vmin, 9px); }
+.stack > * { margin: 0; }
+.titles { display: flex; flex-direction: column; gap: .25em; }
+.chosen { display: flex; flex-direction: column; gap: .15em; }
+.hero-name { margin: 0; }
+.blurb { margin: 0; font-weight: 800; opacity: .68; font-size: clamp(12px, 1.9vmin, 16px); }
+.hint { margin: 0; font-weight: 800; opacity: .62; font-size: clamp(11px, 1.6vmin, 14px); line-height: 1.45; }
+
+/* Buttons fill the row so nothing sits at a random width. */
+.actions { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.actions .btn { margin: 0; width: 100%; }
+
+.field { display: flex; flex-direction: column; gap: 5px; align-items: stretch; text-align: left; }
+.field > span {
+  font-weight: 900; font-size: clamp(10px, 1.5vmin, 12px);
+  text-transform: uppercase; letter-spacing: .09em; opacity: .6;
+  padding-left: .9em;
+}
+.name-input {
+  pointer-events: auto;
+  font: inherit; font-weight: 900; text-align: center;
+  padding: .55em .9em;
+  border: 3px solid var(--ink); border-radius: 999px;
+  background: #fff; color: var(--ink);
+  box-shadow: 0 4px 0 rgba(43,33,64,.3);
+  width: 100%;
+}
+.name-input:focus-visible { outline: 3px solid var(--pop); outline-offset: 2px; }
+
+h1 {
+  margin: 0 0 .1em; line-height: .92;
+  /* The card is narrow beside the hero, so cap this well below full-width. */
+  font-size: clamp(30px, 6.4vmin, 62px);
+  overflow-wrap: break-word; text-wrap: balance;
+  font-weight: 900; letter-spacing: -.02em;
+  color: var(--pop);
+  text-shadow: 3px 3px 0 var(--ink), -1px -1px 0 var(--ink), 6px 8px 0 rgba(43,33,64,.18);
+  transform: rotate(-1.6deg);
+}
+h2 { margin: 0 0 .35em; font-size: clamp(22px, 4vmin, 36px); font-weight: 900; }
+.tag { font-weight: 800; opacity: .75; margin: 0 0 1em; font-size: clamp(13px, 2vmin, 18px); }
+
+.btn {
+  pointer-events: auto; cursor: pointer;
+  font: inherit; font-weight: 900;
+  font-size: clamp(16px, 2.4vmin, 23px);
+  padding: .55em 1.4em; margin: 0;
+  color: var(--paper); background: var(--pop);
+  border: 4px solid var(--ink); border-radius: 999px;
+  box-shadow: 0 6px 0 var(--ink);
+  transition: transform .07s, box-shadow .07s, filter .12s;
+}
+.btn:hover { filter: brightness(1.07); }
+.btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
+.btn.secondary { background: var(--sky); }
+.btn.ghost { background: var(--paper); color: var(--ink); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* ---------- HUD ---------- */
+#hud { padding: clamp(8px, 1.8vmin, 18px); justify-content: flex-start; }
+.hud-row { display: flex; width: 100%; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.hud-col { display: flex; flex-direction: column; gap: 6px; }
+.hud-col.left { align-items: flex-start; }
+.hud-col.right { align-items: flex-end; }
+.pill.mult {
+  background: var(--gold); border-color: var(--ink);
+  animation: multPulse .45s infinite alternate;
+}
+@keyframes multPulse { from { transform: scale(1); } to { transform: scale(1.07); } }
+
+.pill {
+  background: rgba(253,246,230,.92);
+  border: 3px solid var(--ink); border-radius: 999px;
+  padding: .22em .85em; font-weight: 900;
+  box-shadow: 0 4px 0 rgba(43,33,64,.3);
+  display: flex; align-items: center; gap: .45em;
+  font-size: clamp(14px, 2.2vmin, 22px);
+  white-space: nowrap;
+}
+#score { font-size: clamp(20px, 3.6vmin, 38px); font-variant-numeric: tabular-nums; }
+.hearts { letter-spacing: .05em; font-size: clamp(16px, 2.6vmin, 26px); }
+.heart-lost { opacity: .25; filter: grayscale(1); }
+
+#powerWrap {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: clamp(14px, 3vmin, 30px);
+  width: min(340px, 62vw);
+}
+#powerBar {
+  height: clamp(14px, 2.2vmin, 22px);
+  background: rgba(253,246,230,.85);
+  border: 3px solid var(--ink); border-radius: 999px; overflow: hidden;
+  box-shadow: 0 4px 0 rgba(43,33,64,.3);
+}
+#powerFill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold), var(--pop));
+  transition: width .12s linear;
+}
+#powerLabel { text-align: center; font-weight: 900; margin-top: .25em; font-size: clamp(11px, 1.7vmin, 15px); text-shadow: 0 2px 0 rgba(255,255,255,.6); }
+#powerWrap.ready #powerFill { animation: pulse .5s infinite alternate; }
+@keyframes pulse { to { filter: brightness(1.5); } }
+
+#combo {
+  position: absolute; right: clamp(10px, 2vmin, 22px); top: 42%;
+  font-weight: 900; font-size: clamp(20px, 3.4vmin, 34px);
+  color: var(--gold); -webkit-text-stroke: 2.5px var(--ink);
+  paint-order: stroke fill;
+  opacity: 0; transition: opacity .2s;
+}
+#combo.on { opacity: 1; }
+
+#toast {
+  position: absolute; top: 26%; left: 50%; transform: translateX(-50%);
+  font-weight: 900; font-size: clamp(26px, 5.4vmin, 56px);
+  -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill;
+  opacity: 0; pointer-events: none; white-space: nowrap;
+}
+#toast.show { animation: toast 1.05s ease-out; }
+@keyframes toast {
+  0% { opacity: 0; transform: translateX(-50%) scale(.6) rotate(-6deg); }
+  22% { opacity: 1; transform: translateX(-50%) scale(1.12) rotate(2deg); }
+  70% { opacity: 1; transform: translateX(-50%) scale(1) rotate(0); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1) translateY(-30px); }
+}
+
+#countdown {
+  font-weight: 900; font-size: clamp(80px, 22vmin, 220px);
+  color: var(--gold); -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill;
+}
+#countdown span { display: block; animation: pop .55s ease-out; }
+@keyframes pop { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ---------- Avatar picker ---------- */
+.picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pick {
+  pointer-events: auto; cursor: pointer;
+  border: 3px solid var(--ink); border-radius: 16px;
+  background: #ffffff; padding: 7px 5px 6px;
+  font: inherit; font-weight: 900; color: var(--ink);
+  font-size: clamp(10px, 1.5vmin, 13px); line-height: 1.15;
+  box-shadow: 0 4px 0 rgba(43,33,64,.3);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  transition: transform .08s, background .12s;
+}
+.pick:focus-visible { outline: 3px solid var(--pop); outline-offset: 2px; }
+.pick img {
+  /* A square sized by height, so all six heroes fit the card without it
+     becoming a scroller and without a wide empty plate around the art. */
+  width: clamp(44px, 7.2vmin, 70px);
+  height: clamp(44px, 7.2vmin, 70px);
+  object-fit: contain;
+  border-radius: 12px; background: #e8f4ff;
+}
+.pick.active { background: var(--gold); transform: translateY(-3px); }
+.pick[disabled] { opacity: .5; }
+/* Hero whose payload is still downloading. */
+.pick.pending { opacity: .55; }
+.pick.pending img { filter: grayscale(1); }
+.pick.pending span::after { content: ' …'; }
+
+/* ---------- Hall of fame ---------- */
+.board { width: 100%; font-weight: 800; display: flex; flex-direction: column; gap: 2px; }
+.board .row {
+  display: grid; grid-template-columns: 2.2em 1fr auto;
+  gap: .6em; align-items: center;
+  padding: .3em .6em; border-radius: 10px;
+  font-size: clamp(13px, 2vmin, 17px);
+}
+.board .row:nth-child(odd) { background: rgba(123,94,167,.10); }
+.board .row > :last-child { font-variant-numeric: tabular-nums; }
+.board .row.you { background: var(--gold); outline: 3px solid var(--ink); }
+.board .rank { text-align: center; }
+.board .who { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.stat {
+  border: 3px solid var(--ink); border-radius: 14px; padding: .45em .3em .4em;
+  background: #fff; display: flex; flex-direction: column; gap: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.stat.wide { grid-column: 1 / -1; }
+.stat b { display: block; font-size: clamp(19px, 3.2vmin, 30px); }
+.stat span { font-size: clamp(10px, 1.5vmin, 13px); opacity: .7; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+
+.keys { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+.key { border: 3px solid var(--ink); border-radius: 10px; padding: .18em .6em; background: #fff; font-weight: 900; font-size: clamp(11px, 1.7vmin, 15px); }
+.key i { font-style: normal; opacity: .65; margin-left: .4em; font-weight: 800; }
+
+#loading { gap: 14px; }
+.spinner {
+  width: 54px; height: 54px; border-radius: 50%;
+  border: 7px solid rgba(43,33,64,.18); border-top-color: var(--pop);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Touch controls ---------- */
+#touch { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  #touch { display: block; position: absolute; bottom: 12%; width: 100%; text-align: center; pointer-events: none; }
+  #touch .hint { display: inline-block; background: rgba(253,246,230,.8); border: 3px solid var(--ink); border-radius: 999px; padding: .3em 1em; font-weight: 900; font-size: 13px; }
+}
+
+.muted { opacity: .68; font-size: clamp(11px, 1.6vmin, 14px); font-weight: 800; }
+a { color: var(--grape); }
+
+/* ---------- Hero Cam ---------- */
+#camPanel { margin-top: .7em; display: flex; flex-direction: column; align-items: center; gap: .5em; }
+.camPreview {
+  width: 160px; height: 120px; border-radius: 14px;
+  border: 3px solid var(--ink); background: #2b2140;
+  box-shadow: 0 4px 0 rgba(43,33,64,.3);
+}
+#camHud {
+  position: absolute; right: clamp(8px, 1.6vmin, 18px); bottom: clamp(8px, 1.6vmin, 18px);
+  pointer-events: none;
+}
+#camHud .camPreview { width: clamp(88px, 13vmin, 140px); height: auto; aspect-ratio: 4/3; opacity: .9; }
+
+/* ---------- Boot splash ----------
+   Styled here so the rules are in the document head and the splash can paint
+   before the payload below it has finished arriving. */
+#splash {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, #5bb8f5 0%, #bfe4ff 55%, #fdf6e6 100%);
+  transition: opacity .4s ease;
+}
+#splash.gone { opacity: 0; pointer-events: none; }
+#splash.failed .splash-what { color: var(--pop); opacity: 1; }
+#splash.failed .splash-runner { display: none; }
+
+.splash-card {
+  background: var(--paper);
+  border: 4px solid var(--ink); border-radius: 26px;
+  box-shadow: 0 12px 0 rgba(43,33,64,.35), 0 26px 60px rgba(0,0,0,.25);
+  padding: clamp(20px, 4vmin, 38px) clamp(24px, 5vmin, 52px);
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  width: min(420px, 86vw);
+}
+.splash-title {
+  font-weight: 900; line-height: .92; text-align: center;
+  font-size: clamp(32px, 7vmin, 58px); color: var(--pop);
+  text-shadow: 3px 3px 0 var(--ink), -1px -1px 0 var(--ink);
+  transform: rotate(-1.6deg);
+}
+/* Three dots hopping in sequence — a runner's footfalls, not a spinner. */
+.splash-runner { display: flex; gap: 10px; height: 18px; align-items: flex-end; }
+.splash-runner i {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--grape); border: 2px solid var(--ink);
+  animation: hop .72s infinite ease-in-out;
+}
+.splash-runner i:nth-child(2) { animation-delay: .12s; background: var(--sky); }
+.splash-runner i:nth-child(3) { animation-delay: .24s; background: var(--gold); }
+@keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-11px); } }
+
+.splash-bar {
+  width: 100%; height: 16px; border-radius: 999px; overflow: hidden;
+  background: rgba(43,33,64,.12); border: 3px solid var(--ink);
+  box-shadow: 0 4px 0 rgba(43,33,64,.28);
+}
+#splashFill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold), var(--pop));
+  transition: width .35s ease;
+}
+/* Before the first payload marker lands, breathe rather than fake a number. */
+#splashFill.indeterminate {
+  width: 38%;
+  animation: drift 1.4s ease-in-out infinite alternate;
+}
+@keyframes drift { from { transform: translateX(-70%); } to { transform: translateX(160%); } }
+
+.splash-what {
+  font-weight: 800; font-size: clamp(12px, 1.9vmin, 15px);
+  opacity: .72; text-align: center; min-height: 1.3em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-runner i, #splashFill { animation: none; }
+  #splash { transition: none; }
+}
+
+
+/* =====================================================================
+ * Responsive overrides
+ *
+ * These live at the end on purpose: they restate properties the component
+ * rules above already set, and CSS resolves ties by document order. Sitting
+ * earlier in the file, a media block silently loses to the base rule.
+ * ===================================================================== */
+
+/* Keep the hero visible next to the card rather than behind it. */
+@media (orientation: landscape) {
+  #menu, #over { align-items: flex-start; padding-left: clamp(16px, 5vw, 90px); }
+  #menu .card, #over .card { max-width: min(560px, 56vw); }
+}
+@media (orientation: portrait) {
+  /* Card sits low so the hero is framed above it. */
+  #menu, #over { justify-content: flex-end; padding-bottom: clamp(8px, 2vh, 24px); }
+  #menu .card, #over .card { max-height: 92vh; padding: 14px 14px 16px; border-radius: 22px; }
+  #menu h1 { font-size: clamp(28px, 8vmin, 46px); }
+  #menu .keys { display: none; }          /* touch players get the swipe hint instead */
+  #menu .picker { gap: 7px; }
+  #menu .hint { display: none; }
+}
+
+/*
+ * Short viewports. The artifact viewer adds its own title bar on top of the
+ * phone's status and nav bars, so the page often gets barely 550 CSS px of
+ * height — the menu has to fit in that without becoming a scroller.
+ * tools/fitcheck.mjs measures this.
+ */
+@media (max-height: 660px) {
+  .card { padding: 12px 13px 14px; }
+  .stack { gap: 8px; }
+  #menu .tag, #menu .blurb { display: none; }
+  #menu h1 { font-size: clamp(24px, 6vmin, 34px); }
+  .hero-name { font-size: clamp(18px, 3.4vmin, 24px); }
+  .pick img { width: clamp(34px, 9vmin, 46px); height: clamp(34px, 9vmin, 46px); }
+  .pick { padding: 5px 4px 4px; gap: 3px; font-size: clamp(9px, 2.4vmin, 12px); }
+  .picker { gap: 6px; }
+  .field > span { font-size: 10px; padding-left: .7em; }
+  .name-input { padding: .4em .8em; }
+  .btn { font-size: clamp(15px, 3.4vmin, 20px); padding: .42em 1em; }
+  /* PLAY keeps the width it deserves; Hero Cam rides alongside it. */
+  .actions { flex-direction: row; gap: 8px; }
+  .actions .btn { width: auto; flex: 1 1 0; }
+  .actions .btn:first-child { flex: 1.5 1 0; }
+  #menu .keys, #menu .hint { display: none; }
+  .stats-grid { gap: 6px; }
+  .stat b { font-size: clamp(16px, 3vmin, 22px); }
+  .board .row { padding: .22em .5em; }
+}
+
+/* Genuinely tiny: hero names are worth more than the pixels, so they only go
+   when there is nothing else left to give. */
+@media (max-height: 500px) {
+  .pick span { display: none; }
+  .field > span { display: none; }
+  .stack { gap: 6px; }
+  .stat { padding: .3em .3em .28em; }
+  /* Top five is a leaderboard; the rest is scrollback nobody reads here. */
+  .board .row:nth-child(n+6) { display: none; }
+}
