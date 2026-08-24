@@ -5,6 +5,26 @@
 - **Bottom line first, and usually only.** A few sentences. No preamble, no story.
 - No long explanations, caveats, or justifications unless explicitly asked.
 - Details on request only. Lead with the answer, stop.
+- **No paragraphs of findings.** Measurements, root causes, before/after tables
+  and reasoning are for the commit message, not for Raz. He will not read them.
+
+### Every reply ends with a call to action
+
+The last thing in the message is a short list of things Raz can *do*, each one
+line, each with a link. Nothing after it.
+
+```
+**Do this now:**
+- Watch the demo: https://...
+- Review the screenshot (attached)
+- Open the deployment: https://...
+- Approve the PR: https://...
+```
+
+If there is nothing for him to do, say so in one line. Never end on explanation.
+
+Prefer showing over telling: a live link, a video, or a screenshot beats any
+description of what you did.
 
 ## Links, always
 
