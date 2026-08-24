@@ -6,6 +6,13 @@
 - No long explanations, caveats, or justifications unless explicitly asked.
 - Details on request only. Lead with the answer, stop.
 
+## Links, always
+
+Never tell Raz to check, open, or look at something without giving the clickable
+URL in the same sentence. Applies to deployments, staging, PRs, dashboards,
+build logs, artifacts - anything. No "check staging", only
+"check https://... ".
+
 ## Asking Raz for credentials
 
 Whenever asking for a token, key, or credential, always include:
