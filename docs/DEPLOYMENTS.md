@@ -129,6 +129,44 @@ pipeline steps that call OpenAI and Meshy will fail without outbound access and
 valid API keys, but everything else — auth, gallery, creation view, 3D preview —
 works against local SQLite and local files.
 
+## Staging
+
+| What | URL | Notes |
+|------|-----|-------|
+| **HeroMaker (staging app)** | **https://frontend-staging-7cb8.up.railway.app/** | Same four services as production, separate environment. Safe to break. |
+| API (same host) | https://frontend-staging-7cb8.up.railway.app/api/creations/ | Same one-public-host arrangement as production. |
+
+Railway project `hero-maker` (`95711b3f-db5c-4521-99a7-c5caeb8005fc`),
+environment `staging` (`406e2fde-28f2-4f00-a254-cde5393db6db`). Service IDs:
+
+| Service | ID |
+|---------|-----|
+| frontend | `a71bc2c6-c912-475c-ab16-a5dbf0ba074e` |
+| backend | `3970a673-db5b-4b2d-9456-93acf1da09bf` |
+| Postgres | `0697cae9-2052-48fb-95f6-d9d72a6ad018` |
+| vrm-converter | `e7afe8a4-ce76-4093-9122-72c498b4874f` |
+
+Deploy a working tree to it with the Railway CLI and a **project token** for the
+staging environment:
+
+```bash
+RAILWAY_TOKEN=<staging project token> \
+  railway up --service=<service id> --detach
+```
+
+Two things keep staging from touching production:
+
+- **`S3_PREFIX=staging`** on the staging backend. Both environments share one
+  Railway Storage bucket, so without a prefix staging would read and write
+  production's objects (see `backend/app/utils/storage.py`).
+- **`API_READ_ONLY=true`** on the staging frontend, which makes nginx refuse
+  anything but `GET`/`HEAD`/`OPTIONS` on `/api/` (`frontend/nginx.conf`).
+  Staging currently reads production's Postgres, so this is what stops a demo
+  from deleting a real creation. Verified: `DELETE` -> 403, `GET` -> 200.
+
+Removing the read-only guard requires giving staging its own database first -
+see below.
+
 ## Refreshing staging with production data
 
 ```bash
@@ -143,6 +181,9 @@ the script's docstring for why the failure looks like a successful connection.
 
 ## Known gaps in this page
 
-- The Railway **project/service IDs** are not recorded here (they live in the
-  GitHub Actions secrets and the Railway dashboard).
-- There is no staging environment; `main` deploys straight to production.
+- Staging borrows **production's Postgres**. The clone script exists
+  (`scripts/clone_env_data.py`) but its database half cannot run from a
+  sandboxed agent - see above - so nobody has run it yet. Until someone does,
+  `API_READ_ONLY=true` is the only thing protecting production data.
+- Production deploys from `main` via GitHub Actions; staging is deployed by hand
+  with `railway up`. There is no staging branch.
