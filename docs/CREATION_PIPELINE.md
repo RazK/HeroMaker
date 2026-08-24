@@ -84,6 +84,30 @@ the character, and used from then on.
 ## Thumbnails
 
 Rail tiles are ~90px wide, so they request `thumb_128_<file>`; the stage paints
-`thumb_512_<file>` first and cross-fades to the full-size render. All whitelisted
-sizes (128, 256, 512) are generated from a **single** download of the original -
-see `backend/app/api/files.py` and `backend/tests/test_thumbnails.py`.
+`thumb_512_<file>` first and cross-fades to the full-size render.
+
+Three things keep a tile from ever sitting empty:
+
+- All whitelisted sizes (128, 256, 512) come from a **single** download of the
+  original.
+- They are built **when a step completes**, not when someone first looks. On
+  staging, generating on first view cost 1778ms before a tile had anything in
+  it; pre-built, the same tile paints in 692ms.
+- Thumbnails are streamed from the backend rather than redirected to a
+  presigned storage URL. A 302 was a second round trip for a 2.5 KB image.
+
+See `backend/app/api/files.py`, `_warm_thumbnails` in
+`backend/app/services/pipeline.py`, and `backend/tests/test_thumbnails.py`.
+
+## Measured, on staging
+
+https://frontend-staging-7cb8.up.railway.app/ - a creation with only step 1 run,
+which is what a new hero looks like moments after upload.
+
+| | desktop 1440x900 | phone 390x664 |
+|---|---|---|
+| document scroll | 0px | 0px |
+| horizontal scroll | 0px | 0px |
+| elements past the viewport edge | 0 | 0 |
+| rail tiles | 3 | 3 |
+| first tile painted | 692 ms | 647 ms |

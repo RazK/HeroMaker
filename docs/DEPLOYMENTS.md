@@ -154,18 +154,32 @@ RAILWAY_TOKEN=<staging project token> \
   railway up --service=<service id> --detach
 ```
 
-Two things keep staging from touching production:
+### How staging is wired, and how it was wrong
 
+`VITE_API_PROXY_TARGET` on the **frontend** decides which backend staging talks
+to, and it used to point at `https://heromaker-backend.up.railway.app` -
+**production's backend**. That is why staging appeared to be full of production
+data while the staging backend's own `DATABASE_URL` pointed at staging's
+Postgres all along. It now points at `https://backend-staging-384f.up.railway.app`.
+
+Note the target is the backend's **public** URL, not `backend.railway.internal`.
+The private-network target returns 504 through nginx (Railway's private DNS is
+IPv6-only and nginx needs a resolver for it), so staging uses the same
+public-URL arrangement production does.
+
+What keeps staging off production's data:
+
+- **The proxy target above.** This is the one that actually mattered.
 - **`S3_PREFIX=staging`** on the staging backend. Both environments share one
   Railway Storage bucket, so without a prefix staging would read and write
   production's objects (see `backend/app/utils/storage.py`).
 - **`API_READ_ONLY=true`** on the staging frontend, which makes nginx refuse
   anything but `GET`/`HEAD`/`OPTIONS` on `/api/` (`frontend/nginx.conf`).
-  Staging currently reads production's Postgres, so this is what stops a demo
-  from deleting a real creation. Verified: `DELETE` -> 403, `GET` -> 200.
+  Verified: `DELETE` -> 403, `GET` -> 200. Note this guards the frontend origin
+  only - the backend's own public URL accepts writes, which is how the demo
+  creation on staging was made.
 
-Removing the read-only guard requires giving staging its own database first -
-see below.
+Staging's database is its own, and **empty** unless someone loads it.
 
 ## Refreshing staging with production data
 
@@ -181,9 +195,10 @@ the script's docstring for why the failure looks like a successful connection.
 
 ## Known gaps in this page
 
-- Staging borrows **production's Postgres**. The clone script exists
+- **Staging's database is empty.** It is genuinely separate from production, so
+  staging shows only what has been created in it. The clone script exists
   (`scripts/clone_env_data.py`) but its database half cannot run from a
-  sandboxed agent - see above - so nobody has run it yet. Until someone does,
-  `API_READ_ONLY=true` is the only thing protecting production data.
+  sandboxed agent - see above - so it has to be run from an unrestricted
+  machine before staging can demo production-like content.
 - Production deploys from `main` via GitHub Actions; staging is deployed by hand
   with `railway up`. There is no staging branch.
