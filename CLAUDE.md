@@ -12,6 +12,43 @@
 - Run Python scripts as: `.venv/bin/python <script>`
 - Run pip as: `.venv/bin/pip`
 
+## Shared tooling
+
+### `scripts/optimize_vrm.py` — shrink a pipeline VRM ~5.5x, losslessly to the eye
+
+Use this before serving, embedding or previewing any avatar the pipeline
+produced. Measured over 30 production avatars, **every single one** wastes
+**~1.46 MB (21% of the file) on a VRM metadata thumbnail that nothing ever
+renders**, and ships its texture as a ~2.5 MB PNG that re-encodes to ~110 KB of
+WebP with no visible difference.
+
+```bash
+.venv/bin/python scripts/optimize_vrm.py in.vrm out.vrm [--size=1024] [--quality=88]
+# typical: 5.5 MB -> 1.2 MB, verified visually identical
+```
+
+What it does, all reversible by re-running the pipeline:
+- drops the unused VRM meta thumbnail
+- re-encodes the avatar texture as WebP at a sane resolution
+- packs indices/joints/weights to the smallest glTF **core spec** types — no
+  extensions, so every loader still reads the result
+- inlines the texture as a `data:` URI, which also makes it load under a strict
+  CSP where a `blob:` URL would be refused
+
+**If you are working on preview/gallery/thumbnail load times, start here** — the
+dead-thumbnail finding is a pipeline bug worth fixing at the source
+(`vrm-converter-service/`), which would shrink every avatar for every consumer
+at once.
+
+## Games
+
+`games/` holds playable experiences built on the pipeline's output. Read
+`games/PLAYBOOK.md` before building one — it records the asset's constraints
+(22 bones, no fingers, no blendshapes, wildly varying proportions), the
+publishing constraints, and the process rules that came out of building the
+first one. `games/hero-dash` is parked; `games/README.md` says why and lists
+what to reuse from it.
+
 ## Architecture: Local vs Production
 
 | Service       | Local                              | Production (Railway)     |
