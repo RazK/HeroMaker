@@ -31,6 +31,13 @@ const base = flag('url', 'http://127.0.0.1:5183')
  * plays at true speed. Pair with the dancer clip rendered at the same `scale`.
  */
 const timescale = Number(flag('timescale', 1))
+/**
+ * How many moves to play. Chromium paces the fake camera file on its own
+ * timer, and under the load of running MoveNet without a GPU it delivers
+ * frames slightly slow, so a long run drifts out of step with the game clock.
+ * A short run stays inside a beat of it.
+ */
+const moves = Number(flag('moves', 0))
 /** Burn short captions into the frames so the recording explains itself. */
 const captions = process.argv.includes('--captions')
 
@@ -95,10 +102,10 @@ if (captions) await page.evaluate(() => {
   document.body.appendChild(bar)
 
   const LINE = {
-    title: 'Pick a hero drawn by a kid',
+    title: 'Pick a hero a kid drew',
     countdown: 'Get ready…',
     coach: 'Watch — your hero shows the move',
-    copy: 'Now copy it. The webcam sees you (bottom right)',
+    copy: 'Copy it — and your hero mirrors you back, live',
     grade: 'Scored on limb angles, not on your size',
     results: 'Final score',
   }
@@ -119,7 +126,7 @@ if (captions) await page.evaluate(() => {
 // Linger on the title so the recording opens on something legible.
 await page.waitForTimeout(2500)
 if (timescale !== 1) await page.evaluate((t) => window.__api.setTimeScale(t), timescale)
-await page.evaluate(() => window.__api.start())
+await page.evaluate((n) => window.__api.start(n), moves)
 const bootSeconds = (Date.now() - recordingStarted) / 1000
 
 const deadline = Date.now() + seconds * 1000
@@ -133,7 +140,7 @@ while (Date.now() < deadline) {
       ({ moveIndex, liveScore, bestThisMove, score, seesPlayer }))(window.__api.state()),
   }))
   samples.push(snap)
-  if (snap.phase === 'results') { await page.waitForTimeout(4000); break }
+  if (snap.phase === 'results') { await page.waitForTimeout(6000 / timescale); break }
 }
 
 const summary = await page.evaluate(() => {

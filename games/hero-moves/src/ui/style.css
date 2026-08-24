@@ -32,6 +32,13 @@
   --space-5: 34px;
 
   --radius: 18px;
+  /*
+   * UI animation is timed against the game clock, not wall-clock, so a run
+   * captured in slow motion and sped back up shows the same beat a player
+   * sees. Without it a grade pop lasts a quarter of a second in the finished
+   * footage and nobody ever sees their score land.
+   */
+  --time-scale: 1;
   --ui: clamp(14px, 1.7vmin, 18px);
 }
 
@@ -177,13 +184,20 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 #matchPct { font-weight: 800; font-size: clamp(12px, 1.8vmin, 15px); min-width: 3.2em; text-align: right; }
 
 /* Grade pop. */
+/*
+ * The grade pop is the one piece of text with nowhere safe to live: it lands
+ * wherever the hero and the stage floor happen to be, and the floor is cream.
+ * So it carries its own dark ground as a stroke rather than relying on one.
+ */
 #grade {
   position: absolute; left: 50%; bottom: 17%; transform: translateX(-50%);
   font-weight: 800; font-size: clamp(30px, 6vmin, 64px);
   letter-spacing: .02em; opacity: 0; white-space: nowrap;
-  text-shadow: 0 4px 24px rgba(0,0,0,.6);
+  -webkit-text-stroke: 7px rgba(16,10,28,.92);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 28px rgba(0,0,0,.75);
 }
-#grade.show { animation: gradePop 1s ease-out; }
+#grade.show { animation: gradePop calc(1s / var(--time-scale)) ease-out; }
 @keyframes gradePop {
   0% { opacity: 0; transform: translateX(-50%) scale(.7); }
   18% { opacity: 1; transform: translateX(-50%) scale(1.1); }
@@ -195,7 +209,7 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
   font-weight: 800; font-size: clamp(72px, 17vmin, 170px);
   color: var(--gold); text-shadow: 0 6px 40px rgba(0,0,0,.6);
 }
-#countdown span { display: block; animation: cd .6s ease-out; }
+#countdown span { display: block; animation: cd calc(.6s / var(--time-scale)) ease-out; }
 @keyframes cd { from { transform: scale(1.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* ---------------------------------------------------------------- camera */
@@ -229,7 +243,7 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 .g-GREAT { color: #0f9d58; }
 .g-GOOD { color: #1a73e8; }
 .g-OK { color: #b26a00; }
-.g-MISS { color: #8a8a8a; }
+.g-MISS { color: #6b6b6b; }
 
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
 .stat {

@@ -160,7 +160,7 @@ async function selectHero(i: number) {
   resize()
 }
 
-async function beginRun() {
+async function beginRun(rounds = 0) {
   if (tracker.state !== 'ready') {
     const state = await tracker.start()
     camNote.textContent =
@@ -169,7 +169,7 @@ async function beginRun() {
       : 'No camera available on this device.'
     if (state !== 'ready') return
   }
-  game.start(clock)
+  game.start(clock, rounds)
 }
 
 function resize() {
@@ -287,10 +287,14 @@ async function loadPoseModelSpec() {
 
 // Hooks the recording and test harnesses drive.
 ;(window as unknown as Record<string, unknown>).__api = {
-  start: () => beginRun(),
+  start: (rounds?: number) => beginRun(rounds ?? 0),
   pick: (i: number) => selectHero(i),
   state: () => game.state,
-  setTimeScale: (n: number) => { timeScale = n },
+  setTimeScale: (n: number) => {
+    timeScale = n
+    // Keep CSS transitions on the same clock as the game; see --time-scale.
+    document.documentElement.style.setProperty('--time-scale', String(n))
+  },
   phase: () => game.state.phase,
   tracker: () => ({ state: tracker.state, fps: tracker.fps, ms: tracker.lastInferenceMs }),
 }
