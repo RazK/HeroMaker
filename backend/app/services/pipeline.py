@@ -336,6 +336,24 @@ def execute_meshy_rig_sync(
 # Step Coroutines (Async)
 # ============================================================================
 
+def _warm_thumbnails(user_id: str, creation_id: str, output_filename: Optional[str]) -> None:
+    """
+    Pre-generate every thumbnail size for a step's output.
+
+    Best-effort: a creation whose thumbnails could not be built still works, the
+    first viewer just pays to build them. Never let this fail a completed step.
+    """
+    if not output_filename or not output_filename.lower().endswith((".jpg", ".jpeg", ".png")):
+        return
+    try:
+        from app.api.files import THUMB_SIZES, _ensure_thumbnail
+        storage = get_storage()
+        for size in sorted(THUMB_SIZES):
+            _ensure_thumbnail(storage, user_id, creation_id, output_filename, size)
+    except Exception as e:
+        logger.warning(f"[{creation_id}] Could not pre-generate thumbnails for {output_filename}: {e}")
+
+
 async def step_image_processing(creation_id: str, user_id: str, db: Session) -> None:
     """Process image: original.jpg → processed.jpg"""
     storage = get_storage()
@@ -608,7 +626,13 @@ async def execute_step(
         duration = (step.completed_at - step.started_at).total_seconds()
         db.commit()
         logger.info(f"[{creation_id}] Step {step_name} completed in {duration:.1f}s")
-        
+
+        # Build the thumbnails now, while nobody is waiting on them. Generating
+        # them on first view instead meant whoever opened the creation first
+        # paid for the download, the resize and the upload - measured at 1.8s
+        # before a tile had anything in it.
+        _warm_thumbnails(user_id, creation_id, output_filename)
+
         return {"status": "completed"}
         
     except Exception as e:

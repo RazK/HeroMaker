@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi import Response
 from fastapi.responses import FileResponse, RedirectResponse
 import io
 from pathlib import Path
@@ -165,6 +166,30 @@ def _serve(storage, user_id: str, creation_id: str, filename: str, max_age: int)
         )
 
 
+def _serve_thumbnail(storage, user_id: str, creation_id: str, thumb_filename: str):
+    """
+    Send thumbnail bytes straight back, rather than redirecting to storage.
+
+    A 302 to a presigned S3 URL costs an extra round trip - backend, then S3 -
+    for an image that is only a couple of kilobytes. On a phone that redirect
+    was a large share of the time a rail tile spent empty. Streaming it from
+    here is one hop, and the payload is small enough that the extra backend
+    bandwidth does not matter.
+
+    Falls back to the redirect if the bytes cannot be read.
+    """
+    headers = {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": "image/jpeg",
+    }
+    try:
+        data = storage.download_file(user_id, creation_id, thumb_filename)
+        return Response(content=data, headers=headers)
+    except Exception as e:
+        logger.warning(f"Could not stream thumbnail {thumb_filename}, redirecting instead: {e}")
+        return _serve(storage, user_id, creation_id, thumb_filename, max_age=31536000)
+
+
 @router.get("/download/{user_id}/{creation_id}/{filename:path}")
 async def download_file(
     user_id: str, 
@@ -242,7 +267,7 @@ async def serve_file(user_id: str, creation_id: str, filename: str):
     if is_thumbnail:
         thumb_filename = _ensure_thumbnail(storage, user_id, creation_id, original_filename, thumb_size)
         if thumb_filename:
-            return _serve(storage, user_id, creation_id, thumb_filename, max_age=31536000)
+            return _serve_thumbnail(storage, user_id, creation_id, thumb_filename)
         # Could not make one (not an image, unreadable) - fall back to the original.
         logger.warning(f"Serving full-size fallback for thumb of {original_filename}")
 

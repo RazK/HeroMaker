@@ -37,6 +37,7 @@ class StubS3Storage:
         self.objects = dict(objects)
         self.uploads = 0
         self.downloads = 0
+        self.downloaded = []
 
     def _key(self, u, c, f):
         return f"{u}/{c}/{f}"
@@ -46,6 +47,7 @@ class StubS3Storage:
 
     def download_file(self, u, c, f):
         self.downloads += 1
+        self.downloaded.append(f)
         return self.objects[self._key(u, c, f)]
 
     def upload_file(self, u, c, f, data):
@@ -76,11 +78,13 @@ def test_s3_thumbnail_is_generated_not_the_original(client_and_storage):
 
     resp = client.get("/api/files/u1/c1/thumb_rendered.png")
 
-    assert resp.status_code == 302
-    location = resp.headers["location"]
-    # The redirect must point at a generated thumbnail, never the full-size file.
-    assert "thumb_rendered.jpg" in location, location
-    assert "u1/c1/rendered.png" not in location
+    # Thumbnails come back as bytes, not as a redirect to storage: a 302 to a
+    # presigned URL costs a second round trip for a couple of kilobytes.
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/jpeg"
+    assert len(resp.content) < len(original) / 5, (
+        f"served {len(resp.content)}B for an original of {len(original)}B - that is the full-size file"
+    )
 
     thumb = storage.objects["u1/c1/thumb_rendered.jpg"]
     assert len(thumb) < len(original) / 5, (
@@ -109,8 +113,9 @@ def test_sized_variants_are_served_at_the_size_asked_for(client_and_storage):
 
     resp = client.get("/api/files/u1/c1/thumb_128_rendered.png")
 
-    assert resp.status_code == 302
-    assert "thumb_128_rendered.jpg" in resp.headers["location"]
+    assert resp.status_code == 200
+    with Image.open(io.BytesIO(resp.content)) as img:
+        assert max(img.size) <= 128
     with Image.open(io.BytesIO(storage.objects["u1/c1/thumb_128_rendered.jpg"])) as img:
         assert max(img.size) <= 128
     assert len(storage.objects["u1/c1/thumb_128_rendered.jpg"]) < len(
@@ -124,16 +129,16 @@ def test_every_size_is_made_from_a_single_download(client_and_storage):
     client, storage, _ = client_and_storage
 
     client.get("/api/files/u1/c1/thumb_128_rendered.png")
-    assert storage.downloads == 1
+    assert storage.downloaded.count("rendered.png") == 1
 
     for size in sorted(files_api.THUMB_SIZES):
         name = files_api._thumb_name("rendered.png", size)
         assert f"u1/c1/{name}" in storage.objects, f"{name} was not pre-generated"
 
-    # The other sizes are already there, so nothing is fetched again.
+    # The other sizes are already there, so the original is never fetched again.
     client.get("/api/files/u1/c1/thumb_rendered.png")
     client.get("/api/files/u1/c1/thumb_256_rendered.png")
-    assert storage.downloads == 1
+    assert storage.downloaded.count("rendered.png") == 1
 
 
 def test_unknown_size_falls_back_to_the_default(client_and_storage):
@@ -143,8 +148,10 @@ def test_unknown_size_falls_back_to_the_default(client_and_storage):
 
     resp = client.get("/api/files/u1/c1/thumb_9999_rendered.png")
 
-    assert resp.status_code == 302
-    assert "thumb_9999_rendered" not in resp.headers["location"]
+    assert resp.status_code == 200
+    assert "u1/c1/thumb_9999_rendered.jpg" not in storage.objects
+    with Image.open(io.BytesIO(resp.content)) as img:
+        assert max(img.size) <= max(files_api.THUMBNAIL_SIZE)
 
 
 def test_non_image_falls_back_to_the_original(client_and_storage):
@@ -234,3 +241,53 @@ def test_prefix_is_applied_and_normalised(monkeypatch, prefix):
 def test_listing_is_scoped_to_the_prefix(monkeypatch):
     s = _s3_storage(monkeypatch, "staging")
     assert s._get_s3_key("u", "c", "") == "staging/u/c/"
+
+
+# --- eager generation: nobody should pay to build a thumbnail on first view ---
+
+def test_completing_a_step_pre_generates_every_thumbnail_size(monkeypatch):
+    """
+    Building thumbnails on first view meant whoever opened a creation first paid
+    for the download, the resize and the upload - measured at 1.8s on staging
+    before a rail tile had anything in it. The pipeline builds them instead.
+    """
+    from app.services import pipeline
+
+    storage = StubS3Storage({"u1/c1/processed.jpg": _png_bytes()})
+    monkeypatch.setattr(pipeline, "get_storage", lambda: storage)
+    monkeypatch.setattr(files_api, "get_storage", lambda: storage)
+
+    pipeline._warm_thumbnails("u1", "c1", "processed.jpg")
+
+    for size in sorted(files_api.THUMB_SIZES):
+        name = files_api._thumb_name("processed.jpg", size)
+        assert f"u1/c1/{name}" in storage.objects, f"{name} was not pre-generated"
+    assert storage.downloaded.count("processed.jpg") == 1, "the original was fetched once per size"
+
+
+def test_warming_a_non_image_output_is_a_no_op(monkeypatch):
+    """A GLB or a VRM has no thumbnail; warming must not error or fetch it."""
+    from app.services import pipeline
+
+    storage = StubS3Storage({"u1/c1/rigged.glb": b"glTF\x02\x00\x00\x00"})
+    monkeypatch.setattr(pipeline, "get_storage", lambda: storage)
+
+    pipeline._warm_thumbnails("u1", "c1", "rigged.glb")
+    pipeline._warm_thumbnails("u1", "c1", None)
+
+    assert storage.downloads == 0
+    assert storage.uploads == 0
+
+
+def test_warming_never_fails_a_completed_step(monkeypatch):
+    """A step that produced its output is done, whatever storage does next."""
+    from app.services import pipeline
+
+    class Broken(StubS3Storage):
+        def download_file(self, u, c, f):
+            raise RuntimeError("storage is having a bad day")
+
+    monkeypatch.setattr(pipeline, "get_storage", lambda: Broken({}))
+    monkeypatch.setattr(files_api, "get_storage", lambda: Broken({}))
+
+    pipeline._warm_thumbnails("u1", "c1", "processed.jpg")  # must not raise
