@@ -5,9 +5,54 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <meta name="theme-color" content="#241b3d" />
 <title>Hero Moves</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%95%BA%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
 </head>
 <body>
 <div id="app"></div>
+
+<!--
+  Boot screen. Sits above the payload so it paints in the first few KB while
+  the pose model and avatars behind it are still arriving; tools/pack-artifact
+  interleaves progress markers between those blocks.
+-->
+<div id="boot" role="status" aria-live="polite">
+  <div class="boot-card">
+    <div class="boot-title">Hero <em>Moves</em></div>
+    <div class="boot-dots"><i></i><i></i><i></i></div>
+    <div class="boot-bar"><div id="bootFill" class="indeterminate"></div></div>
+    <div id="bootWhat">Setting the stage…</div>
+  </div>
+</div>
+<script>
+(function () {
+  var fill = document.getElementById('bootFill')
+  var what = document.getElementById('bootWhat')
+  var done = 0
+  window.__hdTotal = window.__hdTotal || 0
+  window.__hdStep = function (label) {
+    done++
+    if (window.__hdTotal > 0 && fill) {
+      fill.classList.remove('indeterminate')
+      fill.style.width = Math.min(100, Math.round((done / window.__hdTotal) * 100)) + '%'
+    }
+    if (label && what) what.textContent = label
+  }
+  window.__hdFail = function (message) {
+    if (what) { what.textContent = message; what.style.color = '#ff4d8d' }
+  }
+  window.__hdDone = function () {
+    var b = document.getElementById('boot')
+    if (!b) return
+    if (fill) { fill.classList.remove('indeterminate'); fill.style.width = '100%' }
+    b.classList.add('gone')
+    setTimeout(function () { b.remove() }, 500)
+  }
+})()
+</script>
+
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

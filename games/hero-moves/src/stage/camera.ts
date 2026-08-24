@@ -28,17 +28,31 @@ export interface Framing {
   /** Clear screen above any UI card, in px, and the viewport height. */
   headroom?: number
   viewportH?: number
+  viewportW?: number
 }
 
 export class PlayCamera {
   readonly camera = new THREE.PerspectiveCamera(38, 1, 0.1, 60)
+  private distance = 4
+  private eyeY = 0.8
+  private lookY = 0.9
+  private cardPortrait = false
+  private offsetApplied = false
   private pos = new THREE.Vector3(0, 1, 4)
   private target = new THREE.Vector3(0, 1, 0)
   /** Small on-beat push-in, added on top of the solved distance. */
   punch = 0
+  /**
+   * Sideways shift for screens with a card over the stage: the hero moves out
+   * from behind it rather than being hidden by it.
+   */
+  private offsetX = 0
+  private offsetTarget = 0
+  private lastFraming: Framing | null = null
 
   /** Solve and apply the framing. Called on resize and when the hero changes. */
   frame(f: Framing) {
+    this.lastFraming = f
     const fill = f.portrait ? FILL_PORTRAIT : FILL_LANDSCAPE
     this.camera.aspect = f.aspect
     this.camera.fov = f.portrait ? 42 : 38
@@ -51,20 +65,47 @@ export class PlayCamera {
     const eyeY = f.heroHeight * 0.46
     const lookY = f.heroHeight * 0.54
 
-    this.pos.set(0, eyeY, distance)
-    this.target.set(0, lookY, 0)
+    this.distance = distance
+    this.eyeY = eyeY
+    this.lookY = lookY
     this.apply(1)
+  }
+
+  /**
+   * `card` means a panel covers the middle of the screen. In landscape the hero
+   * steps to one side of it; in portrait there is nowhere sideways to go, so
+   * the frame shifts down and the hero sits above the card instead.
+   */
+  setPresentation(card: boolean) {
+    const portrait = this.lastFraming?.portrait ?? false
+    this.offsetTarget = card && !portrait ? -1.25 : 0
+    this.cardPortrait = card && portrait
   }
 
   /** `beat` is 0..1 within the current beat; the camera breathes with it. */
   update(dt: number, beat: number) {
     this.punch = damp(this.punch, Math.max(0, Math.cos(beat * Math.PI * 2)) * 0.045, 12, dt)
+    this.offsetX = damp(this.offsetX, this.offsetTarget, 5, dt)
     this.apply(dt)
   }
 
   private apply(_dt: number) {
+    this.pos.set(this.offsetX, this.eyeY, this.distance)
+    this.target.set(this.offsetX * 0.94, this.lookY, 0)
     this.camera.position.set(this.pos.x, this.pos.y, this.pos.z - this.punch)
     this.camera.lookAt(this.target)
+
+    // Portrait cards sit at the bottom, so slide the rendered window down the
+    // frustum instead of tilting the camera, which would crop the hero's head.
+    const f = this.lastFraming
+    if (this.cardPortrait && f?.viewportH && f.headroom) {
+      this.camera.setViewOffset(f.viewportW ?? 1, f.viewportH, 0, (f.viewportH - f.headroom) / 2,
+        f.viewportW ?? 1, f.viewportH)
+      this.offsetApplied = true
+    } else if (this.offsetApplied) {
+      this.camera.clearViewOffset()
+      this.offsetApplied = false
+    }
   }
 
   /**

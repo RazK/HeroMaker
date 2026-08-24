@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
       // Classic script, not a module: it boots mid-parse so the game is
       // playable before the payload behind it has finished downloading.
       ? { output: { format: 'iife', inlineDynamicImports: true } }
-      : undefined,
+      : { input: { main: 'index.html', moveslab: 'moveslab.html', dancer: 'dancer.html' } },
     target: 'es2020',
     assetsInlineLimit: mode === 'single' ? 100000000 : 4096,
     chunkSizeWarningLimit: 6000,

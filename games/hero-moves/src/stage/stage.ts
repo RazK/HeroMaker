@@ -61,13 +61,13 @@ export class Stage {
     // Backdrop: a deep curtain so a brightly-drawn hero pops off it.
     const backdrop = new THREE.Mesh(
       new THREE.SphereGeometry(STAGE.backdropRadius, 32, 16),
-      new THREE.MeshBasicMaterial({ color: '#241b3d', side: THREE.BackSide, fog: false }),
+      new THREE.MeshBasicMaterial({ color: '#2b1f47', side: THREE.BackSide, fog: false }),
     )
     this.group.add(backdrop)
 
     // Curtain folds, flat wedges around the back half.
     const foldMat = new THREE.MeshStandardMaterial({
-      color: '#5b2a6e', roughness: 1, metalness: 0, map: paperTexture('#ffffff', 22),
+      color: '#6b3080', roughness: 1, metalness: 0, map: paperTexture('#ffffff', 22),
     })
     for (let i = 0; i < 14; i++) {
       const a = -Math.PI * 0.15 + (i / 13) * Math.PI * 1.3
@@ -80,13 +80,24 @@ export class Stage {
 
     // Performance disc.
     const floorMat = new THREE.MeshStandardMaterial({
-      color: '#f3e4c8', roughness: 0.82, metalness: 0, map: paperTexture('#ffffff', 26),
+      color: '#e8cfa6', roughness: 0.86, metalness: 0,
+      map: paperTexture('#ffffff', 26),
+      emissive: '#3a2547', emissiveIntensity: 0.35,
     })
     floorMat.map!.repeat.set(4, 4)
     const floor = new THREE.Mesh(new THREE.CircleGeometry(STAGE.floorRadius, 48), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.receiveShadow = true
     this.group.add(floor)
+
+    // Spotlight pool: a soft warm disc under the performer.
+    const pool = new THREE.Mesh(
+      new THREE.CircleGeometry(STAGE.floorRadius * 0.62, 40),
+      new THREE.MeshBasicMaterial({ color: '#fff0cf', transparent: true, opacity: 0.34 }),
+    )
+    pool.rotation.x = -Math.PI / 2
+    pool.position.y = 0.012
+    this.group.add(pool)
 
     const rim = new THREE.Mesh(
       new THREE.TorusGeometry(STAGE.floorRadius, 0.07, 8, 56),

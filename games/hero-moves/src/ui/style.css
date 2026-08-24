@@ -1,0 +1,268 @@
+/*
+ * Hero Moves — stage-light interface.
+ *
+ * The set is a dark theatre so the brightly-drawn hero pops off it, which means
+ * the UI is light-on-dark and has to stay out of the middle of the frame: the
+ * centre belongs to the avatar's face. Everything is pushed to the edges, and
+ * anything that needs attention arrives as a card that leaves again.
+ *
+ * One spacing scale, one type scale, one accent. Numbers are tabular so a score
+ * ticking upward does not jitter.
+ */
+
+:root {
+  --ink: #17101f;
+  --paper: #fdf7ec;
+  --stage: #241b3d;
+  --stage-deep: #150f26;
+  --gold: #ffd23f;
+  --pop: #ff4d8d;
+  --mint: #3ddc97;
+  --sky: #56b8ff;
+  --grape: #9b6bd6;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 14px;
+  --space-4: 22px;
+  --space-5: 34px;
+
+  --radius: 18px;
+  --ui: clamp(14px, 1.7vmin, 18px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--stage-deep); color: var(--paper);
+  font-family: "Baloo 2", ui-rounded, "Segoe UI Rounded", "Nunito", system-ui, sans-serif;
+  font-size: var(--ui);
+  touch-action: none; user-select: none; overscroll-behavior: none;
+}
+
+#app { position: fixed; inset: 0; }
+canvas { display: block; width: 100%; height: 100%; }
+
+.layer {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+  padding: var(--space-4);
+}
+.layer.sheet {
+  pointer-events: auto;
+  background: radial-gradient(120% 90% at 50% 55%, rgba(21,15,38,.35), rgba(21,15,38,.88));
+}
+
+/* ---------------------------------------------------------------- type */
+h1 {
+  margin: 0; line-height: .9; font-weight: 800;
+  font-size: clamp(34px, 7vmin, 68px);
+  letter-spacing: -.015em;
+  color: var(--paper);
+  text-wrap: balance;
+}
+/* Cards are paper, so type inside them flips to ink. */
+.card h1 { color: var(--ink); }
+.card h1 em { color: var(--grape); }
+h1 em {
+  font-style: normal; display: block; color: var(--gold);
+  font-size: .52em; letter-spacing: .18em; margin-bottom: .35em;
+}
+h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
+.tag { margin: 0; font-weight: 600; opacity: .72; font-size: clamp(13px, 1.9vmin, 16px); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- chrome */
+.card {
+  background: rgba(253,247,236,.97);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  width: min(500px, 92vw);
+  max-height: 92vh;
+  overflow: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08);
+  display: flex; flex-direction: column; gap: var(--space-3);
+  text-align: center;
+}
+
+.btn {
+  pointer-events: auto; cursor: pointer;
+  font: inherit; font-weight: 800;
+  font-size: clamp(16px, 2.3vmin, 21px);
+  padding: .62em 1.5em; width: 100%;
+  color: var(--ink); background: var(--gold);
+  border: 0; border-radius: 999px;
+  transition: transform .08s ease, filter .15s ease;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:active { transform: translateY(2px); }
+.btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+.btn.secondary { background: rgba(23,16,31,.08); color: var(--ink); }
+.actions { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* ---------------------------------------------------------------- hud */
+#hud { justify-content: space-between; }
+.hud-top, .hud-bottom {
+  width: 100%; display: flex; align-items: flex-start;
+  justify-content: space-between; gap: var(--space-3);
+}
+.hud-bottom { align-items: flex-end; }
+
+.readout { display: flex; flex-direction: column; gap: 2px; }
+.readout .label {
+  font-size: clamp(9px, 1.3vmin, 11px); font-weight: 800;
+  letter-spacing: .16em; text-transform: uppercase; opacity: .6;
+}
+.readout .value {
+  font-size: clamp(26px, 4.4vmin, 46px); font-weight: 800; line-height: 1;
+  text-shadow: 0 2px 12px rgba(0,0,0,.5);
+}
+.readout.right { align-items: flex-end; }
+.readout .value.small { font-size: clamp(17px, 2.6vmin, 26px); }
+
+/* The move being asked for. Bottom-centre, clear of the hero's face. */
+#movePanel {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: clamp(14px, 3.2vh, 30px);
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  width: min(420px, 76vw);
+}
+#moveName {
+  font-weight: 800; letter-spacing: .06em;
+  font-size: clamp(18px, 3.2vmin, 30px);
+  text-shadow: 0 2px 14px rgba(0,0,0,.6);
+}
+#movePhase {
+  font-size: clamp(10px, 1.5vmin, 13px); font-weight: 800;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
+}
+/* Beat bar: how long is left in this phase. */
+.beat {
+  width: 100%; height: 8px; border-radius: 999px;
+  background: rgba(253,247,236,.18); overflow: hidden;
+}
+.beat > i { display: block; height: 100%; width: 0%; background: var(--gold); border-radius: 999px; }
+.beat.copy > i { background: linear-gradient(90deg, var(--mint), var(--sky)); }
+
+/* Live match meter, shown only while copying. */
+#matchWrap { display: flex; align-items: center; gap: var(--space-2); width: 100%; }
+#matchBar { flex: 1; height: 10px; border-radius: 999px; background: rgba(253,247,236,.18); overflow: hidden; }
+#matchFill { height: 100%; width: 0%; background: var(--pop); border-radius: 999px; transition: width .08s linear, background .2s; }
+#matchPct { font-weight: 800; font-size: clamp(12px, 1.8vmin, 15px); min-width: 3.2em; text-align: right; }
+
+/* Grade pop. */
+#grade {
+  position: absolute; left: 50%; top: 26%; transform: translateX(-50%);
+  font-weight: 800; font-size: clamp(30px, 6vmin, 64px);
+  letter-spacing: .02em; opacity: 0; white-space: nowrap;
+  text-shadow: 0 4px 24px rgba(0,0,0,.6);
+}
+#grade.show { animation: gradePop 1s ease-out; }
+@keyframes gradePop {
+  0% { opacity: 0; transform: translateX(-50%) scale(.7); }
+  18% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+  70% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(1); }
+}
+
+#countdown {
+  font-weight: 800; font-size: clamp(72px, 17vmin, 170px);
+  color: var(--gold); text-shadow: 0 6px 40px rgba(0,0,0,.6);
+}
+#countdown span { display: block; animation: cd .6s ease-out; }
+@keyframes cd { from { transform: scale(1.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ---------------------------------------------------------------- camera */
+#camPanel {
+  position: relative; border-radius: 12px; overflow: hidden;
+  width: clamp(150px, 22vmin, 260px); aspect-ratio: 4 / 3;
+  background: rgba(0,0,0,.45);
+  box-shadow: 0 0 0 2px rgba(253,247,236,.22), 0 8px 24px rgba(0,0,0,.5);
+}
+#camPanel canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#camBadge {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 4px 7px; font-size: 10px; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  background: linear-gradient(transparent, rgba(0,0,0,.75));
+  display: flex; justify-content: space-between; gap: 4px;
+}
+#camPanel.lost { box-shadow: 0 0 0 2px var(--pop), 0 8px 24px rgba(0,0,0,.5); }
+
+/* ---------------------------------------------------------------- results */
+.scoreline {
+  display: grid; grid-template-columns: 1fr auto auto;
+  gap: var(--space-2); align-items: center;
+  padding: .34em .6em; border-radius: 10px;
+  font-weight: 700; font-size: clamp(12px, 1.8vmin, 15px);
+}
+.scoreline:nth-child(odd) { background: rgba(23,16,31,.06); }
+.scoreline .g { font-weight: 800; }
+.g-PERFECT { color: #d81b60; }
+.g-GREAT { color: #0f9d58; }
+.g-GOOD { color: #1a73e8; }
+.g-OK { color: #b26a00; }
+.g-MISS { color: #8a8a8a; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.stat {
+  background: rgba(23,16,31,.06); border-radius: 12px; padding: .5em .3em;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.stat b { font-size: clamp(18px, 3vmin, 28px); font-variant-numeric: tabular-nums; }
+.stat span {
+  font-size: clamp(9px, 1.3vmin, 11px); opacity: .62;
+  font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+}
+
+.hint { margin: 0; font-size: clamp(11px, 1.6vmin, 13px); opacity: .6; font-weight: 600; line-height: 1.5; }
+
+/* ---------------------------------------------------------------- boot */
+#boot {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(90% 70% at 50% 40%, #3a2a5e, var(--stage-deep));
+  transition: opacity .45s ease;
+}
+#boot.gone { opacity: 0; pointer-events: none; }
+.boot-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); width: min(360px, 82vw); }
+.boot-title { font-weight: 800; font-size: clamp(28px, 6vmin, 46px); letter-spacing: -.01em; }
+.boot-title em { font-style: normal; color: var(--gold); }
+.boot-dots { display: flex; gap: 9px; height: 16px; align-items: flex-end; }
+.boot-dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--grape); animation: hop .7s infinite ease-in-out; }
+.boot-dots i:nth-child(2) { animation-delay: .11s; background: var(--sky); }
+.boot-dots i:nth-child(3) { animation-delay: .22s; background: var(--gold); }
+@keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-10px); } }
+.boot-bar { width: 100%; height: 8px; border-radius: 999px; background: rgba(253,247,236,.16); overflow: hidden; }
+#bootFill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--pop)); transition: width .35s ease; }
+#bootFill.indeterminate { width: 34%; animation: drift 1.4s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translateX(-60%); } to { transform: translateX(180%); } }
+#bootWhat { font-size: clamp(11px, 1.6vmin, 13px); opacity: .7; font-weight: 700; min-height: 1.3em; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-dots i, #bootFill, #grade.show, #countdown span { animation: none; }
+}
+
+/* ---------------------------------------------------------------- responsive */
+/* Landscape: the card takes the left, the hero performs on the right. */
+@media (orientation: landscape) {
+  #title, #results { align-items: flex-start; padding-left: clamp(20px, 6vw, 96px); }
+  .card { width: min(430px, 44vw); }
+}
+@media (orientation: portrait) {
+  #title, #results { justify-content: flex-end; padding-bottom: clamp(12px, 3vh, 28px); }
+  .card { width: min(460px, 92vw); max-height: 72vh; }
+  #movePanel { width: min(420px, 88vw); }
+}
+@media (max-height: 620px) {
+  .card { padding: var(--space-3) var(--space-4); gap: var(--space-2); }
+  h1 { font-size: clamp(26px, 5.4vmin, 40px); }
+  .btn { font-size: clamp(14px, 2vmin, 18px); padding: .5em 1.2em; }
+  .stat b { font-size: clamp(15px, 2.4vmin, 21px); }
+  .hint { display: none; }
+}
