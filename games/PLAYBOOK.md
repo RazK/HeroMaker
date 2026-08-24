@@ -88,6 +88,39 @@ unfinished-looking build got shown.
 > it as a senior designer would: consistent rhythm, one spacing system, aligned
 > optical edges, no orphaned controls, no default-looking anything.
 
+**A pipeline whose end-to-end quality was never measured.** Hero Moves scored
+players through solver, renderer, tracker and scorer, and every recorded run
+came back OK or MISS. The natural reading was that the tracker was starved of
+frames. It was not: a harness that posed an avatar into each move and pushed
+one still frame through the real tracker and the real scorer showed a *perfect*
+performance topping out at 0.59. The game could not be played well however well
+you danced, and no amount of looking at recordings would have said so.
+
+> **Rule: measure the ceiling of any scored or graded system in isolation.**
+> Feed it a known-perfect input through the real code path and assert what it
+> returns. A grading system that has never been shown a right answer is not
+> known to have one.
+
+**Two rules disagreed inside one number.** Animation dt was clamped to 0.1s so a
+stalled frame could not fling the rig. The game clock was stepped by the same
+value, so on a machine rendering at 3 fps the choreography ran at a tenth speed.
+
+> **Rule: game time and animation time are different clocks.** Anything that
+> decides *when* keeps wall-clock time; only what decides *how far* gets
+> clamped.
+
+**Contrast was assumed, never measured.** A cream heading on a cream card
+renders without error, passes code review, and is only caught by someone
+squinting at a phone — which is how it was caught. Worse, HUD text over a 3D
+scene has no CSS background to inspect at all: white text was sitting on a
+brightly lit stage floor.
+
+> **Rule: check contrast programmatically, and give overlay text its own
+> ground.** `hero-moves/tools/contrast.mjs` walks the live DOM, resolves what
+> each text node is really painted over, folds in inherited opacity and fails
+> below the AA ratio for its size. Text over a rendered scene cannot be checked
+> that way, so it does not float — it sits on a plate.
+
 ## The asset's own constraints — established, do not re-derive
 
 * VRM 0.0, **22 humanoid bones**, hips through toes including shoulders. **No
@@ -97,6 +130,16 @@ unfinished-looking build got shown.
   with two legs, or a cloud. **Anything tuned to human proportions breaks on
   half the roster; rotation-only poses on the normalized rig work on all of it.**
 * Some avatars need grounding — their bounding box does not start at y=0.
+* **Some heroes are wider than they are tall.** Solving camera distance from
+  height alone puts a cloud's arms off both edges of the frame.
+* **A pose model reads these avatars unevenly.** MoveNet places shoulders,
+  hips, knees and wrists well on them, but elbows badly — smooth sausage arms
+  have no crease to find. A hand held against a big head or a mass of hair is
+  lost entirely. Measured per avatar by `hero-moves/tools/posecheck.mjs`: a
+  clean humanoid hero reads at 0.93, one with a lot of hair at 0.76, a cartoon
+  skeleton and a cloud not at all. This matters for anything that tracks an
+  *avatar*; a human player in front of a webcam is the case the model was
+  trained for.
 * The **front is drawn by a child; the back is extrapolated by the pipeline.**
   Frame the front.
 * Raw exports are ~5.5 MB, of which ~1.46 MB is a VRM metadata thumbnail that
