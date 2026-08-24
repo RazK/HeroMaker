@@ -335,17 +335,14 @@
    * Keep name, age and hero name on a single line. Two rows of inputs above
    * the stage is a lot of height to spend on three short strings.
    */
+  /*
+   * Two tight rows, not one cramped one. Forcing all three fields onto a
+   * single line at 390px clipped the name to "Adm" and squeezed the other two
+   * to their placeholders, so keep the wrap and buy the height back from
+   * padding and control size instead.
+   */
   .hero-name-editor-row {
-    flex-wrap: nowrap;
-  }
-
-  .hero-name-editor-name-age-wrapper {
-    width: auto;
-    flex: 1 1 45%;
-    min-width: 0;
-  }
-
-  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper:first-child {
-    max-width: none;
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
   }
 }
