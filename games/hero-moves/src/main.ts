@@ -5,7 +5,9 @@ import { PlayCamera } from './stage/camera'
 import { loadHero, type Hero } from './avatar/loader'
 import { PoseTracker } from './pose/tracker'
 import { PoseSolver } from './pose/solver'
-import { Game, beatSeconds, TIMING, type Phase } from './game/game'
+import { Game, secondsPerBeat, type Phase } from './game/game'
+import { routineMoves } from './game/song'
+import { warmPictograms } from './ui/pictogram'
 import { Hud } from './ui/hud'
 import { el } from './ui/dom'
 import { damp } from './core/math'
@@ -64,10 +66,12 @@ const firstHeroReady = ROSTER.length
   const entry = ALL_HEROES.find((h) => h.id === id)
   if (!entry || ROSTER.some((r) => r.id === id)) return
   ROSTER.push(entry)
+  // A second hero arriving is what makes a partner possible at all.
+  if (ROSTER.length === 2) void selectLeader(1)
   renderPicker()
   // The picker grows a row as heroes land, so the card gets taller and the
-  // strip the hero is framed against gets shorter. Without this the framing
-  // stays solved for a one-hero card and the head leaves the top of the frame.
+  // strip the pair is framed against gets shorter. Without this the framing
+  // stays solved for a one-hero card and heads leave the top of the frame.
   reframe()
   announceFirstHero?.()
   announceFirstHero = null
@@ -97,27 +101,69 @@ const tracker = new PoseTracker()
 const game = new Game()
 const hud = new Hud()
 
-let hero: Hero | null = null
-let solver: PoseSolver | null = null
-let selected = 0
-/** Coach poses are driven through the same solver, from the move's skeleton. */
-let coachSolver: PoseSolver | null = null
+/**
+ * Two performers, and neither ever changes job.
+ *
+ * The previous version had one avatar demonstrate a move and then mirror the
+ * player. Same body, same mark, same light — so which of the two it was doing
+ * at any moment was unreadable, and it played like a race condition. Here the
+ * leader dances the routine and never once reacts to the camera, while the
+ * player's hero is driven by the camera from the first frame to the last. You
+ * learn which is which by watching for two seconds, and no wording is needed.
+ */
+interface Performer {
+  hero: Hero | null
+  solver: PoseSolver | null
+  index: number
+  root: THREE.Group
+  label: HTMLElement
+}
+
+const makePerformer = (labelClass: string): Performer => ({
+  hero: null, solver: null, index: 0,
+  root: new THREE.Group(),
+  label: el('div', { class: `nameplate ${labelClass}` }),
+})
+
+const leader = makePerformer('leader')
+const player = makePerformer('player')
+scene.add(leader.root, player.root)
+
+/** Which side of the picker a tap applies to. */
+let picking: 'player' | 'leader' = 'player'
+
+/** Lights up under the player's feet with how well they are matching. */
+const matchRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.42, 0.56, 40),
+  new THREE.MeshBasicMaterial({ color: '#ff4d8d', transparent: true, opacity: 0, side: THREE.DoubleSide }),
+)
+matchRing.rotation.x = -Math.PI / 2
+matchRing.position.y = 0.02
+player.root.add(matchRing)
 
 // ---------------------------------------------------------------- screens
 const titleLayer = el('div', { class: 'layer sheet', id: 'title' })
 const resultsLayer = el('div', { class: 'layer sheet', id: 'results', hidden: true })
-app.append(titleLayer, hud.hud, hud.countdownLayer, resultsLayer)
+const nameplates = el('div', { class: 'layer', id: 'nameplates', hidden: true })
+nameplates.append(leader.label, player.label)
+app.append(titleLayer, hud.hud, nameplates, hud.countdownLayer, resultsLayer)
 
-const heroName = el('h2', {}, ROSTER[0]?.name ?? 'Loading heroes…')
-const pickerEl = el('div', { class: 'picker', style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px' })
+const pickerEl = el('div', { class: 'picker' })
 const startBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'START DANCING')
 const camNote = el('p', { class: 'hint' }, '')
+
+const whoBtns = (['player', 'leader'] as const).map((who) =>
+  el('button', {
+    class: 'seg',
+    onclick: () => { picking = who; renderPicker() },
+  }, who === 'player' ? 'You' : 'Your partner'))
+const segmented = el('div', { class: 'segmented' }, ...whoBtns)
 
 titleLayer.append(
   el('div', { class: 'card' },
     el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves'),
-    el('p', { class: 'tag' }, 'Your hero shows a move. You copy it. It copies you back.'),
-    heroName,
+    el('p', { class: 'tag' }, 'Your partner dances. You copy. Both of them are yours.'),
+    segmented,
     pickerEl,
     el('div', { class: 'actions' }, startBtn),
     camNote,
@@ -125,27 +171,29 @@ titleLayer.append(
 )
 
 function renderPicker() {
+  const chosen = picking === 'player' ? player.index : leader.index
+  const other = picking === 'player' ? leader.index : player.index
+  for (const [i, b] of whoBtns.entries()) {
+    b.classList.toggle('on', (i === 0) === (picking === 'player'))
+  }
   pickerEl.replaceChildren(...ROSTER.map((r, i) => {
     const thumb = Object.entries(thumbFiles).find(([k]) => k.includes(`${r.id}.thumb`))?.[1]
     const btn = el('button', {
-      class: 'btn secondary',
-      style: `padding:6px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px${
-        i === selected ? ';outline:3px solid var(--pop)' : ''}`,
-      onclick: () => selectHero(i),
+      class: `pick${i === chosen ? ' on' : ''}${i === other ? ' taken' : ''}`,
+      onclick: () => (picking === 'player' ? selectPlayer(i) : selectLeader(i)),
     })
-    if (thumb) btn.append(el('img', { src: thumb, alt: r.name, width: 54, height: 54, style: 'border-radius:8px' }))
+    if (thumb) btn.append(el('img', { src: thumb, alt: r.name, width: 54, height: 54 }))
     btn.append(el('span', {}, r.name))
     return btn
   }))
-  heroName.textContent = ROSTER[selected]?.name ?? 'Loading heroes…'
 }
 
 // ---------------------------------------------------------------- results
 const resultTitle = el('h1', {}, 'NICE MOVES!')
 const resultStats = el('div', { class: 'stats' })
-const resultList = el('div', { style: 'display:flex;flex-direction:column;gap:2px' })
+const resultList = el('div', { class: 'scorelist' })
 const againBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'DANCE AGAIN')
-const changeBtn = el('button', { class: 'btn secondary', onclick: () => showTitle() }, 'CHANGE HERO')
+const changeBtn = el('button', { class: 'btn secondary', onclick: () => showTitle() }, 'CHANGE HEROES')
 resultsLayer.append(
   el('div', { class: 'card' }, resultTitle, resultStats, resultList,
     el('div', { class: 'actions' }, againBtn, changeBtn)),
@@ -155,9 +203,11 @@ function showTitle() {
   titleLayer.hidden = false
   resultsLayer.hidden = true
   hud.hud.hidden = true
+  nameplates.hidden = true
   hud.countdownLayer.hidden = true
   game.state.phase = 'title'
   play.setPresentation(true)
+  play.setAzimuth(0)
   reframe()
 }
 
@@ -170,13 +220,20 @@ function showResults() {
     el('div', { class: 'stat' }, el('b', {}, `${Math.round(acc * 100)}%`), el('span', {}, 'accuracy')),
     el('div', { class: 'stat' }, el('b', {}, `×${s.bestCombo}`), el('span', {}, 'best combo')),
   )
-  resultList.replaceChildren(...s.results.map((r) =>
+  // One line per distinct move, best attempt, since a routine repeats them.
+  const best = new Map<string, { name: string; score: number; grade: string }>()
+  for (const r of s.results) {
+    const prev = best.get(r.move.id)
+    if (!prev || r.score > prev.score) best.set(r.move.id, { name: r.move.name, score: r.score, grade: r.grade })
+  }
+  resultList.replaceChildren(...[...best.values()].map((r) =>
     el('div', { class: 'scoreline' },
-      el('span', {}, r.move.name),
+      el('span', {}, r.name),
       el('span', { class: 'num' }, `${Math.round(r.score * 100)}%`),
       el('span', { class: `g g-${r.grade}` }, r.grade))))
   resultsLayer.hidden = false
   hud.hud.hidden = true
+  nameplates.hidden = true
   reframe()
 }
 
@@ -184,30 +241,53 @@ function showResults() {
 game.onPhase = (p: Phase) => {
   hud.countdownLayer.hidden = p !== 'countdown'
   hud.hud.hidden = p === 'title' || p === 'results'
+  nameplates.hidden = p === 'title' || p === 'results'
   titleLayer.hidden = p !== 'title'
   if (p === 'results') showResults()
-  // Cards cover the stage, so step the hero out from behind them.
+  // Cards cover the stage, so step the pair out from behind them.
   play.setPresentation(p === 'title' || p === 'results')
   reframe()
 }
 game.onGrade = (r) => hud.showGrade(r)
 
-async function selectHero(i: number) {
-  selected = i
-  renderPicker()
+async function loadInto(p: Performer, i: number, smoothing: number) {
+  p.index = i
   const entry = ROSTER[i]
   if (!entry) return
   const url = heroSource(entry.id)
   if (!url) return
-  if (hero) { scene.remove(hero.root); hero.dispose() }
-  hero = await loadHero(url)
-  scene.add(hero.root)
-  solver = new PoseSolver(hero.rig, 0.35)
-  coachSolver = new PoseSolver(hero.rig, 0.28)
+  if (p.hero) { p.root.remove(p.hero.root); p.hero.dispose() }
+  p.hero = await loadHero(url)
+  p.root.add(p.hero.root)
+  p.solver = new PoseSolver(p.hero.rig, smoothing)
+  p.label.textContent = entry.name
+  layoutStage()
   resize()
 }
 
-async function beginRun(rounds = 0) {
+// The leader is smoothed harder: it is performing a known routine, so it should
+// glide between shapes. The player is smoothed less, so mirroring feels live.
+const selectPlayer = (i: number) => loadInto(player, i, 0.4).then(renderPicker)
+const selectLeader = (i: number) => loadInto(leader, i, 0.22).then(renderPicker)
+
+/**
+ * Places the pair. The leader stands upstage and to one side, the player
+ * downstage on the other — different marks and different depths, so the two
+ * never read as the same character, and so a three-quarter camera has
+ * something to separate.
+ */
+function layoutStage() {
+  const portrait = app.clientHeight > app.clientWidth
+  const sep = portrait ? 0.62 : 0.95
+  leader.root.position.set(-sep, 0, -0.5)
+  player.root.position.set(sep, 0, 0.45)
+  // A few degrees inward, so they read as dancing together rather than as two
+  // separate exhibits. Small enough that both faces stay toward the camera.
+  leader.root.rotation.y = 0.13
+  player.root.rotation.y = -0.1
+}
+
+async function beginRun(moves = 0) {
   if (tracker.state !== 'ready') {
     camNote.textContent = 'Getting the pose tracker ready…'
     await startLoadingTracker()
@@ -225,18 +305,23 @@ async function beginRun(rounds = 0) {
       : 'No camera available on this device.'
     if (state !== 'ready') return
   }
-  game.start(clock, rounds)
+  game.start(clock, moves)
 }
 
 function resize() {
   const w = app.clientWidth, h = app.clientHeight
   renderer.setSize(w, h, false)
-  if (!hero) return
+  const heroes = [leader.hero, player.hero].filter(Boolean) as Hero[]
+  if (!heroes.length) return
+  layoutStage()
   const card = document.querySelector('.layer.sheet:not([hidden]) .card')
   const headroom = card ? card.getBoundingClientRect().top : h * 0.45
+  const widest = Math.max(...heroes.map((x) => x.width))
   play.frame({
-    heroHeight: hero.height, heroWidth: hero.width, aspect: w / h,
-    portrait: h > w, headroom, viewportH: h, viewportW: w,
+    heroHeight: Math.max(...heroes.map((x) => x.height)),
+    spanX: Math.abs(player.root.position.x - leader.root.position.x) + widest,
+    spanZ: Math.abs(player.root.position.z - leader.root.position.z) + widest * 0.5,
+    aspect: w / h, portrait: h > w, headroom, viewportH: h, viewportW: w,
   })
 }
 addEventListener('resize', resize)
@@ -244,9 +329,21 @@ addEventListener('resize', resize)
 /** Re-solve framing once the DOM has settled after a screen change. */
 function reframe() { requestAnimationFrame(() => requestAnimationFrame(resize)) }
 
+/** Put a nameplate over a performer's head, in screen space. */
+const plateAt = new THREE.Vector3()
+function placeNameplate(p: Performer) {
+  if (!p.hero) return
+  plateAt.set(0, p.hero.height * 1.06, 0).applyMatrix4(p.root.matrixWorld).project(play.camera)
+  const w = app.clientWidth, h = app.clientHeight
+  const behind = plateAt.z > 1
+  p.label.style.opacity = behind ? '0' : '1'
+  p.label.style.transform =
+    `translate(-50%,-100%) translate(${(plateAt.x * 0.5 + 0.5) * w}px, ${(-plateAt.y * 0.5 + 0.5) * h}px)`
+}
+
 // ---------------------------------------------------------------- loop
 let last = performance.now()
-let heroBob = 0
+let bob = 0
 /**
  * Stretches game time. Only used for capture: this sandbox has no GPU, so
  * MoveNet runs at ~1 fps instead of the 60+ it manages on real hardware, and a
@@ -263,35 +360,48 @@ renderer.setAnimationLoop(() => {
   const elapsed = (now - last) / 1000
   last = now
   // Two clocks on purpose. Animation is stepped by a tightly clamped dt so a
-  // stalled frame cannot fling the rig across the screen. The game clock is
+  // stalled frame cannot fling a rig across the screen. The game clock is
   // stepped by the real gap, so choreography keeps wall-clock time however
   // slowly the page renders — on a machine with no GPU the old shared clamp
   // ran the music at a tenth speed and the run never reached its last move.
   const dt = Math.min(0.1, elapsed) * timeScale
   clock += Math.min(0.5, elapsed) * timeScale
-  const t = clock
-  const beat = (t / beatSeconds) % 1
 
   void tracker.update(now)
-  const s = game.state
   const live: Skeleton | null = tracker.state === 'ready' ? tracker.skeleton : null
-  game.update(t, live)
+  game.update(clock, live)
+  const s = game.state
+  const beat = s.phase === 'title' ? (clock / secondsPerBeat(game.song.bpm)) % 1 : s.beatPhase
 
-  if (hero) {
-    // Coach beat: the avatar performs the move on its own, from the very same
-    // skeleton the player will be scored against.
-    if (s.phase === 'coach' && coachSolver) {
-      coachSolver.apply(s.move.skeleton, dt)
-    } else if (live && solver && (s.phase === 'copy' || s.phase === 'grade' || s.phase === 'countdown')) {
-      solver.apply(live, dt)
-    }
-    heroBob = damp(heroBob, Math.abs(Math.sin(beat * Math.PI)) * 0.03, 10, dt)
-    hero.root.position.y = heroBob
-    hero.vrm.update(dt)
+  // The leader performs the routine. It never sees the camera.
+  if (s.move && leader.solver) leader.solver.apply(s.move.skeleton, dt)
+  // The player is the camera, always — including through the count-in, so the
+  // first thing anybody sees is their own hero moving when they move.
+  if (live && player.solver) player.solver.apply(live, dt)
+
+  bob = damp(bob, Math.abs(Math.sin(beat * Math.PI)) * 0.03, 10, dt)
+  for (const p of [leader, player]) {
+    if (!p.hero) continue
+    p.hero.root.position.y = bob
+    p.hero.vrm.update(dt)
+  }
+
+  // How well the player is matching, on the floor at their feet rather than in
+  // a bar at the edge, so it is unmistakably about them.
+  const m = matchRing.material as THREE.MeshBasicMaterial
+  const dancing = s.phase === 'dancing'
+  m.opacity = damp(m.opacity, dancing ? 0.25 + s.liveScore * 0.55 : 0, 6, dt)
+  m.color.set(s.liveScore >= 0.75 ? '#3ddc97' : s.liveScore >= 0.5 ? '#ffd23f' : '#ff4d8d')
+
+  // Swing to a three-quarter view once a phrase, so the pair reads as solid
+  // bodies on a stage rather than as two flat cut-outs.
+  if (dancing) {
+    const phrase = Math.floor(Math.max(0, s.beat) / 16) % 4
+    play.setAzimuth([0, 26, 0, -26][phrase])
   }
 
   if (s.phase === 'countdown') {
-    hud.setCountdown(Math.ceil((1 - s.phaseProgress) * TIMING.countdownBeats))
+    hud.setCountdown(Math.ceil(-s.songTime / secondsPerBeat(game.song.bpm)))
   }
   hud.update(s)
   hud.setFps(tracker.fps, tracker.lastInferenceMs)
@@ -300,6 +410,7 @@ renderer.setAnimationLoop(() => {
   stage.update(dt, beat)
   play.update(dt, beat)
   renderer.render(scene, play.camera)
+  if (!nameplates.hidden) { placeNameplate(leader); placeNameplate(player) }
   ;(window as { __frames?: number }).__frames = ((window as { __frames?: number }).__frames ?? 0) + 1
 })
 
@@ -334,7 +445,7 @@ async function loadPoseModelSpec() {
 }
 
 /**
- * Loading the tracker does not block the title screen: a player picks a hero
+ * Loading the tracker does not block the title screen: a player picks heroes
  * while it arrives, and `beginRun` waits on this instead.
  */
 let trackerReady: Promise<void> | null = null
@@ -350,8 +461,10 @@ function startLoadingTracker() {
   try {
     boot.step('Waking up the stage…')
     await firstHeroReady
+    warmPictograms(routineMoves(game.song))
+    await selectPlayer(0)
+    if (ROSTER.length > 1) await selectLeader(1)
     renderPicker()
-    await selectHero(0)
 
     startLoadingTracker().catch((err) => boot.fail((err as Error).message))
 
@@ -369,8 +482,9 @@ function startLoadingTracker() {
 
 // Hooks the recording and test harnesses drive.
 ;(window as unknown as Record<string, unknown>).__api = {
-  start: (rounds?: number) => beginRun(rounds ?? 0),
-  pick: (i: number) => selectHero(i),
+  start: (moves?: number) => beginRun(moves ?? 0),
+  pick: (i: number) => selectPlayer(i),
+  pickLeader: (i: number) => selectLeader(i),
   state: () => game.state,
   setTimeScale: (n: number) => {
     timeScale = n

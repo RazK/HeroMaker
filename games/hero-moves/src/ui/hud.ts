@@ -1,12 +1,18 @@
 import { el } from './dom'
 import { LIMBS, type Skeleton } from '../pose/keypoints'
 import type { GameState, RoundResult } from '../game/game'
+import { pictogram } from './pictogram'
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US')
 
 /**
- * The overlay. Everything lives at the edges of the frame because the middle
- * belongs to the hero's face — the whole reason this game exists.
+ * The overlay.
+ *
+ * Everything lives at the edges, because the middle belongs to two faces a
+ * child drew. The one piece that earns space is the strip: a row of stick
+ * figures sliding toward a marker, which answers "what next, and when" without
+ * a word of instruction. It is the reason the routine can run continuously
+ * instead of stopping to explain itself.
  */
 export class Hud {
   readonly hud = el('div', { class: 'layer', id: 'hud', hidden: true })
@@ -14,16 +20,11 @@ export class Hud {
   readonly grade = el('div', { id: 'grade' })
 
   private score = el('div', { class: 'value num' }, '0')
-  private moveCount = el('div', { class: 'value small num' }, '1 / 9')
-  private combo = el('div', { class: 'value small num' }, '')
+  private combo = el('div', { class: 'value small num' }, '—')
   private moveName = el('div', { id: 'moveName' }, '')
-  private movePhase = el('div', { id: 'movePhase' }, '')
-  private beatFill = el('i', {})
-  private beatBar = el('div', { class: 'beat' }, this.beatFill)
-  private matchFill = el('div', { id: 'matchFill' })
-  private matchPct = el('div', { id: 'matchPct', class: 'num' }, '0%')
-  private matchWrap = el('div', { id: 'matchWrap' },
-    el('div', { id: 'matchBar' }, this.matchFill), this.matchPct)
+  private stripInner = el('div', { id: 'stripInner' })
+  private strip = el('div', { id: 'strip' },
+    el('div', { id: 'stripNow' }), this.stripInner, this.moveName)
   private countdownNum = el('div', { id: 'countdown' })
 
   private camCanvas = el('canvas', { width: 224, height: 168 }) as HTMLCanvasElement
@@ -32,19 +33,20 @@ export class Hud {
   readonly camPanel = el('div', { id: 'camPanel' },
     this.camCanvas, el('div', { id: 'camBadge' }, this.camState, this.camFps))
 
+  /** Tiles are reused frame to frame; rebuilding them every frame flickers. */
+  private tiles = new Map<string, HTMLElement>()
+
   constructor() {
     this.countdownLayer.append(this.countdownNum)
     this.hud.append(
       el('div', { class: 'hud-top' },
         el('div', { class: 'readout' },
-          el('div', { class: 'label' }, 'Score'), this.score,
-          el('div', { class: 'label', style: 'margin-top:6px' }, 'Combo'), this.combo),
+          el('div', { class: 'label' }, 'Score'), this.score),
         el('div', { class: 'readout right' },
-          el('div', { class: 'label' }, 'Move'), this.moveCount),
+          el('div', { class: 'label' }, 'Combo'), this.combo),
       ),
+      this.strip,
       this.camPanel,
-      el('div', { id: 'movePanel' },
-        this.movePhase, this.moveName, this.beatBar, this.matchWrap),
       this.grade,
     )
   }
@@ -52,24 +54,41 @@ export class Hud {
   update(s: GameState) {
     this.score.textContent = fmt(s.score)
     this.combo.textContent = s.combo > 1 ? `×${s.combo}` : '—'
-    this.moveCount.textContent = `${s.moveIndex + 1} / ${s.totalMoves}`
-    this.moveName.textContent = s.move.name
-
-    const copying = s.phase === 'copy'
-    this.movePhase.textContent =
-      s.phase === 'coach' ? 'Watch your hero' : copying ? 'Your turn — copy it' : ''
-    this.beatBar.classList.toggle('copy', copying)
-    this.beatFill.style.width = `${(copying ? 1 - s.phaseProgress : s.phaseProgress) * 100}%`
-
-    this.matchWrap.hidden = !copying
-    const pct = Math.round(s.liveScore * 100)
-    this.matchFill.style.width = `${pct}%`
-    this.matchFill.style.background =
-      s.liveScore >= 0.75 ? 'var(--mint)' : s.liveScore >= 0.5 ? 'var(--gold)' : 'var(--pop)'
-    this.matchPct.textContent = `${pct}%`
-
-    this.camPanel.classList.toggle('lost', !s.seesPlayer && s.phase !== 'title')
+    this.moveName.textContent = s.move?.name ?? ''
+    this.renderStrip(s)
+    this.camPanel.classList.toggle('lost', !s.seesPlayer && s.phase === 'dancing')
     this.camState.textContent = s.seesPlayer ? 'TRACKING' : 'STEP INTO VIEW'
+  }
+
+  /**
+   * Lay the upcoming moves out by *time*, not by index: a two-beat move sits
+   * half as far ahead as a four-beat one, so the spacing on screen is the
+   * spacing in the music.
+   */
+  private renderStrip(s: GameState) {
+    const seen = new Set<string>()
+    for (let i = 0; i < s.next.length; i++) {
+      const u = s.next[i]
+      const key = `${u.move.id}:${i}`
+      seen.add(key)
+      let tile = this.tiles.get(key)
+      if (!tile) {
+        const img = el('img', { class: 'shape', src: pictogram(u.move), alt: u.move.name })
+        tile = el('div', { class: 'tile' }, img)
+        this.tiles.set(key, tile)
+        this.stripInner.append(tile)
+      }
+      // Beats-away maps to distance from the marker; the live move sits on it.
+      const t = Math.max(-0.4, Math.min(4.2, u.beatsAway / 4))
+      tile.style.transform = `translate(-50%,-50%) translateX(${t * 100}%)`
+      tile.style.opacity = String(u.beatsAway <= 0 ? 1 : Math.max(0.45, 1 - t * 0.45))
+      tile.classList.toggle('live', u.beatsAway <= 0)
+    }
+    for (const [key, tile] of this.tiles) {
+      if (seen.has(key)) continue
+      tile.remove()
+      this.tiles.delete(key)
+    }
   }
 
   showGrade(r: RoundResult) {
