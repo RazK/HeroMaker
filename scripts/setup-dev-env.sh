@@ -28,6 +28,11 @@ fi
 
 mkdir -p data/db data/files
 
+if [ ! -f "data/db/heromaker.db" ] && [ -f "scripts/install-seed-data.sh" ]; then
+    echo "Installing default seed data"
+    bash scripts/install-seed-data.sh
+fi
+
 if [ ! -f ".env" ]; then
     echo "Creating local .env"
     cat > .env <<EOF
