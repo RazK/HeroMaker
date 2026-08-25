@@ -14,6 +14,7 @@ This script tests:
 import os
 import sys
 import requests
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -23,8 +24,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-TEST_USERNAME = "test_user_auth"
-TEST_EMAIL = "test_auth@example.com"
+TEST_RUN_ID = os.getenv("TEST_RUN_ID", str(int(time.time())))
+TEST_USERNAME = os.getenv("TEST_USERNAME", f"test_user_auth_{TEST_RUN_ID}")
+TEST_EMAIL = os.getenv("TEST_EMAIL", f"test_auth_{TEST_RUN_ID}@example.com")
 TEST_PASSWORD = "testpass123"
 
 
@@ -36,13 +38,15 @@ def test_signup():
         json={
             "username": TEST_USERNAME,
             "email": TEST_EMAIL,
-            "password": TEST_PASSWORD
+            "password": TEST_PASSWORD,
+            "name": "Auth Smoke Test",
+            "date_of_birth": "2000-01-01",
         }
     )
     
     if response.status_code == 201:
         data = response.json()
-        print(f"✅ Signup successful: {data['user']['username']} (tokens: {data['user']['tokens']})")
+        print(f"✅ Signup successful: {data['user']['username']} (credits: {data['user']['credits']})")
         return data['access_token']
     elif response.status_code == 400:
         print(f"⚠️  User already exists, trying login instead...")
@@ -65,7 +69,7 @@ def test_login():
     
     if response.status_code == 200:
         data = response.json()
-        print(f"✅ Login successful: {data['user']['username']} (tokens: {data['user']['tokens']})")
+        print(f"✅ Login successful: {data['user']['username']} (credits: {data['user']['credits']})")
         return data['access_token']
     else:
         print(f"❌ Login failed: {response.status_code} - {response.text}")
@@ -82,7 +86,7 @@ def test_get_me(token):
     
     if response.status_code == 200:
         data = response.json()
-        print(f"✅ /me successful: {data['username']} (tokens: {data['tokens']})")
+        print(f"✅ /me successful: {data['username']} (credits: {data['credits']})")
         return True
     else:
         print(f"❌ /me failed: {response.status_code} - {response.text}")
@@ -99,7 +103,8 @@ def test_protected_endpoint(token):
     
     if response.status_code == 200:
         data = response.json()
-        print(f"✅ Protected endpoint accessible: {len(data.get('creations', []))} creations")
+        creations = data if isinstance(data, list) else data.get('creations', [])
+        print(f"✅ Protected endpoint accessible: {len(creations)} creations")
         return True
     else:
         print(f"❌ Protected endpoint failed: {response.status_code} - {response.text}")
