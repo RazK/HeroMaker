@@ -13,7 +13,7 @@ name: Publish Hero Moves to Pages
 
 on:
   push:
-    branches: [main, claude/heromaker-game-creation-nmdhhf]
+    branches: [main, staging]
     paths:
       - 'games/hero-moves/**'
       - '.github/workflows/pages.yml'
