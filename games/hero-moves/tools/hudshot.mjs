@@ -13,7 +13,7 @@ const flag = (n, d) => {
   return hit ? hit.slice(hit.indexOf('=') + 1) : d
 }
 const W = Number(flag('w', 1280)), H = Number(flag('h', 720))
-const phase = flag('phase', 'copy')
+const phase = flag('phase', 'dancing')
 const avatar = Number(flag('avatar', 0))
 const feed = flag('video', '/tmp/dancer/dancer.y4m')
 const base = flag('url', 'http://127.0.0.1:5183')
@@ -28,6 +28,8 @@ await page.context().grantPermissions(['camera'])
 await page.goto(base, { waitUntil: 'load', timeout: 180000 })
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000 })
 if (avatar > 0) { await page.evaluate((i) => window.__api.pick(i), avatar); await page.waitForTimeout(2500) }
+const partner = Number(flag('partner', -1))
+if (partner >= 0) { await page.evaluate((i) => window.__api.pickLeader(i), partner); await page.waitForTimeout(2500) }
 if (phase !== 'title') {
   await page.evaluate(() => window.__api.setTimeScale(0.5))
   await page.evaluate(() => window.__api.start())

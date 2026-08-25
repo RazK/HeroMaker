@@ -74,6 +74,9 @@ page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()) })
 await page.goto(base, { waitUntil: 'load', timeout: 180000 })
 await page.waitForFunction(() => window.__ready === true || String(window.__ready ?? '').startsWith('error'),
   null, { timeout: 300000 })
+// Playwright starts recording at context creation, so the file opens on a
+// blank page while the payload parses. Trim from the moment the title is up.
+const readySeconds = (Date.now() - recordingStarted) / 1000
 const ready = await page.evaluate(() => window.__ready)
 if (ready !== true) {
   console.error('boot failed:', ready)
@@ -102,11 +105,9 @@ if (captions) await page.evaluate(() => {
   document.body.appendChild(bar)
 
   const LINE = {
-    title: 'Pick a hero a kid drew',
+    title: 'Pick both heroes — yours, and your partner',
     countdown: 'Get ready…',
-    coach: 'Watch — your hero shows the move',
-    copy: 'Copy it — and your hero mirrors you back, live',
-    grade: 'Scored on limb angles, not on your size',
+    dancing: 'Left one leads. Right one is you, live from the webcam.',
     results: 'Final score',
   }
   let shown = ''
@@ -136,8 +137,8 @@ while (Date.now() < deadline) {
   const snap = await page.evaluate(() => ({
     phase: window.__api.phase(),
     tracker: window.__api.tracker(),
-    state: (({ moveIndex, liveScore, bestThisMove, score, seesPlayer }) =>
-      ({ moveIndex, liveScore, bestThisMove, score, seesPlayer }))(window.__api.state()),
+    state: (({ slotIndex, liveScore, bestThisMove, score, seesPlayer }) =>
+      ({ slotIndex, liveScore, bestThisMove, score, seesPlayer }))(window.__api.state()),
   }))
   samples.push(snap)
   if (snap.phase === 'results') { await page.waitForTimeout(6000 / timescale); break }
@@ -157,10 +158,10 @@ await browser.close()
 const webm = fs.readdirSync(videoDir).map((f) => path.join(videoDir, f)).find((f) => f.endsWith('.webm'))
 if (!webm) { console.error('playwright produced no video'); process.exit(1) }
 fs.mkdirSync(path.dirname(out), { recursive: true })
-// Boot is a progress bar and nobody needs to watch it. Keep three seconds of
-// finished title screen ahead of the first beat and drop everything before it.
+// Boot is a progress bar and nobody needs to watch it. Start at the frame the
+// title screen appeared, which also drops the blank page before first paint.
 const leadOut = 3 / timescale
-const trim = Math.max(0, bootSeconds - leadOut)
+const trim = Math.max(readySeconds, bootSeconds - leadOut)
 const speed = timescale !== 1 ? ['-vf', `setpts=PTS*${timescale},fps=30`] : []
 execFileSync(FFMPEG, ['-y', '-loglevel', 'error', ...(trim > 0 ? ['-ss', String(trim)] : []), '-i', webm, ...speed,
   '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '22', '-movflags', '+faststart', out])

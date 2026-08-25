@@ -116,6 +116,33 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 .btn.secondary { background: rgba(23,16,31,.08); color: var(--ink); }
 .actions { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* Which of the two heroes a tap in the grid applies to. */
+.segmented { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(23,16,31,.09); }
+.seg {
+  pointer-events: auto; cursor: pointer; flex: 1;
+  font: inherit; font-weight: 800; font-size: clamp(12px, 1.8vmin, 15px);
+  padding: .45em .6em; border: 0; border-radius: 999px;
+  background: transparent; color: rgba(23,16,31,.62);
+}
+.seg.on { background: var(--paper); color: var(--ink); box-shadow: 0 2px 8px rgba(23,16,31,.18); }
+.seg:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+.picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.pick {
+  pointer-events: auto; cursor: pointer;
+  font: inherit; font-weight: 700; font-size: clamp(10px, 1.5vmin, 12px);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 4px; border: 0; border-radius: 14px;
+  background: rgba(23,16,31,.07); color: var(--ink);
+}
+.pick img { border-radius: 10px; }
+.pick.on { outline: 3px solid var(--pop); background: rgba(255,77,141,.1); }
+/* Already cast in the other role — still choosable, just marked. */
+.pick.taken { opacity: .45; }
+.pick:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+.scorelist { display: flex; flex-direction: column; gap: 2px; }
+
 /* ---------------------------------------------------------------- hud */
 #hud { justify-content: flex-start; }
 /* Readouts live over the dark curtain, but a pale hero can drift under them. */
@@ -142,46 +169,69 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 .readout .value.small { font-size: clamp(17px, 2.6vmin, 26px); }
 
 /*
- * The move being asked for.
+ * The move strip.
  *
- * It used to float bottom-centre as bare text. On a bright stage floor, white
- * text over a cream boot is invisible, and it landed on top of the hero's legs
- * — so it lost both the words and the avatar. It is now an opaque plate in the
- * bottom-left corner, balancing the camera panel on the right and leaving the
- * middle of the frame to the hero, which is the only rule this HUD has.
+ * Stick figures slide right to left toward a marker; the one sitting on the
+ * marker is the move being scored right now. This is what lets the routine run
+ * continuously instead of stopping to tell you what is coming — Just Dance's
+ * pictogram row, and the same reason it exists there.
  */
-#movePanel {
-  position: absolute; left: var(--space-4);
-  bottom: clamp(20px, 4.2vh, 40px);
-  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2);
-  width: min(340px, 46vw);
-  padding: var(--space-3) var(--space-3) calc(var(--space-3) + 2px);
+#strip {
+  position: absolute; left: 0; right: 0; bottom: clamp(14px, 3.4vh, 34px);
+  height: clamp(66px, 13vh, 104px);
+  pointer-events: none;
+}
+/* The strip crosses the stage floor, which is cream. Give it a ground. */
+#strip::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -18%; bottom: -60%;
+  background: linear-gradient(rgba(18,12,32,0), rgba(18,12,32,.82) 28%, rgba(18,12,32,.92));
+}
+#stripInner { position: absolute; inset: 0; }
+/* The marker sits a third in from the left, so there is room ahead of it for
+   what is coming and a little behind for what has just gone. */
+#stripNow {
+  position: absolute; left: 30%; top: 0; bottom: 0; width: clamp(58px, 11vh, 92px);
+  transform: translateX(-50%);
   border-radius: 16px;
-  background: rgba(18,12,32,.82);
-  box-shadow: 0 0 0 1px rgba(253,247,236,.14), 0 10px 30px rgba(0,0,0,.5);
+  background: rgba(255, 210, 63, .14);
+  box-shadow: inset 0 0 0 2px var(--gold);
 }
+.tile {
+  position: absolute; left: 30%; top: 50%;
+  width: clamp(50px, 9.5vh, 80px); height: clamp(50px, 9.5vh, 80px);
+  display: grid; place-items: center;
+  transition: opacity .2s linear;
+}
+.tile .shape {
+  width: 100%; height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.75));
+}
+.tile.live { filter: drop-shadow(0 0 12px rgba(255,210,63,.6)); }
 #moveName {
-  font-weight: 800; letter-spacing: .04em; line-height: 1.05;
-  font-size: clamp(20px, 3.4vmin, 32px);
+  position: absolute; left: 30%; bottom: -1.5em; transform: translateX(-50%);
+  font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  font-size: clamp(10px, 1.5vmin, 13px); color: var(--gold);
+  text-shadow: 0 2px 10px rgba(0,0,0,.8); white-space: nowrap;
 }
-#movePhase {
-  font-size: clamp(10px, 1.5vmin, 13px); font-weight: 800;
-  letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
-  min-height: 1.2em;
-}
-/* Beat bar: how long is left in this phase. */
-.beat {
-  width: 100%; height: 8px; border-radius: 999px;
-  background: rgba(253,247,236,.22); overflow: hidden;
-}
-.beat > i { display: block; height: 100%; width: 0%; background: var(--gold); border-radius: 999px; }
-.beat.copy > i { background: linear-gradient(90deg, var(--mint), var(--sky)); }
 
-/* Live match meter, shown only while copying. */
-#matchWrap { display: flex; align-items: center; gap: var(--space-2); width: 100%; }
-#matchBar { flex: 1; height: 10px; border-radius: 999px; background: rgba(253,247,236,.18); overflow: hidden; }
-#matchFill { height: 100%; width: 0%; background: var(--pop); border-radius: 999px; transition: width .08s linear, background .2s; }
-#matchPct { font-weight: 800; font-size: clamp(12px, 1.8vmin, 15px); min-width: 3.2em; text-align: right; }
+/*
+ * Nameplates. The whole fix for "who is imitating whom" is that the two
+ * performers never swap jobs — these just say so out loud on the first run.
+ */
+.nameplate {
+  position: absolute; left: 0; top: 0;
+  padding: .28em .7em; border-radius: 999px;
+  font-size: clamp(9px, 1.4vmin, 12px); font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase;
+  white-space: nowrap; transition: opacity .2s;
+  box-shadow: 0 4px 14px rgba(0,0,0,.5);
+}
+.nameplate::before { opacity: .8; }
+.nameplate.leader { background: rgba(18,12,32,.86); color: var(--gold); }
+.nameplate.leader::before { content: 'follow · '; }
+.nameplate.player { background: var(--gold); color: var(--ink); }
+.nameplate.player::before { content: 'you · '; }
+
 
 /* Grade pop. */
 /*
@@ -296,7 +346,6 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
   /* A phone has one column, and the hero owns it. The move plate takes the
      foot of the screen; the camera goes up into the top corner against the
      curtain, where it covers backdrop rather than the performer. */
-  #movePanel { left: var(--space-3); right: var(--space-3); width: auto; bottom: var(--space-3); }
   #camPanel {
     position: absolute; right: var(--space-3); top: clamp(64px, 11vh, 96px);
     width: clamp(88px, 27vw, 132px);
