@@ -71,3 +71,6 @@ devops/railway/env/vrm-converter
 # Data directory (excluded from git to speed up Railway snapshots)
 data/
 frontend/dev-dist/
+
+# Worktrees created by Claude Code subagents for isolated runs.
+.claude/worktrees/
