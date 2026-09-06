@@ -705,22 +705,18 @@
 /*
  * Phone header.
  *
- * `grid-template-columns: 1fr auto 1fr` cannot shrink a column below its
- * content, so the wordmark held the middle column open and pushed the account
- * button - with the credit balance and its menu chevron - 47px past the right
- * edge of a 390px screen. You could not see your balance or open the menu.
- *
- * The logo carries the identity on a phone; the wordmark is what has to go.
+ * One row at every width: upload controls, the logo lockup, then the account
+ * controls. `1fr auto 1fr` would centre the lockup optically, but the two side
+ * groups are not the same width, so equal `fr` tracks force the wider (account)
+ * side to overflow - that is what pushed the credit balance 47px off a 390px
+ * screen. The middle track is the flexible one instead: the side columns take
+ * exactly their content and the lockup is centred in whatever is left.
  */
 @media (max-width: 699px) {
   .app-header {
-    grid-template-columns: auto auto 1fr;
-    padding: var(--space-2) var(--space-3);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: var(--space-2);
     gap: var(--space-2);
-  }
-
-  .app-header h1 {
-    display: none;
   }
 
   .app-header-left,
@@ -729,9 +725,72 @@
     min-width: 0;
   }
 
-  .app-header-right {
-    /* Whatever is still too wide truncates inside its own column rather than
-       running off the screen. */
-    overflow: hidden;
+  /* Tighter lockup - the mark and the wordmark read as one unit, and the
+     reclaimed gap goes to the wordmark. */
+  .app-header-center {
+    gap: var(--space-1);
+  }
+
+  .app-header-center .app-logo {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* The wordmark gets whatever the two button groups leave over, which is
+     ~130px at 360px wide. Barriecito draws "HeroMaker" at roughly 5x the font
+     size, so 5vw (18px at 360px, ~90px wide) fits with room to spare and
+     reaches the full 24px phone size by 480px. */
+  .app-header h1 {
+    font-size: clamp(18px, 5vw, 24px);
+    white-space: nowrap;
+  }
+
+  /* Icon-only header buttons: square and no wider than the 36px minimum tap
+     target, so the buttons stop competing with the wordmark for width. */
+  .app-header .header-button {
+    padding: 0 var(--space-1);
+    min-width: 36px;
+    min-height: 36px;
+    justify-content: center;
+    gap: var(--space-1);
+  }
+
+  .app-header .header-upload-buttons,
+  .app-header .header-auth {
+    gap: var(--space-2);
+  }
+
+  /* The logged-out login button is the only header control that is not a
+     .header-button, so it needs the 36px tap target spelling out. */
+  .app-header .header-auth-button {
+    min-height: 36px;
+  }
+}
+
+/*
+ * Below 360px (iPhone SE 1, small Androids) the four controls plus the lockup
+ * no longer fit at the sizes above - the last letter of the wordmark ran under
+ * the Admin button. Everything around the wordmark gives way instead: the
+ * wordmark itself stays at its 18px floor, which is as small as it stays
+ * legible.
+ */
+@media (max-width: 359px) {
+  .app-header {
+    padding: var(--space-1);
+    gap: var(--space-1);
+  }
+
+  .app-header-center .app-logo {
+    width: 24px;
+    height: 24px;
+  }
+
+  .app-header .header-upload-buttons,
+  .app-header .header-auth {
+    gap: var(--space-1);
+  }
+
+  .app-header .header-auth-credits {
+    font-size: 12px;
   }
 }
