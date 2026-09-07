@@ -4,13 +4,12 @@ import { clamp, damp } from '../core/math'
 /**
  * The play camera.
  *
- * It frames two performers: a leader who dances the routine and the player's
- * own hero, who mirrors the camera feed. Both faces have to stay readable —
- * that is the entire reason this game exists rather than the runner it replaced
- * — so the camera stays in front of the pair and only ever swings to a
- * three-quarter view, never behind.
+ * It frames one to three performers standing in lanes. Every face has to stay
+ * readable — that is the entire reason this game exists rather than the runner
+ * it replaced — so the camera stays in front of the line and only ever swings
+ * to a three-quarter view, never behind.
  *
- * Distance is solved from the taller hero and from the span the pair occupies,
+ * Distance is solved from the tallest hero and from the span the line occupies,
  * evaluated at the *widest* angle the orbit can reach rather than at the angle
  * currently showing. Solving for the current angle would make the camera creep
  * in and out as it swings, and would eventually clip a hand off the edge at the
@@ -20,9 +19,17 @@ import { clamp, damp } from '../core/math'
 /** Fraction of frame height the taller hero should occupy. */
 const FILL_LANDSCAPE = 0.68
 const FILL_PORTRAIT = 0.52
-/** Fraction of frame width the pair may occupy. */
+/** Fraction of frame width the line may occupy. */
 const FILL_WIDTH = 0.78
 const FILL_WIDTH_PORTRAIT = 0.94
+/**
+ * With a card down the left of a landscape screen the line only owns what is
+ * left of the frame, and it has to be *centred in that*, not in the window.
+ * Both numbers are fractions of the full frame: how much width is free, and how
+ * far right the middle of that free space sits, in NDC.
+ */
+const FILL_WIDTH_CARD = 0.46
+const CARD_SHIFT_NDC = 0.34
 /** How far round the orbit is allowed to go. Past this the faces turn away. */
 export const MAX_AZIMUTH = 34
 
@@ -84,7 +91,8 @@ export class PlayCamera {
       ? Math.min(FILL_PORTRAIT, (f.headroom * 0.76) / f.viewportH)
       : null
     const fill = band ?? (f.portrait ? FILL_PORTRAIT : FILL_LANDSCAPE)
-    const fillW = f.portrait ? FILL_WIDTH_PORTRAIT : FILL_WIDTH
+    const cardLand = this.cardVisible && !f.portrait
+    const fillW = f.portrait ? FILL_WIDTH_PORTRAIT : cardLand ? FILL_WIDTH_CARD : FILL_WIDTH
 
     this.camera.aspect = f.aspect
     this.camera.fov = f.portrait ? 44 : 40
@@ -101,7 +109,12 @@ export class PlayCamera {
     const forWidth = span / fillW / (2 * halfHeight * f.aspect)
 
     this.distance = clamp(Math.max(forHeight, forWidth), 3, 16)
-    // Eye a little below the chest: the pair is seen from the stalls.
+    // Step the line sideways by however much world one third of a frame is at
+    // this distance, so three heroes clear the card as reliably as one does.
+    this.offsetTarget = cardLand
+      ? -CARD_SHIFT_NDC * this.distance * halfHeight * f.aspect
+      : 0
+    // Eye a little below the chest: the line is seen from the stalls.
     this.eyeY = f.heroHeight * 0.46
     this.lookY = f.heroHeight * 0.52
     this.apply()
@@ -114,8 +127,8 @@ export class PlayCamera {
    */
   setPresentation(card: boolean) {
     this.cardVisible = card
-    this.offsetTarget = card && !(this.lastFraming?.portrait ?? false) ? -1.6 : 0
     if (this.lastFraming) this.frame(this.lastFraming)
+    else this.offsetTarget = 0
   }
 
   /** 0 for a standing pose, 1 while an airborne clip is playing. */

@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
       // Classic script, not a module: it boots mid-parse so the game is
       // playable before the payload behind it has finished downloading.
       ? { output: { format: 'iife', inlineDynamicImports: true } }
-      : { input: { main: 'index.html', moveslab: 'moveslab.html', dancer: 'dancer.html',
+      : { input: { main: 'index.html', moveslab: 'moveslab.html', dancers: 'dancers.html',
                     posecheck: 'posecheck.html', animlab: 'animlab.html',
                     posegate: 'posegate.html', reel: 'reel.html' } },
     target: 'es2020',

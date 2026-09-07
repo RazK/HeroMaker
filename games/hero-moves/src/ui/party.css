@@ -1,0 +1,226 @@
+/*
+ * Hero Moves — party layout.
+ *
+ * Everything here exists because the stage now holds up to three heroes and
+ * none of them is a coach. Two rules follow from that and drive every rule
+ * below:
+ *
+ *  1. Anything that belongs to a player is drawn in that player's lane colour
+ *     and, where possible, physically over that player's hero. A score with no
+ *     owner is worse than no score at all when three people are competing.
+ *  2. Nothing sits in the middle. The centre of the frame is three bodies.
+ *
+ * Colours are taken from the shared palette, and the ink weights are used on
+ * paper — the bright ones are for the dark stage only.
+ */
+
+/* Lane identity. One hue per lane, used by the plate, the picker tag and the
+   podium, so a colour learned in the menu still means the same person later. */
+.lane-0 { --lane: var(--gold); --lane-ink: #a06b00; }
+.lane-1 { --lane: var(--mint); --lane-ink: #0f7a52; }
+.lane-2 { --lane: var(--sky);  --lane-ink: #14538f; }
+
+.stack-2 { display: flex; flex-direction: column; gap: var(--space-2); }
+.muted { opacity: .62; font-weight: 700; }
+
+/* Labels inside the cream card must be ink, never the stage-weight cream. */
+.card .reel-label {
+  font-size: clamp(9px, 1.3vmin, 11px); font-weight: 800;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: rgba(23, 16, 31, .62); text-align: left;
+}
+
+/* ---------------------------------------------------------------- menu cam */
+/*
+ * The menu preview answers one question — "can it see all of us yet" — and it
+ * has to answer it before the round starts, because a lane game that discovers
+ * an empty lane mid-song has already wasted the song.
+ */
+.menu-camwrap {
+  position: relative;
+  /* Its only content is absolutely positioned, so in a scrolling flex column
+     it has no natural height to defend and collapses to nothing. */
+  flex: 0 0 auto;
+  border-radius: 12px; overflow: hidden;
+  background: #1b1430;
+  aspect-ratio: 16 / 6;
+  display: grid; place-items: center;
+}
+.menu-cam { width: 100%; height: 100%; display: block; object-fit: cover; }
+.menu-camwrap .hint {
+  position: absolute; left: 8px; right: 8px; bottom: 6px; margin: 0;
+  color: var(--paper); opacity: .92; text-shadow: 0 2px 8px rgba(0, 0, 0, .9);
+}
+/* Before the camera is allowed there is nothing behind the text, so it moves
+   to the middle rather than hugging the bottom of an empty black box. */
+.menu-camwrap.off { background: rgba(23, 16, 31, .9); }
+.menu-camwrap.off .hint { top: 50%; bottom: auto; transform: translateY(-50%); }
+
+
+/* ---------------------------------------------------------------- picker */
+.pick-row { display: flex; align-items: center; gap: var(--space-2); }
+.pick-tag {
+  flex: 0 0 auto; min-width: 2.4em;
+  padding: .3em .6em; border-radius: 999px;
+  font-weight: 800; font-size: clamp(11px, 1.6vmin, 13px);
+  background: var(--lane, var(--gold)); color: var(--ink);
+}
+/* Horizontal, because six heroes in a grid pushed the start button off a
+   phone — measured at 667px tall, where the button came back at 30px. */
+.pick-strip {
+  flex: 1 1 auto; display: flex; gap: 6px;
+  overflow-x: auto; padding: 2px; scrollbar-width: none;
+}
+.pick-strip::-webkit-scrollbar { display: none; }
+.pick-strip .pick { flex: 0 0 auto; padding: 3px; border-radius: 12px; }
+.pick-strip .pick img { display: block; width: 44px; height: 44px; }
+.pick-row .pick.on { outline: 3px solid var(--lane-ink, var(--pop)); background: rgba(23, 16, 31, .12); }
+.pick-row .pick.on img { filter: saturate(1.05); }
+
+/* ---------------------------------------------------------------- plates */
+/*
+ * A player's score rides above that player's own head. Projected every frame
+ * from the hero's skull, so it tracks a hero that jumps, and colour-matched to
+ * the lane so it survives two heroes crossing.
+ */
+#plates { pointer-events: none; }
+.p-plate {
+  position: absolute; left: 0; top: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  transition: opacity .2s ease;
+  will-change: transform;
+}
+.p-score {
+  font-weight: 800; line-height: 1;
+  font-size: clamp(18px, 3.1vmin, 32px);
+  color: var(--lane, var(--gold));
+  -webkit-text-stroke: 5px rgba(16, 10, 28, .92);
+  paint-order: stroke fill;
+}
+.p-combo {
+  font-weight: 800; font-size: clamp(11px, 1.7vmin, 15px);
+  color: var(--paper);
+  -webkit-text-stroke: 4px rgba(16, 10, 28, .9);
+  paint-order: stroke fill;
+}
+.p-grade {
+  font-weight: 800; font-size: clamp(15px, 2.6vmin, 26px);
+  letter-spacing: .02em; opacity: 0; white-space: nowrap;
+  -webkit-text-stroke: 5px rgba(16, 10, 28, .92);
+  paint-order: stroke fill;
+}
+.p-grade.show { animation: platePop calc(.9s / var(--time-scale)) ease-out; }
+@keyframes platePop {
+  0% { opacity: 0; transform: scale(.7); }
+  18% { opacity: 1; transform: scale(1.14); }
+  68% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: translateY(-22px) scale(1); }
+}
+/* An empty lane is the one failure a player can actually fix, so it is said
+   loudly and over the hero it belongs to. */
+.p-lost {
+  padding: .22em .6em; border-radius: 999px;
+  font-size: clamp(9px, 1.4vmin, 12px); font-weight: 800;
+  letter-spacing: .12em; background: var(--pop); color: var(--paper);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+}
+.p-plate.missing .p-score { opacity: .45; }
+
+/* ---------------------------------------------------------------- hud */
+#camStrip {
+  border-radius: 12px; overflow: hidden;
+  background: rgba(0, 0, 0, .45);
+  box-shadow: 0 0 0 2px rgba(253, 247, 236, .22), 0 8px 24px rgba(0, 0, 0, .5);
+  line-height: 0;
+}
+#camStrip canvas { width: clamp(150px, 30vmin, 340px); height: auto; }
+
+.icon-btn {
+  pointer-events: auto; cursor: pointer;
+  flex: 0 0 auto;
+  min-width: 44px; min-height: 44px;
+  border: 0; border-radius: 999px;
+  font: inherit; font-weight: 800; font-size: 15px; letter-spacing: .06em;
+  background: rgba(253, 247, 236, .93); color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+.icon-btn:active { transform: translateY(2px); }
+.icon-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+
+/* ---------------------------------------------------------------- podium */
+.podium { display: flex; flex-direction: column; gap: 6px; }
+.podium-row {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: .4em .6em; border-radius: 14px;
+  background: rgba(23, 16, 31, .06);
+  text-align: left;
+}
+.podium-row.win {
+  background: rgba(255, 210, 63, .22);
+  box-shadow: inset 0 0 0 2px rgba(160, 107, 0, .5);
+}
+.podium-row img { border-radius: 10px; flex: 0 0 auto; }
+.place {
+  flex: 0 0 auto; width: 1.9em; height: 1.9em; border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: clamp(12px, 1.9vmin, 15px);
+  background: var(--lane, var(--gold)); color: var(--ink);
+}
+.place:empty { display: none; }
+.podium-who { flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.15; }
+.podium-who b { font-size: clamp(13px, 2.1vmin, 17px); }
+.podium-who .muted { font-size: clamp(10px, 1.5vmin, 12px); }
+.podium-nums {
+  flex: 0 0 auto; display: flex; flex-direction: column;
+  align-items: flex-end; line-height: 1.15;
+}
+.podium-nums b { font-size: clamp(15px, 2.5vmin, 22px); }
+.podium-nums span { font-size: clamp(10px, 1.5vmin, 12px); opacity: .7; font-weight: 700; }
+
+/*
+ * Every control is at least a thumb.
+ *
+ * The short-screen rules in the base sheet shrink type to make a card fit, and
+ * twice that has taken the primary button down to 30px — measured, not guessed,
+ * by tools/partyfit.mjs. Type may shrink; the target may not.
+ */
+.btn { min-height: 44px; }
+.seg { min-height: 34px; }
+.pick { min-height: 44px; }
+
+/*
+ * Portrait is the hard case: the card owns the bottom of the screen and the
+ * heroes own what is left, and with three pick rows and a camera preview the
+ * card will happily take the lot. The stage is the reason anyone chose a hero,
+ * so the card is capped and its insides give way instead.
+ */
+/*
+ * On a short screen the card scrolls, and the one thing that must never scroll
+ * out of reach is the button that starts the game. It rides the bottom of the
+ * card with a fade under it so the content it covers still reads as content.
+ */
+#title .actions, #results .actions {
+  position: sticky; bottom: calc(var(--space-3) * -1); z-index: 1;
+  padding-bottom: var(--space-1);
+  background: linear-gradient(rgba(253, 247, 236, 0), rgba(253, 247, 236, .97) 32%);
+}
+
+@media (orientation: portrait) {
+  #title .card { padding: var(--space-3) var(--space-4); gap: var(--space-2); max-height: 62vh; }
+  #title h1 { font-size: clamp(26px, 5.6vmin, 40px); }
+  .menu-camwrap { aspect-ratio: auto; height: clamp(72px, 12vh, 120px); }
+  .pick-strip .pick img { width: 38px; height: 38px; }
+  .pick-tag { font-size: 11px; padding: .25em .5em; }
+  #camStrip canvas { width: clamp(120px, 46vw, 240px); }
+}
+@media (max-height: 620px) {
+  /* The base sheet drops hints to save height; this one is not a hint, it is
+     the only thing explaining an empty black box. */
+  .menu-camwrap .hint { display: block; font-size: 11px; }
+  .pick-strip .pick img { width: 32px; height: 32px; }
+  #title .card { gap: 6px; }
+  .menu-camwrap { height: clamp(56px, 11vh, 90px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p-grade.show { animation: none; opacity: 1; }
+}

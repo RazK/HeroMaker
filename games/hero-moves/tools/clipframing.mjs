@@ -36,9 +36,9 @@ await page.waitForFunction(() => window.__api.clipsReady?.() === true, null, { t
 
 const shots = []
 for (const i of heroes) {
-  await page.evaluate((n) => window.__api.pickLeader(n), i)
+  await page.evaluate((n) => window.__api.pick(0, n), i)
   await page.waitForFunction(() => window.__api.clipsReady?.() === true, null, { timeout: 300000 })
-  await page.evaluate((c) => window.__api.perform(c, 'leader'), clip)
+  await page.evaluate((c) => window.__api.perform(c, 0), clip)
   await page.waitForTimeout(settle)
   const f = out.replace(/\.png$/, `-${i}.png`)
   await page.screenshot({ path: f })

@@ -142,6 +142,44 @@ broken as one that is wrong, and it fails in a way no accuracy metric shows.
 > distribution of the right answers, and set the guard from it — then report the
 > accept rate alongside the accuracy, because either alone is misleading.
 
+**Two bodies on stage doing two different jobs read as a bug.** Hero Moves put a
+coach who demonstrated the move next to a hero who mirrored the player, told
+apart only by a label over each head. The first sentence out of the first
+playtest was *"am I supposed to imitate the character, or is the character
+imitating me?"* Nothing was broken; the screen was simply ambiguous, and no
+amount of labelling fixed it. Deleting the coach did — the timeline already
+said what was coming, so the demonstration was explaining something that was
+not in question.
+
+> **Rule: give every body on screen exactly one job, forever.** If a viewer has
+> to read a label to know which of two identical-looking things is theirs, the
+> label is load-bearing and the design is wrong. Prefer deleting a role to
+> explaining it.
+
+**Multiplayer looked like a bigger model and was a smaller crop.** Three players
+seemed to need MoveNet MultiPose. Measured, it is 9.45 MB of weights against
+Lightning's 4.65 — the whole download budget again — and at party distance each
+body already occupies a third of a frame the model squares to 192x192 anyway.
+Cropping one lane per player out of the same frame costs one inference each and
+throws in the hard part for free: **a lane cannot be confused with another
+lane**, so player identity needs no recognition, no re-identification and no
+photograph of anybody.
+
+> **Rule: before scaling the model, look at what the geometry already tells
+> you.** Where people stand is data. A constraint the players can satisfy by
+> standing still in the right place is cheaper and more reliable than any
+> model that has to infer the same fact.
+
+**A lane crop amputates the pose it is meant to read.** An arm held out is wider
+than a third of a frame, so a T-pose crosses into the neighbouring lane. Cutting
+at the lane edge does not produce a missing wrist — MoveNet *invents* one at the
+edge, at full confidence, and a clean T grades as a shrug. Crops overlap their
+neighbours by 30% of a lane and let the model pick the body in the middle.
+
+> **Rule: a pose model never says "I could not see it".** Anything cropped,
+> occluded or off-frame comes back as a confident wrong answer. Give it more
+> margin than the pose needs, not less.
+
 **The camera turned out to be the wrong axis, and it took market evidence rather than
 engineering to see it.** Three unrelated measurements agree: the shipping
 "webcam drives your avatar" product peaks at ~1,000 concurrent and is declining; the
@@ -206,6 +244,9 @@ particular vocabulary, and they will hold for the next game too.
   classifier is tuned.
 * **A hand held near the head is lost.** Narrowing ARMS UP from a 62/118 V to 75/105
   moved the hands into the hair and dropped it from 100% to 40%.
+* **A body cut off by the frame is reported, not omitted.** Every keypoint comes
+  back with a confidence, and an amputated limb's invented keypoint carries a
+  high one. Confidence is not a proxy for visibility.
 * **Elbows are the worst joint on these avatars** — 0.25-0.66 confidence against
   0.6-0.8 for shoulders and wrists, and placed far too close to the shoulder, because
   a smooth sausage arm has no crease to find. Never build a feature on one.

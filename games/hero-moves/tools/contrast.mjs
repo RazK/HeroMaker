@@ -9,7 +9,8 @@ import { chromium } from 'playwright'
  * actually painted over (climbing past transparent ancestors and folding in
  * `opacity`), and reports anything below the WCAG AA ratio for its size.
  *
- * Usage: contrast.mjs [url] [--w=385] [--h=560] [--phase=title|results]
+ * Usage: contrast.mjs [url] [--w=385] [--h=560]
+ *                     [--phase=menu|countdown|dancing|paused|results] [--players=3]
  */
 const url = process.argv[2] ?? 'http://127.0.0.1:5183/'
 const flag = (n, d) => {
@@ -17,7 +18,8 @@ const flag = (n, d) => {
   return hit ? hit.slice(hit.indexOf('=') + 1) : d
 }
 const W = Number(flag('w', 385)), H = Number(flag('h', 560))
-const phase = flag('phase', 'title')
+const phase = flag('phase', 'menu')
+const players = Number(flag('players', 3))
 
 const browser = await chromium.launch({
   executablePath: process.env.PW_EXE || undefined,
@@ -29,9 +31,12 @@ await page.goto(url, { waitUntil: 'load', timeout: 120000 })
 await page.waitForFunction(() => window.__ready === true || String(window.__ready ?? '').startsWith('error'),
   null, { timeout: 300000 })
 
-if (phase !== 'title') {
-  await page.evaluate(() => window.__api.start())
-  await page.waitForFunction((p) => window.__api.phase() === p, phase, { timeout: 180000 })
+await page.evaluate((n) => window.__api.setPlayers(n), players)
+await page.waitForTimeout(2500)
+if (phase !== 'menu') {
+  // No camera here on purpose: these screens have to be auditable without one.
+  await page.evaluate((p) => window.__api.stage(p), phase)
+  await page.waitForTimeout(800)
 }
 
 const findings = await page.evaluate(() => {

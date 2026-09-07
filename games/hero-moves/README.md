@@ -1,12 +1,44 @@
 # Hero Moves
 
-A dance game for HeroMaker avatars. Your hero shows you a move, you copy it
-with your webcam, and your hero copies you back.
+A party dance game for HeroMaker avatars. One to three players stand side by
+side, each picks a hero, and a timeline tells everyone what is coming. Each
+hero mirrors its own player. Highest score wins.
 
 The whole design follows from one fact about the asset: **a child draws the
 front of the character and the pipeline extrapolates the back.** So the camera
-lives in front of the hero and never leaves, and the choreography lives in the
-frontal plane, where a 2D pose model can actually see it.
+lives in front of the heroes and never leaves, and the choreography lives in
+the frontal plane, where a 2D pose model can actually see it.
+
+## What the first version got wrong
+
+It had two characters on stage: one demonstrating the move and one mirroring
+the player. Playtested in one sentence: *"am I supposed to imitate the
+character, or is the character imitating me?"* Two bodies doing two different
+jobs, with only a label to tell them apart, reads as a race condition.
+
+There is now exactly **one role on stage** — every hero belongs to a player and
+mirrors that player, always — and the routine is explained by the timeline
+instead of by a performance. Nothing on screen is ambiguous about whose it is,
+so nothing has to be explained.
+
+## Three players out of a one-person model
+
+MoveNet Lightning finds one body. MoveNet MultiPose finds six, and was measured
+at **9.45 MB of weights against Lightning's 4.65** — on a phone-first game
+that is the whole download budget again, for a worse result, because at
+three-player distance each body already occupies a third of a frame the model
+resizes to 192x192 square regardless.
+
+So players stand in **lanes**, and each lane is cropped and inferred
+separately, one lane per frame, round robin. That costs one inference per
+player and buys three things: no extra download, a subject that fills its crop,
+and **player identity for free** — a lane cannot be mistaken for another lane,
+so nobody's score is ever handed to the wrong hero, and the same person keeps
+the same character for the whole game without anyone being recognised.
+
+Crops overlap by 30% of a lane, because an arm held out is wider than a third
+of a frame. Cropping at the lane edge does not lose a wrist — MoveNet
+*invents* one at the edge, which turns a clean T-pose into a shrug.
 
 ## Run it
 
@@ -20,7 +52,7 @@ npm run build        # dist/, multi-page
 
 | Page | What it is |
 |---|---|
-| `index.html` | **Hero Moves** — the webcam game. A leader dances a routine, your hero mirrors you, you are scored on shape and timing. |
+| `index.html` | **Hero Moves** — the webcam party game. One to three players, one hero and one lane each, scored on shape and timing. |
 | `reel.html` | **Hero Stunt Reel** — a camera-free prototype. Pick clips, arrange a routine, watch your hero perform it, discover combos. |
 | `animlab.html` | Retargeted animation clips playing on any hero, with their sources. |
 
@@ -50,7 +82,8 @@ animation clips and no game at all. See `games/PLAYBOOK.md`.
 | `src/pose/tracker.ts` | MoveNet SinglePose Lightning, loaded from memory so it works under a CSP that refuses every kind of fetch |
 | `src/pose/solver.ts` | 2D keypoints to VRM bone rotations — the job Kalidokit does for Kalidoface, for a 2D model rather than a 3D one |
 | `src/pose/moves.ts` | The move vocabulary, and the scorer |
-| `src/game/game.ts` | Phase machine: countdown, coach, copy, grade, results |
+| `src/game/party.ts` | Phase machine: menu, countdown, dancing, paused, results — and per-player scoring |
+| `src/game/song.ts` | The routine as a timeline, and what the strip shows |
 | `src/stage/` | The set and the front-locked camera |
 
 A move is **one canonical skeleton** and nothing else. That single
@@ -67,25 +100,34 @@ measurable without either.
 node tools/posegate.mjs                   # confusion matrix for the pose classifier
 node tools/posecheck.mjs                  # what a perfect performance scores
 node tools/reelfit.mjs                    # does the reel fit at seven viewports
+node tools/partyfit.mjs                   # does the party menu fit at seven viewports
 node tools/clipframing.mjs out.png        # a clip in the real play framing
-node tools/contrast.mjs --phase=coach     # fails on text you cannot read
-node tools/make-dancer-video.mjs /tmp/d   # render a stand-in performer
-node tools/record-demo.mjs out.mp4 --video=/tmp/d/dancer.y4m --captions
+node tools/contrast.mjs --phase=results   # fails on text you cannot read
+node tools/make-dancers-video.mjs /tmp/party --n=3 --scale=2
+node tools/record-party.mjs out.mp4 --players=3 --pause --captions
+node tools/make-demo.mjs out.mp4          # the whole walkthrough, desktop + phone
 node tools/trackrate.mjs                  # real inference throughput
 ```
 
-`make-dancer-video.mjs` renders an avatar performing the game's own schedule
-and encodes it to a `.y4m`. `record-demo.mjs` hands that file to Chromium as
-the camera, so a recording exercises the real pipeline — getUserMedia, MoveNet,
-solver, scoring — with no test-only path anywhere in it. Using an avatar as the
-stand-in player is not a cheat, but it is not free either: see
-`tools/posecheck.mjs` output per avatar, and the note in `games/PLAYBOOK.md`
-about which heroes a pose model can and cannot read.
+`make-dancers-video.mjs` renders one to three avatars standing side by side,
+dancing a routine generated from a **given seed**, and encodes the result to a
+`.y4m`. `record-party.mjs` hands that file to Chromium as the camera and starts
+the same seed, so a recording exercises the real pipeline — getUserMedia,
+MoveNet per lane, solver, scoring — with no test-only path anywhere in it.
+
+The two clocks are lined up without guessing: the page records when camera
+playback began, the feed's timeline is known, and the round is started at the
+exact offset where the feed's first beat will land on the game's beat zero.
+
+Using avatars as the stand-in players is not a cheat, but it is not free
+either: see `tools/posecheck.mjs` output per avatar, and the note in
+`games/PLAYBOOK.md` about which heroes a pose model can and cannot read.
 
 `--timescale` on the recorder runs the game clock slow and speeds the footage
-back up by the same factor. It exists because a machine with no GPU runs
-MoveNet near 1 fps, and a 2.4-second scoring window would otherwise contain
-barely a sample. The HUD shows the real measured rate throughout, so a
+back up by the same factor; the feed is rendered with `--scale` set to its
+reciprocal so the dancers slow down with it. It exists because a machine with
+no GPU runs MoveNet near 1 fps *per lane*, and a 2.4-second scoring window
+would otherwise contain barely a sample. The HUD shows the real measured rate throughout, so a
 recording always says what it actually managed.
 
 ## The animation lab
