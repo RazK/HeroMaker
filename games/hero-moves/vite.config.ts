@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => ({
       ? { output: { format: 'iife', inlineDynamicImports: true } }
       : { input: { main: 'index.html', moveslab: 'moveslab.html', dancer: 'dancer.html',
                     posecheck: 'posecheck.html', animlab: 'animlab.html',
-                    posegate: 'posegate.html' } },
+                    posegate: 'posegate.html', reel: 'reel.html' } },
     target: 'es2020',
     // The packer needs the stylesheet as its own file so it can put it ahead of
     // the engine; an iife build otherwise folds CSS into the script, and the
