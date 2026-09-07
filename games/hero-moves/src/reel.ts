@@ -75,8 +75,35 @@ const COMBOS: Array<{ seq: string[]; name: string }> = [
   { seq: ['dance', 'dance'], name: 'ENCORE!' },
 ]
 
-/** Which combos have been found, so the reel can say what is still out there. */
-const found = new Set<string>()
+/**
+ * Which combos have been found.
+ *
+ * Persisted, because discovery is the entire reason to open this again
+ * tomorrow and a collection that resets on reload is not a collection. Every
+ * read and write is guarded: storage throws outright in a private window, in a
+ * thumbnailer, and in any browser set to block site data, and none of those
+ * should cost the player the game.
+ */
+const STORE_KEY = 'heromaker.reel.combos.v1'
+
+function loadFound(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STORE_KEY)
+    if (!raw) return new Set()
+    const parsed: unknown = JSON.parse(raw)
+    // Only names still in the table survive, so renaming a combo cannot leave
+    // a phantom in somebody's count.
+    return new Set(Array.isArray(parsed)
+      ? parsed.filter((n): n is string => typeof n === 'string' && COMBOS.some((c) => c.name === n))
+      : [])
+  } catch { return new Set() }
+}
+
+function saveFound() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify([...found])) } catch { /* fine */ }
+}
+
+const found = loadFound()
 
 const app = document.getElementById('app')!
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
@@ -157,7 +184,9 @@ function render() {
     ? 'Tap moves to build a routine'
     : hit.length
       ? `${hit.map((c) => c.name).join(' ')}  ·  ${found.size}/${COMBOS.length} combos found`
-      : `${routine.length}/${MAX} moves  ·  ${found.size}/${COMBOS.length} combos found`
+      : found.size === COMBOS.length
+        ? `${routine.length}/${MAX} moves  ·  all ${COMBOS.length} combos found`
+        : `${routine.length}/${MAX} moves  ·  ${found.size}/${COMBOS.length} combos found`
 }
 
 /** Every combo whose sequence appears in order inside the routine. */
@@ -219,6 +248,7 @@ function next() {
     // the move that earned it, or finding a combo does not feel like finding.
     const isNew = !found.has(justHit.name)
     found.add(justHit.name)
+    if (isNew) saveFound()
     showBanner(isNew ? `${justHit.name} NEW!` : justHit.name)
     audio.star(found.size)
     render()
