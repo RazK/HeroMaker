@@ -41,8 +41,9 @@ async function tap(label) {
   await page.waitForTimeout(650)
 }
 
-// A routine that contains a combo: PUNCH, JUMP, BACKFLIP is the FINISHER.
-for (const m of ['Punch', 'Jump', 'Backflip', 'Dance']) await tap(m)
+// A routine containing two combos: FLY into LANDING is the superhero landing,
+// and PUNCH PUNCH VICTORY is the knockout.
+for (const m of (flag('routine', 'Fly,Landing,Punch,Punch,Victory')).split(',')) await tap(m)
 await page.waitForTimeout(900)
 await page.locator('.btn', { hasText: 'PLAY THE REEL' }).click()
 
