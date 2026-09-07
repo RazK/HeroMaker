@@ -51,8 +51,32 @@ function matrix(subset, title) {
   return overall
 }
 
-const overall = matrix(rows, 'ALL AVATARS')
-for (const a of byAvatar) matrix(rows.filter((r) => r.avatar === a), a)
+// An avatar the tracker cannot see at all is not a failing classifier, it is an
+// invalid stand-in — MoveNet is trained on people, and four of this roster are a
+// teddy bear, a star, a cartoon skeleton and a cloud. Conflating the two makes
+// the instrument lie about which thing is broken.
+const readable = []
+const unreadable = []
+for (const a of byAvatar) {
+  const mine = rows.filter((r) => r.avatar === a)
+  const seen = mine.filter((r) => r.got !== null).length
+  ;(seen / mine.length >= 0.5 ? readable : unreadable).push({ a, seen, total: mine.length })
+}
+if (unreadable.length) {
+  console.log('\nNot readable by MoveNet — excluded from the verdict:')
+  for (const u of unreadable) {
+    console.log(`  ${pad(u.a, 14)} ${u.seen}/${u.total} frames produced any skeleton at all`)
+  }
+  console.log('  (MoveNet is trained on people. These are stand-ins, not players.)')
+}
+
+const scored = rows.filter((r) => readable.some((x) => x.a === r.avatar))
+if (!scored.length) {
+  console.log('\nNo readable subject in this run — nothing to conclude.')
+  process.exit(1)
+}
+const overall = matrix(scored, 'READABLE AVATARS')
+for (const { a } of readable) matrix(rows.filter((r) => r.avatar === a), a)
 
 // --- distance distribution, for calibrating the guards ---------------------
 // The classifier can be right on every frame and still reject them all if the
@@ -62,8 +86,8 @@ const pct = (arr, p) => {
   const a = arr.filter((x) => x != null && Number.isFinite(x)).sort((x, y) => x - y)
   return a.length ? a[Math.min(a.length - 1, Math.floor(a.length * p))] : NaN
 }
-const right = rows.filter((r) => r.got === r.want)
-const wrong = rows.filter((r) => r.got !== null && r.got !== r.want)
+const right = scored.filter((r) => r.got === r.want)
+const wrong = scored.filter((r) => r.got !== null && r.got !== r.want)
 console.log('\nDistance to the winning pose (correct frames):')
 console.log(`  median ${pct(right.map((r) => r.distance), .5)?.toFixed(3)}` +
   `  p90 ${pct(right.map((r) => r.distance), .9)?.toFixed(3)}` +
@@ -79,19 +103,19 @@ if (wrong.length) {
 }
 
 // --- what the guards reject ------------------------------------------------
-const accepted = rows.filter((r) => r.accepted !== null)
+const accepted = scored.filter((r) => r.accepted !== null)
 const acceptedRight = accepted.filter((r) => r.accepted === r.want).length
 console.log(`\nWith the confidence guards on:`)
-console.log(`  accepted ${accepted.length}/${rows.length} frames ` +
-  `(${((accepted.length / rows.length) * 100).toFixed(0)}%)`)
+console.log(`  accepted ${accepted.length}/${scored.length} frames ` +
+  `(${((accepted.length / scored.length) * 100).toFixed(0)}%)`)
 console.log(`  of those accepted, ${acceptedRight}/${accepted.length} correct ` +
   `(${accepted.length ? ((acceptedRight / accepted.length) * 100).toFixed(1) : 0}%)`)
 console.log(`  i.e. it says "I don't know" instead of guessing wrong ` +
-  `${rows.length - accepted.length} times`)
+  `${scored.length - accepted.length} times`)
 
 // --- the verdict -----------------------------------------------------------
 const perPose = ids.map((want) => {
-  const mine = rows.filter((r) => r.want === want)
+  const mine = scored.filter((r) => r.want === want)
   return { want, acc: mine.filter((r) => r.got === want).length / mine.length }
 })
 const weak = perPose.filter((p) => p.acc < 0.7)
