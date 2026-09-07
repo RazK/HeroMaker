@@ -11,6 +11,8 @@ import { warmPictograms } from './ui/pictogram'
 import { Hud } from './ui/hud'
 import { el } from './ui/dom'
 import { damp } from './core/math'
+import { Audio } from './core/audio'
+import { Performer, loadAllClips } from './anim/performer'
 import type { Skeleton } from './pose/keypoints'
 
 /**
@@ -27,6 +29,27 @@ const avatarFiles = (STREAMED ? {} : import.meta.glob('../assets/avatars/*.opt.v
 const thumbFiles = import.meta.glob('../assets/avatars/*.thumb.webp', {
   eager: true, query: '?url', import: 'default',
 }) as Record<string, string>
+/** Animation clips. Small enough to inline, and they load after the heroes. */
+const animFiles = import.meta.glob('../assets/animations/*', {
+  eager: true, query: '?url', import: 'default',
+}) as Record<string, string>
+
+/**
+ * Where the clip files live at runtime. The performer appends a filename, and
+ * the build rewrites each import to a hashed URL, so this hands it the shared
+ * prefix of whatever the bundler produced.
+ */
+function animationBase(): string {
+  const any = Object.values(animFiles)[0]
+  if (!any) return ''
+  return any.slice(0, any.lastIndexOf('/') + 1)
+}
+/** Bundlers hash filenames, so resolve by suffix rather than by path. */
+function animUrl(file: string): string {
+  const stem = file.replace(/\.[^.]+$/, '')
+  const hit = Object.entries(animFiles).find(([k]) => k.includes(`/${stem}`))
+  return hit ? hit[1] : `${animationBase()}${file}`
+}
 
 const ALL_HEROES = [
   { id: 'Crayon_Kid', name: 'Crayon Kid' },
@@ -100,6 +123,7 @@ const play = new PlayCamera()
 const tracker = new PoseTracker()
 const game = new Game()
 const hud = new Hud()
+const audio = new Audio()
 
 /**
  * Two performers, and neither ever changes job.
@@ -111,22 +135,24 @@ const hud = new Hud()
  * player's hero is driven by the camera from the first frame to the last. You
  * learn which is which by watching for two seconds, and no wording is needed.
  */
-interface Performer {
+interface Cast {
   hero: Hero | null
   solver: PoseSolver | null
+  /** Plays downloaded animation clips. Owns the rig while a clip runs. */
+  anim: Performer | null
   index: number
   root: THREE.Group
   label: HTMLElement
 }
 
-const makePerformer = (labelClass: string): Performer => ({
-  hero: null, solver: null, index: 0,
+const makeCast = (labelClass: string): Cast => ({
+  hero: null, solver: null, anim: null, index: 0,
   root: new THREE.Group(),
   label: el('div', { class: `nameplate ${labelClass}` }),
 })
 
-const leader = makePerformer('leader')
-const player = makePerformer('player')
+const leader = makeCast('leader')
+const player = makeCast('player')
 scene.add(leader.root, player.root)
 
 /** Which side of the picker a tap applies to. */
@@ -208,6 +234,11 @@ function showTitle() {
   game.state.phase = 'title'
   play.setPresentation(true)
   play.setAzimuth(0)
+  audio.setMusic(false)
+  // The hero dances while you choose. It costs nothing and it is the first
+  // thing that says this character is alive rather than a mannequin.
+  leader.anim?.play('dance', { loop: true })
+  player.anim?.stop()
   reframe()
 }
 
@@ -248,21 +279,42 @@ game.onPhase = (p: Phase) => {
   play.setPresentation(p === 'title' || p === 'results')
   reframe()
 }
-game.onGrade = (r) => hud.showGrade(r)
+game.onGrade = (r) => {
+  hud.showGrade(r)
+  audio.grade(r.grade)
+  // A downloaded clip is worth spending on the moment the player earned it.
+  // The leader keeps dancing the routine, so the celebration goes to the
+  // player's own hero — the one they are driving.
+  if (r.grade === 'PERFECT') player.anim?.play('backflip')
+  else if (r.grade === 'GREAT') player.anim?.play('jump')
+}
 
-async function loadInto(p: Performer, i: number, smoothing: number) {
+async function loadInto(p: Cast, i: number, smoothing: number) {
   p.index = i
   const entry = ROSTER[i]
   if (!entry) return
   const url = heroSource(entry.id)
   if (!url) return
   if (p.hero) { p.root.remove(p.hero.root); p.hero.dispose() }
+  p.anim?.dispose()
   p.hero = await loadHero(url)
   p.root.add(p.hero.root)
   p.solver = new PoseSolver(p.hero.rig, smoothing)
   p.label.textContent = entry.name
   layoutStage()
   resize()
+
+  // Clips arrive behind the hero and are never awaited: the title screen has
+  // to appear whether or not they turn up, and on a slow connection they will
+  // land after the player has already chosen.
+  const anim = new Performer(p.hero)
+  p.anim = anim
+  const forThisHero = p.hero
+  void loadAllClips(anim, animUrl).then(async () => {
+    // A different hero may have been picked while these were downloading.
+    if (p.hero !== forThisHero) { anim.dispose(); return }
+    if (game.state.phase === 'title' && p === leader) anim.play('dance', { loop: true })
+  })
 }
 
 // The leader is smoothed harder: it is performing a known routine, so it should
@@ -288,6 +340,12 @@ function layoutStage() {
 }
 
 async function beginRun(moves = 0) {
+  // Must happen inside the click, or the context stays suspended forever.
+  audio.resume()
+  audio.setMusic(true)
+  leader.anim?.stop()
+  player.anim?.stop()
+  lastBeat = Number.NEGATIVE_INFINITY
   if (tracker.state !== 'ready') {
     camNote.textContent = 'Getting the pose tracker ready…'
     await startLoadingTracker()
@@ -331,7 +389,7 @@ function reframe() { requestAnimationFrame(() => requestAnimationFrame(resize)) 
 
 /** Put a nameplate over a performer's head, in screen space. */
 const plateAt = new THREE.Vector3()
-function placeNameplate(p: Performer) {
+function placeNameplate(p: Cast) {
   if (!p.hero) return
   plateAt.set(0, p.hero.height * 1.06, 0).applyMatrix4(p.root.matrixWorld).project(play.camera)
   const w = app.clientWidth, h = app.clientHeight
@@ -344,6 +402,8 @@ function placeNameplate(p: Performer) {
 // ---------------------------------------------------------------- loop
 let last = performance.now()
 let bob = 0
+/** Last whole beat the audio fired on, so each beat sounds exactly once. */
+let lastBeat = Number.NEGATIVE_INFINITY
 /**
  * Stretches game time. Only used for capture: this sandbox has no GPU, so
  * MoveNet runs at ~1 fps instead of the 60+ it manages on real hardware, and a
@@ -373,17 +433,35 @@ renderer.setAnimationLoop(() => {
   const s = game.state
   const beat = s.phase === 'title' ? (clock / secondsPerBeat(game.song.bpm)) % 1 : s.beatPhase
 
+  // A clip and the poser both write the same bones, so whoever is holding the
+  // rig gets it exclusively — see Performer.active.
+  leader.anim?.update(dt)
+  player.anim?.update(dt)
+
   // The leader performs the routine. It never sees the camera.
-  if (s.move && leader.solver) leader.solver.apply(s.move.skeleton, dt)
+  if (s.move && leader.solver && !leader.anim?.active) leader.solver.apply(s.move.skeleton, dt)
   // The player is the camera, always — including through the count-in, so the
   // first thing anybody sees is their own hero moving when they move.
-  if (live && player.solver) player.solver.apply(live, dt)
+  if (live && player.solver && !player.anim?.active) player.solver.apply(live, dt)
 
   bob = damp(bob, Math.abs(Math.sin(beat * Math.PI)) * 0.03, 10, dt)
   for (const p of [leader, player]) {
     if (!p.hero) continue
-    p.hero.root.position.y = bob
+    // A clip that leaves the ground carries its own vertical motion; adding the
+    // idle bob on top would fight it.
+    p.hero.root.position.y = p.anim?.active ? 0 : bob
     p.hero.vrm.update(dt)
+  }
+
+  // Audio is driven off beat crossings rather than a timer of its own, so the
+  // thing the player hears is exactly the thing they are scored against.
+  if (s.phase === 'countdown' || s.phase === 'dancing') {
+    const whole = Math.floor(s.beat)
+    if (whole !== lastBeat) {
+      lastBeat = whole
+      if (s.phase === 'dancing') audio.danceBeat(whole)
+      else audio.countIn(Math.max(0, -whole))
+    }
   }
 
   // How well the player is matching, on the floor at their feet rather than in

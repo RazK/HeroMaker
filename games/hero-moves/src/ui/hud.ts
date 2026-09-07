@@ -89,7 +89,7 @@ export class Hud {
         `translate(-50%,-50%) translateX(calc(var(--beat) * ${u.beatsAway.toFixed(3)}))`
       // Fade in as it arrives, and out again once it is past the line.
       const opacity = u.beatsAway > 0
-        ? Math.max(0.3, 1 - u.beatsAway * 0.16)
+        ? Math.max(0.55, 1 - u.beatsAway * 0.1)
         : Math.max(0, 1 + u.beatsAway / 1.6)
       tile.style.opacity = opacity.toFixed(2)
       // The flash is a one-shot on the frame the tile crosses the line.

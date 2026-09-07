@@ -199,11 +199,11 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
  * exactly the information the player needs.
  */
 #stripLine {
-  position: absolute; left: 26%; top: -6%; bottom: -6%; width: 3px;
+  position: absolute; left: 26%; top: -10%; bottom: -10%; width: 4px;
   transform: translateX(-50%);
-  background: var(--gold);
-  box-shadow: 0 0 14px 2px rgba(255,210,63,.55);
-  border-radius: 2px;
+  background: linear-gradient(rgba(255,210,63,.35), var(--gold) 22%, var(--gold) 78%, rgba(255,210,63,.35));
+  box-shadow: 0 0 18px 3px rgba(255,210,63,.5);
+  border-radius: 3px;
 }
 #stripLine::before, #stripLine::after {
   content: ''; position: absolute; left: 50%; width: 0; height: 0;
