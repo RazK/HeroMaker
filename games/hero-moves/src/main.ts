@@ -252,14 +252,20 @@ function showResults() {
     el('div', { class: 'stat' }, el('b', {}, `×${s.bestCombo}`), el('span', {}, 'best combo')),
   )
   // One line per distinct move, best attempt, since a routine repeats them.
-  const best = new Map<string, { name: string; score: number; grade: string }>()
+  const best = new Map<string, { name: string; score: number; grade: string; timing: number }>()
   for (const r of s.results) {
     const prev = best.get(r.move.id)
-    if (!prev || r.score > prev.score) best.set(r.move.id, { name: r.move.name, score: r.score, grade: r.grade })
+    if (!prev || r.score > prev.score) {
+      best.set(r.move.id, { name: r.move.name, score: r.score, grade: r.grade, timing: r.timing })
+    }
   }
   resultList.replaceChildren(...[...best.values()].map((r) =>
     el('div', { class: 'scoreline' },
       el('span', {}, r.name),
+      // Two numbers now, because there are two ways to be good at this: the
+      // right shape, and the right moment.
+      el('span', { class: 'num beat', title: 'how on the beat' },
+        r.timing >= 0.75 ? 'ON BEAT' : r.timing >= 0.4 ? 'A BIT LATE' : 'LATE'),
       el('span', { class: 'num' }, `${Math.round(r.score * 100)}%`),
       el('span', { class: `g g-${r.grade}` }, r.grade))))
   resultsLayer.hidden = false

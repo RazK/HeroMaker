@@ -304,13 +304,14 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 
 /* ---------------------------------------------------------------- results */
 .scoreline {
-  display: grid; grid-template-columns: 1fr auto auto;
+  display: grid; grid-template-columns: 1fr auto auto auto;
   gap: var(--space-2); align-items: center;
   padding: .34em .6em; border-radius: 10px;
   font-weight: 700; font-size: clamp(12px, 1.8vmin, 15px);
 }
 .scoreline:nth-child(odd) { background: rgba(23,16,31,.06); }
 .scoreline .g { font-weight: 800; }
+.scoreline .beat { font-size: .82em; opacity: .7; letter-spacing: .04em; }
 .g-PERFECT { color: #d81b60; }
 .g-GREAT { color: #0f9d58; }
 .g-GOOD { color: #1a73e8; }

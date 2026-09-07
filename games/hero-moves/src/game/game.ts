@@ -2,6 +2,8 @@ import { bodyConfidence, type Skeleton } from '../pose/keypoints'
 import { gradeFor, scorePose, type Move } from '../pose/moves'
 import { ROUTINE, slotAt, secondsPerBeat, upcoming, type Song, type Upcoming } from './song'
 
+const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
+
 /**
  * The run.
  *
@@ -18,6 +20,8 @@ export interface RoundResult {
   move: Move
   score: number
   grade: string
+  /** How on-the-beat the hit was, 0..1. 1 is inside half a beat of the call. */
+  timing: number
 }
 
 export interface GameState {
@@ -28,12 +32,16 @@ export interface GameState {
   /** 0..1 within the current beat, for anything that pulses. */
   beatPhase: number
   slotIndex: number
+  /** Beat the best frame of this slot arrived on. */
+  bestAtBeat: number
   move: Move | null
   totalMoves: number
   /** 0..1 through the current move. */
   moveProgress: number
   liveScore: number
   bestThisMove: number
+  /** How on-the-beat the best frame was, 0..1. Only meaningful once banked. */
+  lastTiming: number
   score: number
   combo: number
   bestCombo: number
@@ -49,11 +57,13 @@ const blank = (song: Song): GameState => ({
   beat: -song.leadInBeats,
   beatPhase: 0,
   slotIndex: -1,
+  bestAtBeat: 0,
   move: null,
   totalMoves: song.slots.length,
   moveProgress: 0,
   liveScore: 0,
   bestThisMove: 0,
+  lastTiming: 0,
   score: 0,
   combo: 0,
   bestCombo: 0,
@@ -69,6 +79,8 @@ export class Game {
   private startedAt = 0
   /** Slot the player is currently being scored against. */
   private scoring = -1
+  /** Beat at which the best frame of the current slot arrived. */
+  private bestAtBeat = 0
 
   onPhase: ((p: Phase) => void) | null = null
   onGrade: ((r: RoundResult) => void) | null = null
@@ -116,6 +128,7 @@ export class Game {
       this.scoring = index
       s.bestThisMove = 0
       s.liveScore = 0
+      s.bestAtBeat = slotAt(this.song, s.beat) >= 0 ? s.beat : 0
     }
 
     s.slotIndex = index
@@ -126,7 +139,10 @@ export class Game {
 
     if (slot && skeleton) {
       s.liveScore = scorePose(skeleton, slot.move.skeleton, slot.move)
-      if (s.liveScore > s.bestThisMove) s.bestThisMove = s.liveScore
+      if (s.liveScore > s.bestThisMove) {
+        s.bestThisMove = s.liveScore
+        s.bestAtBeat = s.beat
+      }
     } else if (!slot) {
       s.liveScore = 0
     }
@@ -142,19 +158,33 @@ export class Game {
     const s = this.state
     const slot = this.song.slots[this.scoring]
     if (!slot) return
-    const grade = gradeFor(s.bestThisMove)
-    const result: RoundResult = { move: slot.move, score: s.bestThisMove, grade }
+    // Timing, at last. Until now the slot banked the best frame anywhere in a
+    // 2.4-second window, so flailing until you happened to land the shape
+    // scored the same as snapping onto it on the beat — in a rhythm game,
+    // which is the one thing rhythm games are about. `lateness` is measured
+    // from the beat the pose was called on, in beats, and a hit inside half a
+    // beat is treated as on time.
+    const lateness = Math.max(0, s.bestAtBeat - slot.startBeat)
+    const timing = clamp01(1 - (lateness - 0.5) / (slot.beats - 0.5))
+    s.lastTiming = timing
+    // Shape still dominates: a perfectly-timed wrong pose is worth nothing,
+    // while a right pose taken late is worth most of its marks. The multiplier
+    // spans 0.6 to 1.0, so being on the beat is worth about two thirds again.
+    const scored = s.bestThisMove * (0.6 + 0.4 * timing)
+    const grade = gradeFor(scored)
+    const result: RoundResult = { move: slot.move, score: scored, grade, timing }
     s.results.push(result)
     // 1000 for a perfect hit, and a combo bonus that tops out rather than
     // running away — an uncapped one reached x42 in testing and made the
     // number meaningless.
-    s.score += Math.round(s.bestThisMove * 1000) * (1 + Math.min(4, s.combo) * 0.25)
-    if (s.bestThisMove >= 0.55) {
+    s.score += Math.round(scored * 1000) * (1 + Math.min(4, s.combo) * 0.25)
+    if (scored >= 0.55) {
       s.combo += 1
       s.bestCombo = Math.max(s.bestCombo, s.combo)
     } else {
       s.combo = 0
     }
+    s.bestThisMove = scored
     this.onGrade?.(result)
   }
 
