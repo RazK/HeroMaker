@@ -35,6 +35,22 @@ What it does, all reversible by re-running the pipeline:
 - inlines the texture as a `data:` URI, which also makes it load under a strict
   CSP where a `blob:` URL would be refused
 
+### `scripts/optimize_vrma.py` — halve a downloaded animation clip
+
+The pipeline maps 22 humanoid bones. A `.vrma` from the wild animates whatever
+its author rigged — typically 51 bones, **30 of them fingers we do not have**.
+Every one of those channels is decoded, sampled and interpolated onto joints
+that do not exist, and downloaded first.
+
+```bash
+.venv/bin/python scripts/optimize_vrma.py in.vrma out.vrma   # 118 KB -> 53 KB, 56% smaller
+.venv/bin/python scripts/optimize_vrma.py in.vrma --check    # report, write nothing
+```
+
+Measured on the sample pack and verified by playing the result back: identical
+motion, 56% fewer bytes. Keyframe values, interpolation and timing are
+untouched. It is the dead-thumbnail finding one asset type over.
+
 **If you are working on preview/gallery/thumbnail load times, start here** — the
 dead-thumbnail finding is a pipeline bug worth fixing at the source
 (`vrm-converter-service/`), which would shrink every avatar for every consumer
