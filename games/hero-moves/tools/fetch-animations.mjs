@@ -36,7 +36,12 @@ const VRMA = [
 const PACKS = [
   {
     url: `${CDN}/scottpetrovic/mesh2motion-app@main/static/animations/human-addon-animations.glb`,
-    clips: ['Dance Charleston', 'Backflip'],
+    clips: [
+      'Dance Charleston', 'Backflip', 'Dance Body Roll',
+      // A superhero deck from the same CC0 library: the three-point landing
+      // and the flying pose are the two motions this asset was drawn for.
+      'Land_Three_Point', 'Flying Forward Super', 'Victory Fist Pump',
+    ],
   },
   {
     url: `${CDN}/scottpetrovic/mesh2motion-app@main/static/animations/human-base-animations.glb`,

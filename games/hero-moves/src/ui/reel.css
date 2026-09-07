@@ -50,6 +50,8 @@
 .reel-slot .ico.dim { font-size: clamp(11px, 2vmin, 14px); font-weight: 800; }
 
 /* The deck. */
+/* Eight clips now, so two rows of four rather than one of eight — a 40px tap
+   target is the floor on a touch screen and eight across a 320px phone is not. */
 .reel-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .reel-card {
   pointer-events: auto; cursor: pointer; font: inherit; font-weight: 800;
@@ -89,3 +91,24 @@
   transition: opacity .18s ease, transform .18s ease;
 }
 .reel-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+/*
+ * On a short screen the eight-card deck needs two rows, and the panel grew far
+ * enough to squeeze the stage below a third of the height — which is the one
+ * thing this design cannot trade, since watching the performance *is* the game.
+ * Caught by tools/reelfit.mjs at 320x480, not by looking at it.
+ *
+ * The labels go rather than the cards: an icon at a full-size tap target beats
+ * a named button too small to hit.
+ */
+@media (max-height: 560px) {
+  .reel-card span:not(.ico) { display: none; }
+  /* Shorter, but never below a thumb. 44px is the floor on a touch screen, and
+     dropping the label without pinning this took the buttons to 30px. */
+  .reel-card { padding: 4px; min-height: 44px; justify-content: center; }
+  .reel-card .ico { font-size: 22px; }
+  .reel-slot { border-radius: 10px; }
+  .reel-heroes { display: none; }
+  .reel-label { font-size: 9px; }
+  .reel-panel { gap: 6px; padding-top: 8px; }
+}

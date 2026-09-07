@@ -29,9 +29,13 @@ export interface ClipSpec {
 /** The clips shipped with the game. Everything here is CC0 or MIT. */
 export const CLIPS: ClipSpec[] = [
   { id: 'dance', url: 'Dance_Charleston.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
+  { id: 'bodyroll', url: 'Dance_Body_Roll.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
   { id: 'backflip', url: 'Backflip.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
   { id: 'punch', url: 'Punch_Cross.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
   { id: 'jump', url: 'Jump.vrma', kind: 'vrma', credit: 'tk256ailab/vrm-viewer (MIT)' },
+  { id: 'land', url: 'Land_Three_Point.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
+  { id: 'fly', url: 'Flying_Forward_Super.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
+  { id: 'victory', url: 'Victory_Fist_Pump.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
 ]
 
 export class Performer {

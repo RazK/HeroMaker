@@ -55,8 +55,14 @@ const ROSTER = [
 /** The deck. Each card is one clip the hero can be asked to perform. */
 const DECK = CLIPS.map((c) => ({
   id: c.id,
-  label: { dance: 'Dance', backflip: 'Backflip', punch: 'Punch', jump: 'Jump' }[c.id] ?? c.id,
-  icon: { dance: '💃', backflip: '🤸', punch: '🥊', jump: '⬆️' }[c.id] ?? '★',
+  label: {
+    dance: 'Dance', bodyroll: 'Body Roll', backflip: 'Backflip', punch: 'Punch',
+    jump: 'Jump', land: 'Landing', fly: 'Fly', victory: 'Victory',
+  }[c.id] ?? c.id,
+  icon: {
+    dance: '💃', bodyroll: '🕺', backflip: '🤸', punch: '🥊',
+    jump: '⬆️', land: '💥', fly: '🦸', victory: '🏆',
+  }[c.id] ?? '★',
   credit: c.credit,
 }))
 
@@ -69,10 +75,13 @@ const DECK = CLIPS.map((c) => ({
  */
 const COMBOS: Array<{ seq: string[]; name: string }> = [
   { seq: ['jump', 'backflip'], name: 'STUNT!' },
-  { seq: ['punch', 'punch'], name: 'COMBO!' },
+  { seq: ['fly', 'land'], name: 'SUPERHERO LANDING!' },
+  { seq: ['punch', 'punch', 'victory'], name: 'KNOCKOUT!' },
   { seq: ['backflip', 'backflip'], name: 'DOUBLE!' },
-  { seq: ['punch', 'jump', 'backflip'], name: 'FINISHER!' },
-  { seq: ['dance', 'dance'], name: 'ENCORE!' },
+  { seq: ['dance', 'bodyroll'], name: 'DANCE BATTLE!' },
+  { seq: ['jump', 'fly'], name: 'TAKE OFF!' },
+  { seq: ['land', 'punch', 'victory'], name: 'FINISHER!' },
+  { seq: ['bodyroll', 'bodyroll'], name: 'ENCORE!' },
 ]
 
 /**
