@@ -569,6 +569,10 @@ function startLoadingTracker() {
   start: (moves?: number) => beginRun(moves ?? 0),
   pick: (i: number) => selectPlayer(i),
   pickLeader: (i: number) => selectLeader(i),
+  /** Force a clip on a hero, so the framing of one can be judged in a still. */
+  perform: (id: string, who: 'leader' | 'player' = 'leader') =>
+    (who === 'leader' ? leader : player).anim?.play(id, { loop: true }),
+  clipsReady: () => !!leader.anim?.ready,
   state: () => game.state,
   setTimeScale: (n: number) => {
     timeScale = n

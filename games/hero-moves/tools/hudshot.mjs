@@ -30,11 +30,18 @@ await page.waitForFunction(() => window.__ready === true, null, { timeout: 30000
 if (avatar > 0) { await page.evaluate((i) => window.__api.pick(i), avatar); await page.waitForTimeout(2500) }
 const partner = Number(flag('partner', -1))
 if (partner >= 0) { await page.evaluate((i) => window.__api.pickLeader(i), partner); await page.waitForTimeout(2500) }
+const clip = flag('clip', '')
 if (phase !== 'title') {
   await page.evaluate(() => window.__api.setTimeScale(0.5))
   await page.evaluate(() => window.__api.start())
   await page.waitForFunction((p) => window.__api.phase() === p, phase, { timeout: 180000 })
   await page.waitForTimeout(1200)
+  if (clip) {
+    // Judge a downloaded clip in the framing it will actually be seen in:
+    // mid-play, with no card over the stage.
+    await page.evaluate((c) => window.__api.perform(c, 'leader'), clip)
+    await page.waitForTimeout(Number(flag('clipAt', 700)))
+  }
 }
 fs.mkdirSync(out.replace(/\/[^/]+$/, ''), { recursive: true })
 await page.screenshot({ path: out })
