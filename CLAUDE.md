@@ -45,9 +45,28 @@ at once.
 `games/` holds playable experiences built on the pipeline's output. Read
 `games/PLAYBOOK.md` before building one — it records the asset's constraints
 (22 bones, no fingers, no blendshapes, wildly varying proportions), the
-publishing constraints, and the process rules that came out of building the
-first one. `games/hero-dash` is parked; `games/README.md` says why and lists
-what to reuse from it.
+publishing constraints, what a 2D pose tracker can and cannot read on these
+avatars, and the process rules that came out of building them. `games/hero-dash`
+is parked; `games/README.md` says why and lists what to reuse from it.
+
+### Two capabilities worth knowing about before you build anything
+
+**Any humanoid animation can be played on any hero.** `games/hero-moves/src/anim/`
+loads `.vrma` natively and retargets CC0 glTF mocap (Quaternius, CMU) onto the VRM
+humanoid. The transform is rotation-only and therefore **proportion-blind** — a
+mocap backflip lands correctly on a hero whose head is a third of its height, and
+on a cloud with legs. `animlab.html` demos it. **If you are adding motion to
+anything — the gallery, a preview, a loading screen — start here rather than
+hand-authoring poses.**
+
+**Pose classification is solved; pose scoring is not.** `src/pose/vocab.ts` names
+which of eight poses a person is making, measured at 100% across five camera angles
+with `tools/posegate.mjs`. The older `scorePose` answers "how close are these two
+poses" and tops out much lower. Prefer the classifier.
+
+Live builds: <https://razk.github.io/HeroMaker/hero-moves/> and the camera-free
+prototype at <https://razk.github.io/HeroMaker/hero-moves/reel.html>, published
+from `staging` by `.github/workflows/pages.yml`.
 
 ## Architecture: Local vs Production
 

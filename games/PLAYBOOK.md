@@ -121,6 +121,38 @@ brightly lit stage floor.
 > below the AA ratio for its size. Text over a rendered scene cannot be checked
 > that way, so it does not float — it sits on a plate.
 
+**A scored system was built where a classified one would do.** Two prototypes in a
+row asked 17 noisy 2D keypoints "how close is this pose to that pose" — a continuous
+judgement, and the regime the tracker is worst in. The first topped out at 0.59 for a
+known-perfect input. Asking instead "which of eight deliberately-separated poses is
+this" reads correctly on every frame, and its ceiling can be proved with a one-frame
+harness rather than hoped for.
+
+> **Rule: prefer a label to a percentage.** A label survives jitter that a score does
+> not, and a confusion matrix is a cheaper and more honest instrument than a
+> distribution of near-misses. Reach for continuous scoring only when the thing being
+> measured is genuinely continuous.
+
+**Thresholds were guessed and silently threw the right answers away.** The first
+accept guards on the classifier rejected 90% of the frames it had *correctly*
+labelled. A system that is perfectly accurate and permanently unsure is exactly as
+broken as one that is wrong, and it fails in a way no accuracy metric shows.
+
+> **Rule: measure the thresholds, do not pick them.** Run the harness, take the
+> distribution of the right answers, and set the guard from it — then report the
+> accept rate alongside the accuracy, because either alone is misleading.
+
+**The camera turned out to be the wrong axis, and it took market evidence rather than
+engineering to see it.** Three unrelated measurements agree: the shipping
+"webcam drives your avatar" product peaks at ~1,000 concurrent and is declining; the
+one company that instrumented this exact configuration measured a phone as 10x worse
+than a TV for retention and abandoned it; and the largest camera-free precedent for
+this asset took 6.7M uploads on four animation clips and no game at all.
+
+> **Rule: check whether the input device is the product before optimising it.** Two
+> prototypes were spent making pose tracking good. Nobody had asked whether being
+> tracked is what anyone wants, and the answer was available in an afternoon.
+
 ## The asset's own constraints — established, do not re-derive
 
 * VRM 0.0, **22 humanoid bones**, hips through toes including shoulders. **No
@@ -132,6 +164,18 @@ brightly lit stage floor.
 * Some avatars need grounding — their bounding box does not start at y=0.
 * **Some heroes are wider than they are tall.** Solving camera distance from
   height alone puts a cloud's arms off both edges of the frame.
+* **Animation clips work, and the standard is not where the content is.** `.vrma`
+  (VRM Animation 1.0, `VRMC_vrm_animation`) is the format the VRM consortium defines
+  and `@pixiv/three-vrm-animation` plays it on a VRM 0.0 hero with **zero
+  retargeting**. But free `.vrma` is scarce; the volume lives in CC0 glTF libraries —
+  Quaternius' Universal Animation Library (250+) and the CMU mocap database (2,543) —
+  which need a rig map. **The retarget is rotation-only and therefore
+  proportion-blind: a mocap backflip lands correctly on a hero whose head is a third
+  of its height.** Two licence traps: Ready Player Me's library forbids use with any
+  non-RPM avatar, and AMASS/SMPL sets are non-commercial only.
+* **Solve the camera against the clip, not the rest pose.** Distance solved from a
+  hero's standing height puts a backflip off the top of the frame. Anything that
+  leaves the ground needs the camera eased back *before* it starts.
 * **A pose model reads these avatars unevenly.** MoveNet places shoulders,
   hips, knees and wrists well on them, but elbows badly — smooth sausage arms
   have no crease to find. A hand held against a big head or a mass of hair is
@@ -145,6 +189,26 @@ brightly lit stage floor.
 * Raw exports are ~5.5 MB, of which ~1.46 MB is a VRM metadata thumbnail that
   nothing renders. `scripts/optimize_vrm.py` takes them to ~1.2 MB with no
   visible loss, and makes the texture survive a strict CSP.
+
+## Reading a 2D tracker — established by confusion matrix, do not re-derive
+
+Measured with `hero-moves/tools/posegate.mjs` on a production avatar, five camera
+distances and angles per pose. These are properties of the tracker, not of a
+particular vocabulary, and they will hold for the next game too.
+
+* **Out-versus-down on the same arm is not a usable distinction.** An arm hanging
+  beside the torso and an arm held horizontally are separated by less than the
+  tracker's error once the wrist is near the body. Measured at **0%** — every frame
+  read as the other pose. **Up-versus-anything is reliable.** Build asymmetric poses
+  by raising an arm, never by lowering one.
+* **A wrist resting on a hip is the same point as a wrist hanging beside one.**
+  HANDS ON HIPS measured **13%** against ARMS DOWN and is not separable however the
+  classifier is tuned.
+* **A hand held near the head is lost.** Narrowing ARMS UP from a 62/118 V to 75/105
+  moved the hands into the hair and dropped it from 100% to 40%.
+* **Elbows are the worst joint on these avatars** — 0.25-0.66 confidence against
+  0.6-0.8 for shoulders and wrists, and placed far too close to the shoulder, because
+  a smooth sausage arm has no crease to find. Never build a feature on one.
 
 ## Publishing constraints — established, do not re-derive
 
