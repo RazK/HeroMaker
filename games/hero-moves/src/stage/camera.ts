@@ -21,7 +21,7 @@ const FILL_LANDSCAPE = 0.68
 const FILL_PORTRAIT = 0.52
 /** Fraction of frame width the line may occupy. */
 const FILL_WIDTH = 0.78
-const FILL_WIDTH_PORTRAIT = 0.94
+const FILL_WIDTH_PORTRAIT = 1.0
 /**
  * With a card down the left of a landscape screen the line only owns what is
  * left of the frame, and it has to be *centred in that*, not in the window.
@@ -30,6 +30,20 @@ const FILL_WIDTH_PORTRAIT = 0.94
  */
 const FILL_WIDTH_CARD = 0.46
 const CARD_SHIFT_NDC = 0.34
+/**
+ * How far the width solution may push past the height one, in portrait.
+ *
+ * Three heroes across a phone held upright cannot both fill the height and fit
+ * every fingertip in the width — solving honestly for width puts three
+ * thumbnails in the middle of a mostly empty screen. Past this ratio the
+ * outermost hands are allowed off the edge instead, because a dance game whose
+ * dancers are too small to read has lost more than a fingertip.
+ *
+ * Landscape is never capped: there the width is free, and a hero who is wider
+ * than they are tall — the roster has a cloud and a five-pointed star — needs
+ * the full solution or their arms leave the frame.
+ */
+const PORTRAIT_WIDTH_CAP = 1.5
 /** How far round the orbit is allowed to go. Past this the faces turn away. */
 export const MAX_AZIMUTH = 34
 
@@ -108,7 +122,8 @@ export class PlayCamera {
     const forHeight = f.heroHeight / fill / (2 * halfHeight)
     const forWidth = span / fillW / (2 * halfHeight * f.aspect)
 
-    this.distance = clamp(Math.max(forHeight, forWidth), 3, 16)
+    const cap = f.portrait ? forHeight * PORTRAIT_WIDTH_CAP : Infinity
+    this.distance = clamp(Math.min(Math.max(forHeight, forWidth), cap), 3, 16)
     // Step the line sideways by however much world one third of a frame is at
     // this distance, so three heroes clear the card as reliably as one does.
     this.offsetTarget = cardLand
@@ -116,7 +131,11 @@ export class PlayCamera {
       : 0
     // Eye a little below the chest: the line is seen from the stalls.
     this.eyeY = f.heroHeight * 0.46
-    this.lookY = f.heroHeight * 0.52
+    // A portrait phone showing a line of heroes has to solve for width, which
+    // leaves a tall frame with a lot of stage floor under it. Tilting up moves
+    // the heroes down into the frame and trades that floor for headroom, which
+    // is where the count-in and the score plates live anyway.
+    this.lookY = f.heroHeight * (f.portrait && !this.cardVisible ? 0.86 : 0.52)
     this.apply()
   }
 

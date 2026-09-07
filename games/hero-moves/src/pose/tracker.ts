@@ -235,6 +235,18 @@ export class PoseTracker {
         k.y = (y * INPUT_SIZE - dy) / dh
         k.score = data[i * 3 + 2]
       }
+      // An overlapping crop can find the *neighbour's* body when this lane is
+      // empty, and would then hand one player's dancing to an absent one's
+      // hero. A player standing in their lane has their torso in it, so a torso
+      // centred outside the lane means the lane is empty, whatever the model
+      // reports. Clearing the scores is enough: every consumer already knows
+      // how to show nothing.
+      const mid = (target.leftHip.x + target.rightHip.x
+        + target.leftShoulder.x + target.rightShoulder.x) / 4
+      if (n > 1 && (mid < -0.08 || mid > 1.08)) {
+        for (const name of KEYPOINT_NAMES) target[name].score = 0
+      }
+
       this.lastInferenceMs = performance.now() - started
       this.frames++
       if (now - this.fpsSince > 1000) {

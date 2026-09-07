@@ -40,12 +40,14 @@ export const secondsPerBeat = (bpm: number) => 60 / bpm
  */
 export function buildSong(
   steps: Array<[string, number]>,
-  { bpm = 100, leadInBeats = 8 } = {},
+  { bpm = 100, leadInBeats = 8, lookup = MOVE_BY_ID }: {
+    bpm?: number; leadInBeats?: number; lookup?: Map<string, Move>
+  } = {},
 ): Song {
   const slots: Slot[] = []
   let beat = 0
   for (const [id, beats] of steps) {
-    const move = MOVE_BY_ID.get(id)
+    const move = lookup.get(id)
     if (!move) continue
     slots.push({ move, startBeat: beat, beats })
     beat += beats

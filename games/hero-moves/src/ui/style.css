@@ -277,12 +277,28 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-28px) scale(1); }
 }
 
+/*
+ * The count-in lands in the middle of the frame, which by then is full of
+ * heroes — gold on a bear is gold on a bear. Like the grade pop, it carries its
+ * own ground as a stroke instead of hoping for one.
+ */
+#countdownLayer { justify-content: flex-start; padding-top: 12vh; }
 #countdown {
   font-weight: 800; font-size: clamp(72px, 17vmin, 170px);
-  color: var(--gold); text-shadow: 0 6px 40px rgba(0,0,0,.6);
+  color: var(--gold);
+  -webkit-text-stroke: 10px rgba(16,10,28,.92);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 40px rgba(0,0,0,.75);
 }
-#countdown span { display: block; animation: cd calc(.6s / var(--time-scale)) ease-out; }
-@keyframes cd { from { transform: scale(1.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+/* Each number only has one beat on screen, so it is fully opaque a quarter of
+   the way in and spends the rest of its life settling. Fading across the whole
+   beat left it half-transparent for most of the time anyone was looking. */
+#countdown span { display: block; animation: cd calc(.5s / var(--time-scale)) ease-out; }
+@keyframes cd {
+  0% { transform: scale(1.8); opacity: 0; }
+  26% { opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 /* ---------------------------------------------------------------- camera */
 #camPanel {

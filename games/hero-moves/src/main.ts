@@ -288,11 +288,17 @@ function celebrate() {
   }
 }
 
-/** Everyone loose-dances on the menu, so the stage is never a row of statues. */
+/**
+ * Everyone loose-dances on the menu, so the stage is never a row of statues.
+ *
+ * Which clip each hero gets is drawn at random every time the menu comes back,
+ * because three heroes doing the same dance in unison reads as one animation
+ * played three times rather than as three characters.
+ */
+const LOOPS = ['dance', 'bodyroll']
 function idleDance() {
-  const loop = ['dance', 'bodyroll']
   for (let i = 0; i < playerCount; i++) {
-    lanes[i].anim?.play(loop[i % loop.length], { loop: true })
+    lanes[i].anim?.play(LOOPS[Math.floor(Math.random() * LOOPS.length)], { loop: true })
   }
 }
 
@@ -325,7 +331,7 @@ async function loadLane(i: number, heroIndex: number) {
 /** Lay the visible heroes out across the stage, evenly, facing front. */
 function layoutStage() {
   const portrait = app.clientHeight > app.clientWidth
-  const gap = playerCount === 1 ? 0 : portrait ? 0.78 : 1.05
+  const gap = playerCount === 1 ? 0 : portrait ? 0.55 : 1.05
   for (let i = 0; i < MAX_PLAYERS; i++) {
     const x = (i - (playerCount - 1) / 2) * gap
     lanes[i].root.position.set(x, 0, 0)
@@ -378,11 +384,16 @@ function resize() {
   const spread = playerCount > 1
     ? Math.abs(lanes[playerCount - 1].root.position.x - lanes[0].root.position.x)
     : 0
+  // Portrait counts only part of the widest hero's arm span. A T-pose is
+  // wider than a phone can show three of, and framing for every fingertip
+  // renders three thumbnails in the middle of an empty screen — so the
+  // outermost hands are allowed off the edge instead.
+  const portrait = h > w
   play.frame({
     heroHeight: Math.max(...heroes.map((x) => x.height)),
-    spanX: spread + widest,
+    spanX: spread + widest * (portrait && playerCount > 1 ? 0.6 : 1),
     spanZ: widest * 0.5,
-    aspect: w / h, portrait: h > w, headroom, viewportH: h, viewportW: w,
+    aspect: w / h, portrait, headroom, viewportH: h, viewportW: w,
   })
 }
 addEventListener('resize', resize)
@@ -453,7 +464,7 @@ renderer.setAnimationLoop(() => {
   }
   if (s.phase === 'countdown') hud.setCountdown(Math.ceil(-s.songTime / game.beatSeconds))
 
-  play.setAirborne(lanes.some((l) => l.anim?.active))
+  play.setAirborne(lanes.some((l) => l.anim?.airborne))
   hud.update(s)
   if (s.phase !== 'menu' && s.phase !== 'results') {
     hud.drawCamera(tracker.video, liveLanes, playerCount)
@@ -564,6 +575,13 @@ function startLoadingTracker() {
     document.documentElement.style.setProperty('--time-scale', String(n))
   },
   tracker: () => ({ state: tracker.state, fps: tracker.fps, ms: tracker.lastInferenceMs }),
+  /** Hero measurements and the solved camera, for the framing harnesses. */
+  debugFraming: () => ({
+    heroes: lanes.slice(0, playerCount).map((l) => l.hero && {
+      h: +l.hero.height.toFixed(2), w: +l.hero.width.toFixed(2),
+    }),
+    camera: { z: +play.camera.position.z.toFixed(2), fov: play.camera.fov },
+  }),
   /**
    * What each lane is currently doing, as a vocabulary label. A recording uses
    * it to line the game's clock up with a pre-rendered camera feed: the feed
@@ -586,6 +604,7 @@ function startLoadingTracker() {
    * would mean the screens nobody can reach without one never get audited.
    */
   stage: (phase: PartyPhase) => {
+    for (let i = 0; i < playerCount; i++) lanes[i].anim?.stop()
     hud.resetStrip(); hud.sizeCamera(playerCount)
     lastBeat = Number.NEGATIVE_INFINITY
     game.start(clock, picks.slice(0, playerCount), lengthId, 4242)

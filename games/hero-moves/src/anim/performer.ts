@@ -38,6 +38,9 @@ export const CLIPS: ClipSpec[] = [
   { id: 'victory', url: 'Victory_Fist_Pump.glb', kind: 'gltf', credit: 'Quaternius UAL (CC0)' },
 ]
 
+/** Clips whose hero leaves the floor; see `Performer.airborne`. */
+const AIRBORNE = new Set(['backflip', 'jump', 'fly'])
+
 export class Performer {
   private mixer: THREE.AnimationMixer | null = null
   private actions = new Map<string, THREE.AnimationAction>()
@@ -52,6 +55,14 @@ export class Performer {
 
   /** True while a clip owns the rig. The caller must not pose the hero then. */
   get active() { return this.current !== null }
+  /**
+   * True only for clips that actually leave the ground.
+   *
+   * The camera eases back while one plays, and a looping idle dance is not one
+   * — treating every clip as airborne pulled the whole stage 30% further away
+   * for the entire menu, where the heroes are always dancing.
+   */
+  get airborne() { return this.currentId !== null && AIRBORNE.has(this.currentId) }
   get playing() { return this.currentId }
   get ready() { return this.actions.size > 0 }
   has(id: string) { return this.actions.has(id) }

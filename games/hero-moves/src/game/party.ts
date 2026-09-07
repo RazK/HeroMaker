@@ -1,7 +1,7 @@
 import { bodyConfidence, type Skeleton } from '../pose/keypoints'
-import { gradeFor, scorePose, type Move } from '../pose/moves'
+import { gradeFor, type Move } from '../pose/moves'
 import { buildSong, slotAt, secondsPerBeat, upcoming, type Song, type Upcoming } from './song'
-import { MOVE_BY_ID } from '../pose/moves'
+import { VOCAB, classify, type Pose } from '../pose/vocab'
 
 /**
  * The party game: one to three players, one lane each, one routine.
@@ -28,14 +28,23 @@ export const LENGTHS = [
 export type LengthId = (typeof LENGTHS)[number]['id']
 
 /**
- * The pool the routine is drawn from.
+ * The calls, and the pool a routine is drawn from.
  *
- * Every one of these is a call the classifier reads reliably — the vocabulary
- * measured at 100% in `tools/posegate.mjs`. Nothing here puts a hand near a
- * head or asks the tracker to tell an arm out from an arm down, because both
- * were measured as unreadable.
+ * These are the classifier's vocabulary, not the old scorer's move list, and
+ * that is the whole scoring model: asking "which of eight deliberately
+ * separated poses is this" reads correctly on every frame, while asking "how
+ * close are these two poses" tops out well below a perfect performance on 17
+ * noisy 2D keypoints. Measured at 100% across five camera angles in
+ * `tools/posegate.mjs`.
+ *
+ * ARMS DOWN is in the vocabulary but never in the pool: standing still must
+ * never be a move, or the winner is whoever does nothing.
  */
-const POOL = ['t', 'y', 'up', 'leftUp', 'rightUp', 'star', 'squat', 'disco']
+const asMove = (p: Pose): Move =>
+  ({ id: p.id, name: p.name, angles: p.angles, skeleton: p.skeleton, weights: null })
+
+export const CALLS = new Map(VOCAB.map((p) => [p.id, asMove(p)]))
+const POOL = VOCAB.filter((p) => p.id !== 'down').map((p) => p.id)
 
 export interface PlayerResult {
   move: Move
@@ -95,9 +104,9 @@ export function makeRoutine(moves: number, seed = 1): Song {
     last = id
     // Tighten up as the routine goes on, so it builds.
     const beats = i > moves * 0.7 && rand() < 0.4 ? 2 : 4
-    if (MOVE_BY_ID.has(id)) steps.push([id, beats])
+    if (CALLS.has(id)) steps.push([id, beats])
   }
-  return buildSong(steps, { bpm: 100, leadInBeats: 8 })
+  return buildSong(steps, { bpm: 100, leadInBeats: 8, lookup: CALLS })
 }
 
 export class PartyGame {
@@ -174,6 +183,11 @@ export class PartyGame {
     s.beat = s.songTime / bs
     s.beatPhase = ((s.beat % 1) + 1) % 1
 
+    // The strip runs through the count-in. A rhythm game whose timeline only
+    // appears on beat one gives the player nothing to read during the four
+    // seconds specifically set aside for reading it.
+    s.next = upcoming(this.song, s.beat)
+
     if (s.phase === 'countdown') {
       if (s.songTime < 0) return
       s.phase = 'dancing'
@@ -190,13 +204,12 @@ export class PartyGame {
     s.slotIndex = index
     const slot = index >= 0 ? this.song.slots[index] : null
     s.move = slot?.move ?? null
-    s.next = upcoming(this.song, s.beat)
 
     for (const p of s.players) {
       const sk = lanes[p.lane] ?? null
       p.seen = !!sk && bodyConfidence(sk) > 0.25
       if (!slot || !sk || !p.seen) { p.liveScore = 0; continue }
-      p.liveScore = scorePose(sk, slot.move.skeleton, slot.move)
+      p.liveScore = shapeScore(sk, slot.move.id)
       if (p.liveScore > p.best) { p.best = p.liveScore; p.bestAtBeat = s.beat }
     }
 
@@ -215,7 +228,9 @@ export class PartyGame {
       // half a beat of the call is on time, and lateness costs up to 40%.
       const late = Math.max(0, p.bestAtBeat - slot.startBeat)
       const timing = clamp01(1 - (late - 0.5) / Math.max(0.5, slot.beats - 0.5))
-      const scored = p.best * (0.6 + 0.4 * timing)
+      // Timing shades a hit; it never turns one into a miss. Making the right
+      // shape late is a GOOD, and being early is not a thing you can be.
+      const scored = p.best * (0.7 + 0.3 * timing)
       const grade = gradeFor(scored)
       const result: PlayerResult = { move: slot.move, score: scored, grade }
       p.results.push(result)
@@ -239,3 +254,18 @@ export class PartyGame {
 }
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
+
+/**
+ * How well a body is making the called shape, 0..1.
+ *
+ * The label decides whether it counts at all; the distance behind the label
+ * only decides how well. A wrong shape scores nothing — which is what makes a
+ * three-player scoreboard mean something, since a continuous scorer hands a
+ * player standing still most of the marks for a pose that happens to be near
+ * neutral.
+ */
+function shapeScore(sk: Skeleton, wanted: string): number {
+  const c = classify(sk)
+  if (c.pose?.id !== wanted) return 0
+  return 0.62 + 0.38 * clamp01(1 - c.distance / 0.52)
+}

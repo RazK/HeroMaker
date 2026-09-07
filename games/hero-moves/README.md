@@ -81,15 +81,32 @@ animation clips and no game at all. See `games/PLAYBOOK.md`.
 |---|---|
 | `src/pose/tracker.ts` | MoveNet SinglePose Lightning, loaded from memory so it works under a CSP that refuses every kind of fetch |
 | `src/pose/solver.ts` | 2D keypoints to VRM bone rotations — the job Kalidokit does for Kalidoface, for a 2D model rather than a 3D one |
-| `src/pose/moves.ts` | The move vocabulary, and the scorer |
+| `src/pose/vocab.ts` | The eight calls, and the classifier that names them — what a player is actually scored by |
+| `src/pose/moves.ts` | The older continuous scorer, kept for the pose harnesses |
 | `src/game/party.ts` | Phase machine: menu, countdown, dancing, paused, results — and per-player scoring |
 | `src/game/song.ts` | The routine as a timeline, and what the strip shows |
 | `src/stage/` | The set and the front-locked camera |
 
-A move is **one canonical skeleton** and nothing else. That single
-representation poses the coach through the solver, is the target the score is
-measured against, and is what the test dancer interpolates between — so the
-coach can never demonstrate a pose the scorer is not looking for.
+A call is **one canonical skeleton** and nothing else. That single
+representation draws the strip's pictogram, is the shape the classifier is
+matched against, and is what the stand-in dancers interpolate between — so the
+strip can never show a pose the scorer is not looking for.
+
+## Scoring is a label, not a percentage
+
+Asking 17 noisy 2D keypoints "how close is this pose to that pose" topped out at
+0.59 for a *known-perfect* input, and 0.88 after two rounds of fixing. Asking
+"which of these eight deliberately separated poses is this" reads correctly on
+every frame, and its ceiling is provable with a one-frame harness rather than
+hoped for. So the label decides whether a call counts at all, and only the
+distance behind the label decides how well:
+
+    right shape ? 0.62 + 0.38 x (how cleanly)  :  0
+    x (0.7 + 0.3 x how promptly)
+
+Wrong shape scores nothing, which is what makes a three-player scoreboard mean
+something — a continuous scorer hands a player standing perfectly still most of
+the marks for any pose that happens to be near neutral.
 
 ## Harnesses
 
