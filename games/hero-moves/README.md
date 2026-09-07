@@ -16,6 +16,33 @@ npm run dev          # http://127.0.0.1:5182
 npm run build        # dist/, multi-page
 ```
 
+## Two builds live here
+
+| Page | What it is |
+|---|---|
+| `index.html` | **Hero Moves** — the webcam game. A leader dances a routine, your hero mirrors you, you are scored on shape and timing. |
+| `reel.html` | **Hero Stunt Reel** — a camera-free prototype. Pick clips, arrange a routine, watch your hero perform it, discover combos. |
+| `animlab.html` | Retargeted animation clips playing on any hero, with their sources. |
+
+The reel exists because the market evidence points away from the webcam: the
+shipping "webcam drives your avatar" product peaks near a thousand concurrent
+users and is declining, the one company that instrumented this exact
+configuration measured a phone as 10x worse than a TV for retention and left it,
+and the largest camera-free precedent for this asset took 6.7M uploads on four
+animation clips and no game at all. See `games/PLAYBOOK.md`.
+
+## Animation
+
+`src/anim/` plays full-body humanoid clips on any hero.
+
+* `.vrma` (VRM Animation 1.0) loads natively — **no retargeting**, even on our
+  VRM 0.0 avatars, because the loader handles the version difference itself.
+* Everything else — the large CC0 libraries that exist as glTF — goes through
+  `retarget.ts`, which is **rotation-only and therefore proportion-blind**. A
+  mocap backflip lands correctly on a hero whose head is a third of its height.
+* `scripts/optimize_vrma.py` in the repo root strips a clip to the 22 bones we
+  map. Measured: 118 KB to 53 KB, identical motion.
+
 ## How it fits together
 
 | Piece | What it does |
@@ -37,7 +64,10 @@ There is no webcam and no GPU in CI or in a sandbox, so everything is
 measurable without either.
 
 ```bash
+node tools/posegate.mjs                   # confusion matrix for the pose classifier
 node tools/posecheck.mjs                  # what a perfect performance scores
+node tools/reelfit.mjs                    # does the reel fit at seven viewports
+node tools/clipframing.mjs out.png        # a clip in the real play framing
 node tools/contrast.mjs --phase=coach     # fails on text you cannot read
 node tools/make-dancer-video.mjs /tmp/d   # render a stand-in performer
 node tools/record-demo.mjs out.mp4 --video=/tmp/d/dancer.y4m --captions
