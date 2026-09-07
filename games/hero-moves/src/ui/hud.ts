@@ -24,7 +24,7 @@ export class Hud {
   private moveName = el('div', { id: 'moveName' }, '')
   private stripInner = el('div', { id: 'stripInner' })
   private strip = el('div', { id: 'strip' },
-    el('div', { id: 'stripNow' }), this.stripInner, this.moveName)
+    this.stripInner, el('div', { id: 'stripLine' }), this.moveName)
   private countdownNum = el('div', { id: 'countdown' })
 
   private camCanvas = el('canvas', { width: 224, height: 168 }) as HTMLCanvasElement
@@ -34,7 +34,7 @@ export class Hud {
     this.camCanvas, el('div', { id: 'camBadge' }, this.camState, this.camFps))
 
   /** Tiles are reused frame to frame; rebuilding them every frame flickers. */
-  private tiles = new Map<string, HTMLElement>()
+  private tiles = new Map<number, HTMLElement>()
 
   constructor() {
     this.countdownLayer.append(this.countdownNum)
@@ -61,28 +61,39 @@ export class Hud {
   }
 
   /**
-   * Lay the upcoming moves out by *time*, not by index: a two-beat move sits
-   * half as far ahead as a four-beat one, so the spacing on screen is the
-   * spacing in the music.
+   * Lay the upcoming moves out by *time*, not by index.
+   *
+   * Each tile's distance from the line is its beats-away times one fixed beat
+   * width, so a two-beat gap really is half a four-beat gap and the strip reads
+   * as the music does. A tile crosses the line, flashes once, and keeps going
+   * until it is gone — it never parks on the line, which is what used to put
+   * two poses in the marker at the same time with no moment that meant "now".
+   *
+   * Tiles are keyed by the slot's start beat, not by their index in the list,
+   * so a tile is the same DOM node from the moment it appears to the moment it
+   * leaves. Keying by index destroyed and rebuilt every tile each time a slot
+   * dropped off the front, and they visibly jumped.
    */
   private renderStrip(s: GameState) {
-    const seen = new Set<string>()
-    for (let i = 0; i < s.next.length; i++) {
-      const u = s.next[i]
-      const key = `${u.move.id}:${i}`
-      seen.add(key)
-      let tile = this.tiles.get(key)
+    const seen = new Set<number>()
+    for (const u of s.next) {
+      seen.add(u.startBeat)
+      let tile = this.tiles.get(u.startBeat)
       if (!tile) {
         const img = el('img', { class: 'shape', src: pictogram(u.move), alt: u.move.name })
         tile = el('div', { class: 'tile' }, img)
-        this.tiles.set(key, tile)
+        this.tiles.set(u.startBeat, tile)
         this.stripInner.append(tile)
       }
-      // Beats-away maps to distance from the marker; the live move sits on it.
-      const t = Math.max(-0.4, Math.min(4.2, u.beatsAway / 4))
-      tile.style.transform = `translate(-50%,-50%) translateX(${t * 100}%)`
-      tile.style.opacity = String(u.beatsAway <= 0 ? 1 : Math.max(0.45, 1 - t * 0.45))
-      tile.classList.toggle('live', u.beatsAway <= 0)
+      tile.style.transform =
+        `translate(-50%,-50%) translateX(calc(var(--beat) * ${u.beatsAway.toFixed(3)}))`
+      // Fade in as it arrives, and out again once it is past the line.
+      const opacity = u.beatsAway > 0
+        ? Math.max(0.3, 1 - u.beatsAway * 0.16)
+        : Math.max(0, 1 + u.beatsAway / 1.6)
+      tile.style.opacity = opacity.toFixed(2)
+      // The flash is a one-shot on the frame the tile crosses the line.
+      if (u.beatsAway <= 0 && !tile.classList.contains("hit")) tile.classList.add("hit")
     }
     for (const [key, tile] of this.tiles) {
       if (seen.has(key)) continue

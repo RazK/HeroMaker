@@ -180,6 +180,9 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
   position: absolute; left: 0; right: 0; bottom: clamp(14px, 3.4vh, 34px);
   height: clamp(66px, 13vh, 104px);
   pointer-events: none;
+  /* One beat of travel. Everything on the strip is positioned in multiples of
+     this, so the spacing on screen is the spacing in the music. */
+  --beat: clamp(26px, 4.6vh, 46px);
 }
 /* The strip crosses the stage floor, which is cream. Give it a ground. */
 #strip::before {
@@ -187,28 +190,47 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
   background: linear-gradient(rgba(18,12,32,0), rgba(18,12,32,.82) 28%, rgba(18,12,32,.92));
 }
 #stripInner { position: absolute; inset: 0; }
-/* The marker sits a third in from the left, so there is room ahead of it for
-   what is coming and a little behind for what has just gone. */
-#stripNow {
-  position: absolute; left: 30%; top: 0; bottom: 0; width: clamp(58px, 11vh, 92px);
+
+/*
+ * The now line.
+ *
+ * A line, not a box. A box has width, so two tiles could sit inside it at once
+ * and neither one meant "do it now". A line is crossed at an instant, which is
+ * exactly the information the player needs.
+ */
+#stripLine {
+  position: absolute; left: 26%; top: -6%; bottom: -6%; width: 3px;
   transform: translateX(-50%);
-  border-radius: 16px;
-  background: rgba(255, 210, 63, .14);
-  box-shadow: inset 0 0 0 2px var(--gold);
+  background: var(--gold);
+  box-shadow: 0 0 14px 2px rgba(255,210,63,.55);
+  border-radius: 2px;
 }
+#stripLine::before, #stripLine::after {
+  content: ''; position: absolute; left: 50%; width: 0; height: 0;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+}
+#stripLine::before { top: -1px; border-top: 8px solid var(--gold); }
+#stripLine::after { bottom: -1px; border-bottom: 8px solid var(--gold); }
+
 .tile {
-  position: absolute; left: 30%; top: 50%;
+  position: absolute; left: 26%; top: 50%;
   width: clamp(50px, 9.5vh, 80px); height: clamp(50px, 9.5vh, 80px);
   display: grid; place-items: center;
-  transition: opacity .2s linear;
 }
 .tile .shape {
   width: 100%; height: 100%;
   filter: drop-shadow(0 2px 6px rgba(0,0,0,.75));
 }
-.tile.live { filter: drop-shadow(0 0 12px rgba(255,210,63,.6)); }
+/* One-shot as the tile crosses the line: the moment that means "now". */
+.tile.hit .shape { animation: tileHit calc(.42s / var(--time-scale)) ease-out; }
+@keyframes tileHit {
+  0% { transform: scale(1); filter: drop-shadow(0 2px 6px rgba(0,0,0,.75)); }
+  22% { transform: scale(1.32); filter: drop-shadow(0 0 16px rgba(255,210,63,.95)); }
+  100% { transform: scale(1); filter: drop-shadow(0 2px 6px rgba(0,0,0,.75)); }
+}
 #moveName {
-  position: absolute; left: 30%; bottom: -1.5em; transform: translateX(-50%);
+  position: absolute; left: 26%; bottom: -1.5em; transform: translateX(-50%);
   font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
   font-size: clamp(10px, 1.5vmin, 13px); color: var(--gold);
   text-shadow: 0 2px 10px rgba(0,0,0,.8); white-space: nowrap;

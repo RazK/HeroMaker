@@ -81,17 +81,28 @@ export function slotAt(song: Song, beat: number): number {
 
 export interface Upcoming {
   move: Move
-  /** Beats until this move starts. Negative once it is under way. */
+  /** Beats until this move starts. Negative once it has passed the line. */
   beatsAway: number
+  /** Which slot this is, so the strip can track one tile across frames. */
+  startBeat: number
 }
 
-/** The next few moves, for the strip. Includes the one currently running. */
-export function upcoming(song: Song, beat: number, count = 4): Upcoming[] {
+/**
+ * What the strip shows.
+ *
+ * Every slot from a couple of beats *past* the line to `count` ahead of it, so
+ * a tile can travel all the way through the line and off the left edge instead
+ * of piling up on it. The strip used to hold a move for its whole duration and
+ * clamp it at the marker, which meant a four-beat move sat on the marker while
+ * the next one slid in beside it — two poses in the box at once, and no moment
+ * that read as "now".
+ */
+export function upcoming(song: Song, beat: number, count = 5, tail = 1.6): Upcoming[] {
   const out: Upcoming[] = []
   for (const s of song.slots) {
     const away = s.startBeat - beat
-    if (away < -s.beats) continue
-    out.push({ move: s.move, beatsAway: away })
+    if (away < -tail) continue
+    out.push({ move: s.move, beatsAway: away, startBeat: s.startBeat })
     if (out.length >= count) break
   }
   return out

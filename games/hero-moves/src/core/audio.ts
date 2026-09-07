@@ -78,6 +78,59 @@ export class Audio {
   gameOver() { [12, 7, 4, 0].forEach((n, i) => setTimeout(() => this.tone(440 * Math.pow(2, n / 12), 0.45, 'triangle', 0.16), i * 150)) }
   uiClick() { this.tone(880, 0.06, 'square', 0.07) }
 
+  // ---------------------------------------------------------------- rhythm
+  /**
+   * Beat-locked backing, driven by the game clock rather than a timer of its
+   * own.
+   *
+   * `updateMusic` below runs on its own interval, which is fine for a runner
+   * where the music is atmosphere. It is wrong for a game where the player is
+   * being scored against a beat: two clocks drift, and the thing you hear stops
+   * being the thing you are judged on. This is called once per beat crossing
+   * with the absolute beat index, so the audio and the choreography cannot
+   * disagree.
+   */
+  danceBeat(beat: number) {
+    if (!this.ctx || !this.enabled) return
+    const inBar = ((beat % 4) + 4) % 4
+    if (inBar === 0 || inBar === 2) this.kick()
+    else this.snare()
+    this.hat(inBar === 0 ? 0.055 : 0.03)
+
+    // Eight-bar bass figure in A minor pentatonic, one note per beat.
+    const BASS = [0, 0, 3, 5, 0, 0, 7, 5]
+    const i = ((beat % 8) + 8) % 8
+    this.tone(110 * Math.pow(2, BASS[i] / 12), 0.42, 'sine', 0.17, 1, this.musicGain ?? undefined)
+    // A lead note on the off-quarters keeps the loop from feeling like a
+    // metronome without competing with the calls.
+    if (i === 2 || i === 6) {
+      this.tone(440 * Math.pow(2, BASS[i] / 12), 0.3, 'triangle', 0.06, 1, this.musicGain ?? undefined)
+    }
+  }
+
+  private kick() { this.tone(130, 0.2, 'sine', 0.34, 0.34); this.noise(0.03, 0.1, 500) }
+  private snare() { this.noise(0.13, 0.16, 3200); this.tone(190, 0.09, 'triangle', 0.09, 0.7) }
+  private hat(vol: number) { this.noise(0.035, vol, 9000) }
+
+  /** Counted in over the lead-in. `n` is beats remaining; 0 is "go". */
+  countIn(n: number) {
+    if (n > 0) this.tone(n === 1 ? 880 : 660, 0.09, 'square', 0.13)
+    else this.tone(1320, 0.24, 'triangle', 0.18, 1.25)
+  }
+
+  /** One sting per graded call, pitched by how well it went. */
+  grade(name: string) {
+    switch (name) {
+      case 'PERFECT': [0, 7, 12, 16].forEach((n, i) =>
+        setTimeout(() => this.tone(660 * Math.pow(2, n / 12), 0.2, 'triangle', 0.15), i * 45)); break
+      case 'GREAT': [0, 7, 12].forEach((n, i) =>
+        setTimeout(() => this.tone(587 * Math.pow(2, n / 12), 0.18, 'triangle', 0.13), i * 50)); break
+      case 'GOOD': this.tone(523, 0.16, 'triangle', 0.12); break
+      case 'OK': this.tone(392, 0.16, 'sine', 0.11); break
+      default: this.tone(220, 0.26, 'sawtooth', 0.10, 0.62)
+    }
+  }
+
   setMusic(on: boolean) {
     if (this.musicGain && this.ctx) {
       this.musicGain.gain.setTargetAtTime(on ? 0.5 : 0, this.ctx.currentTime, 0.4)
