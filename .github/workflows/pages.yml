@@ -50,10 +50,12 @@ jobs:
       - run: npm run build
 
       # The build also emits the harness pages (a stand-in dancer, a move
-      # contact sheet, a scoring probe) and a copy of the tracker weights in
-      # their original sharded form. None of it is reachable from the game.
+      # contact sheet, a scoring probe, the classifier gate) and a copy of the
+      # tracker weights in their original sharded form. None of it is reachable
+      # from the game. reel.html and animlab.html are kept: the first is a
+      # playable prototype and the second shows the animation retargeting.
       - name: Drop what the site does not serve
-        run: rm -rf dist/model dist/dancer.html dist/moveslab.html dist/posecheck.html
+        run: rm -rf dist/model dist/dancer.html dist/moveslab.html dist/posecheck.html dist/posegate.html
 
       - name: Lay out the site
         run: |
