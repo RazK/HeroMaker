@@ -1,7 +1,8 @@
-import { Suspense, useRef, useEffect, useState, useMemo, ErrorInfo, Component } from 'react';
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import { useRef, useEffect, useState, useMemo, ErrorInfo, Component } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneWithSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import './ModelPreview.css';
@@ -13,6 +14,13 @@ interface ModelPreviewProps {
   className?: string;
   isRigged?: boolean;
   interactive?: boolean;  // When false, disable mouse controls (for card previews)
+  /**
+   * A still of the same character - the AI render - painted into the stage
+   * straight away and cross-faded out once the live canvas has the model in it.
+   * Without it the stage is an empty rectangle for as long as the model takes
+   * to arrive, which is the single slowest thing on the page.
+   */
+  posterSrc?: string;
   /** Called once with a still of the rendered model, for use as a thumbnail. */
   onSnapshot?: (dataUrl: string) => void;
 }
@@ -62,6 +70,122 @@ class ModelErrorBoundary extends Component<
   }
 }
 
+
+/**
+ * Parsed models, keyed by URL.
+ *
+ * `useLoader` used to give us this for free. Loading by hand is what gets us a
+ * progress callback, so the cache has to come back with it - otherwise every
+ * remount (clicking along the rail, opening the modal) re-downloads and
+ * re-parses the same 1.5 MB file.
+ */
+const gltfCache = new Map<string, GLTF>();
+
+interface ModelLoad {
+  gltf: GLTF | null;
+  error: Error | null;
+  /** Bytes in so far. */
+  loaded: number;
+  /** Bytes expected, or 0 when the response carries no Content-Length. */
+  total: number;
+}
+
+/**
+ * Download and parse a GLB, reporting progress as it goes.
+ *
+ * `useLoader` suspends and tells you nothing until it is finished, which is
+ * exactly the behaviour that left the stage blank with no indication anything
+ * was happening. `GLTFLoader.load` hands us loaded/total bytes instead.
+ */
+function useGltf(url: string, reloadToken = 0): ModelLoad {
+  const [state, setState] = useState<ModelLoad>(() => ({
+    gltf: gltfCache.get(url) ?? null,
+    error: null,
+    loaded: 0,
+    total: 0,
+  }));
+
+  useEffect(() => {
+    const cached = gltfCache.get(url);
+    if (cached) {
+      setState({ gltf: cached, error: null, loaded: 0, total: 0 });
+      return;
+    }
+
+    let cancelled = false;
+    setState({ gltf: null, error: null, loaded: 0, total: 0 });
+
+    const loader = new GLTFLoader();
+    loader.load(
+      url,
+      (gltf) => {
+        gltfCache.set(url, gltf);
+        if (!cancelled) setState({ gltf, error: null, loaded: 0, total: 0 });
+      },
+      (event) => {
+        if (cancelled) return;
+        // lengthComputable is false for a chunked or compressed response, and
+        // on the very first request for a model the backend is still building
+        // the web-sized copy so nothing is computable yet. The bar falls back
+        // to indeterminate in that case rather than sitting at a fake 0%.
+        setState((prev) =>
+          prev.gltf || prev.error
+            ? prev
+            : { ...prev, loaded: event.loaded, total: event.lengthComputable ? event.total : 0 }
+        );
+      },
+      (err) => {
+        console.error('[ModelPreview] Failed to load model:', url, err);
+        if (!cancelled) {
+          setState({
+            gltf: null,
+            error: err instanceof Error ? err : new Error('Model failed to load'),
+            loaded: 0,
+            total: 0,
+          });
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+    // reloadToken is what the "Try again" button bumps: a failed load leaves
+    // nothing in the cache, so re-running this effect retries the download.
+  }, [url, reloadToken]);
+
+  return state;
+}
+
+/**
+ * The determinate bar shown over the poster while the model downloads.
+ *
+ * `percent` is null when the size is unknown, which switches the bar to a
+ * sweeping indeterminate one - still movement, still an indication that
+ * something is happening, just without a number it cannot honestly give.
+ */
+function LoadProgress({ percent, label }: { percent: number | null; label: string }) {
+  return (
+    <div className="model-preview-progress" role="status" aria-live="polite">
+      <span className="model-preview-progress-label">
+        {label}
+        {percent !== null && <span className="model-preview-progress-percent">{percent}%</span>}
+      </span>
+      <span
+        className="model-preview-progress-track"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent ?? undefined}
+      >
+        <span
+          className={`model-preview-progress-bar${percent === null ? ' is-indeterminate' : ''}`}
+          style={percent !== null ? { width: `${percent}%` } : undefined}
+        />
+      </span>
+    </div>
+  );
+}
 
 /**
  * How much empty space to leave around the model. 1.0 is edge-to-edge; higher
@@ -196,9 +320,12 @@ function SnapshotOnce({ onSnapshot }: { onSnapshot?: (d: string) => void }) {
   return null;
 }
 
-function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnimationPlaying }: { url: string; showSkeleton?: boolean; isRotating: boolean; resetTrigger: number; isAnimated: boolean; isAnimationPlaying: boolean }) {
-  const gltf = useLoader(GLTFLoader, url);
+function Model({ gltf, showSkeleton, isRotating, resetTrigger, isAnimated, isAnimationPlaying, onFramed }: { gltf: GLTF; showSkeleton?: boolean; isRotating: boolean; resetTrigger: number; isAnimated: boolean; isAnimationPlaying: boolean; onFramed?: () => void }) {
   const { camera } = useThree();
+  // Held in a ref so a new callback identity does not re-run the framing effect
+  // and re-home the camera underneath someone who has already orbited it.
+  const onFramedRef = useRef(onFramed);
+  onFramedRef.current = onFramed;
   const meshRef = useRef<THREE.Group>(null);
   const skeletonGroupRef = useRef<THREE.Group | null>(null);
   const bonesRef = useRef<THREE.Bone[] | null>(null);
@@ -343,6 +470,10 @@ function Model({ url, showSkeleton, isRotating, resetTrigger, isAnimated, isAnim
       
       // Store the actual final scene scale for skeleton cone sizing
       modelScaleRef.current = scene.scale.x;
+
+      // The model is now in the scene and pointed at. The stage uses this to
+      // know when it is safe to fade the still image out from under the canvas.
+      onFramedRef.current?.();
     }
   }, [scene, camera, isAnimated]);
   
@@ -544,14 +675,41 @@ function CameraController({
   );
 }
 
-export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRigged = false, interactive = true, onSnapshot }: ModelPreviewProps) {
+export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRigged = false, interactive = true, posterSrc, onSnapshot }: ModelPreviewProps) {
   const [isPlaying, setIsPlaying] = useState(true); // Controls both rotation and animation
   const [resetTrigger, setResetTrigger] = useState(0);
-  
+  // True once the model has been framed and drawn, i.e. the canvas has real
+  // pixels in it and the still underneath can be faded away.
+  const [isLive, setIsLive] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
+
   // Always use walkingUrl if available (animated), otherwise use riggedUrl or url (static)
   const modelUrl = walkingUrl || riggedUrl || url;
   const isAnimated = !!walkingUrl; // True if we're showing the animated model
-  
+
+  const { gltf, error, loaded, total } = useGltf(modelUrl, retryToken);
+
+  useEffect(() => {
+    setIsLive(false);
+  }, [modelUrl, retryToken]);
+
+  useEffect(() => {
+    if (!gltf || isLive) return;
+    // Safety net. The canvas is faded in on the framing callback; if that never
+    // arrives - a degenerate bounding box, a lost context - the stage would sit
+    // on the still forever. Showing the canvas anyway is the lesser failure.
+    const timer = setTimeout(() => setIsLive(true), 2000);
+    return () => clearTimeout(timer);
+  }, [gltf, isLive]);
+
+  const handleFramed = () => {
+    // One frame frames the model, the next draws it. Waiting two rAFs means the
+    // cross-fade starts on a canvas that already has the character in it rather
+    // than on an empty one, so the hero never blinks out of existence.
+    requestAnimationFrame(() => requestAnimationFrame(() => setIsLive(true)));
+  };
+
   // Camera position - model will auto-center and camera will lookAt the center
   const cameraPosition: [number, number, number] = [0, 0, 5];
   const cameraTarget: [number, number, number] = [0, 0, 0];
@@ -565,29 +723,71 @@ export function ModelPreview({ url, walkingUrl, riggedUrl, className = '', isRig
     setResetTrigger(prev => prev + 1);
   };
 
+  const percent = total > 0 ? Math.min(99, Math.round((loaded / total) * 100)) : null;
+  const showPoster = Boolean(posterSrc) && !posterFailed;
+
   return (
     <ModelErrorBoundary key={modelUrl}>
       <div className={`model-preview-container ${className}${!interactive ? ' model-preview-non-interactive' : ''}`}>
+        {showPoster && (
+          /*
+           * Painted before three.js has even finished downloading, so the stage
+           * shows the person's hero immediately instead of an empty rectangle.
+           * aria-hidden: the live canvas below carries the meaning.
+           */
+          <img
+            className={`model-preview-poster${isLive ? ' is-hidden' : ''}`}
+            src={posterSrc}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            fetchPriority="high"
+            onError={() => setPosterFailed(true)}
+          />
+        )}
         <Canvas
+          className={`model-preview-canvas${isLive ? ' is-live' : ''}`}
           camera={{ position: cameraPosition, fov: 50 }}
           /* Required for toDataURL: without it the drawing buffer is cleared
              before we can read it back. */
           gl={{ preserveDrawingBuffer: Boolean(onSnapshot) }}
         >
           <SnapshotOnce onSnapshot={onSnapshot} />
-          <Suspense fallback={null}>
-            <ambientLight intensity={0.5} />
-            <directionalLight position={[10, 10, 5]} intensity={1} />
-            <pointLight position={[-10, -10, -5]} intensity={0.5} />
-            <Model url={modelUrl} showSkeleton={isRigged && !isAnimated} isRotating={isPlaying} resetTrigger={resetTrigger} isAnimated={isAnimated} isAnimationPlaying={isPlaying} />
-            <CameraController 
-              homePosition={cameraPosition}
-              homeTarget={cameraTarget}
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[10, 10, 5]} intensity={1} />
+          <pointLight position={[-10, -10, -5]} intensity={0.5} />
+          {gltf && (
+            <Model
+              key={modelUrl}
+              gltf={gltf}
+              showSkeleton={isRigged && !isAnimated}
+              isRotating={isPlaying}
               resetTrigger={resetTrigger}
-              interactive={interactive}
+              isAnimated={isAnimated}
+              isAnimationPlaying={isPlaying}
+              onFramed={handleFramed}
             />
-          </Suspense>
+          )}
+          <CameraController
+            homePosition={cameraPosition}
+            homeTarget={cameraTarget}
+            resetTrigger={resetTrigger}
+            interactive={interactive}
+          />
         </Canvas>
+        {!isLive && !error && (
+          <LoadProgress percent={percent} label={gltf ? 'Almost there' : 'Bringing your hero to life'} />
+        )}
+        {error && (
+          /* A visible dead end beats a spinner that never stops. The backdrop
+             stays up behind this, so there is still a hero to look at. */
+          <div className="model-preview-failed" role="alert">
+            <span>3D view could not load</span>
+            <button type="button" onClick={(e) => { e.stopPropagation(); setRetryToken((n) => n + 1); }}>
+              Try again
+            </button>
+          </div>
+        )}
         {interactive && (
           <>
             <div className="model-preview-overlay">

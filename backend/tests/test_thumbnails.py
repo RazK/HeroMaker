@@ -438,3 +438,69 @@ def test_an_unoptimizable_model_still_serves(monkeypatch):
     assert resp.status_code == 302
     assert "walking.glb" in resp.headers["location"]
     assert "u1/c1/web_walking.glb" not in storage.objects
+
+
+# --- the still the 3D stage stands on while its model downloads ---
+
+def test_stage_poster_is_a_small_fraction_of_the_render(client_and_storage):
+    """
+    The 3D stage paints thumb_512_rendered.png as a backdrop the moment a
+    creation is opened, then cross-fades the live canvas over it. That only
+    buys anything if the still lands long before the model does, so it has to
+    stay a small fraction of the full-size render - and be served as an image
+    rather than redirected to the multi-megabyte original.
+    """
+    client, storage, original = client_and_storage
+
+    resp = client.get("/api/files/u1/c1/thumb_512_rendered.png")
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/jpeg"
+    assert len(resp.content) < len(original) / 5, (
+        f"{len(resp.content)}B backdrop against a {len(original)}B render is not a head start"
+    )
+    with Image.open(io.BytesIO(resp.content)) as img:
+        assert max(img.size) <= 512
+
+
+def test_web_model_declares_its_length_so_progress_can_be_shown(monkeypatch, tmp_path):
+    """
+    The stage shows a determinate progress bar built from GLTFLoader's
+    loaded/total bytes. `total` is only populated when the response carries a
+    Content-Length; without one the bar has to fall back to an indeterminate
+    sweep. Locally that means serving the file rather than streaming it blind.
+    """
+    glb = _glb_with_texture(px=256)
+    d = tmp_path / "u1" / "c1"
+    d.mkdir(parents=True)
+    (d / "walking.glb").write_bytes(glb)
+
+    class LocalStub(StubS3Storage):
+        def get_file_path(self, u, c, f):
+            return tmp_path / u / c / f
+
+        def upload_file(self, u, c, f, data):
+            self.uploads += 1
+            (tmp_path / u / c / f).write_bytes(data)
+            return f
+
+        def file_exists(self, u, c, f):
+            return (tmp_path / u / c / f).exists()
+
+        def download_file(self, u, c, f):
+            self.downloads += 1
+            return (tmp_path / u / c / f).read_bytes()
+
+    storage = LocalStub({})
+    monkeypatch.setattr(files_api, "get_storage", lambda: storage)
+    app = FastAPI()
+    app.include_router(files_api.router, prefix="/api/files")
+    client = TestClient(app, follow_redirects=False)
+
+    resp = client.get("/api/files/u1/c1/web_walking.glb")
+
+    assert resp.status_code == 200
+    length = resp.headers.get("content-length")
+    assert length is not None, "no Content-Length: the stage can only show an indeterminate bar"
+    assert int(length) == len(resp.content)
+    assert int(length) < len(glb), "the optimised copy is not the one being served"

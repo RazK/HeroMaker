@@ -133,3 +133,146 @@
 @media (prefers-reduced-motion: reduce) {
   .model-preview-loading-spinner { animation: none; }
 }
+
+/*
+ * Progressive stage.
+ *
+ * The 3D model is the slowest thing on the page - 1.5 MB after optimisation,
+ * behind an 800 kB three.js chunk - and until it arrived the stage was empty
+ * with nothing to say it was working. The AI render of the same character is
+ * ~30 kB and already on disk, so it is painted underneath immediately and the
+ * live canvas cross-fades over it once the model has been framed and drawn.
+ *
+ * Stacking order: poster (0) -> canvas (1) -> progress (2) -> failure (3).
+ * r3f's own wrapper div is position:relative inline, so the class only has to
+ * supply the z-index for the canvas to sit above the absolutely-placed poster.
+ */
+.model-preview-poster {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  /* contain, not cover: the render is portrait and the stage is landscape, and
+     the model that replaces it is letterboxed the same way. */
+  object-fit: contain;
+  /* Just enough softness to read as a stand-in rather than the finished thing. */
+  filter: blur(1px);
+  transform: scale(1.02);
+  opacity: 1;
+  transition: opacity 0.45s ease-out;
+  pointer-events: none;
+}
+
+.model-preview-poster.is-hidden {
+  opacity: 0;
+}
+
+.model-preview-canvas {
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.45s ease-out;
+}
+
+.model-preview-canvas.is-live {
+  opacity: 1;
+}
+
+.model-preview-progress {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  /* Clear of the "click to interact" hint and the play/reset buttons, which
+     both sit on the bottom edge of the stage. */
+  bottom: 46px;
+  transform: translateX(-50%);
+  width: min(240px, 78%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  pointer-events: none;
+}
+
+.model-preview-progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.model-preview-progress-percent {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.model-preview-progress-track {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.model-preview-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: #fff;
+  transition: width 0.2s linear;
+}
+
+/* No Content-Length, nothing honest to count: sweep instead of faking a number. */
+.model-preview-progress-bar.is-indeterminate {
+  width: 40%;
+  animation: model-preview-sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes model-preview-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+.model-preview-failed {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 46px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.model-preview-failed button {
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.model-preview-failed button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-preview-poster,
+  .model-preview-canvas { transition: none; }
+  .model-preview-progress-bar.is-indeterminate { animation: none; width: 100%; }
+}

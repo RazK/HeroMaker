@@ -88,6 +88,17 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * The picture the 3D stage stands on while its model downloads.
+ *
+ * Every model in the pipeline is built from the AI render, so the render is a
+ * picture of the same character from the same angle - the closest thing to the
+ * finished 3D view that exists before the model has arrived. The 512px copy is
+ * a few tens of kilobytes and is pre-built when the render step completes, so
+ * it lands in roughly the time a rail tile does.
+ */
+const MODEL_POSTER_FILE = 'thumb_512_rendered.png';
+
 /** "Tap" reads wrong with a mouse and "Click" reads wrong on a phone. */
 const POINTER_VERB =
   typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches ? 'Tap' : 'Click';
@@ -154,6 +165,10 @@ export function StepCard({
   const riggedUrl = (step.step_name === 'meshy_rig' && showPreview && outputFile)
     ? api.getFileUrl(creationId, webModel(outputFile), userId)
     : null;
+
+  const posterSrc = isModelStep
+    ? api.getFileUrl(creationId, MODEL_POSTER_FILE, userId)
+    : undefined;
 
   const handleDownload = async () => {
     if (!outputFile) return;
@@ -434,12 +449,13 @@ export function StepCard({
                 onClick={onPreviewClick}
                 title={`${POINTER_VERB} to interact with 3D model`}
               >
-                <ModelPreview 
+                <ModelPreview
                   onSnapshot={onSnapshot}
-                  url={fileUrl} 
-                  isRigged={step.step_name === 'meshy_rig'} 
+                  url={fileUrl}
+                  isRigged={step.step_name === 'meshy_rig'}
                   walkingUrl={walkingUrl}
                   riggedUrl={riggedUrl}
+                  posterSrc={posterSrc}
                   interactive={false}
                 />
                 <div className="step-card-model-hint">{POINTER_VERB} to interact</div>
