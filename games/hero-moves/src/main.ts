@@ -477,6 +477,10 @@ renderer.setAnimationLoop(() => {
   m.opacity = damp(m.opacity, dancing ? 0.25 + s.liveScore * 0.55 : 0, 6, dt)
   m.color.set(s.liveScore >= 0.75 ? '#3ddc97' : s.liveScore >= 0.5 ? '#ffd23f' : '#ff4d8d')
 
+  // Give a clip room the moment it starts. Measured: without this the hero
+  // leaves the top of the frame mid-backflip.
+  play.setAirborne(!!leader.anim?.active || !!player.anim?.active)
+
   // Swing to a three-quarter view once a phrase, so the pair reads as solid
   // bodies on a stage rather than as two flat cut-outs.
   if (dancing) {

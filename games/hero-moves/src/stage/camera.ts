@@ -57,6 +57,18 @@ export class PlayCamera {
   /** Degrees round the pair. 0 is dead front; positive looks from stage right. */
   private azimuth = 0
   private azimuthTarget = 0
+  /**
+   * Extra room for a clip that leaves the ground.
+   *
+   * Distance is solved from the hero's *rest* height, which is correct for a
+   * standing pose and wrong the moment a backflip is playing — measured with
+   * tools/clipframing.mjs, the hero goes clean off the top of the frame. This
+   * eases the camera back while a clip owns the rig and eases it in again
+   * after, rather than framing every quiet moment for a somersault that
+   * happens twice a run.
+   */
+  private airTarget = 0
+  private air = 0
   private lastFraming: Framing | null = null
 
   private get cardPortrait() {
@@ -106,6 +118,9 @@ export class PlayCamera {
     if (this.lastFraming) this.frame(this.lastFraming)
   }
 
+  /** 0 for a standing pose, 1 while an airborne clip is playing. */
+  setAirborne(on: boolean) { this.airTarget = on ? 1 : 0 }
+
   /** Where the orbit should settle, in degrees. Clamped to the safe arc. */
   setAzimuth(deg: number) {
     this.azimuthTarget = clamp(deg, -MAX_AZIMUTH, MAX_AZIMUTH)
@@ -120,16 +135,21 @@ export class PlayCamera {
     // Slow: a swing you notice happening is a swing that distracts from the
     // dancing. This takes a couple of bars to cross the arc.
     this.azimuth = damp(this.azimuth, this.azimuthTarget, 1.1, dt)
+    // Faster than the orbit: a somersault is over in under a second, so the
+    // room has to already be there when it starts.
+    this.air = damp(this.air, this.airTarget, 7, dt)
     this.apply()
   }
 
   private apply() {
     const rad = (this.azimuth * Math.PI) / 180
-    const d = this.distance - this.punch
-    this.target.set(this.offsetX * 0.94, this.lookY, 0)
+    const d = this.distance * (1 + this.air * 0.3) - this.punch
+    // Look higher as well as further back: the extra room is wanted above the
+    // hero, not evenly around it.
+    this.target.set(this.offsetX * 0.94, this.lookY + this.air * this.lookY * 0.42, 0)
     this.camera.position.set(
       this.target.x + Math.sin(rad) * d,
-      this.eyeY,
+      this.eyeY + this.air * this.eyeY * 0.3,
       Math.cos(rad) * d,
     )
     this.camera.lookAt(this.target)
