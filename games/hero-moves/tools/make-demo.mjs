@@ -34,12 +34,12 @@ const W = 1280, H = 720
 const SEGMENTS = [
   {
     id: 'tour', label: 'Menu — 1, 2 or 3 players, any hero',
-    args: ['--tour', '--players=3', `--video=${feeds}/p3.y4m`, '--menu=3', '--w=1280', '--h=720'],
+    args: ['--tour', '--players=3', `--video=${feeds}/p3.y4m`, '--menu=3', '--w=960', '--h=540'],
   },
   {
     id: 'three', label: 'Three players — desktop',
     args: ['--players=3', '--picks=0,1,2', `--video=${feeds}/p3.y4m`, '--pause',
-      '--menu=5', '--w=1280', '--h=720'],
+      '--menu=5', '--w=960', '--h=540'],
   },
   {
     id: 'phone', label: 'Two players — phone',
@@ -49,18 +49,28 @@ const SEGMENTS = [
   {
     id: 'solo', label: 'One player — desktop',
     args: ['--players=1', '--picks=5', `--video=${feeds}/p1.y4m`,
-      '--menu=4', '--w=1280', '--h=720'],
+      '--menu=4', '--w=960', '--h=540'],
   },
 ]
 
 fs.mkdirSync(work, { recursive: true })
 const made = []
+const skipped = []
 for (const seg of SEGMENTS) {
   if (only.length && !only.includes(seg.id)) continue
+  const needs = seg.args.find((a) => a.startsWith('--video='))?.slice(8)
+  if (needs && !fs.existsSync(needs)) { skipped.push(`${seg.id} (no ${needs})`); continue }
   const raw = path.join(work, `${seg.id}.mp4`)
   console.log(`\n=== ${seg.id}: ${seg.label}`)
-  execFileSync('node', ['tools/record-party.mjs', raw, `--url=${base}`,
-    '--captions', `--label=${seg.label}`, ...seg.args], { stdio: 'inherit' })
+  // One bad segment must not throw away the three that recorded, so a failure
+  // is reported and skipped rather than aborting the run.
+  try {
+    execFileSync('node', ['tools/record-party.mjs', raw, `--url=${base}`,
+      '--captions', `--label=${seg.label}`, ...seg.args], { stdio: 'inherit' })
+  } catch (err) {
+    skipped.push(`${seg.id} (${(err.message ?? '').split('\n')[0]})`)
+    continue
+  }
   // Everything lands on the same canvas so the parts can simply be joined; a
   // phone capture is pillarboxed rather than stretched, because a demo that
   // distorts the thing it is demonstrating is worse than no demo.
@@ -79,6 +89,7 @@ fs.mkdirSync(path.dirname(out), { recursive: true })
 execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list,
   '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '21', '-movflags', '+faststart', out])
 
+if (skipped.length) console.log(`\nskipped: ${skipped.join(', ')}`)
 const secs = execFileSync(FFMPEG.replace(/ffmpeg$/, 'ffprobe'),
   ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]).toString().trim()
 console.log(`\n${out}  ${(fs.statSync(out).size / 1e6).toFixed(1)} MB  ${Number(secs).toFixed(1)}s`)

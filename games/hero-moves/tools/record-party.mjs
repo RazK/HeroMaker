@@ -77,7 +77,11 @@ const problems = []
 page.on('pageerror', (e) => problems.push(`[pageerror] ${e.message}`))
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()) })
 
-await page.goto(base, { waitUntil: 'load', timeout: 180000 })
+// `lite` drops shadows, antialiasing and device pixel ratio. Without it this
+// sandbox renders three avatars at about a frame every five seconds, and a
+// frame that slow makes the game clock lag the camera it is trying to dance
+// with — the recording then looks like a broken scorer rather than a slow one.
+await page.goto(`${base}${base.includes('?') ? '&' : '?'}lite=1`, { waitUntil: 'load', timeout: 180000 })
 await page.waitForFunction(() => window.__ready === true || String(window.__ready ?? '').startsWith('error'),
   null, { timeout: 300000 })
 const ready = await page.evaluate(() => window.__ready)
@@ -169,6 +173,8 @@ if (!tour && Math.abs(meta.scale * timescale - 1) > 1e-6) {
   console.error(`feed scale ${meta.scale} does not match timescale ${timescale}`)
   process.exit(1)
 }
+/** Seconds into the capture at which the round began; the trim starts near it. */
+let startedAt = 0
 if (!tour) {
   // Compute the wait and schedule it *inside* the page rather than polling for
   // the moment from out here. The page is running MoveNet and rendering three
@@ -185,15 +191,25 @@ if (!tour) {
     `(waited ${waited.toFixed(2)}s for the feed's first beat)`)
 }
 
-let startedAt = 0
 let paused = false
 const samples = []
 for (; !tour;) {
   await page.waitForTimeout(1000)
-  const snap = await page.evaluate(() => ({
-    phase: window.__api.phase(), tracker: window.__api.tracker(),
-    players: window.__api.players(), beat: Math.round(window.__api.state().beat),
-  }))
+  const snap = await page.evaluate(({ mark, dur, scale, bpm }) => {
+    // How far the game's beat has drifted from the beat the feed is playing.
+    // They share no clock, so a slow frame is a silent desync: the routine runs
+    // late, the dancers do not, and every call is scored against the wrong
+    // shape. Measured every second so a bad take is known in seconds.
+    const feedT = (window.__api.camClock() / 1000) % dur
+    const feedBeat = (feedT - mark - (window.__api.state().songTime, 0)) / ((60 / bpm) * scale)
+    const s = window.__api.state()
+    return {
+      phase: window.__api.phase(), tracker: window.__api.tracker(),
+      players: window.__api.players(), beat: s.beat,
+      drift: +(s.beat - (feedBeat - 8)).toFixed(2),
+      quality: window.__api.quality(),
+    }
+  }, { mark: meta.mark, dur: meta.duration, scale: meta.scale, bpm: 100 })
   samples.push(snap)
   if (wantPause && !paused && snap.phase === 'dancing' && snap.beat > 10) {
     paused = true
@@ -219,6 +235,13 @@ execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-ss', String(trim), '-i', web
 fs.rmSync(videoDir, { recursive: true, force: true })
 
 const last = samples.at(-1)
+const drifts = samples.filter((s) => s.phase === 'dancing').map((s) => s.drift)
+if (drifts.length) {
+  const worst = drifts.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0)
+  console.log(`drift against the feed: worst ${worst.toFixed(2)} beats` +
+    (Math.abs(worst) > 1 ? '  *** the take is out of step ***' : ''))
+}
+console.log(`quality: ${JSON.stringify(last?.quality)}`)
 console.log(`tracker: ${last?.tracker.state}, ${last?.tracker.fps.toFixed(1)} fps, ${last?.tracker.ms.toFixed(0)} ms`)
 console.log('final:', JSON.stringify(summary, null, 2))
 console.log('problems:', problems.slice(0, 5).join(' | ') || 'none')

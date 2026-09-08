@@ -46,6 +46,9 @@ const asMove = (p: Pose): Move =>
 export const CALLS = new Map(VOCAB.map((p) => [p.id, asMove(p)]))
 const POOL = VOCAB.filter((p) => p.id !== 'down').map((p) => p.id)
 
+/** How long a lane stays "occupied" after its last confident look. */
+const SEEN_GRACE_BEATS = 3
+
 export interface PlayerResult {
   move: Move
   score: number
@@ -66,6 +69,8 @@ export interface Player {
   results: PlayerResult[]
   /** False when this lane has nobody in it. */
   seen: boolean
+  /** Beat this lane was last confidently occupied, for the grace period. */
+  seenAt: number
   /** Grade to pop over this player's hero, consumed by the HUD. */
   flash: string | null
   flashAt: number
@@ -87,7 +92,7 @@ const newPlayer = (lane: number, heroIndex: number): Player => ({
   lane, heroIndex,
   score: 0, combo: 0, bestCombo: 0,
   best: 0, bestAtBeat: 0, liveScore: 0,
-  results: [], seen: false, flash: null, flashAt: 0,
+  results: [], seen: false, seenAt: -99, flash: null, flashAt: 0,
 })
 
 /** A routine of `moves` calls, drawn from the pool without immediate repeats. */
@@ -207,7 +212,12 @@ export class PartyGame {
 
     for (const p of s.players) {
       const sk = lanes[p.lane] ?? null
-      p.seen = !!sk && bodyConfidence(sk) > 0.25
+      // Lanes are inferred round robin, so a lane is only refreshed every
+      // `players` frames — without a grace period the "step in" badge blinks
+      // on and off at the tracker's rate rather than saying anything about
+      // whether a player is there.
+      if (sk && bodyConfidence(sk) > 0.25) p.seenAt = s.beat
+      p.seen = s.beat - p.seenAt < SEEN_GRACE_BEATS
       if (!slot || !sk || !p.seen) { p.liveScore = 0; continue }
       p.liveScore = shapeScore(sk, slot.move.id)
       if (p.liveScore > p.best) { p.best = p.liveScore; p.bestAtBeat = s.beat }

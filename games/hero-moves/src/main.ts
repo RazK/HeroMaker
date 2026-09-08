@@ -6,7 +6,7 @@ import { PlayCamera } from './stage/camera'
 import { loadHero, type Hero } from './avatar/loader'
 import { PoseTracker } from './pose/tracker'
 import { PoseSolver } from './pose/solver'
-import { PartyGame, LENGTHS, type PartyPhase, type LengthId, type Player } from './game/party'
+import { PartyGame, LENGTHS, makeRoutine, type PartyPhase, type LengthId, type Player } from './game/party'
 import { Performer, loadAllClips } from './anim/performer'
 import { PartyHud } from './ui/partyhud'
 import { Audio } from './core/audio'
@@ -79,9 +79,23 @@ const boot = {
 }
 
 const app = document.getElementById('app')!
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
-renderer.shadowMap.enabled = true
+/**
+ * Quality, and giving it up gracefully.
+ *
+ * This is a rhythm game: when a device cannot keep up, the thing that must not
+ * be spent is the beat. Frames that take longer than a beat make the routine
+ * run slow and the scoring windows drift, which is a broken game — while
+ * dropping shadows is a slightly flatter one. So the renderer watches its own
+ * frame times and gives up the expensive things before it gives up the tempo.
+ *
+ * `?lite=1` starts there, for the recording harnesses and for anyone who wants
+ * it: antialiasing can only be chosen at construction, so it is the one thing
+ * the automatic path cannot drop later.
+ */
+const LITE = new URLSearchParams(location.search).get('lite') === '1'
+const renderer = new THREE.WebGLRenderer({ antialias: !LITE, powerPreference: 'high-performance' })
+renderer.setPixelRatio(LITE ? 1 : Math.min(devicePixelRatio, 2))
+renderer.shadowMap.enabled = !LITE
 renderer.shadowMap.type = THREE.PCFShadowMap
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -172,6 +186,14 @@ function renderMenu() {
           title: r.name,
         })
         if (thumb) b.append(el('img', { src: thumb, alt: r.name, width: 44, height: 44 }))
+        // The strip scrolls, so the chosen hero has to be brought into view or
+        // a player cannot see what they picked.
+        if (picks[i] === k) queueMicrotask(() => {
+          const strip = b.parentElement
+          if (!strip) return
+          const left = b.offsetLeft - (strip.clientWidth - b.offsetWidth) / 2
+          strip.scrollLeft = Math.max(0, left)
+        })
         return b
       })))))
 }
@@ -420,10 +442,26 @@ let clock = 0
 let lastBeat = Number.NEGATIVE_INFINITY
 let liveLanes: Array<Skeleton | null> = [null, null, null]
 
+/** Rolling frame cost, and whether the expensive things have been given up. */
+let slowFrames = 0
+let degraded = LITE
+function watchFrameCost(elapsed: number) {
+  if (degraded) return
+  // A frame slower than a third of a beat is one the routine can feel.
+  slowFrames = elapsed > 0.2 ? slowFrames + 1 : Math.max(0, slowFrames - 1)
+  if (slowFrames < 20) return
+  degraded = true
+  renderer.shadowMap.enabled = false
+  renderer.setPixelRatio(1)
+  scene.traverse((o) => { (o as THREE.Mesh).castShadow = false })
+  resize()
+}
+
 renderer.setAnimationLoop(() => {
   const now = performance.now()
   const elapsed = (now - last) / 1000
   last = now
+  watchFrameCost(elapsed)
   // Two clocks on purpose. Animation dt is clamped hard so a stalled frame
   // cannot fling the rig; the game clock decides *when*, so it tracks wall time
   // and is only clamped against a genuine stall like a backgrounded tab. The
@@ -489,9 +527,12 @@ renderer.setAnimationLoop(() => {
  * The menu preview. Its whole job is to answer "does it see all of us yet",
  * which is the question a lane game gets asked before every single round.
  */
+/** Wall-clock ms each lane was last confidently occupied; see below. */
+const menuSeenAt = [0, 0, 0]
 function drawMenuCamera() {
   const g = menuCam.getContext('2d')
   if (!g || tracker.video.readyState < 2) return
+  const now = performance.now()
   const w = menuCam.width, h = menuCam.height
   const n = playerCount
   g.save(); g.translate(w, 0); g.scale(-1, 1)
@@ -500,7 +541,12 @@ function drawMenuCamera() {
   for (let i = 0; i < n; i++) {
     const x0 = (i / n) * w, lw = w / n
     const sk = liveLanes[i]
-    const ok = !!sk && sk.leftShoulder.score > 0.3 && sk.rightHip.score > 0.3
+    // One lane is inferred per frame, so at three players a lane's answer is a
+    // second old by the time the next one arrives. Without a grace period the
+    // three boxes take turns flashing red, which reads as the game losing
+    // people it can see perfectly well.
+    if (sk && sk.leftShoulder.score > 0.3 && sk.rightHip.score > 0.3) menuSeenAt[i] = now
+    const ok = now - menuSeenAt[i] < 2000
     g.strokeStyle = ok ? '#3ddc97' : 'rgba(255,77,141,.9)'
     g.lineWidth = 3
     g.strokeRect(x0 + 2, 2, lw - 4, h - 4)
@@ -581,6 +627,15 @@ function startLoadingTracker() {
     document.documentElement.style.setProperty('--time-scale', String(n))
   },
   tracker: () => ({ state: tracker.state, fps: tracker.fps, ms: tracker.lastInferenceMs }),
+  quality: () => ({ degraded, lite: LITE }),
+  /** The routine a given length and seed produces, for the lane gate. */
+  routine: (length: LengthId, seed: number) => {
+    const song = makeRoutine(LENGTHS.find((l) => l.id === length)?.moves ?? 16, seed)
+    return {
+      bpm: song.bpm, leadInBeats: song.leadInBeats, totalBeats: song.totalBeats,
+      slots: song.slots.map((s) => ({ id: s.move.id, startBeat: s.startBeat, beats: s.beats })),
+    }
+  },
   /** Hero measurements and the solved camera, for the framing harnesses. */
   debugFraming: () => ({
     heroes: lanes.slice(0, playerCount).map((l) => l.hero && {
@@ -593,7 +648,11 @@ function startLoadingTracker() {
    * it to line the game's clock up with a pre-rendered camera feed: the feed
    * opens on a marker pose, and the round is started the frame it appears.
    */
-  laneLabels: () => liveLanes.map((sk) => (sk ? classify(sk).pose?.id ?? null : null)),
+  laneLabels: () => liveLanes.map((sk, i) => ({
+    pose: sk ? classify(sk).pose?.id ?? null : null,
+    distance: sk ? +classify(sk).distance.toFixed(3) : null,
+    at: tracker.laneAt[i],
+  })),
   ready: () => tracker.state,
   wake: () => ensureCamera(),
   /** Milliseconds of camera playback, for lining a recording up with a feed. */

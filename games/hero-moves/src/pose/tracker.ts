@@ -42,6 +42,15 @@ export class PoseTracker {
   skeleton: Skeleton = emptySkeleton()
   /** One skeleton per lane, reused between frames so nothing is allocated. */
   readonly lanes: Skeleton[] = [emptySkeleton(), emptySkeleton(), emptySkeleton()]
+  /**
+   * Camera-playback time, in ms, of the frame each lane's skeleton came from.
+   *
+   * A lane is only re-inferred every `players` frames, so "what does lane 2
+   * show" and "when was that true" are different questions. The gate harness
+   * needs the second one to know which pose to expect, and without it a slow
+   * machine looks like a broken classifier.
+   */
+  readonly laneAt: number[] = [0, 0, 0]
   /** Wall-clock ms of the last inference, for the performance readout. */
   lastInferenceMs = 0
   /**
@@ -221,6 +230,7 @@ export class PoseTracker {
       const data = await out.data()
       input.dispose(); out.dispose()
 
+      this.laneAt[lane] = performance.now() - this.streamStartedAt
       // Undo the letterbox, then the overlap, so keypoints come back in the
       // lane's own 0..1 space. A hand reaching into a neighbour's third lands
       // outside 0..1, which is correct and which every consumer tolerates:
