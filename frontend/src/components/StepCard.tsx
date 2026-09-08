@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { CreationStepResponse } from '../api/client';
+import { CreationResponse, CreationStepResponse } from '../api/client';
 import { ImagePreview } from './ImagePreview';
 import { LazyModelPreview as ModelPreview } from './LazyModelPreview';
+import { HeroNameEditor } from './HeroNameEditor';
 import { api } from '../api/client';
 import { webModel } from '../api/webModel';
 import './StepCard.css';
@@ -11,15 +12,15 @@ interface StepCardProps {
   creationId: string;
   userId: string;
   stepIndex: number;
+  /** The rail's name for this phase - "The Drawing", "AI Rendering", "3D Hero". */
+  stageLabel: string;
   isReady: boolean;  // Calculated by parent: first non-completed step
   displayName: string;  // From step config
   outputFile?: string;  // From step config
-  stepCost: number;  // From step config
-  creditBalance?: number;
-  isLoggedIn: boolean;  // Whether user is logged in
-  canDownload: boolean;  // Whether user can download (owns creation or is admin)
-  onStepRun?: (stepName: string) => void;
-  onCreationRefresh?: () => Promise<void>;  // Called to refresh creation state after step starts
+  creation: CreationResponse;  // For the identity overlay and the VRM share link
+  isAdmin: boolean;
+  isLoggedIn: boolean;
+  onIdentityUpdated?: () => Promise<void>;  // Re-read the creation after a rename
   onPreviewClick?: () => void;  // Called when 3D model is clicked to open modal
   onSnapshot?: (dataUrl: string) => void;  // A still of the rendered model, for the rail
 }
@@ -103,27 +104,46 @@ const MODEL_POSTER_FILE = 'thumb_512_rendered.png';
 const POINTER_VERB =
   typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches ? 'Tap' : 'Click';
 
-export function StepCard({ 
-  step, 
-  creationId, 
-  userId, 
-  stepIndex, 
+/**
+ * What the status chip in the stage's corner says.
+ *
+ * It used to be a header band above the hero's name, which pushed the picture
+ * down and stacked two titles on top of each other. In the corner it costs no
+ * layout at all, so it can afford to be specific: a phase that is running names
+ * the step that is running rather than the phase it belongs to.
+ */
+function chipText(
+  step: CreationStepResponse,
+  stepIndex: number,
+  stageLabel: string,
+  displayName: string,
+  isReady: boolean
+): string {
+  const phase = `Phase ${stepIndex + 1}`;
+  if (step.status === 'processing') return `${phase} · ${displayName}`;
+  if (step.status === 'failed') return `${phase} · Failed`;
+  if (step.status === 'pending') return `${phase} · ${isReady ? 'Up next' : 'Not run yet'}`;
+  return `${phase} · ${stageLabel}`;
+}
+
+export function StepCard({
+  step,
+  creationId,
+  userId,
+  stepIndex,
+  stageLabel,
   isReady,
   displayName,
   outputFile,
-  stepCost,
-  creditBalance,
-  isLoggedIn: _isLoggedIn,
-  canDownload,
-  onStepRun,
-  onCreationRefresh,
+  creation,
+  isAdmin,
+  isLoggedIn,
+  onIdentityUpdated,
   onPreviewClick,
   onSnapshot,
 }: StepCardProps) {
   const [, setTick] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
 
   // Force re-render every second for live time updates
   useEffect(() => {
@@ -138,30 +158,25 @@ export function StepCard({
   const timeRemaining = getTimeRemaining(step);
   const isImageStep = outputFile && (outputFile.endsWith('.jpg') || outputFile.endsWith('.png'));
   const isModelStep = outputFile && outputFile.endsWith('.glb');
-  const isVrmStep = outputFile && outputFile.endsWith('.vrm');
   const showPreview = step.status === 'completed' && outputFile;
-  
-  const walkingGlbFilename = (step.step_name === 'meshy_rig' && step.metadata_json?.walking_glb_url) 
-    ? step.metadata_json.walking_glb_url 
+
+  const walkingGlbFilename = (step.step_name === 'meshy_rig' && step.metadata_json?.walking_glb_url)
+    ? step.metadata_json.walking_glb_url
     : null;
-  
-  const modelFile = (step.step_name === 'meshy_rig' && walkingGlbFilename) 
-    ? walkingGlbFilename 
+
+  const modelFile = (step.step_name === 'meshy_rig' && walkingGlbFilename)
+    ? walkingGlbFilename
     : outputFile;
-  
+
   // Previews load the web-sized copy; the share link below keeps the original.
   const fileUrl = showPreview && modelFile
     ? api.getFileUrl(creationId, webModel(modelFile), userId)
     : null;
 
-  const shareFileUrl = showPreview && modelFile
-    ? api.getFileUrl(creationId, modelFile, userId)
-    : null;
-
   const walkingUrl = (step.step_name === 'meshy_rig' && showPreview && walkingGlbFilename)
     ? api.getFileUrl(creationId, webModel(walkingGlbFilename), userId)
     : null;
-  
+
   const riggedUrl = (step.step_name === 'meshy_rig' && showPreview && outputFile)
     ? api.getFileUrl(creationId, webModel(outputFile), userId)
     : null;
@@ -170,22 +185,26 @@ export function StepCard({
     ? api.getFileUrl(creationId, MODEL_POSTER_FILE, userId)
     : undefined;
 
-  const handleDownload = async () => {
-    if (!outputFile) return;
-    const fileToDownload = step.step_name === 'meshy_rig' ? 'avatar.vrm' : outputFile;
-    try {
-      await api.downloadFile(creationId, fileToDownload, userId);
-    } catch (error) {
-      console.error('Failed to download file:', error);
-      alert(`Failed to download ${fileToDownload}`);
-    }
-  };
+  const thumbSrc = isImageStep && outputFile
+    ? api.getFileUrl(creationId, `thumb_512_${outputFile}`, userId)
+    : undefined;
 
-  const handleShareVrm = async () => {
+  // The blurred fill behind the artwork. Same picture, 512px copy - see
+  // .studio-card-backdrop for why the stage has one at all.
+  const backdropSrc = step.status === 'completed' ? (thumbSrc ?? posterSrc) : undefined;
+
+  // The VRM is produced by a step the rail does not show, so its share link
+  // hangs off the 3D stage - the only place in the Studio it makes sense.
+  const vrmReady = creation.steps.some(
+    (s) => s.step_name === 'convert_vrm' && s.status === 'completed'
+  );
+  const canShareVrm = isModelStep && step.status === 'completed' && vrmReady;
+
+  const handleShareVrm = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     // The untouched file, not the web-sized copy: an outside viewer has to be
     // able to read it with a strict glTF loader.
-    if (!shareFileUrl) return;
-    const shareLink = getKalidoFace3DShareLink(shareFileUrl);
+    const shareLink = getKalidoFace3DShareLink(api.getFileUrl(creationId, 'avatar.vrm', userId));
     const success = await copyToClipboard(shareLink);
     if (success) {
       setShareCopied(true);
@@ -195,257 +214,32 @@ export function StepCard({
     }
   };
 
-  const handleCancel = async () => {
-    if (step.status === 'failed' && step.error_message === 'Step cancelled by user') {
-      return;
-    }
-    
-    if (isCancelling) return;
-    
-    if (!window.confirm(`Are you sure you want to cancel ${displayName}?`)) return;
-    
-    setIsCancelling(true);
-    try {
-      await api.cancelStep(creationId, step.step_name);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
-      window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId } }));
-      if (onStepRun) {
-        onStepRun(step.step_name);
-      }
-    } catch (error) {
-      alert(`Failed to cancel step: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
-  const handleRunStep = async () => {
-    setIsRunning(true);
-    
-    try {
-      await api.runStep(creationId, step.step_name);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
-      
-      // Directly refresh creation state (handles case when polling was stopped)
-      if (onCreationRefresh) {
-        await onCreationRefresh();
-      }
-      // Also dispatch event for any other listeners
-      window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId } }));
-      
-      if (onStepRun) {
-        onStepRun(step.step_name);
-      }
-    } catch (error) {
-      alert(`Failed to run step: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  const handleRetryAndContinue = async () => {
-    setIsRunning(true);
-    
-    try {
-      // Run pipeline starting from this step (retry and continue all following)
-      await api.runPipeline(creationId, step.step_name);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
-      
-      if (onCreationRefresh) {
-        await onCreationRefresh();
-      }
-      window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId } }));
-      
-      if (onStepRun) {
-        onStepRun(step.step_name);
-      }
-    } catch (error) {
-      alert(`Failed to retry pipeline: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  // Render action button based on status
-  const renderActionButton = () => {
-    const isCancelled = step.status === 'failed' && step.error_message === 'Step cancelled by user';
-    
-    // Processing: show Cancel button
-    if (step.status === 'processing') {
-      return (
-        <button
-          className="step-card-action-button step-card-action-cancel"
-          onClick={handleCancel}
-          disabled={isCancelling || isCancelled}
-          title={isCancelling ? "Cancelling..." : "Cancel this step"}
-        >
-          {isCancelling ? 'Cancelling...' : 'Cancel'}
-        </button>
-      );
-    }
-
-    // Completed: show Download and Re-run buttons (only for owners/admins)
-    if (step.status === 'completed') {
-      if (!canDownload) {
-        return null; // Only owners or admins can download/redo
-      }
-      const hasCredits = creditBalance === undefined || stepCost <= creditBalance;
-      return (
-        <div className="step-card-completed-buttons">
-        <button
-          className="step-card-action-button step-card-action-download"
-          onClick={handleDownload}
-          title={`Download ${outputFile}`}
-        >
-          Download
-        </button>
-          <button
-            className="step-card-action-button step-card-action-run"
-            onClick={() => {
-              if (window.confirm(`Re-run ${displayName}? This will overwrite the current output.`)) {
-                handleRunStep();
-              }
-            }}
-            disabled={isRunning || !hasCredits}
-            title={
-              isRunning
-                ? 'Running...'
-                : !hasCredits
-                  ? `Insufficient credits. Need ${stepCost}, have ${creditBalance}`
-                  : `Re-run this step (overwrites current output)`
-            }
-          >
-            {isRunning ? 'Running...' : (
-              <>
-                Redo
-                <span className="step-card-action-cost">🪙 {stepCost}</span>
-              </>
-            )}
-          </button>
-        </div>
-      );
-    }
-
-    // Failed: show Retry buttons
-    if (step.status === 'failed') {
-      const hasCredits = creditBalance === undefined || stepCost <= creditBalance;
-      return (
-        <div className="step-card-retry-buttons">
-          <button
-            className="step-card-action-button step-card-action-run"
-            onClick={handleRunStep}
-            disabled={isRunning || !hasCredits}
-            title={
-              isRunning
-                ? `${displayName} is running...`
-                : !hasCredits
-                  ? `Insufficient credits. Need ${stepCost}, have ${creditBalance}`
-                  : `Retry only this step`
-            }
-          >
-            {isRunning ? 'Running...' : (
-              <>
-                Retry
-                <span className="step-card-action-cost">🪙 {stepCost}</span>
-              </>
-            )}
-          </button>
-          <button
-            className="step-card-action-button step-card-action-continue"
-            onClick={handleRetryAndContinue}
-            disabled={isRunning || !hasCredits}
-            title={
-              isRunning
-                ? 'Pipeline is running...'
-                : !hasCredits
-                  ? `Insufficient credits`
-                  : `Retry this step and continue pipeline`
-            }
-          >
-            {isRunning ? '...' : 'Continue'}
-          </button>
-        </div>
-      );
-    }
-
-    // Pending + Ready: show Run button
-    if (step.status === 'pending' && isReady) {
-      const hasCredits = creditBalance === undefined || stepCost <= creditBalance;
-      return (
-        <button
-          className="step-card-action-button step-card-action-run"
-          onClick={handleRunStep}
-          disabled={isRunning || !hasCredits}
-          title={
-            isRunning
-              ? `${displayName} is running...`
-              : !hasCredits
-                ? `Insufficient credits. Need ${stepCost}, have ${creditBalance}`
-                : `Run ${displayName}`
-          }
-        >
-          {isRunning ? 'Running...' : (
-            <>
-              Run
-              <span className="step-card-action-cost">🪙 {stepCost}</span>
-            </>
-          )}
-        </button>
-      );
-    }
-
-    // Pending but not ready: no button
-    return null;
-  };
-
   return (
-    <div className={`step-card step-card-${step.status}${isReady && step.status === 'pending' ? ' step-card-ready' : ''}`}>
-      {/* Header */}
-      <div className="step-card-header">
-        <div className="step-card-number">{stepIndex + 1}</div>
-        <div className="step-card-name-cost">
-          <h3 className="step-card-name">{displayName}</h3>
-        </div>
-        {renderActionButton()}
-      </div>
-
-      {/* Body */}
-      <div className="step-card-body">
-        {step.status === 'processing' && timeRemaining && (() => {
-          const timeMatch = timeRemaining.match(/^(~?)(.+?)\s+(remaining)$/);
-          const timeValue = timeMatch ? timeMatch[1] + timeMatch[2] : timeRemaining;
-          const remainingText = timeMatch ? timeMatch[3] : '';
-          
-          return (
-            <div className="step-card-countdown">
-              <div className="step-card-countdown-container">
-                <div className="step-card-countdown-large">{timeValue}</div>
-                {remainingText && <div className="step-card-countdown-label">{remainingText}</div>}
-              </div>
-            </div>
-          );
-        })()}
-
-        {step.status === 'failed' && step.error_message && (
-          <div className="step-card-error">
-            <strong>Error:</strong> {step.error_message}
-          </div>
+    <div className={`studio-card is-${step.status}${isReady && step.status === 'pending' ? ' is-ready' : ''}`}>
+      {/*
+        * The picture, edge to edge. Everything else in the Studio floats on
+        * top of it - nothing above it, nothing beside it, so the square the
+        * layout solved for is all picture.
+        */}
+      <div className="studio-card-media">
+        {backdropSrc && (
+          <img className="studio-card-backdrop" src={backdropSrc} alt="" aria-hidden="true" decoding="async" />
         )}
-
         {step.status === 'completed' && showPreview && fileUrl && (
-          <div className="step-card-preview">
+          <div className="studio-card-content">
             {isImageStep && (
               <ImagePreview
                 src={fileUrl}
                 alt={displayName}
+                className="studio-card-image"
                 /* 512px copy of the same picture, painted while the full-size
                    render downloads. */
-                placeholderSrc={outputFile ? api.getFileUrl(creationId, `thumb_512_${outputFile}`, userId) : undefined}
+                placeholderSrc={thumbSrc}
               />
             )}
             {isModelStep && (
-              <div 
-                className="step-card-model-clickable"
+              <div
+                className="studio-card-model"
                 onClick={onPreviewClick}
                 title={`${POINTER_VERB} to interact with 3D model`}
               >
@@ -458,34 +252,71 @@ export function StepCard({
                   posterSrc={posterSrc}
                   interactive={false}
                 />
-                <div className="step-card-model-hint">{POINTER_VERB} to interact</div>
+                <div className="studio-card-model-hint">{POINTER_VERB} to interact</div>
               </div>
             )}
           </div>
         )}
 
-        {isVrmStep && step.status === 'completed' && fileUrl && (
-          <div className="step-card-share">
-            <button
-              className="step-card-share-button"
-              onClick={handleShareVrm}
-              title="Share VRM file in KalidoFace3D viewer"
-            >
-              {shareCopied ? (
-                <>
-                  <span className="step-card-share-icon">✓</span>
-                  <span>Link Copied!</span>
-                </>
-              ) : (
-                <>
-                  <span className="step-card-share-icon">🔗</span>
-                  <span>Share in KalidoFace3D</span>
-                </>
-              )}
-            </button>
+        {step.status === 'processing' && (() => {
+          const timeMatch = timeRemaining?.match(/^(~?)(.+?)\s+(remaining)$/);
+          const timeValue = timeMatch ? timeMatch[1] + timeMatch[2] : timeRemaining;
+          const remainingText = timeMatch ? timeMatch[3] : '';
+
+          return (
+            <div className="studio-card-waiting">
+              <div className="studio-card-waiting-spinner" aria-hidden="true" />
+              {timeValue && <div className="studio-card-countdown">{timeValue}</div>}
+              {remainingText && <div className="studio-card-countdown-label">{remainingText}</div>}
+            </div>
+          );
+        })()}
+
+        {step.status === 'failed' && (
+          <div className="studio-card-failed" role="alert">
+            <strong>{displayName} failed</strong>
+            {step.error_message && <span>{step.error_message}</span>}
+          </div>
+        )}
+
+        {step.status === 'pending' && (
+          <div className="studio-card-pending">
+            <span aria-hidden="true">✧</span>
+            <span>{isReady ? 'Not made yet' : 'Waiting for the phase before it'}</span>
           </div>
         )}
       </div>
+
+      {/* The status chip - a corner of the picture, never a band above it. */}
+      <span className="studio-card-chip">
+        {chipText(step, stepIndex, stageLabel, displayName, isReady)}
+      </span>
+
+      {canShareVrm && (
+        <button
+          type="button"
+          className="studio-card-share"
+          onClick={handleShareVrm}
+          title="Copy a KalidoFace3D link to this VRM"
+        >
+          {shareCopied ? '✓ Copied' : '🔗 Share'}
+        </button>
+      )}
+
+      {/*
+        * Name, creator and age ride on the picture on a scrim, exactly the way
+        * a gallery card carries them, so the Studio and the Gallery read as the
+        * same object. Editing happens in place - there is no form band.
+        */}
+      <HeroNameEditor
+        creationId={creation.id}
+        characterName={creation.character_name}
+        name={creation.name}
+        age={creation.age}
+        isAdmin={isAdmin}
+        isLoggedIn={isLoggedIn}
+        onUpdated={onIdentityUpdated}
+      />
     </div>
   );
 }

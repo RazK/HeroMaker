@@ -1,348 +1,181 @@
-.hero-name-editor {
-  margin-bottom: 0;
-}
-
-.hero-name-editor-row {
+/*
+ * Hero identity, on the picture.
+ *
+ * Same treatment as a Gallery card: a scrim across the bottom of the artwork,
+ * hero name bold, "creator · age" beneath it. The Studio and the Gallery are
+ * two views of one object and should read that way.
+ */
+.hero-identity {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3) var(--space-3);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.45) 55%, transparent);
+  pointer-events: none;
 }
 
-.hero-name-editor-field-wrapper {
-  display: flex;
-  align-items: center;
+/* Only the controls take clicks; the scrim itself must not swallow a drag on
+   the 3D canvas underneath it. */
+.hero-identity-edit,
+.hero-identity-input,
+.hero-identity-done,
+.hero-identity-id {
+  pointer-events: auto;
+}
+
+.hero-identity-text {
   flex: 1;
-  position: relative;
-}
-
-.hero-name-editor-field-wrapper-age {
-  flex: 0 0 auto;
-}
-
-@media (max-width: 1023px) {
-  .hero-name-editor-row {
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-2);
-  }
-  
-  /* Name + Age wrapper - first line, spans 100% width */
-  .hero-name-editor-name-age-wrapper {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    width: 100%;
-    flex: 1 1 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-  
-  /* Name field inside wrapper - grows, can shrink */
-  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper:first-child {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    max-width: calc(100% - 94px); /* 80px age + 12px gap + 2px buffer */
-  }
-  
-  /* Age field inside wrapper - fixed width, never shrinks */
-  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper-age {
-    flex: 0 0 80px;
-    width: 80px;
-    min-width: 80px;
-    max-width: 80px;
-    flex-shrink: 0;
-  }
-  
-  /* Make sure inputs inside don't overflow */
-  .hero-name-editor-name-age-wrapper .hero-name-editor-input-compact {
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  /* Superhero name - second line, wraps after name+age wrapper */
-  .hero-name-editor-row > .hero-name-editor-field-wrapper:not(.hero-name-editor-name-age-wrapper) {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  
-  .hero-name-editor-input-compact {
-    font-size: 11px !important;
-    padding: var(--space-2) var(--space-5) var(--space-2) var(--space-2) !important;
-    line-height: 1.3 !important;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  .hero-name-editor-input-age {
-    width: 80px !important;
-    flex: 0 0 80px !important;
-    min-width: 80px !important;
-    max-width: 80px !important;
-    padding: var(--space-2) var(--space-5) var(--space-2) var(--space-2) !important;
-    font-size: 11px;
-    box-sizing: border-box;
-  }
-  
-  .hero-name-editor-clear {
-    width: 14px;
-    height: 14px;
-    font-size: 12px;
-    right: 4px;
-    transform: translateY(calc(-50% - 2px));
-  }
-  
-  /* Ensure all clear buttons are same distance from right edge */
-  .hero-name-editor-field-wrapper .hero-name-editor-clear {
-    right: 4px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .hero-name-editor-row {
-    padding: var(--space-4) var(--space-5);
-    gap: var(--space-3);
-    flex-wrap: nowrap;
-    flex-direction: row;
-    align-items: center;
-  }
-  
-  /* Ensure desktop layout works correctly - everything in one row */
-  .hero-name-editor-name-age-wrapper {
-    flex: 0 1 auto;
-    max-width: none;
-    width: auto;
-    display: flex;
-    flex-direction: row;
-    gap: var(--space-3);
-  }
-  
-  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper:first-child {
-    max-width: none;
-    flex: 1 1 auto;
-  }
-  
-  .hero-name-editor-name-age-wrapper .hero-name-editor-field-wrapper-age {
-    flex: 0 0 auto;
-  }
-  
-  .hero-name-editor-row > .hero-name-editor-field-wrapper {
-    flex: 1 1 auto;
-    max-width: none;
-    min-width: 0;
-  }
-}
-
-.hero-name-editor-input-compact {
-  flex: 1;
-  padding: var(--space-4) var(--space-6) var(--space-4) var(--space-4);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 20px;
-  font-family: inherit;
-  transition: all 0.2s;
   min-width: 0;
 }
 
-.hero-name-editor-input-compact:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  background: var(--bg-secondary);
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+.hero-identity-hero {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.hero-name-editor-input-compact:disabled {
+.hero-identity-creator {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-identity-edit {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.hero-identity-edit:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* --- editing ------------------------------------------------------------- */
+
+.hero-identity.is-editing {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3) var(--space-3);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.7) 70%, transparent);
+}
+
+.hero-identity-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hero-identity-fields-row {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hero-identity-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+}
+
+.hero-identity-input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hero-identity-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.45);
+}
+
+.hero-identity-input-hero {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hero-identity-input-age {
+  flex: 0 0 62px;
+  width: 62px;
+}
+
+.hero-identity-done {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary-color);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hero-identity-done:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.hero-identity-done:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.hero-name-editor-input-compact::placeholder {
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-
-.hero-name-editor-input-age {
-  flex: 0 0 120px;
-  width: 120px;
-  text-align: center;
-  padding-right: var(--space-6);
-}
-
-.hero-name-editor-clear {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  font-size: 24px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-  width: 28px;
-  height: 28px;
+/* Admin only: the creation id, where it is out of everyone else's way. */
+.hero-identity-id {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: color 0.2s;
-  z-index: 1;
-}
-
-.hero-name-editor-clear:hover {
-  color: var(--text-primary);
-}
-
-.hero-name-editor-clear:active {
-  color: var(--error-color);
-}
-
-@media (min-width: 1024px) {
-  .hero-name-editor-input-compact {
-    padding: var(--space-3) var(--space-6) var(--space-3) var(--space-4);
-    font-size: 18px;
-  }
-  
-  .hero-name-editor-input-age {
-    flex: 0 0 110px;
-    width: 110px;
-    padding-right: var(--space-6);
-  }
-  
-  .hero-name-editor-creation-id-input {
-    padding-right: var(--space-6);
-  }
-  
-  .hero-name-editor-clear {
-    width: 26px;
-    height: 26px;
-    font-size: 22px;
-    right: 10px;
-  }
-}
-
-.hero-name-editor-hint {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  margin-left: var(--space-1);
-}
-
-@media (min-width: 1024px) {
-  .hero-name-editor-hint {
-    font-size: 10px;
-  }
-}
-
-.hero-name-editor-creation-id-input {
-  font-family: monospace;
-  color: var(--text-secondary);
-}
-
-.hero-name-editor-field-wrapper .hero-name-editor-copy-id {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: var(--space-1);
+  gap: var(--space-1);
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 2px var(--space-2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: var(--radius-sm);
-  transition: all 0.2s;
-  flex-shrink: 0;
-  z-index: 1;
-  width: 28px;
-  height: 28px;
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  cursor: pointer;
 }
 
-.hero-name-editor-field-wrapper .hero-name-editor-copy-id:hover {
-  color: var(--primary-color);
-  background: var(--bg-secondary);
+.hero-identity-id-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.hero-name-editor-field-wrapper .hero-name-editor-copy-id svg {
-  width: 16px;
-  height: 16px;
-}
-
-@media (min-width: 1024px) {
-  .hero-name-editor-field-wrapper .hero-name-editor-copy-id {
-    right: 10px;
-    width: 26px;
-    height: 26px;
-  }
-}
-
-@media (max-width: 1023px) {
-  .hero-name-editor-field-wrapper .hero-name-editor-copy-id {
-    right: 4px;
-    width: 20px;
-    height: 20px;
-    transform: translateY(calc(-50% - 2px));
-  }
-  
-  .hero-name-editor-field-wrapper .hero-name-editor-copy-id svg {
-    width: 14px;
-    height: 14px;
-  }
-  
-  .hero-name-editor-creation-id-input {
-    padding-right: var(--space-5) !important;
-  }
-}
-
-
-/*
- * On a phone this band was taking roughly 140px above the stage - two rows of
- * full-size inputs plus padding - for three short strings. Tighten it so the
- * hero gets that height back. Fields stay editable and stay tap-sized.
- */
-@media (max-width: 699px) {
-  .hero-name-editor-row {
-    padding: var(--space-1) var(--space-2);
-    gap: var(--space-1);
-  }
-
-  .hero-name-editor-name-age-wrapper {
-    gap: var(--space-1);
-  }
-
-  .hero-name-editor-input-compact,
-  .hero-name-editor-input-age {
-    min-height: 36px;
-    padding-top: var(--space-1) !important;
-    padding-bottom: var(--space-1) !important;
-    font-size: 14px !important;
-  }
-}
-
-
-@media (max-width: 699px) {
-  /*
-   * Keep name, age and hero name on a single line. Two rows of inputs above
-   * the stage is a lot of height to spend on three short strings.
-   */
-  /*
-   * Two tight rows, not one cramped one. Forcing all three fields onto a
-   * single line at 390px clipped the name to "Adm" and squeezed the other two
-   * to their placeholders, so keep the wrap and buy the height back from
-   * padding and control size instead.
-   */
-  .hero-name-editor-row {
-    flex-wrap: wrap;
-    row-gap: var(--space-1);
-  }
+.hero-identity-id svg {
+  flex: 0 0 auto;
 }

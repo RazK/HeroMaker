@@ -227,3 +227,38 @@ button {
 
 
 
+
+/*
+ * Gallery runs edge to edge.
+ *
+ * .app-main pads the page by --space-4 (12px on a phone), which put a band of
+ * background around every picture - the standing complaint about dead space.
+ * When the gallery is what is on screen, that padding moves off the page and
+ * onto the gallery's own two chrome rows instead, so the pictures reach the
+ * screen edges while the controls stay inset. Doing it this way, rather than
+ * pulling the grid out with a negative margin, keeps every box inside its
+ * parent: nothing overflows and nothing can be scrolled sideways.
+ *
+ * Guarded by @supports because a browser without :has() would apply the inner
+ * padding without removing the outer one and double it up; there the gallery
+ * simply keeps the normal page padding.
+ */
+@supports selector(:has(*)) {
+  .app-main:has(.creation-gallery) {
+    padding-inline: 0;
+  }
+
+  .app-main:has(.creation-gallery) .creation-gallery-header,
+  .app-main:has(.creation-gallery) .creation-gallery-controls,
+  .app-main:has(.creation-gallery) .creation-gallery-empty {
+    padding-inline: var(--space-4);
+  }
+
+  @media (max-width: 768px) {
+    .app-main:has(.creation-gallery) .creation-gallery-header,
+    .app-main:has(.creation-gallery) .creation-gallery-controls,
+    .app-main:has(.creation-gallery) .creation-gallery-empty {
+      padding-inline: 12px;
+    }
+  }
+}

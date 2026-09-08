@@ -4,7 +4,6 @@ import { HeaderUploadButtons } from './components/HeaderUploadButtons';
 import { HeaderAuth } from './components/HeaderAuth';
 import { PipelineProgress } from './components/PipelineProgress';
 import { CreationGallery } from './components/CreationGallery';
-import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
@@ -277,24 +276,6 @@ function App() {
           </div>
         ) : (
           <div className="app-pipeline-section">
-            <HeroNameEditor
-              creationId={creation.id}
-              characterName={creation.character_name}
-              name={creation.name}
-              age={creation.age}
-              isAdmin={userInfo?.is_admin ?? false}
-              isLoggedIn={creditBalance !== undefined}
-              onCharacterNameUpdated={(newName) => {
-                setCreation({ ...creation, character_name: newName });
-              }}
-              onNameUpdated={(newName) => {
-                setCreation({ ...creation, name: newName });
-              }}
-              onAgeUpdated={(newAge) => {
-                setCreation({ ...creation, age: newAge });
-              }}
-            />
-
             <PipelineProgress
               creation={creation}
               creditBalance={creditBalance}

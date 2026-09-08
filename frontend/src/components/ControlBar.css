@@ -1,246 +1,189 @@
+/*
+ * The action panel.
+ *
+ * It is not a bar any more - it is whatever shape the squares left over. On a
+ * phone that is a band under the rail, so the four actions wrap into a 2x2
+ * block that fills it; on a wide screen it is the column beside the stage, so
+ * they stack. Either way the panel is sized by PipelineProgress and the
+ * buttons divide it, which is what keeps the leftover from being a dead band.
+ */
 .control-bar {
-  flex-shrink: 0;
-}
-
-.control-bar-content {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-
-@media (min-width: 1024px) {
-  .control-bar-content {
-    gap: var(--space-4);
-  }
-}
-
-/* Error message */
-.control-bar-error {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: rgba(var(--error-rgb), 0.1);
-  border: 1px solid var(--error-color);
-  border-radius: var(--radius-sm);
-  color: var(--error-color);
-  font-size: 13px;
-  flex: 1;
+  position: relative;
   min-width: 0;
-  min-height: 40px;
-  box-sizing: border-box;
+  min-height: 0;
 }
 
-.control-bar-error span {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.control-bar-error-dismiss {
-  background: transparent;
-  border: none;
-  color: var(--error-color);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.control-bar-error-dismiss:hover {
-  opacity: 1;
-}
-
-/* Success message */
-.control-bar-success {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: rgba(var(--success-rgb), 0.1);
-  border: 1px solid var(--success-color);
-  border-radius: var(--radius-sm);
-  color: var(--success-color);
-  font-size: 14px;
-  font-weight: 600;
-  flex: 1;
-  min-height: 40px;
-  box-sizing: border-box;
-}
-
-.control-bar-success-icon {
-  font-size: 16px;
-}
-
-/* Action buttons container */
 .control-bar-actions {
   display: flex;
-  align-items: stretch;
-  gap: var(--space-3);
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  /* Stretch the wrapped lines, so two rows of buttons fill the panel exactly
+     rather than sitting at the top of it. */
+  align-content: stretch;
+  gap: var(--space-2);
+  width: 100%;
+  height: 100%;
 }
 
-@media (min-width: 1024px) {
-  .control-bar-actions {
-    gap: var(--space-4);
-  }
-}
-
-/* Buttons */
 .control-bar-button {
+  flex: 1 1 calc(50% - var(--space-2));
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-family: inherit;
-  min-height: 40px;
-  box-sizing: border-box;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .control-bar-button:hover:not(:disabled) {
-  transform: translateY(-1px);
+  border-color: var(--primary-color);
 }
 
 .control-bar-button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
-  transform: none;
+}
+
+.control-bar-button-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .control-bar-button-icon {
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1;
 }
 
-/* Continue button */
-.control-bar-continue {
+.control-bar-button-cost {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* A phase with no step at all still has to hold its slot, or the other three
+   buttons reflow into a different shape than the rest of the pipeline. */
+.control-bar-button.is-empty {
+  visibility: hidden;
+}
+
+.control-bar-run,
+.control-bar-redo {
   background: var(--primary-color);
   border-color: var(--primary-color);
-  color: white;
+  color: #fff;
 }
 
-.control-bar-continue:hover:not(:disabled) {
+.control-bar-run:hover:not(:disabled),
+.control-bar-redo:hover:not(:disabled) {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
 }
 
-/* Restart button */
-.control-bar-restart {
-  background: transparent;
-}
-
-.control-bar-restart:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-/* Delete button */
-.control-bar-delete {
-  background: transparent;
+.control-bar-cancel {
+  background: var(--error-color);
+  border-color: var(--error-color);
+  color: #fff;
 }
 
 .control-bar-delete:hover:not(:disabled) {
-  background: rgba(var(--error-rgb), 0.1);
+  background: rgba(var(--error-rgb), 0.12);
   border-color: var(--error-color);
   color: var(--error-color);
 }
 
-/* Download button */
 .control-bar-download {
   background: var(--success-color);
   border-color: var(--success-color);
-  color: white;
+  color: #fff;
 }
 
 .control-bar-download:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-/* Mobile adjustments */
-@media (max-width: 1023px) {
-  .control-bar-content {
-    padding: var(--space-2) var(--space-3);
-    gap: var(--space-2);
-  }
-  
+/*
+ * Wide screens: the panel is a column, so the buttons stack. They share the
+ * height but stop growing at a sensible slab size - see ACTIONS_MAX_W and the
+ * centring in PipelineProgress.css for where the rest of the space goes.
+ */
+.studio-landscape .control-bar-actions {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.studio-landscape .control-bar-button {
+  flex: 0 1 auto;
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Narrow phones: two per row still, but the label may not push past the edge. */
+@media (max-width: 400px) {
   .control-bar-button {
-    padding: var(--space-2) var(--space-2);
-    font-size: 12px;
-    min-height: 36px;
+    padding: var(--space-2);
+    font-size: 13px;
+    gap: var(--space-1);
   }
-  
+
   .control-bar-button-icon {
-    font-size: 12px;
-  }
-  
-  .control-bar-error,
-  .control-bar-success {
-    font-size: 12px;
-    padding: var(--space-2) var(--space-2);
-    min-height: 36px;
+    font-size: 13px;
   }
 }
 
 /*
- * Below 700px the row cannot hold a status message and four buttons: the
- * message wrapped one word per line and "Download VRM" was cut off at the
- * screen edge. Give the message its own full-width row and let the buttons
- * share the next one.
+ * Errors float over the panel rather than adding a row to it: the panel is
+ * sized to the buttons, and anything that grew it would push the squares off
+ * the screen.
  */
-@media (max-width: 699px) {
-  .control-bar-content {
-    flex-wrap: wrap;
-  }
+.control-bar-error {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--error-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--error-color);
+  font-size: 13px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
 
-  .control-bar-error,
-  .control-bar-success {
-    flex: 1 0 100%;
-    justify-content: center;
-    text-align: center;
-    white-space: normal;
-  }
+.control-bar-error span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .control-bar-actions {
-    flex: 1 1 auto;
-    display: flex;
-    gap: var(--space-2);
-    min-width: 0;
-  }
-
-  .control-bar-button {
-    flex: 1 1 0;
-    min-width: 0;
-    justify-content: center;
-    white-space: nowrap;
-  }
-
-  /* The primary action keeps its label; the rest may shrink around it. */
-  .control-bar-download {
-    flex: 2 1 auto;
-  }
+.control-bar-error-dismiss {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--error-color);
+  font-size: 18px;
+  cursor: pointer;
 }
 
 /* Modal styles */
@@ -332,20 +275,4 @@
 .control-bar-modal-confirm:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-
-@media (max-width: 699px) {
-  /*
-   * The success row costs ~54px of the stage's height to repeat what the
-   * finished hero and the Download button already communicate. Errors still
-   * get their row - those the user cannot infer.
-   */
-  .control-bar-success {
-    display: none;
-  }
-
-  .control-bar-content {
-    padding: var(--space-2);
-  }
 }
