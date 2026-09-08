@@ -454,10 +454,12 @@
 }
 
 /*
- * `contain`, not `cover`. Every drawing and every render on disk is 3:4 while
- * the tile is square, so `cover` had to throw away a quarter of the height -
- * which is the head and the feet. The tile is still painted corner to corner:
- * the bands the artwork does not reach are filled by ::before / ::after below.
+ * The two halves of a card are shaped differently and are treated differently.
+ *
+ * The drawing is a photo of a piece of paper, so its ratio is whatever the
+ * phone gave us (0.56 to 0.75 in the real data). `contain` keeps the whole
+ * character - `cover` would slice the head and the feet off - and the bands it
+ * leaves are filled by ::before below.
  */
 .creation-gallery-image {
   width: 100%;
@@ -471,31 +473,30 @@
 }
 
 /*
- * The fill: the same picture, blown up and blurred out, one layer per image so
- * it cross-fades with the artwork on the same clock. Kept inside the tile's own
+ * The AI render is always exactly 1024x1024, so on a square tile `cover` fits
+ * it edge to edge and crops nothing. No bands, no fill behind it.
+ */
+.creation-gallery-image-rendered {
+  object-fit: cover;
+}
+
+/*
+ * The drawing's fill: the drawing itself, blown up and blurred out, so the tile
+ * is painted corner to corner instead of showing empty bars beside a portrait
+ * photo. It fades on the same clock as the drawing. Kept inside the tile's own
  * box (no transform, no negative inset) so nothing can overflow it.
  */
-.creation-gallery-image-container::before,
-.creation-gallery-image-container::after {
+.creation-gallery-image-container::before {
   content: '';
   position: absolute;
   inset: 0;
+  background-image: var(--gallery-fill-original, none);
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
   filter: blur(14px) saturate(1.15) brightness(0.92);
-}
-
-.creation-gallery-image-container::before {
-  background-image: var(--gallery-fill-original, none);
   opacity: 1;
   animation: gallery-image-fade var(--gallery-fade-duration) ease-in-out infinite;
-}
-
-.creation-gallery-image-container::after {
-  background-image: var(--gallery-fill-rendered, none);
-  opacity: 0;
-  animation: gallery-image-fade-reverse var(--gallery-fade-duration) ease-in-out infinite;
 }
 
 /*

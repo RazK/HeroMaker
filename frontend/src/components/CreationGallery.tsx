@@ -394,16 +394,13 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                 <div
                   className="creation-gallery-image-container"
                   /*
-                   * The drawings and the renders are 3:4, the tile is square, so
-                   * the leftover space is filled with a blown-up blur of the same
-                   * picture rather than cropping the character's head and feet
-                   * off. Passed as custom properties so the two fills can live on
-                   * ::before / ::after and cost no extra elements.
+                   * The drawing is a photo of paper and can be any shape, so it
+                   * is letterboxed and the tile is filled behind it with a
+                   * blown-up blur of the drawing itself. Passed as a custom
+                   * property so that fill can live on ::before and cost no extra
+                   * element. The render needs none of this - it is square.
                    */
-                  style={{
-                    ['--gallery-fill-original' as string]: `url("${originalUrl}")`,
-                    ['--gallery-fill-rendered' as string]: renderedUrl ? `url("${renderedUrl}")` : 'none',
-                  }}
+                  style={{ ['--gallery-fill-original' as string]: `url("${originalUrl}")` }}
                 >
                   {hasBothImages ? (
                     <>
