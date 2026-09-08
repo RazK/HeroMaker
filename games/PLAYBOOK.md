@@ -279,6 +279,12 @@ particular vocabulary, and they will hold for the next game too.
   classifier is tuned.
 * **A hand held near the head is lost.** Narrowing ARMS UP from a 62/118 V to 75/105
   moved the hands into the hair and dropped it from 100% to 40%.
+* **Landmark filtering is not optional, and it is not free.** MediaPipe smooths
+  inside its graph and the tfjs `pose-detection` wrapper applies a one-euro
+  filter; load a bare graph model to save the download and you have silently
+  opted out of both, and a perfectly still player's avatar shakes. Filter the
+  landmarks, not the bone rotations — by the time noise is a rotation it has
+  already been amplified by the limb.
 * **Both axes of a skeleton must share a scale.** Every feature worth using is
   an angle, and an angle is only meaningful if x and y are in the same units.
   Normalising x per lane width and y per frame height stretched every limb by

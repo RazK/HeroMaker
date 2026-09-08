@@ -162,6 +162,7 @@ export class PartyHud {
     const c = this.camCanvas
     const g = c.getContext('2d')
     if (!g || video.readyState < 2) return
+    this.sizeCamera(count, laneAspect)
     const n = Math.max(1, count)
     const laneW = c.width / n
 
@@ -210,10 +211,21 @@ export class PartyHud {
     }
   }
 
-  /** Resize the strip canvas so N lanes each get a sensible aspect. */
-  sizeCamera(count: number) {
-    // 4:3 per lane, the shape a person standing in front of a laptop occupies.
-    this.camCanvas.width = 120 * Math.max(1, count)
-    this.camCanvas.height = 90
+  /**
+   * Give each lane cell the shape that lane actually has.
+   *
+   * A lane is a slice of the camera frame, so its aspect depends on the player
+   * count and on whatever the webcam produced. Drawing it into a fixed 4:3 cell
+   * smeared everybody sideways, which on the one readout that says "this is
+   * what the tracker sees" is worse than showing nothing.
+   */
+  sizeCamera(count: number, laneAspect = 4 / 3) {
+    const n = Math.max(1, count)
+    const cell = 118
+    const w = cell * n
+    const h = Math.max(48, Math.round(cell / Math.max(0.3, laneAspect)))
+    if (this.camCanvas.width === w && this.camCanvas.height === h) return
+    this.camCanvas.width = w
+    this.camCanvas.height = h
   }
 }

@@ -119,11 +119,13 @@ interface Lane {
   heroIndex: number
   root: THREE.Group
   loading: number
+  /** Sideways weight shift, damped from the player's own hips. */
+  sway: number
 }
 const MAX_PLAYERS = 3
 const lanes: Lane[] = Array.from({ length: MAX_PLAYERS }, () => ({
   hero: null, solver: null, anim: null, heroIndex: 0,
-  root: new THREE.Group(), loading: 0,
+  root: new THREE.Group(), loading: 0, sway: 0,
 }))
 for (const l of lanes) scene.add(l.root)
 
@@ -133,6 +135,10 @@ let lengthId: LengthId = 'normal'
 const picks = [0, 1, 2]
 /** Which player the gallery is currently choosing for. */
 let activeLane = 0
+/** Arms-only mode, for playing from a chair. Guessed from the camera, overridable. */
+let seated = false
+/** True once somebody has set the stance by hand; the guess stops arguing then. */
+let stanceIsMine = false
 
 // ---------------------------------------------------------------- screens
 const menuLayer = el('div', { class: 'layer sheet', id: 'title' })
@@ -142,13 +148,29 @@ app.append(hud.hud, hud.platesLayer, hud.countdownLayer, menuLayer, pauseLayer, 
 
 // ---- menu ------------------------------------------------------------------
 const countRow = el('div', { class: 'segmented' })
+const stanceRow = el('div', { class: 'segmented' })
 const whoRow = el('div', { class: 'pick-who' })
 const gallery = el('div', { class: 'gallery' })
 const lengthRow = el('div', { class: 'segmented' })
-const menuCam = el('canvas', { width: 300, height: 84, class: 'menu-cam' }) as HTMLCanvasElement
-const camHint = el('p', { class: 'hint' }, 'Camera off — press start and allow it')
+const menuCam = el('canvas', { width: 480, height: 270, class: 'menu-cam' }) as HTMLCanvasElement
+const camHint = el('p', { class: 'hint' }, '')
 const startBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'START DANCING')
-const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, camHint)
+/**
+ * The camera comes on in the lobby, not at the whistle.
+ *
+ * Everything the lobby is for — is it seeing me, are all three lanes filled,
+ * am I standing or sitting — needs the camera on to answer, and finding out
+ * after the music has started is finding out too late.
+ */
+const camBtn = el('button', { class: 'cam-btn', onclick: () => void ensureCamera() },
+  'Turn the camera on')
+/**
+ * Standing or sitting rides on the camera preview rather than in the settings
+ * row, because that is where the evidence for it is: the game guesses from
+ * what it can see of you, and the place to disagree with a guess is next to
+ * the thing that made it.
+ */
+const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, stanceRow, camBtn, camHint)
 
 menuLayer.append(
   el('div', { class: 'card' },
@@ -173,6 +195,18 @@ function renderMenu() {
       // Short labels: the row is half a card wide now, and the heading over it
       // already says these are players.
     }, `${n}P`)))
+
+  // Standing or sitting. Guessed from what the camera can see of you, because
+  // nobody reads a settings row before they dance, but always overridable —
+  // the guess is about a desk edge, and a desk edge is not always where the
+  // player wants the line drawn.
+  stanceRow.className = `segmented stance${tracker.state === 'ready' ? '' : ' hide'}`
+  stanceRow.replaceChildren(...([[false, 'Standing'], [true, 'Sitting']] as const).map(([v, label]) =>
+    el('button', {
+      class: `seg${v === seated ? ' on' : ''}`,
+      onclick: () => { seated = v; stanceIsMine = true; audio.uiClick(); renderMenu() },
+      title: v ? 'Arms only — no calls that need your legs' : 'Whole body',
+    }, label)))
 
   lengthRow.replaceChildren(...LENGTHS.map((l) =>
     el('button', {
@@ -234,7 +268,7 @@ function applyCount() {
     lanes[i].root.visible = i < playerCount
     if (i < playerCount && !lanes[i].hero) void loadLane(i, picks[i])
   }
-  hud.sizeCamera(playerCount)
+  hud.sizeCamera(playerCount, tracker.laneAspect)
   layoutStage()
   resize()
 }
@@ -399,18 +433,41 @@ function layoutStage() {
  * anyone presses start: a lane game where you find out a lane is empty once the
  * music is running has already wasted the song.
  */
+/**
+ * Has this site already been granted the camera?
+ *
+ * Only Chromium-family browsers answer for 'camera'; everywhere else this
+ * throws or returns nothing and the lobby shows its button instead, which is
+ * the right fallback — asking for a camera nobody pressed anything for is how
+ * you get denied permanently.
+ */
+async function cameraAlreadyAllowed(): Promise<boolean> {
+  try {
+    const perms = navigator.permissions as unknown as
+      { query?: (d: { name: string }) => Promise<{ state: string }> } | undefined
+    const p = await perms?.query?.({ name: 'camera' })
+    return p?.state === 'granted'
+  } catch { return false }
+}
+
 async function ensureCamera(): Promise<boolean> {
   if (tracker.state === 'ready') return true
+  camWrap.classList.add('busy')
   camHint.textContent = 'Getting the camera ready…'
   await startLoadingTracker()
   const state = await tracker.start()
   const embedded = window.self !== window.top
+  camWrap.classList.remove('busy')
   camHint.textContent =
     state === 'ready' ? ''
     : state === 'denied' && embedded
       ? 'This preview cannot reach the camera. Open the downloaded file to play.'
-    : state === 'denied' ? `${tracker.error} — allow the camera and press start again.`
+    : state === 'denied' ? `${tracker.error} — allow it and try again.`
     : 'No camera available on this device.'
+  if (state !== 'ready') camWrap.classList.add('off')
+  // The stance switch only exists once there is a picture to judge, so the
+  // menu has to be redrawn the moment there is one.
+  renderMenu()
   return state === 'ready'
 }
 
@@ -419,9 +476,9 @@ async function beginRun(seed?: number) {
   if (!(await ensureCamera())) return
   for (let i = 0; i < playerCount; i++) lanes[i].anim?.stop()
   hud.resetStrip()
-  hud.sizeCamera(playerCount)
+  hud.sizeCamera(playerCount, tracker.laneAspect)
   lastBeat = Number.NEGATIVE_INFINITY
-  game.start(clock, picks.slice(0, playerCount), lengthId, seed)
+  game.start(clock, picks.slice(0, playerCount), lengthId, seed, seated)
 }
 
 function resize() {
@@ -533,6 +590,16 @@ renderer.setAnimationLoop(() => {
     if (sk && lane.solver && !lane.anim?.active && s.phase !== 'menu') {
       lane.solver.apply(sk, dt)
     }
+    // A little of the player's own weight shift, the way Kalidoface moves its
+    // hips: a rig whose arms move and whose body never does reads as a puppet.
+    // Small on purpose — the hero has to stay in its own lane.
+    if (sk && !lane.anim?.active) {
+      const hip = (sk.leftHip.x + sk.rightHip.x) / 2
+      lane.sway = damp(lane.sway, (hip - 0.5) * 0.5, 4, dt)
+    } else {
+      lane.sway = damp(lane.sway, 0, 4, dt)
+    }
+    lane.hero.root.position.x = lane.sway
     lane.hero.root.position.y = lane.anim?.active ? 0 : bob
     lane.hero.vrm.update(dt)
   }
@@ -554,6 +621,7 @@ renderer.setAnimationLoop(() => {
     hud.drawCamera(tracker.video, liveLanes, playerCount, tracker.laneAspect)
   } else if (s.phase === 'menu' && tracker.state === 'ready') {
     drawMenuCamera()
+    senseStance()
   }
 
   stage.update(dt, beat)
@@ -567,12 +635,69 @@ renderer.setAnimationLoop(() => {
  * The menu preview. Its whole job is to answer "does it see all of us yet",
  * which is the question a lane game gets asked before every single round.
  */
+/**
+ * Give the preview the camera's own shape.
+ *
+ * It used to be a fixed 300x84 canvas with whatever the webcam produced drawn
+ * into it corner to corner, which stretched every face sideways. A preview
+ * whose whole job is "does this look right to the tracker" cannot be the one
+ * thing on screen that lies about the picture, so the box is measured from the
+ * stream instead — capped, so it cannot take over the card.
+ */
+const CAM_MAX_H = 190
+let camAspect = 0
+function fitPreview() {
+  const vw = tracker.video.videoWidth, vh = tracker.video.videoHeight
+  if (!vw || !vh) return
+  const aspect = vw / vh
+  const width = camWrap.clientWidth
+  if (aspect === camAspect && menuCam.width === Math.round(width)) return
+  camAspect = aspect
+  // Portrait has far less to spare, and the preview must not push the hero
+  // gallery — the reason anyone is on this screen — below the fold.
+  const cap = Math.min(CAM_MAX_H, innerHeight * (innerHeight > innerWidth ? 0.17 : 0.28))
+  const h = Math.max(64, Math.min(cap, Math.round(width / aspect)))
+  camWrap.style.height = `${h}px`
+  menuCam.width = Math.round(h * aspect)
+  menuCam.height = h
+}
+
+/**
+ * Standing or sitting, read off the camera.
+ *
+ * A player at a desk gives a webcam a torso and two arms; their knees are under
+ * the table, and a pose model does not report them missing, it reports a guess
+ * at the bottom edge of the frame. So the tell is not "are the legs bent" but
+ * "does this body have legs the camera believes in at all", counted over a
+ * couple of seconds rather than off one frame.
+ *
+ * Votes are cast per *inference*, not per rendered frame, so the answer takes
+ * the same couple of seconds however fast the device happens to be.
+ */
+let stanceVotes = 0
+let stanceSeenAt = 0
+function senseStance() {
+  if (stanceIsMine || tracker.laneAt[0] === stanceSeenAt) return
+  stanceSeenAt = tracker.laneAt[0]
+  const sk = liveLanes[0]
+  if (!sk) return
+  const torso = Math.min(sk.leftShoulder.score, sk.rightShoulder.score,
+    sk.leftHip.score, sk.rightHip.score)
+  if (torso < 0.35) return
+  const legs = Math.max(sk.leftKnee.score, sk.rightKnee.score,
+    sk.leftAnkle.score, sk.rightAnkle.score)
+  stanceVotes = Math.max(-8, Math.min(8, stanceVotes + (legs < 0.3 ? 1 : -1)))
+  const guess = stanceVotes >= 4
+  if (guess !== seated) { seated = guess; renderMenu() }
+}
+
 /** Wall-clock ms each lane was last confidently occupied; see below. */
 const menuSeenAt = [0, 0, 0]
 function drawMenuCamera() {
   const g = menuCam.getContext('2d')
   if (!g || tracker.video.readyState < 2) return
   const now = performance.now()
+  fitPreview()
   const w = menuCam.width, h = menuCam.height
   const n = playerCount
   g.save(); g.translate(w, 0); g.scale(-1, 1)
@@ -590,10 +715,18 @@ function drawMenuCamera() {
     g.strokeStyle = ok ? '#3ddc97' : 'rgba(255,77,141,.9)'
     g.lineWidth = 3
     g.strokeRect(x0 + 2, 2, lw - 4, h - 4)
-    g.fillStyle = ok ? '#3ddc97' : 'rgba(255,77,141,.95)'
+    // The label sits on whatever the room happens to look like, so it carries
+    // its own dark ground rather than hoping for one.
+    const label = ok ? `P${i + 1} ✓` : `P${i + 1} — step in`
     g.font = 'bold 12px system-ui'
     g.textAlign = 'center'
-    g.fillText(ok ? `P${i + 1} ✓` : `P${i + 1} — step in`, x0 + lw / 2, h - 8)
+    const tw = g.measureText(label).width
+    g.fillStyle = 'rgba(18,12,32,.78)'
+    g.beginPath()
+    g.roundRect(x0 + lw / 2 - tw / 2 - 7, h - 22, tw + 14, 18, 9)
+    g.fill()
+    g.fillStyle = ok ? '#5ff0b3' : '#ff85b3'
+    g.fillText(label, x0 + lw / 2, h - 9)
   }
   camHint.textContent = ''
   camWrap.classList.remove('off')
@@ -636,7 +769,9 @@ function startLoadingTracker() {
     await loadLane(0, picks[0])
     renderMenu()
     applyCount()
-    startLoadingTracker().catch((err) => boot.fail((err as Error).message))
+    startLoadingTracker()
+      .then(async () => { if (await cameraAlreadyAllowed()) await ensureCamera() })
+      .catch((err) => boot.fail((err as Error).message))
     play.setPresentation(true)
     resize()
     reframe()
@@ -663,6 +798,9 @@ function startLoadingTracker() {
   phase: () => game.state.phase,
   players: () => game.state.players.map((p) => ({ lane: p.lane, score: p.score, seen: p.seen })),
   setClamp: (s: number) => { stallClamp = s },
+  setSmoothing: (on: boolean) => tracker.setSmoothing(on),
+  seated: () => seated,
+  setSeated: (v: boolean) => { seated = v; stanceIsMine = true; renderMenu() },
   setTimeScale: (n: number) => {
     timeScale = n
     document.documentElement.style.setProperty('--time-scale', String(n))
@@ -673,6 +811,7 @@ function startLoadingTracker() {
   laneCrop: (lane: number) => tracker.laneCrop(lane, playerCount),
   /** That picture plus the skeleton read out of it, so the two can be compared. */
   laneDebug: (lane: number) => ({
+    at: tracker.laneAt[lane],
     crop: tracker.laneCrop(lane, playerCount),
     aspect: tracker.laneAspect,
     label: classify(tracker.lanes[lane]).pose?.id ?? null,
@@ -729,9 +868,9 @@ function startLoadingTracker() {
    */
   stage: (phase: PartyPhase) => {
     for (let i = 0; i < playerCount; i++) lanes[i].anim?.stop()
-    hud.resetStrip(); hud.sizeCamera(playerCount)
+    hud.resetStrip(); hud.sizeCamera(playerCount, tracker.laneAspect)
     lastBeat = Number.NEGATIVE_INFINITY
-    game.start(clock, picks.slice(0, playerCount), lengthId, 4242)
+    game.start(clock, picks.slice(0, playerCount), lengthId, 4242, seated)
     if (phase === 'paused') game.pause(clock)
     if (phase === 'results') game.finish()
   },

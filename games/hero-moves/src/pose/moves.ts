@@ -201,13 +201,17 @@ function weightsFor(target: Skeleton, move?: Move): number[] {
   return move.weights
 }
 
-export function scorePose(live: Skeleton, target: Skeleton, move?: Move): number {
+/** Limbs that need legs; skipped when the player is sitting down. */
+const LEG_LIMBS = new Set(['leftKnee', 'rightKnee', 'leftAnkle', 'rightAnkle'])
+
+export function scorePose(live: Skeleton, target: Skeleton, move?: Move, seated = false): number {
   const weights = weightsFor(target, move)
   let total = 0
   let got = 0
   let scorable = 0
   for (let i = 0; i < SCORED_LIMBS.length; i++) {
     const limb = SCORED_LIMBS[i]
+    if (seated && LEG_LIMBS.has(limb.to)) continue
     const weight = weights[i]
     const want = limbAngle(target, limb.from, limb.to)
     if (want === null) continue

@@ -118,13 +118,13 @@ export function features(s: Skeleton): number[] | null {
  */
 const WEIGHTS = [1.0, 1.0, 0.35, 0.7, 1.0, 0.4]
 
-function distance(a: number[], b: number[]): number {
+function distance(a: number[], b: number[], w: number[] = WEIGHTS): number {
   let sum = 0
   for (let i = 0; i < a.length; i++) {
     let d = a[i] - b[i]
     // The two arm-direction components are angles in turns and wrap around.
     if (i < 2) { d = ((d % 1) + 1.5) % 1 - 0.5 }
-    sum += (d * WEIGHTS[i]) ** 2
+    sum += (d * w[i]) ** 2
   }
   return Math.sqrt(sum)
 }
@@ -189,6 +189,28 @@ export const VOCAB: Pose[] = [
 
 export const POSE_BY_ID = new Map(VOCAB.map((p) => [p.id, p]))
 
+/**
+ * The vocabulary a seated player can be judged on.
+ *
+ * Sitting at a desk, a webcam sees a torso and two arms — knees and ankles are
+ * under the table and MoveNet reports them as guesses at the bottom edge. The
+ * two calls that are *defined* by their legs go, and so do the two leg
+ * features: what is left is the six arm shapes, which is still a routine.
+ *
+ * Dropping the calls matters as much as dropping the features. STAR and ARMS UP
+ * differ only below the waist, so a seated player making one would be judged
+ * against a vocabulary that cannot tell them apart, and lose either way.
+ */
+export const SEATED_IDS = ['down', 'out', 'up', 'leftUp', 'rightUp', 'lshape']
+const SEATED_WEIGHTS = [1.0, 1.0, 0.45, 0, 0, 0.4]
+
+export interface ClassifyOptions {
+  maxDistance?: number
+  minMargin?: number
+  /** Judge sitting down: arms only, and only the calls arms can express. */
+  seated?: boolean
+}
+
 export interface Classification {
   pose: Pose | null
   /** Distance to the winner. Smaller is better; 0 is exact. */
@@ -219,12 +241,15 @@ export interface Classification {
  * numbers should be re-measured from webcam frames before they are trusted in
  * anger.
  */
-export function classify(s: Skeleton, maxDistance = 0.52, minMargin = 0.015): Classification {
+export function classify(s: Skeleton, opts: ClassifyOptions = {}): Classification {
+  const { maxDistance = 0.52, minMargin = 0.015, seated = false } = opts
   const f = features(s)
   if (!f) return { pose: null, distance: Infinity, margin: 0, runnerUp: null }
 
-  const ranked = VOCAB
-    .map((p) => ({ p, d: distance(f, p.features) }))
+  const vocab = seated ? VOCAB.filter((p) => SEATED_IDS.includes(p.id)) : VOCAB
+  const w = seated ? SEATED_WEIGHTS : WEIGHTS
+  const ranked = vocab
+    .map((p) => ({ p, d: distance(f, p.features, w) }))
     .sort((a, b) => a.d - b.d)
 
   const [best, second] = ranked

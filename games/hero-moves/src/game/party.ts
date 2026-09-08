@@ -1,7 +1,7 @@
 import { bodyConfidence, type Skeleton } from '../pose/keypoints'
 import { gradeFor, scorePose, type Move } from '../pose/moves'
 import { buildSong, slotAt, secondsPerBeat, upcoming, type Song, type Upcoming } from './song'
-import { VOCAB, classify, type Pose } from '../pose/vocab'
+import { VOCAB, SEATED_IDS, classify, type Pose } from '../pose/vocab'
 
 /**
  * The party game: one to three players, one lane each, one routine.
@@ -45,6 +45,13 @@ const asMove = (p: Pose): Move =>
 
 export const CALLS = new Map(VOCAB.map((p) => [p.id, asMove(p)]))
 const POOL = VOCAB.filter((p) => p.id !== 'down').map((p) => p.id)
+/**
+ * The seated pool: no call whose shape lives below the waist.
+ *
+ * A webcam on a desk cannot see knees, and a routine that asks for a star jump
+ * from someone in a chair is a routine they lose by sitting.
+ */
+const SEATED_POOL = SEATED_IDS.filter((id) => id !== 'down')
 
 /** How long a lane stays "occupied" after its last confident look. */
 const SEEN_GRACE_BEATS = 3
@@ -96,16 +103,17 @@ const newPlayer = (lane: number, heroIndex: number): Player => ({
 })
 
 /** A routine of `moves` calls, drawn from the pool without immediate repeats. */
-export function makeRoutine(moves: number, seed = 1): Song {
+export function makeRoutine(moves: number, seed = 1, seated = false): Song {
   let s = seed >>> 0
   const rand = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)
+  const pool = seated ? SEATED_POOL : POOL
   const steps: Array<[string, number]> = []
   let last = ''
   for (let i = 0; i < moves; i++) {
-    let id = POOL[Math.floor(rand() * POOL.length)]
+    let id = pool[Math.floor(rand() * pool.length)]
     // Never the same call twice running: a repeat reads as the strip being
     // stuck, and it gives away a free hit to anyone who simply held still.
-    while (id === last) id = POOL[Math.floor(rand() * POOL.length)]
+    while (id === last) id = pool[Math.floor(rand() * pool.length)]
     last = id
     // Tighten up as the routine goes on, so it builds.
     const beats = i > moves * 0.7 && rand() < 0.4 ? 2 : 4
@@ -121,6 +129,8 @@ export class PartyGame {
     slotIndex: -1, move: null, next: [], totalMoves: 0,
   }
 
+  /** Judge arms only: the players are sitting down. */
+  seated = false
   /** Wall-clock at which the routine's beat zero falls. Shifts when paused. */
   private origin = 0
   private pausedAt = 0
@@ -135,9 +145,10 @@ export class PartyGame {
    * `seed` is exposed so a recording can render its dancers against the exact
    * routine the game will play. Left out, every round is a different one.
    */
-  start(now: number, heroes: number[], length: LengthId = 'normal', seed?: number) {
+  start(now: number, heroes: number[], length: LengthId = 'normal', seed?: number, seated = false) {
     const spec = LENGTHS.find((l) => l.id === length) ?? LENGTHS[1]
-    this.song = makeRoutine(spec.moves, seed ?? (Date.now() & 0xffff))
+    this.seated = seated
+    this.song = makeRoutine(spec.moves, seed ?? (Date.now() & 0xffff), seated)
     this.state = {
       phase: 'countdown',
       players: heroes.map((h, i) => newPlayer(i, h)),
@@ -219,7 +230,7 @@ export class PartyGame {
       if (sk && bodyConfidence(sk) > 0.25) p.seenAt = s.beat
       p.seen = s.beat - p.seenAt < SEEN_GRACE_BEATS
       if (!slot || !sk || !p.seen) { p.liveScore = 0; continue }
-      p.liveScore = shapeScore(sk, slot.move)
+      p.liveScore = shapeScore(sk, slot.move, this.seated)
       if (p.liveScore > p.best) { p.best = p.liveScore; p.bestAtBeat = s.beat }
     }
 
@@ -285,8 +296,8 @@ const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
  * question — how close is this to the shape — and its answer is capped below
  * what a named pose can earn, because it is the weaker instrument.
  */
-function shapeScore(sk: Skeleton, move: Move): number {
-  const c = classify(sk)
+function shapeScore(sk: Skeleton, move: Move, seated = false): number {
+  const c = classify(sk, { seated })
   if (c.pose) return c.pose.id === move.id ? 0.62 + 0.38 * clamp01(1 - c.distance / 0.52) : 0
-  return 0.8 * scorePose(sk, move.skeleton, move)
+  return 0.8 * scorePose(sk, move.skeleton, move, seated)
 }

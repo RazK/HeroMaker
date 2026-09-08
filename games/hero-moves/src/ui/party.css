@@ -55,15 +55,44 @@
   aspect-ratio: 16 / 5;
   display: grid; place-items: center;
 }
-.menu-cam { width: 100%; height: 100%; display: block; object-fit: cover; }
+.menu-cam { width: 100%; height: 100%; display: block; }
 .menu-camwrap .hint {
   position: absolute; left: 8px; right: 8px; bottom: 6px; margin: 0;
   color: var(--paper); opacity: .92; text-shadow: 0 2px 8px rgba(0, 0, 0, .9);
 }
+/*
+ * The stance switch lives on the preview: the game reads it off the camera, so
+ * the place to disagree is next to the picture it read.
+ */
+.stance {
+  position: absolute; right: 6px; top: 6px; z-index: 2;
+  width: auto; padding: 3px;
+  background: rgba(18, 12, 32, .72);
+  backdrop-filter: blur(4px);
+}
+.stance .seg {
+  flex: 0 0 auto; min-height: 26px; padding: .2em .7em;
+  color: rgba(253, 247, 236, .82); font-size: clamp(10px, 1.5vmin, 12px);
+}
+.stance .seg.on { background: var(--paper); color: var(--ink); }
+.stance.hide { display: none; }
+
+/* The one control that turns the camera on, sitting in the empty preview. */
+.cam-btn {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  pointer-events: auto; cursor: pointer;
+  min-height: 40px; padding: .5em 1.1em; border: 0; border-radius: 999px;
+  font: inherit; font-weight: 800; font-size: clamp(12px, 1.9vmin, 15px);
+  background: var(--gold); color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+.cam-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+.menu-camwrap:not(.off) .cam-btn { display: none; }
+
 /* Before the camera is allowed there is nothing behind the text, so it moves
    to the middle rather than hugging the bottom of an empty black box. */
 .menu-camwrap.off { background: rgba(23, 16, 31, .9); }
-.menu-camwrap.off .hint { top: 50%; bottom: auto; transform: translateY(-50%); }
+.menu-camwrap.off .hint { top: auto; bottom: 8px; }
 
 
 /* ---------------------------------------------------------------- picker */
@@ -280,6 +309,7 @@
   #title .card { padding: var(--space-3) var(--space-4); gap: 6px; max-height: 68vh; }
   #title h1 { font-size: clamp(22px, 5vmin, 34px); }
   .menu-camwrap { aspect-ratio: auto; height: clamp(52px, 8.5vh, 92px); }
+  .stance .seg { padding: .2em .5em; }
   /* Three chips across a phone leave no room for a name; the thumbnail says
      who it is, and the gallery underneath spells it out. */
   .who-name { display: none; }

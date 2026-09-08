@@ -107,6 +107,45 @@ representation draws the strip's pictogram, is the shape the classifier is
 matched against, and is what the stand-in dancers interpolate between — so the
 strip can never show a pose the scorer is not looking for.
 
+## What this borrows from Kalidoface, and what it cannot
+
+`src/pose/solver.ts` does the same job Kalidokit does for Kalidoface: take
+tracked landmarks, produce VRM humanoid bone rotations, ease them on. Three
+differences are deliberate, and one was a plain omission.
+
+* **Landmarks are filtered before they reach the rig** (`src/pose/smooth.ts`).
+  Kalidoface's input is MediaPipe, which smooths inside its own graph; the tfjs
+  `pose-detection` wrapper does the same with a one-euro filter. This project
+  loads the bare MoveNet graph model to keep the download small and stay
+  CSP-safe, which means none of that comes for free — and without it a
+  perfectly still player's avatar shakes. That was the omission. Measured with
+  `tools/jitter.mjs` on a still subject: wrist jitter down 22-33%.
+* **Easing is frame-rate compensated.** Kalidokit's example slerps a fixed
+  amount per frame, which is twice as fast at 60fps as at 30. Here the blend is
+  solved from the frame's own dt, so the rig behaves the same on every device.
+* **2D, not 3D.** Kalidoface uses MediaPipe's 3D world landmarks; MoveNet
+  returns image-plane keypoints and cannot tell an arm reaching forward from one
+  reaching back. That is why the whole choreography lives in the frontal plane.
+* **No face, no fingers.** Kalidoface's best trick is blinking, mouth shapes and
+  finger tracking. A HeroMaker avatar has 22 humanoid bones, no fingers and no
+  blendshapes, so there is nothing to drive. This is an asset limit, not a
+  shortcut.
+
+Worth noting that Kalidokit itself marks `enableLegs` as work in progress —
+the reference implementation is as wary of tracked legs as this one is.
+
+## Sitting down
+
+A webcam on a desk sees a torso and two arms; knees are under the table, and a
+pose model does not report them missing, it reports a guess at the bottom edge
+of the frame. So there is a seated mode, guessed from the camera in the lobby
+over a couple of seconds and overridable on the preview itself.
+
+It drops both leg *features* from the classifier and both leg *calls* from the
+routine. The second matters as much as the first: STAR and ARMS UP differ only
+below the waist, so a seated player asked for one would be judged against a
+vocabulary that cannot tell them apart, and would lose either way.
+
 ## Scoring is a label, not a percentage
 
 Asking 17 noisy 2D keypoints "how close is this pose to that pose" topped out at
@@ -152,6 +191,8 @@ node tools/contrast.mjs --phase=results   # fails on text you cannot read
 node tools/make-dancers-video.mjs /tmp/party --n=3 --scale=2
 node tools/record-party.mjs out.mp4 --players=3 --pause --captions
 node tools/make-demo.mjs out.mp4          # the whole walkthrough, desktop + phone
+node tools/lanegate.mjs                   # is the right pose read from the right lane
+node tools/jitter.mjs                     # how much the skeleton shakes when nobody moves
 node tools/trackrate.mjs                  # real inference throughput
 ```
 

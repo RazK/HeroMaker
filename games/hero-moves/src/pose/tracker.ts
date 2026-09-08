@@ -2,6 +2,7 @@ import * as tf from '@tensorflow/tfjs-core'
 import '@tensorflow/tfjs-backend-webgl'
 import { loadGraphModel, type GraphModel } from '@tensorflow/tfjs-converter'
 import { KEYPOINT_NAMES, emptySkeleton, type Skeleton } from './keypoints'
+import { SkeletonSmoother } from './smooth'
 
 /**
  * Body tracking from the camera, with no network access of any kind.
@@ -104,6 +105,22 @@ export class PoseTracker {
    * Null means "look at the whole lane again". See `aim`.
    */
   private window: Array<{ x: number; y: number; w: number; h: number } | null> = [null, null, null]
+  /**
+   * One landmark filter per lane.
+   *
+   * Without it the rig is driven straight from raw per-frame model output and
+   * the character shakes even when its player is standing still. See
+   * `smooth.ts` — this is the step the reference pose pipelines do inside their
+   * own wrappers and that loading the bare graph model leaves to us.
+   */
+  private smoothers = [new SkeletonSmoother(), new SkeletonSmoother(), new SkeletonSmoother()]
+  private smoothing = true
+
+  /** Off only for `tools/jitter.mjs`, which measures what it is worth. */
+  setSmoothing(on: boolean) {
+    this.smoothing = on
+    for (const f of this.smoothers) f.reset()
+  }
 
   get supported() {
     return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
@@ -128,7 +145,10 @@ export class PoseTracker {
     this.state = 'starting'
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        // 16:9, because three people stand side by side and a 4:3 frame spends
+        // its pixels on the ceiling. Every consumer reads videoWidth/Height, so
+        // whatever the device actually gives back is handled.
+        video: { width: { ideal: 960 }, height: { ideal: 540 }, facingMode: 'user' },
         audio: false,
       })
       this.video.srcObject = this.stream
@@ -377,6 +397,7 @@ export class PoseTracker {
         k.y = (sy + y * side) / laneW
         k.score = data[i * 3 + 2]
       }
+      if (this.smoothing) this.smoothers[lane].apply(target, now)
       this.aim(lane, target, laneX, laneW, vw, vh)
       // An overlapping crop can find the *neighbour's* body when this lane is
       // empty, and would then hand one player's dancing to an absent one's
@@ -389,6 +410,7 @@ export class PoseTracker {
       if (n > 1 && (mid < -0.08 || mid > 1.08)) {
         for (const name of KEYPOINT_NAMES) target[name].score = 0
         this.window[lane] = null
+        this.smoothers[lane].reset()
       }
 
       this.lastInferenceMs = performance.now() - started
