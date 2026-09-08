@@ -155,7 +155,15 @@ export function HeroNameEditor({
   }
 
   return (
-    <div className="hero-identity is-editing" onClick={swallow}>
+    <div
+      className="hero-identity is-editing"
+      onClick={swallow}
+      /* Tabbing or clicking out of the panel commits and closes it, the same
+         as pressing Done - otherwise the inputs stay up over the picture. */
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) commitAll();
+      }}
+    >
       <div className="hero-identity-fields">
         <input
           ref={firstFieldRef}
@@ -202,6 +210,10 @@ export function HeroNameEditor({
           <button
             type="button"
             className="hero-identity-done"
+            /* Without this the age field's blur handler fires first, sets
+               isSaving, disables this button, and swallows the click that was
+               meant to close the panel. */
+            onMouseDown={(e) => e.preventDefault()}
             onClick={commitAll}
             disabled={isSaving}
             title="Done"
