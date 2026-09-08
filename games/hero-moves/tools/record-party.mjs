@@ -110,17 +110,25 @@ if (captions) await page.evaluate((fixed) => {
     document.body.appendChild(n)
     return n
   }
-  if (fixed) chip('left:50%;top:2.2vh;transform:translateX(-50%)').textContent = fixed
-  // Above the move strip, not over it: the strip is the thing the caption is
-  // explaining, and a demo that covers it explains nothing.
-  const bar = chip('left:50%;bottom:19vh;transform:translateX(-50%);max-width:64vw;' +
+  // Top right, just inside the pause button: the only corner that is free on
+  // every screen this records. The card owns the left in landscape and the
+  // bottom in portrait, and the move strip owns the foot of the stage.
+  if (fixed) {
+    const tag = chip('top:1.6vh;right:60px;max-width:48vw;text-align:right;' +
+      'font-size:clamp(11px,1.8vh,16px)')
+    tag.textContent = fixed
+  }
+  // Along the top, under the section label. The bottom of the screen belongs to
+  // the move strip and the foot of every card to its buttons, and a caption
+  // that covers either explains nothing.
+  // Just above the move strip, over the stage. Nothing is said on the screens
+  // that show a card: the card fills the middle and its buttons the foot of it,
+  // and a caption over either explains nothing.
+  const bar = chip('left:50%;bottom:19vh;transform:translateX(-50%);max-width:62vw;' +
     'text-align:center;opacity:0;transition:opacity .3s ease')
   const LINE = {
-    menu: 'Menu — up to three players, one hero each',
     countdown: 'Get ready…',
-    dancing: 'Everyone dances the same routine. Each hero mirrors its own player.',
-    paused: 'Pause — resume, end the round, or quit to the menu',
-    results: 'Final scores',
+    dancing: 'Copy each pose as it crosses the line',
   }
   let shown = ''
   const tick = () => {
@@ -181,6 +189,8 @@ if (!tour && Math.abs(meta.scale * timescale - 1) > 2e-3) {
 }
 /** Seconds into the capture at which the round began; the trim starts near it. */
 let startedAt = 0
+/** Wall clock at the moment the round was started, for the drift measurement. */
+let wallStart = 0
 if (!tour) {
   // Compute the wait and schedule it *inside* the page rather than polling for
   // the moment from out here. The page is running MoveNet and rendering three
@@ -192,6 +202,7 @@ if (!tour) {
     const wait = (((mark - now) % dur) + dur) % dur
     setTimeout(() => { window.__api.start(s); done(wait) }, wait * 1000)
   }), { mark: meta.mark, dur: meta.duration, s: seed })
+  wallStart = Date.now()
   startedAt = (Date.now() - t0) / 1000
   console.log(`round started ${startedAt.toFixed(1)}s in ` +
     `(waited ${waited.toFixed(2)}s for the feed's first beat)`)
@@ -201,27 +212,31 @@ let paused = false
 const samples = []
 for (; !tour;) {
   await page.waitForTimeout(1000)
-  const snap = await page.evaluate(({ mark, dur, scale, bpm }) => {
-    // How far the game's beat has drifted from the beat the feed is playing.
-    // They share no clock, so a slow frame is a silent desync: the routine runs
-    // late, the dancers do not, and every call is scored against the wrong
-    // shape. Measured every second so a bad take is known in seconds.
-    const feedT = (window.__api.camClock() / 1000) % dur
-    const feedBeat = (feedT - mark - (window.__api.state().songTime, 0)) / ((60 / bpm) * scale)
+  const snap = await page.evaluate(() => {
     const s = window.__api.state()
     return {
       phase: window.__api.phase(), tracker: window.__api.tracker(),
       players: window.__api.players(), beat: s.beat,
-      drift: +(s.beat - (feedBeat - 8)).toFixed(2),
       quality: window.__api.quality(),
     }
-  }, { mark: meta.mark, dur: meta.duration, scale: meta.scale, bpm: 100 })
+  })
+  // How far the game's beat has drifted from wall time, which the camera feed
+  // plays in. They share no clock, so a frame the game clock does not fully
+  // count is a silent desync: the routine runs late, the dancers do not, and
+  // every call is scored against the wrong shape. Measured every second so a
+  // bad take is known in seconds rather than after the encode.
+  snap.drift = wallStart
+    ? +(snap.beat - (((Date.now() - wallStart) / 1000) * timescale) / 0.6 + 8).toFixed(2)
+    : 0
   samples.push(snap)
   if (wantPause && !paused && snap.phase === 'dancing' && snap.beat > 10) {
     paused = true
     await page.evaluate(() => window.__api.pause())
+    const held = Date.now()
     await page.waitForTimeout(Math.round(4000 / timescale))
     await page.evaluate(() => window.__api.resume())
+    // The clock stops while paused, so the drift reference has to stop with it.
+    wallStart += Date.now() - held
   }
   if (snap.phase === 'results') { await page.waitForTimeout(7000 / timescale); break }
   if (samples.length > 400) break
