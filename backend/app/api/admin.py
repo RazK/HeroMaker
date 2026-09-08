@@ -1,9 +1,12 @@
-"""Admin API endpoints for managing users and coupons."""
+"""Admin API endpoints for managing users, coupons and data imports."""
+import logging
 from typing import List
+
+import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import User, Coupon
+from app.models import User, Coupon, Creation, CreationStep
 from app.schemas.admin import (
     AdminUserResponse,
     AdminUserUpdate,
@@ -11,9 +14,16 @@ from app.schemas.admin import (
     AdminCouponCreate,
     AdminCouponUpdate,
     CreationStats,
+    ImportCreationRequest,
+    ImportCreationResponse,
+    ImportedFile,
 )
+from app.services import data_import
 from app.services.auth import get_current_user
 from app.services.users import list_users_with_stats, update_user, delete_user
+from app.utils.storage import get_storage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -209,3 +219,152 @@ def admin_delete_coupon(
     db.commit()
     
     return {"message": "Coupon deleted successfully"}
+
+
+# ============ Data Import Endpoints ============
+# Copy creations in from another HeroMaker deployment over HTTPS. Developer
+# plumbing for making a non-production environment demoable; see
+# app/services/data_import.py for the gating rationale.
+
+def require_import_enabled(admin: User = Depends(require_admin)) -> User:
+    """
+    Second gate, after the admin check: the environment must have opted in.
+
+    Default off means this code is inert on production even when deployed
+    there - the flag is only ever set on staging.
+    """
+    try:
+        data_import.require_import_enabled()
+    except data_import.ImportDisabled as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    return admin
+
+
+@router.get("/import/status")
+def import_status(admin: User = Depends(require_admin)):
+    """Whether this environment will accept imports, and from where."""
+    enabled = data_import.import_enabled()
+    return {
+        "enabled": enabled,
+        "allowed_source_hosts": sorted(data_import.allowed_source_hosts()) if enabled else [],
+        "importable_files": sorted(data_import.ALLOWED_FILENAMES),
+    }
+
+
+@router.post("/import/creation", response_model=ImportCreationResponse, status_code=status.HTTP_201_CREATED)
+def import_creation(
+    payload: ImportCreationRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_import_enabled),
+):
+    """
+    Copy one creation from another deployment: fetch its files server-side over
+    HTTPS, write them through the storage layer, and insert the rows.
+
+    Files are pulled by this backend rather than pushed by the caller, because
+    the source's file endpoint is public HTTPS while its database is not
+    reachable from everywhere the import needs to run.
+    """
+    try:
+        source = data_import.validate_source_base_url(payload.source_base_url)
+        filenames = data_import.validate_filenames(payload.files)
+    except data_import.ImportSourceRejected as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    logger.warning(
+        "=" * 60
+        + "\nDATA IMPORT: admin %r importing %s/%s from %s (%d files)\n"
+        + "=" * 60,
+        admin.username,
+        payload.source_user_id,
+        payload.source_creation_id,
+        source,
+        len(filenames),
+    )
+
+    owner = data_import.resolve_owner(
+        db, admin, username=payload.owner_username, name=payload.owner_name
+    )
+
+    creation_id = payload.creation_id or payload.source_creation_id
+    replaced = False
+    existing = db.query(Creation).filter(Creation.id == creation_id).first()
+    if existing:
+        if not payload.replace:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Creation {creation_id} already exists (pass replace=true to overwrite)",
+            )
+        db.delete(existing)
+        db.commit()
+        replaced = True
+
+    creation = Creation(
+        id=creation_id,
+        user_id=owner.id,
+        character_name=payload.character_name,
+        name=payload.name or owner.name,
+        age=payload.age,
+        is_public=True,
+        metadata_json={
+            "imported_from": source,
+            "source_creation_id": payload.source_creation_id,
+        },
+    )
+    if payload.created_at:
+        creation.created_at = payload.created_at
+    if payload.updated_at:
+        creation.updated_at = payload.updated_at
+    db.add(creation)
+    db.commit()
+
+    for step in payload.steps:
+        db.add(CreationStep(
+            creation_id=creation.id,
+            step_name=step.step_name,
+            status=step.status,
+            started_at=step.started_at,
+            completed_at=step.completed_at,
+            estimated_completion_time=step.estimated_completion_time,
+            error_message=step.error_message,
+            metadata_json=step.metadata_json or {},
+        ))
+    db.commit()
+
+    # Files last: the rows are cheap to roll back, the downloads are not.
+    storage = get_storage()
+    session = requests.Session()
+    results: List[ImportedFile] = []
+    for filename in filenames:
+        try:
+            data = data_import.fetch_source_file(
+                source, payload.source_user_id, payload.source_creation_id,
+                filename, session=session,
+            )
+            storage.upload_file(owner.id, creation.id, filename, data)
+            results.append(ImportedFile(filename=filename, bytes=len(data)))
+        except Exception as e:
+            # One missing file (say walking.glb on an older creation) should not
+            # cost the whole creation; report it and carry on.
+            logger.warning("DATA IMPORT: %s failed for %s: %s", filename, creation.id, e)
+            results.append(ImportedFile(filename=filename, error=str(e)))
+
+    # updated_at is set on flush by onupdate, so restore the source's value last.
+    if payload.updated_at:
+        creation.updated_at = payload.updated_at
+        db.commit()
+
+    db.refresh(creation)
+    logger.warning(
+        "DATA IMPORT: wrote creation %s (%s) for user %s, %d/%d files",
+        creation.id, creation.status, owner.username,
+        sum(1 for r in results if r.error is None), len(results),
+    )
+
+    return ImportCreationResponse(
+        creation_id=creation.id,
+        user_id=owner.id,
+        status=creation.status,
+        replaced=replaced,
+        files=results,
+    )

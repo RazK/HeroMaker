@@ -100,6 +100,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error during startup reconciliation: {e}")
         db.rollback()
+
+    try:
+        # Staging-only: promote the named account to admin so the HTTPS data
+        # import path has something to authenticate with. No-op unless both
+        # ALLOW_DATA_IMPORT=true and DATA_IMPORT_ADMIN_USERNAME are set, which
+        # they never are on production.
+        from app.services.data_import import bootstrap_admin
+        bootstrap_admin(db)
+    except Exception as e:
+        logger.error(f"Error during data-import admin bootstrap: {e}")
+        db.rollback()
     finally:
         db.close()
     

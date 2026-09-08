@@ -179,7 +179,9 @@ What keeps staging off production's data:
   only - the backend's own public URL accepts writes, which is how the demo
   creation on staging was made.
 
-Staging's database is its own, and **empty** unless someone loads it.
+Staging's database is its own. It currently holds ~20 creations copied in from
+production - see "Refreshing staging with production data" below for how, and
+for how to reload it.
 
 ## Refreshing staging with production data
 
@@ -193,12 +195,55 @@ database half needs raw TCP to Railway's Postgres proxy on a non-443 port, so it
 has to run from an unrestricted machine - not from CI or a sandboxed agent. See
 the script's docstring for why the failure looks like a successful connection.
 
+### The HTTPS-only path (works from a sandbox)
+
+When raw TCP is not available, seed staging over port 443 instead:
+
+```bash
+.venv/bin/python scripts/seed_staging_from_production.py \
+  --target https://backend-staging-384f.up.railway.app \
+  --username demo --password '<staging demo password>'
+  # --dry-run       print the plan, change nothing
+  # --replace       re-runnable; overwrites what it imported before
+  # --only 18       just one entry of the plan
+```
+
+It reads production's **public** API and drives an admin endpoint on the target,
+`POST /api/admin/import/creation`, which downloads the files server-side and
+writes the rows. Nothing but HTTPS on 443 is needed. Note the **backend's**
+public URL: the staging frontend is `API_READ_ONLY=true`, so nginx there rejects
+`POST`.
+
+That endpoint is developer plumbing, and it is gated three ways
+(`backend/app/services/data_import.py`):
+
+- an authenticated **admin** user,
+- `ALLOW_DATA_IMPORT=true` on the environment - **unset by default**, so the
+  code is inert on production even though it is deployed there, and
+- files may only be fetched over https from an allowlisted host
+  (`DATA_IMPORT_SOURCE_HOSTS`, default `heromaker.up.railway.app`) and only the
+  seven pipeline artifacts, so an admin token cannot turn it into a fetch-anything
+  proxy.
+
+Because there is no way to make the first admin through an admin-only endpoint,
+setting `DATA_IMPORT_ADMIN_USERNAME=demo` alongside the flag promotes that one
+account at startup and logs it loudly. Staging has both variables set; production
+has neither.
+
+Gating is covered by `backend/tests/test_data_import_gating.py`.
+
+**One caveat.** The imported creation that sits mid-render (`Barky`) is a real
+`processing` row, and startup reconciliation in `backend/app/main.py` marks any
+`processing` step as failed when the backend restarts. If staging is redeployed
+before a demo, put it back with:
+
+```bash
+.venv/bin/python scripts/seed_staging_from_production.py \
+  --target https://backend-staging-384f.up.railway.app \
+  --username demo --password '<staging demo password>' --only 18 --replace
+```
+
 ## Known gaps in this page
 
-- **Staging's database is empty.** It is genuinely separate from production, so
-  staging shows only what has been created in it. The clone script exists
-  (`scripts/clone_env_data.py`) but its database half cannot run from a
-  sandboxed agent - see above - so it has to be run from an unrestricted
-  machine before staging can demo production-like content.
 - Production deploys from `main` via GitHub Actions; staging is deployed by hand
   with `railway up`. There is no staging branch.
