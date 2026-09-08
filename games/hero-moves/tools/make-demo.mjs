@@ -34,22 +34,22 @@ const W = 1280, H = 720
 const SEGMENTS = [
   {
     id: 'tour', label: 'Menu — 1, 2 or 3 players, any hero',
-    args: ['--tour', '--players=3', `--video=${feeds}/p3.y4m`, '--menu=3', '--w=960', '--h=540'],
+    args: ['--tour', '--players=3', `--video=${feeds}/p3.y4m`, '--menu=3', '--w=720', '--h=405', '--timescale=0.3333'],
   },
   {
     id: 'three', label: 'Three players — desktop',
     args: ['--players=3', '--picks=0,1,2', `--video=${feeds}/p3.y4m`, '--pause',
-      '--menu=5', '--w=960', '--h=540'],
+      '--menu=5', '--w=720', '--h=405', '--timescale=0.3333'],
   },
   {
     id: 'phone', label: 'Two players — phone',
     args: ['--players=2', '--picks=3,4', `--video=${feeds}/p2.y4m`,
-      '--menu=5', '--w=390', '--h=844'],
+      '--menu=5', '--w=330', '--h=714', '--timescale=0.3333'],
   },
   {
     id: 'solo', label: 'One player — desktop',
     args: ['--players=1', '--picks=5', `--video=${feeds}/p1.y4m`,
-      '--menu=4', '--w=960', '--h=540'],
+      '--menu=4', '--w=720', '--h=405', '--timescale=0.3333'],
   },
 ]
 

@@ -36,15 +36,19 @@ const INPUT_SIZE = 192
 /** How far into each neighbour a lane's crop reaches, as a fraction of a lane. */
 const OVERLAP = 0.3
 
-/** The largest square of `side` centred on (cx, cy) that still fits the frame. */
-function squareIn(cx: number, cy: number, side: number, vw: number, vh: number) {
-  const s = Math.min(side, vw, vh)
-  return {
-    x: Math.max(0, Math.min(vw - s, cx - s / 2)),
-    y: Math.max(0, Math.min(vh - s, cy - s / 2)),
-    w: s, h: s,
-  }
-}
+/**
+ * A square window, which may hang off the edge of the frame.
+ *
+ * Deliberately not clamped into the frame. Sliding an edge lane's window inward
+ * to fit puts that player off-centre in their own crop and their neighbour
+ * dead-centre in it — and a model that returns one skeleton then returns the
+ * neighbour's. Measured: the best dancer of three scored 44 and the worst
+ * scored 3,753, purely because of which lane they stood in. The part that hangs
+ * off the frame is drawn as black instead, which costs nothing and keeps the
+ * subject in the middle where the model expects them.
+ */
+const square = (cx: number, cy: number, side: number) =>
+  ({ x: cx - side / 2, y: cy - side / 2, w: side, h: side })
 
 export class PoseTracker {
   state: TrackerState = 'idle'
@@ -244,22 +248,51 @@ export class PoseTracker {
     const laneW = vw / n
     const laneX = (n - 1 - lane) * laneW
 
-    const found = this.window[lane] ?? squareIn(
-      laneX + laneW / 2, vh / 2, Math.min(vh, laneW * (1 + 2 * OVERLAP)), vw, vh)
-    const { x: sx, y: sy, w: sw, h: sh } = found
+    const found = this.window[lane] ?? square(
+      laneX + laneW / 2, vh / 2, Math.min(vh, laneW * (1 + 2 * OVERLAP)))
+    const { x: sx, y: sy, w: side } = found
 
-    // Letterbox into the square input rather than stretching: a squashed body
-    // reads as a different pose, which is exactly the error the classifier
-    // cannot recover from.
-    const scale = Math.min(INPUT_SIZE / sw, INPUT_SIZE / sh)
-    const dw = sw * scale
-    const dh = sh * scale
-    const dx = (INPUT_SIZE - dw) / 2
-    const dy = (INPUT_SIZE - dh) / 2
+    // The window is square and the input is square, so it maps one to one; only
+    // the part of it that is actually inside the frame gets drawn, in its own
+    // place, and the rest stays black.
+    const scale = INPUT_SIZE / side
+    const cx0 = Math.max(0, Math.min(vw, sx))
+    const cx1 = Math.max(0, Math.min(vw, sx + side))
+    const cy0 = Math.max(0, Math.min(vh, sy))
+    const cy1 = Math.max(0, Math.min(vh, sy + side))
     g.fillStyle = '#000'
     g.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE)
-    g.drawImage(this.video, sx, sy, sw, sh, dx, dy, dw, dh)
-    return { c, sx, sy, sw, sh, laneX, laneW, vw, vh, dx, dy, dw, dh }
+    if (cx1 > cx0 && cy1 > cy0) {
+      g.drawImage(this.video, cx0, cy0, cx1 - cx0, cy1 - cy0,
+        (cx0 - sx) * scale, (cy0 - sy) * scale, (cx1 - cx0) * scale, (cy1 - cy0) * scale)
+    }
+    if (n > 1) this.vignette(g, (laneX + laneW / 2 - sx) * scale, laneW * scale)
+    return { c, sx, sy, side, laneX, laneW, vw, vh }
+  }
+
+  /**
+   * Dim everything that is not this player.
+   *
+   * A crop tall enough to hold one whole body is also wide enough to hold the
+   * people either side of them — three players stand about six tenths of a body
+   * height apart, which is what a family in a living room actually does — and a
+   * model that returns exactly one skeleton will happily return the neighbour's.
+   * Masking the neighbours outright is worse than useless, because an arm held
+   * out crosses into their space and would be cut off. Shading them down leaves
+   * every limb where it is and makes the centred body the obvious subject.
+   */
+  private vignette(g: CanvasRenderingContext2D, centre: number, laneWidth: number) {
+    const clear = laneWidth * 0.62
+    const gone = laneWidth * 1.15
+    const grad = g.createLinearGradient(0, 0, INPUT_SIZE, 0)
+    const stop = (px: number, a: number) =>
+      grad.addColorStop(Math.max(0, Math.min(1, px / INPUT_SIZE)), `rgba(12,12,16,${a})`)
+    stop(centre - gone, 0.82)
+    stop(centre - clear, 0)
+    stop(centre + clear, 0)
+    stop(centre + gone, 0.82)
+    g.fillStyle = grad
+    g.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE)
   }
 
   /**
@@ -295,8 +328,9 @@ export class PoseTracker {
     // A standing body is about four and a half torsos tall, and an arm out
     // reaches about as wide as the body is tall; the floor keeps a short read
     // from zooming in on a chest.
-    const side = Math.max(torso * 3.9, vh * 0.5)
-    this.window[lane] = squareIn(cx, cy, side, vw, vh)
+    const side = Math.max(torso * 5.0, vh * 0.75)
+    void vw
+    this.window[lane] = square(cx, cy, side)
   }
 
   /** The exact picture lane `lane` is judged from, as a PNG data URL. */
@@ -318,7 +352,7 @@ export class PoseTracker {
 
     const box = this.drawLane(lane, n)
     if (!box) return live
-    const { c, sx, sy, sw, sh, laneX, laneW, vw, vh, dx, dw, dy, dh } = box
+    const { c, sx, sy, side, laneX, laneW, vw, vh } = box
 
     this.busy = true
     const started = performance.now()
@@ -339,10 +373,8 @@ export class PoseTracker {
       for (let i = 0; i < KEYPOINT_NAMES.length; i++) {
         const k = target[KEYPOINT_NAMES[i]]
         const y = data[i * 3], x = data[i * 3 + 1]
-        const cropX = (x * INPUT_SIZE - dx) / dw
-        const cropY = (y * INPUT_SIZE - dy) / dh
-        k.x = (sx + cropX * sw - laneX) / laneW
-        k.y = (sy + cropY * sh) / laneW
+        k.x = (sx + x * side - laneX) / laneW
+        k.y = (sy + y * side) / laneW
         k.score = data[i * 3 + 2]
       }
       this.aim(lane, target, laneX, laneW, vw, vh)

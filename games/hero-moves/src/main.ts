@@ -439,6 +439,16 @@ let last = performance.now()
 let bob = 0
 let timeScale = 1
 let clock = 0
+/**
+ * Longest frame the game clock still counts in full.
+ *
+ * Past this a frame is treated as a stall — a backgrounded tab, a device
+ * asleep — and the routine waits rather than jumping. Two seconds is right for
+ * a player; a recording rendering three avatars in software can legitimately
+ * take longer than that per frame and needs the clock to keep counting, or it
+ * drifts away from the camera feed it is dancing with.
+ */
+let stallClamp = 2
 let lastBeat = Number.NEGATIVE_INFINITY
 let liveLanes: Array<Skeleton | null> = [null, null, null]
 
@@ -469,7 +479,7 @@ renderer.setAnimationLoop(() => {
   // frames took longer than that — which is every device once the music, the
   // three heroes and three lanes of pose tracking are all running.
   const dt = Math.min(0.1, elapsed) * timeScale
-  clock += Math.min(2, elapsed) * timeScale
+  clock += Math.min(stallClamp, elapsed) * timeScale
 
   const s = game.state
   const running = s.phase === 'dancing' || s.phase === 'countdown'
@@ -622,6 +632,7 @@ function startLoadingTracker() {
   state: () => game.state,
   phase: () => game.state.phase,
   players: () => game.state.players.map((p) => ({ lane: p.lane, score: p.score, seen: p.seen })),
+  setClamp: (s: number) => { stallClamp = s },
   setTimeScale: (n: number) => {
     timeScale = n
     document.documentElement.style.setProperty('--time-scale', String(n))

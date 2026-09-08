@@ -95,6 +95,10 @@ for (let i = 0; i < picks.length && i < players; i++) {
   await page.waitForTimeout(1800)
 }
 await page.evaluate((t) => window.__api.setTimeScale(t), timescale)
+// Nothing is backgrounded here, so a long frame is software rendering rather
+// than a stall, and the game clock has to count it in full or it drifts away
+// from the camera feed it is dancing with.
+await page.evaluate(() => window.__api.setClamp(30))
 
 if (captions) await page.evaluate((fixed) => {
   const chip = (css) => {
@@ -107,7 +111,9 @@ if (captions) await page.evaluate((fixed) => {
     return n
   }
   if (fixed) chip('left:50%;top:2.2vh;transform:translateX(-50%)').textContent = fixed
-  const bar = chip('left:50%;bottom:2.4vh;transform:translateX(-50%);max-width:64vw;' +
+  // Above the move strip, not over it: the strip is the thing the caption is
+  // explaining, and a demo that covers it explains nothing.
+  const bar = chip('left:50%;bottom:19vh;transform:translateX(-50%);max-width:64vw;' +
     'text-align:center;opacity:0;transition:opacity .3s ease')
   const LINE = {
     menu: 'Menu — up to three players, one hero each',
@@ -169,7 +175,7 @@ if (tour) {
  * game clock is slowed to give MoveNet enough samples, and the camera is not.
  */
 const meta = tour ? null : JSON.parse(fs.readFileSync(feed.replace(/\.y4m$/, '.json'), 'utf8'))
-if (!tour && Math.abs(meta.scale * timescale - 1) > 1e-6) {
+if (!tour && Math.abs(meta.scale * timescale - 1) > 2e-3) {
   console.error(`feed scale ${meta.scale} does not match timescale ${timescale}`)
   process.exit(1)
 }
@@ -214,10 +220,10 @@ for (; !tour;) {
   if (wantPause && !paused && snap.phase === 'dancing' && snap.beat > 10) {
     paused = true
     await page.evaluate(() => window.__api.pause())
-    await page.waitForTimeout(6500)
+    await page.waitForTimeout(Math.round(4000 / timescale))
     await page.evaluate(() => window.__api.resume())
   }
-  if (snap.phase === 'results') { await page.waitForTimeout(8000 / timescale); break }
+  if (snap.phase === 'results') { await page.waitForTimeout(7000 / timescale); break }
   if (samples.length > 400) break
 }
 
