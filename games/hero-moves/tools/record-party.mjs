@@ -29,6 +29,13 @@ const W = Number(flag('w', 1280)), H = Number(flag('h', 720))
 const base = flag('url', 'http://127.0.0.1:5183')
 const timescale = Number(flag('timescale', 0.5))
 const menuHold = Number(flag('menu', 6))
+/**
+ * Seconds of menu to keep in front of the round.
+ *
+ * Lining up with the feed can mean waiting most of a loop of it, and nobody
+ * needs to watch forty seconds of a menu to get to the dancing.
+ */
+const preroll = Number(flag('preroll', 6))
 const picks = flag('picks', '').split(',').filter((s) => s !== '').map(Number)
 const wantPause = process.argv.includes('--pause')
 /**
@@ -163,14 +170,22 @@ if (!tour && Math.abs(meta.scale * timescale - 1) > 1e-6) {
   process.exit(1)
 }
 if (!tour) {
-  await page.waitForFunction(({ mark, dur }) => {
-    const t = (window.__api.camClock() / 1000) % dur
-    return t >= mark && t < mark + 0.3
-  }, { mark: meta.mark, dur: meta.duration }, { timeout: 180000, polling: 16 })
-  await page.evaluate((s) => window.__api.start(s), seed)
-  console.log(`round started ${((Date.now() - t0) / 1000).toFixed(1)}s in, on the feed's beat`)
+  // Compute the wait and schedule it *inside* the page rather than polling for
+  // the moment from out here. The page is running MoveNet and rendering three
+  // avatars, so a poll can miss a 300 ms window entirely and then wait a whole
+  // loop of the feed for the next one — which is how a two-minute recording
+  // becomes a five-minute one that still starts on the wrong beat.
+  const waited = await page.evaluate(({ mark, dur, s }) => new Promise((done) => {
+    const now = (window.__api.camClock() / 1000) % dur
+    const wait = (((mark - now) % dur) + dur) % dur
+    setTimeout(() => { window.__api.start(s); done(wait) }, wait * 1000)
+  }), { mark: meta.mark, dur: meta.duration, s: seed })
+  startedAt = (Date.now() - t0) / 1000
+  console.log(`round started ${startedAt.toFixed(1)}s in ` +
+    `(waited ${waited.toFixed(2)}s for the feed's first beat)`)
 }
 
+let startedAt = 0
 let paused = false
 const samples = []
 for (; !tour;) {
@@ -196,7 +211,8 @@ await context.close(); await browser.close()
 const webm = fs.readdirSync(videoDir).map((f) => path.join(videoDir, f)).find((f) => f.endsWith('.webm'))
 if (!webm) { console.error('playwright produced no video'); process.exit(1) }
 fs.mkdirSync(path.dirname(out), { recursive: true })
-const trim = Math.max(0, readySeconds - 0.4)
+const trim = tour ? Math.max(0, readySeconds - 0.4)
+  : Math.max(readySeconds, startedAt - preroll)
 const speed = timescale !== 1 ? ['-vf', `setpts=PTS*${timescale},fps=30`] : ['-vf', 'fps=30']
 execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-ss', String(trim), '-i', webm, ...speed,
   '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '22', '-movflags', '+faststart', out])

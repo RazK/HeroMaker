@@ -424,8 +424,14 @@ renderer.setAnimationLoop(() => {
   const now = performance.now()
   const elapsed = (now - last) / 1000
   last = now
+  // Two clocks on purpose. Animation dt is clamped hard so a stalled frame
+  // cannot fling the rig; the game clock decides *when*, so it tracks wall time
+  // and is only clamped against a genuine stall like a backgrounded tab. The
+  // old half-second clamp quietly ran the routine slow on any device whose
+  // frames took longer than that — which is every device once the music, the
+  // three heroes and three lanes of pose tracking are all running.
   const dt = Math.min(0.1, elapsed) * timeScale
-  clock += Math.min(0.5, elapsed) * timeScale
+  clock += Math.min(2, elapsed) * timeScale
 
   const s = game.state
   const running = s.phase === 'dancing' || s.phase === 'countdown'

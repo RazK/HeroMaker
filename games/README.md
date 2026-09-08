@@ -4,6 +4,7 @@ Playable experiences built on top of the HeroMaker pipeline's rigged VRM output.
 
 | Game | Status | Why |
 |---|---|---|
+| [`hero-moves/`](./hero-moves) | **Live** — <https://razk.github.io/HeroMaker/hero-moves/> | A party dance game. One to three players stand side by side, each picks a hero, and every hero mirrors its own player. Also ships the camera-free Stunt Reel at `reel.html`. |
 | [`hero-dash/`](./hero-dash) | **Parked** — complete and playable, not the direction | An endless runner. The chase camera shows the back of the avatar almost all the time, and the back is the part the pipeline invents. See below. |
 
 ## Why Hero Dash is parked
