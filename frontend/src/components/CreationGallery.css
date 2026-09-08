@@ -453,45 +453,91 @@
   overflow: hidden;
 }
 
+/*
+ * `contain`, not `cover`. Every drawing and every render on disk is 3:4 while
+ * the tile is square, so `cover` had to throw away a quarter of the height -
+ * which is the head and the feet. The tile is still painted corner to corner:
+ * the bands the artwork does not reach are filled by ::before / ::after below.
+ */
 .creation-gallery-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
   transition: filter 0.25s ease;
+}
+
+/*
+ * The fill: the same picture, blown up and blurred out, one layer per image so
+ * it cross-fades with the artwork on the same clock. Kept inside the tile's own
+ * box (no transform, no negative inset) so nothing can overflow it.
+ */
+.creation-gallery-image-container::before,
+.creation-gallery-image-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(14px) saturate(1.15) brightness(0.92);
+}
+
+.creation-gallery-image-container::before {
+  background-image: var(--gallery-fill-original, none);
+  opacity: 1;
+  animation: gallery-image-fade var(--gallery-fade-duration) ease-in-out infinite;
+}
+
+.creation-gallery-image-container::after {
+  background-image: var(--gallery-fill-rendered, none);
+  opacity: 0;
+  animation: gallery-image-fade-reverse var(--gallery-fade-duration) ease-in-out infinite;
+}
+
+/*
+ * The cross-fade. It used to run on a 10s cycle whose dissolves were quick
+ * enough to read as a flicker while you scrolled; it is 16s now, with each
+ * picture holding for 4s and a 4s dissolve between them, so the change is
+ * something you watch rather than something that blinks at you. That slowness
+ * is the cue - it replaces the DRAWING / RENDER pill, which put chrome on top
+ * of the artwork.
+ */
+.creation-gallery-image-container {
+  --gallery-fade-duration: 16s;
 }
 
 .creation-gallery-image-original {
   opacity: 1;
-  animation: gallery-image-fade 10s ease-in-out infinite;
+  animation: gallery-image-fade var(--gallery-fade-duration) ease-in-out infinite;
 }
 
 .creation-gallery-image-rendered {
   opacity: 0;
-  animation: gallery-image-fade-reverse 10s ease-in-out infinite;
+  animation: gallery-image-fade-reverse var(--gallery-fade-duration) ease-in-out infinite;
 }
 
 /*
- * The 10s cycle, as the browser actually resolves these stops (a later stop at
- * the same percentage wins, so the drawing starts fading immediately):
- * 0-3s the drawing fades out, 3-5s the render is up alone, 5-8s the render
- * fades back to the drawing, 8-10s the drawing holds. The two images cross at
- * 1.5s and at 6.5s - which is where the legend below flips its word.
+ * One cycle: the drawing holds, dissolves into the render, the render holds,
+ * dissolves back. Written as plain single-percentage stops - the old form
+ * (`0%, 30% { ... }`) repeated each stop and the later rule silently won, which
+ * is why the drawing started fading at 0% instead of at 3s.
  */
 @keyframes gallery-image-fade {
   0% {
     opacity: 1;
   }
-  30% {
-    opacity: 0;
+  25% {
+    opacity: 1;
   }
   50% {
     opacity: 0;
   }
-  80% {
-    opacity: 1;
+  75% {
+    opacity: 0;
   }
   100% {
     opacity: 1;
@@ -502,22 +548,24 @@
   0% {
     opacity: 0;
   }
-  30% {
-    opacity: 1;
+  25% {
+    opacity: 0;
   }
   50% {
     opacity: 1;
   }
-  80% {
-    opacity: 0;
+  75% {
+    opacity: 1;
   }
   100% {
     opacity: 0;
   }
 }
 
-/* The scrim the name sits on. Dark enough at the very bottom to carry bold
-   white text over a pale drawing, gone by halfway up the card. */
+/* The scrim the name sits on. Near-solid where the text is - these drawings
+   have a ground line running across them at roughly caption height, and a
+   lighter scrim let it read as a strikethrough through the child's name - and
+   gone by halfway up the card. */
 .creation-gallery-overlay {
   position: absolute;
   bottom: 0;
@@ -525,15 +573,17 @@
   right: 0;
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.85) 0%,
-    rgba(0, 0, 0, 0.55) 45%,
+    rgba(0, 0, 0, 0.97) 0%,
+    rgba(0, 0, 0, 0.9) 40%,
+    rgba(0, 0, 0, 0.5) 72%,
     rgba(0, 0, 0, 0) 100%
   );
-  padding: 28px 10px 8px 10px;
+  padding: 32px 10px 9px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   opacity: 1;
+  z-index: 2; /* above the artwork and its blurred fill */
   transition: opacity 0.2s;
 }
 
@@ -597,32 +647,33 @@
 }
 
 /*
- * While a hero is still being made, the progress bar goes on its own full-width
- * line under the caption. Sharing the line with the name squeezed the name into
- * a two-character column ("Riggin / g...").
+ * While a hero is still being made, the progress bar is pinned to the very
+ * bottom edge of the tile, edge to edge, out of the caption's way. On one line
+ * with the name it squeezed the name into a two-character column, and directly
+ * under it the bar cut across the child's name like a strikethrough.
  */
 .creation-gallery-overlay-bottom.has-progress {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas:
-    "names  status"
-    "progress progress";
-  row-gap: 6px;
+  grid-template-areas: "names status";
   align-items: end;
+  padding-bottom: 5px;
 }
 
 .creation-gallery-overlay-bottom.has-progress .creation-gallery-overlay-names {
   grid-area: names;
 }
 
-.creation-gallery-overlay-bottom.has-progress .creation-gallery-overlay-progress {
-  grid-area: progress;
-  align-items: stretch;
-  min-width: 0;
-}
-
 .creation-gallery-overlay-bottom.has-progress .creation-gallery-overlay-status {
   grid-area: status;
+}
+
+.creation-gallery-overlay-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-width: 0;
 }
 
 .creation-gallery-overlay-column {
@@ -733,60 +784,6 @@
   }
 }
 
-/*
- * Cross-fade legend, on the same 10s clock as the images. One pill, sized to
- * the longer of the two words, with the words stacked in the same grid cell -
- * two separately positioned pills would leave the tail of "DRAWING" sticking
- * out from behind "RENDER" mid-fade.
- */
-.creation-gallery-phase {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  display: grid;
-  justify-items: center;
-  padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.4);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-}
-
-.creation-gallery-phase-text {
-  grid-area: 1 / 1;
-}
-
-/*
- * The word swaps instead of fading: at half-fade both labels would be drawn at
- * 50% on top of each other and the pill turned into unreadable mush. It flips
- * where the two images cross - 15% and 65% of the cycle.
- */
-.creation-gallery-phase-original {
-  animation: gallery-phase-drawing 10s step-end infinite;
-}
-
-.creation-gallery-phase-rendered {
-  animation: gallery-phase-render 10s step-end infinite;
-}
-
-@keyframes gallery-phase-drawing {
-  0% { opacity: 1; }
-  15% { opacity: 0; }
-  65% { opacity: 1; }
-  100% { opacity: 1; }
-}
-
-@keyframes gallery-phase-render {
-  0% { opacity: 0; }
-  15% { opacity: 1; }
-  65% { opacity: 0; }
-  100% { opacity: 0; }
 }
 
 .creation-gallery-status-info {
@@ -818,10 +815,8 @@
 
 .creation-gallery-progress-bar {
   width: 100%;
-  height: 6px;
-  min-width: 60px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
   overflow: hidden;
 }
 

@@ -391,7 +391,20 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
               onMouseLeave={() => setHoveredCreationId(null)}
             >
               {originalUrl ? (
-                <div className="creation-gallery-image-container">
+                <div
+                  className="creation-gallery-image-container"
+                  /*
+                   * The drawings and the renders are 3:4, the tile is square, so
+                   * the leftover space is filled with a blown-up blur of the same
+                   * picture rather than cropping the character's head and feet
+                   * off. Passed as custom properties so the two fills can live on
+                   * ::before / ::after and cost no extra elements.
+                   */
+                  style={{
+                    ['--gallery-fill-original' as string]: `url("${originalUrl}")`,
+                    ['--gallery-fill-rendered' as string]: renderedUrl ? `url("${renderedUrl}")` : 'none',
+                  }}
+                >
                   {hasBothImages ? (
                     <>
                       <img
@@ -416,16 +429,6 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
-                      {/*
-                       * Cross-fade legend. The card already swaps the child's
-                       * drawing for the AI render every few seconds; these two
-                       * labels fade on the same clock so it is obvious which of
-                       * the two you are looking at.
-                       */}
-                      <span className="creation-gallery-phase">
-                        <span className="creation-gallery-phase-text creation-gallery-phase-original">Drawing</span>
-                        <span className="creation-gallery-phase-text creation-gallery-phase-rendered">Render</span>
-                      </span>
                     </>
                   ) : (
                     <img

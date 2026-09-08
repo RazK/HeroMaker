@@ -172,23 +172,26 @@ interface StudioGeometry {
  * space left after the gaps and the action panel gives `main` directly; the
  * other axis then just caps it.
  */
-function solveStudio(width: number, height: number, mode: StudioMode): StudioGeometry {
+function solveStudio(width: number, height: number, mode: StudioMode, hasActions: boolean): StudioGeometry {
   const alongStack = mode === 'portrait' ? height : width;
   const acrossStack = mode === 'portrait' ? width : height;
-  const actionsMin = mode === 'portrait' ? ACTIONS_MIN_H : ACTIONS_MIN_W;
+  // Signed out there are no actions at all - reserving room for them would put
+  // back exactly the empty band this layout exists to remove.
+  const actionsMin = !hasActions ? 0 : mode === 'portrait' ? ACTIONS_MIN_H : ACTIONS_MIN_W;
+  const gaps = hasActions ? 2 : 1;
 
-  const budget = alongStack - 2 * GAP_MAIN - actionsMin;
+  const budget = alongStack - gaps * GAP_MAIN - actionsMin;
   const main = Math.max(0, Math.floor(Math.min(acrossStack, (3 * budget + 2 * GAP_RAIL) / 4)));
   const tile = Math.max(0, (main - 2 * GAP_RAIL) / 3);
   // Whatever the squares did not use is the action panel - there is no third
   // thing to give it to, and leaving it empty is the "dead band" this replaces.
-  const spare = alongStack - main - tile - 2 * GAP_MAIN;
+  const spare = hasActions ? alongStack - main - tile - 2 * GAP_MAIN : 0;
   const actions = Math.max(0, Math.min(mode === 'portrait' ? ACTIONS_MAX_H : ACTIONS_MAX_W, spare));
 
   return { mode, main, tile, actions };
 }
 
-function useStudioGeometry() {
+function useStudioGeometry(hasActions: boolean) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [geometry, setGeometry] = useState<StudioGeometry>({
     mode: 'portrait',
@@ -201,13 +204,13 @@ function useStudioGeometry() {
     const el = frameRef.current;
     if (!el) return;
     const mode: StudioMode = window.innerWidth >= WIDE_AT ? 'landscape' : 'portrait';
-    const next = solveStudio(el.clientWidth, el.clientHeight, mode);
+    const next = solveStudio(el.clientWidth, el.clientHeight, mode, hasActions);
     setGeometry((prev) =>
       prev.mode === next.mode && prev.main === next.main && prev.actions === next.actions
         ? prev
         : next
     );
-  }, []);
+  }, [hasActions]);
 
   // Layout effect, not effect: the first paint should already have real sizes,
   // otherwise the stage flashes at zero and the 3D canvas initialises against
@@ -241,7 +244,9 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
   // is what stops a tile reading as broken while its image is in flight.
   const [loadedThumbs, setLoadedThumbs] = useState<Record<string, boolean>>({});
 
-  const { frameRef, geometry } = useStudioGeometry();
+  // The action panel is the only thing in the Studio that a signed-out visitor
+  // does not get, and its absence changes the geometry, so it is an input.
+  const { frameRef, geometry } = useStudioGeometry(isLoggedIn);
 
   const stages = buildStages(creation.steps);
 

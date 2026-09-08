@@ -39,7 +39,7 @@ function downloadTarget(creation: CreationResponse, stage?: RailStage): Download
     return done('image_processing') ? { file: 'processed.jpg', label: 'Download JPEG', icon: '✏️' } : null;
   }
   if (stage.key === 'render') {
-    return done('openai_render') ? { file: 'rendered.png', label: 'Download PNG', icon: '🖼' } : null;
+    return done('openai_render') ? { file: 'rendered.png', label: 'Download PNG', icon: '✨' } : null;
   }
   // The 3D phase hands over the VRM - the thing the whole pipeline exists to
   // produce. Before the conversion step has run there is still a model worth
