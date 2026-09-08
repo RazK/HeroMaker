@@ -131,6 +131,8 @@ for (const l of lanes) scene.add(l.root)
 let playerCount = 1
 let lengthId: LengthId = 'normal'
 const picks = [0, 1, 2]
+/** Which player the gallery is currently choosing for. */
+let activeLane = 0
 
 // ---------------------------------------------------------------- screens
 const menuLayer = el('div', { class: 'layer sheet', id: 'title' })
@@ -140,7 +142,8 @@ app.append(hud.hud, hud.platesLayer, hud.countdownLayer, menuLayer, pauseLayer, 
 
 // ---- menu ------------------------------------------------------------------
 const countRow = el('div', { class: 'segmented' })
-const pickerWrap = el('div', { class: 'stack-2' })
+const whoRow = el('div', { class: 'pick-who' })
+const gallery = el('div', { class: 'gallery' })
 const lengthRow = el('div', { class: 'segmented' })
 const menuCam = el('canvas', { width: 300, height: 84, class: 'menu-cam' }) as HTMLCanvasElement
 const camHint = el('p', { class: 'hint' }, 'Camera off — press start and allow it')
@@ -151,11 +154,13 @@ menuLayer.append(
   el('div', { class: 'card' },
     el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves'),
     camWrap,
-    el('div', { class: 'reel-label' }, 'Players'),
-    countRow,
-    pickerWrap,
-    el('div', { class: 'reel-label' }, 'Round length'),
-    lengthRow,
+    // Two settings, one row. Both are three-way switches, and stacking them
+    // pushed the hero gallery off the bottom of the card.
+    el('div', { class: 'setting-pair' },
+      el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Players'), countRow),
+      el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
+    whoRow,
+    gallery,
     el('div', { class: 'actions' }, startBtn),
   ),
 )
@@ -165,7 +170,9 @@ function renderMenu() {
     el('button', {
       class: `seg${n === playerCount ? ' on' : ''}`,
       onclick: () => { playerCount = n; audio.uiClick(); applyCount(); renderMenu() },
-    }, n === 1 ? '1 player' : `${n} players`)))
+      // Short labels: the row is half a card wide now, and the heading over it
+      // already says these are players.
+    }, `${n}P`)))
 
   lengthRow.replaceChildren(...LENGTHS.map((l) =>
     el('button', {
@@ -174,29 +181,52 @@ function renderMenu() {
       title: l.blurb,
     }, l.label)))
 
-  pickerWrap.replaceChildren(...Array.from({ length: playerCount }, (_, i) =>
-    el('div', { class: `pick-row lane-${i}` },
-      el('div', { class: 'pick-tag' }, `P${i + 1}`),
-      el('div', { class: 'pick-strip' }, ...ROSTER.map((r, k) => {
-        const thumb = Object.entries(thumbFiles).find(([t]) => t.includes(`${r.id}.thumb`))?.[1]
-        const taken = picks.slice(0, playerCount).some((p, j) => p === k && j !== i)
-        const b = el('button', {
-          class: `pick${picks[i] === k ? ' on' : ''}${taken ? ' taken' : ''}`,
-          onclick: () => { picks[i] = k; audio.uiClick(); void loadLane(i, k); renderMenu() },
-          title: r.name,
-        })
-        if (thumb) b.append(el('img', { src: thumb, alt: r.name, width: 44, height: 44 }))
-        // The strip scrolls, so the chosen hero has to be brought into view or
-        // a player cannot see what they picked.
-        if (picks[i] === k) queueMicrotask(() => {
-          const strip = b.parentElement
-          if (!strip) return
-          const left = b.offsetLeft - (strip.clientWidth - b.offsetWidth) / 2
-          strip.scrollLeft = Math.max(0, left)
-        })
-        return b
-      })))))
+  // One big gallery for everybody, and a row saying who is choosing.
+  //
+  // A grid per player meant six heroes each in a scroller, at forty-four
+  // pixels — small enough that you could not tell the bear from the star, on
+  // the one screen whose whole job is choosing between them. Sharing the
+  // gallery buys back two thirds of the space and spends it on the artwork.
+  activeLane = Math.min(activeLane, playerCount - 1)
+  whoRow.hidden = playerCount < 2
+  whoRow.replaceChildren(...Array.from({ length: playerCount }, (_, i) => {
+    const hero = ROSTER[picks[i]]
+    const b = el('button', {
+      class: `who lane-${i}${i === activeLane ? ' on' : ''}`,
+      onclick: () => { activeLane = i; audio.uiClick(); renderMenu() },
+    }, el('span', { class: 'who-tag' }, `P${i + 1}`))
+    const thumb = thumbFor(hero?.id)
+    if (thumb) b.append(el('img', { src: thumb, alt: hero?.name ?? '' }))
+    b.append(el('span', { class: 'who-name' }, hero?.name ?? ''))
+    return b
+  }))
+
+  gallery.className = `gallery lane-${activeLane}`
+  gallery.replaceChildren(...ROSTER.map((r, k) => {
+    const mine = picks[activeLane] === k
+    const others = picks.slice(0, playerCount)
+      .map((p, j) => (p === k && j !== activeLane ? j : -1)).filter((j) => j >= 0)
+    const b = el('button', {
+      class: `gtile${mine ? ' on' : ''}${others.length ? ' taken' : ''}`,
+      onclick: () => {
+        picks[activeLane] = k
+        audio.uiClick()
+        void loadLane(activeLane, k)
+        renderMenu()
+      },
+    })
+    const thumb = thumbFor(r.id)
+    if (thumb) b.append(el('img', { src: thumb, alt: r.name, loading: 'lazy' }))
+    b.append(el('span', { class: 'gname' }, r.name))
+    // Whoever else already has this hero, said out loud rather than by a
+    // colour a player would have to learn.
+    for (const j of others) b.append(el('span', { class: `gbadge lane-${j}` }, `P${j + 1}`))
+    return b
+  }))
 }
+
+const thumbFor = (id?: string) =>
+  (id ? Object.entries(thumbFiles).find(([t]) => t.includes(`${id}.thumb`))?.[1] : undefined)
 
 /** Show and load exactly `playerCount` heroes, and lay the stage out for them. */
 function applyCount() {
@@ -240,7 +270,7 @@ function showResults() {
     : `${ROSTER[ranked[0].heroIndex]?.name ?? 'P1'} WINS!`
   podium.replaceChildren(...ranked.map((p, place) => {
     const hero = ROSTER[p.heroIndex]
-    const thumb = Object.entries(thumbFiles).find(([t]) => t.includes(`${hero?.id}.thumb`))?.[1]
+    const thumb = thumbFor(hero?.id)
     const row = el('div', { class: `podium-row${place === 0 && !solo ? ' win' : ''}` })
     row.append(el('div', { class: `place lane-${p.lane}` }, solo ? '' : `${place + 1}`))
     if (thumb) row.append(el('img', { src: thumb, alt: hero?.name ?? '', width: 46, height: 46 }))

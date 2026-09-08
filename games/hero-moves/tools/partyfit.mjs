@@ -22,6 +22,8 @@ const SIZES = [
 ]
 /** A control smaller than this is one a child misses. */
 const MIN_TAP = 40
+/** Below this a hero portrait is a smudge; the picker is the whole screen. */
+const MIN_TILE = 52
 /** Below this the heroes are not worth looking at, which is the whole game. */
 const MIN_STAGE_FRACTION = 0.3
 
@@ -45,12 +47,15 @@ for (const size of SIZES) {
     const r = card.getBoundingClientRect()
     const btn = card.querySelector('.btn').getBoundingClientRect()
     const cardW = Math.round(r.width)
-    const rows = [...card.querySelectorAll('.pick-row')].map((n) => Math.round(n.getBoundingClientRect().height))
+    // The gallery is the reason this screen exists, so its tile size is the
+    // thing worth asserting: a hero you cannot make out is a hero you cannot
+    // choose.
+    const tiles = [...card.querySelectorAll('.gtile img')].map((n) => Math.round(n.getBoundingClientRect().width))
     return {
       cardH: Math.round(r.height), cardW, cardTop: Math.round(r.top), cardBottom: Math.round(r.bottom),
       scrolls: card.scrollHeight > card.clientHeight + 1,
       btnH: Math.round(btn.height), btnBottom: Math.round(btn.bottom),
-      rows, vh: innerHeight, vw: innerWidth,
+      tile: Math.min(...tiles, 999), tiles: tiles.length, vh: innerHeight, vw: innerWidth,
       landscape: innerWidth > innerHeight,
     }
   })
@@ -59,6 +64,8 @@ for (const size of SIZES) {
   const stageFrac = m.landscape ? (m.vw - m.cardW) / m.vw : (m.vh - m.cardH) / m.vh
   const problems = []
   if (m.btnH < MIN_TAP) problems.push(`start button ${m.btnH}px`)
+  if (m.tiles !== 6) problems.push(`${m.tiles} hero tiles, expected 6`)
+  if (m.tile < MIN_TILE) problems.push(`hero portrait ${m.tile}px`)
   if (m.btnBottom > m.vh + 1) problems.push(`start button ${m.btnBottom - m.vh}px below the fold`)
   if (m.cardBottom > m.vh + 1) problems.push(`card overflows by ${m.cardBottom - m.vh}px`)
   if (stageFrac < MIN_STAGE_FRACTION) {
@@ -67,7 +74,7 @@ for (const size of SIZES) {
   const note = m.scrolls ? ' (card scrolls)' : ''
   console.log(`${size.name} ${String(size.w).padStart(4)}x${String(size.h).padStart(3)}  ` +
     `card ${String(m.cardH).padStart(3)}px  btn ${String(m.btnH).padStart(2)}px  ` +
-    `rows ${m.rows.join('/')}${note}  ${problems.length ? '✗ ' + problems.join('; ') : '✓'}`)
+    `hero ${String(m.tile).padStart(3)}px${note}  ${problems.length ? '✗ ' + problems.join('; ') : '✓'}`)
   if (problems.length) bad++
   await page.close()
 }

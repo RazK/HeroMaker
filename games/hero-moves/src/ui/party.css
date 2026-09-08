@@ -36,6 +36,15 @@
  * has to answer it before the round starts, because a lane game that discovers
  * an empty lane mid-song has already wasted the song.
  */
+/*
+ * The menu is compact on purpose. Six heroes at a size you can actually see
+ * them is what the screen is for, and everything above the gallery is paying
+ * rent for that space.
+ */
+#title .card { padding: var(--space-4); gap: var(--space-2); }
+#title h1 { font-size: clamp(26px, 4.6vmin, 42px); }
+#title h1 em { font-size: .42em; letter-spacing: .14em; margin-bottom: .3em; }
+
 .menu-camwrap {
   position: relative;
   /* Its only content is absolutely positioned, so in a scrolling flex column
@@ -43,7 +52,7 @@
   flex: 0 0 auto;
   border-radius: 12px; overflow: hidden;
   background: #1b1430;
-  aspect-ratio: 16 / 6;
+  aspect-ratio: 16 / 5;
   display: grid; place-items: center;
 }
 .menu-cam { width: 100%; height: 100%; display: block; object-fit: cover; }
@@ -58,24 +67,82 @@
 
 
 /* ---------------------------------------------------------------- picker */
-.pick-row { display: flex; align-items: center; gap: var(--space-2); }
-.pick-tag {
-  flex: 0 0 auto; min-width: 2.4em;
-  padding: .3em .6em; border-radius: 999px;
-  font-weight: 800; font-size: clamp(11px, 1.6vmin, 13px);
+/*
+ * One gallery, shared.
+ *
+ * A row of heroes per player meant six 44px thumbnails each, which on the one
+ * screen whose whole job is choosing a character was too small to tell a bear
+ * from a star. The gallery is shared and the row above it says who is
+ * choosing, which buys back two thirds of the space and spends it on the
+ * artwork — the thumbnails are 512px renders of the actual rigged avatar, so
+ * they had the detail all along.
+ */
+/* The two three-way switches share a row; see the note in main.ts. */
+.setting-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.setting { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.setting .seg { padding: .45em .3em; }
+
+.pick-who { display: flex; gap: var(--space-2); }
+.who {
+  pointer-events: auto; cursor: pointer;
+  flex: 1 1 0; min-width: 0; min-height: 44px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px 4px 4px; border: 0; border-radius: 14px;
+  font: inherit; color: var(--ink);
+  background: rgba(23, 16, 31, .07);
+  box-shadow: inset 0 0 0 2px transparent;
+}
+.who.on { background: rgba(23, 16, 31, .04); box-shadow: inset 0 0 0 3px var(--lane-ink, var(--pop)); }
+.who img { width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto; }
+.who-tag {
+  flex: 0 0 auto; padding: .2em .5em; border-radius: 999px;
+  font-size: 11px; font-weight: 800;
   background: var(--lane, var(--gold)); color: var(--ink);
 }
-/* Horizontal, because six heroes in a grid pushed the start button off a
-   phone — measured at 667px tall, where the button came back at 30px. */
-.pick-strip {
-  flex: 1 1 auto; display: flex; gap: 6px;
-  overflow-x: auto; padding: 2px; scrollbar-width: none;
+.who-name {
+  flex: 1 1 auto; min-width: 0; text-align: left;
+  font-size: clamp(10px, 1.5vmin, 12px); font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pick-strip::-webkit-scrollbar { display: none; }
-.pick-strip .pick { flex: 0 0 auto; padding: 3px; border-radius: 12px; }
-.pick-strip .pick img { display: block; width: 44px; height: 44px; }
-.pick-row .pick.on { outline: 3px solid var(--lane-ink, var(--pop)); background: rgba(23, 16, 31, .12); }
-.pick-row .pick.on img { filter: saturate(1.05); }
+.who:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+.gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.gtile {
+  position: relative;
+  pointer-events: auto; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 4px 6px; border: 0; border-radius: 16px;
+  font: inherit; color: var(--ink);
+  background: rgba(23, 16, 31, .06);
+  box-shadow: inset 0 0 0 3px transparent;
+  transition: transform .08s ease;
+}
+.gtile img {
+  width: 100%; height: auto; aspect-ratio: 1;
+  object-fit: contain; display: block;
+}
+.gname {
+  font-size: clamp(9px, 1.4vmin, 12px); font-weight: 800;
+  line-height: 1.1; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+/* The ring is the active player's colour, so a three-player table can see at a
+   glance which of them is choosing. */
+.gtile.on {
+  background: rgba(255, 210, 63, .16);
+  box-shadow: inset 0 0 0 3px var(--lane-ink, var(--pop));
+}
+.gtile:active { transform: translateY(2px); }
+.gtile:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+/* Already cast in another role — still choosable, just spoken for. */
+.gtile.taken img { opacity: .5; }
+.gbadge {
+  position: absolute; top: 4px; right: 4px;
+  padding: .1em .42em; border-radius: 999px;
+  font-size: 10px; font-weight: 800;
+  background: var(--lane, var(--gold)); color: var(--ink);
+  box-shadow: 0 2px 6px rgba(23, 16, 31, .35);
+}
 
 /* ---------------------------------------------------------------- plates */
 /*
@@ -202,23 +269,31 @@
 #title .actions, #results .actions {
   position: sticky; bottom: calc(var(--space-3) * -1); z-index: 1;
   padding-bottom: var(--space-1);
-  background: linear-gradient(rgba(253, 247, 236, 0), rgba(253, 247, 236, .97) 32%);
+  /* Opaque paper, matching the card exactly. The card used to be 97% opaque
+     and this gradient added another 97% on top of it, which painted a paler
+     rectangle behind the buttons — visible on every screenshot as a white box
+     that looked like a rendering bug. */
+  background: linear-gradient(rgba(253, 247, 236, 0), var(--paper) 32%);
 }
 
 @media (orientation: portrait) {
-  #title .card { padding: var(--space-3) var(--space-4); gap: var(--space-2); max-height: 62vh; }
-  #title h1 { font-size: clamp(26px, 5.6vmin, 40px); }
-  .menu-camwrap { aspect-ratio: auto; height: clamp(72px, 12vh, 120px); }
-  .pick-strip .pick img { width: 38px; height: 38px; }
-  .pick-tag { font-size: 11px; padding: .25em .5em; }
+  #title .card { padding: var(--space-3) var(--space-4); gap: 6px; max-height: 68vh; }
+  #title h1 { font-size: clamp(22px, 5vmin, 34px); }
+  .menu-camwrap { aspect-ratio: auto; height: clamp(52px, 8.5vh, 92px); }
+  /* Three chips across a phone leave no room for a name; the thumbnail says
+     who it is, and the gallery underneath spells it out. */
+  .who-name { display: none; }
+  .who img { width: 30px; height: 30px; }
   #camStrip canvas { width: clamp(120px, 46vw, 240px); }
 }
 @media (max-height: 620px) {
   /* The base sheet drops hints to save height; this one is not a hint, it is
      the only thing explaining an empty black box. */
   .menu-camwrap .hint { display: block; font-size: 11px; }
-  .pick-strip .pick img { width: 32px; height: 32px; }
+  .who img { width: 26px; height: 26px; }
+  .who-name { display: none; }
   #title .card { gap: 6px; }
+  .gname { font-size: 9px; }
   .menu-camwrap { height: clamp(56px, 11vh, 90px); }
 }
 @media (prefers-reduced-motion: reduce) {

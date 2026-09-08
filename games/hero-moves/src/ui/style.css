@@ -89,7 +89,9 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 
 /* ---------------------------------------------------------------- chrome */
 .card {
-  background: rgba(253,247,236,.97);
+  /* Opaque. At 97% the sticky footer behind the buttons, which paints the same
+     colour again, stacked to a paler rectangle that read as a bug. */
+  background: var(--paper);
   color: var(--ink);
   border-radius: var(--radius);
   padding: var(--space-5);
