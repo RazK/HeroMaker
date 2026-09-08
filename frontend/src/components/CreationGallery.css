@@ -591,9 +591,33 @@
   width: 100%;
 }
 
+/*
+ * While a hero is still being made, the progress bar goes on its own full-width
+ * line under the caption. Sharing the line with the name squeezed the name into
+ * a two-character column ("Riggin / g...").
+ */
 .creation-gallery-overlay-bottom.has-progress {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "names  status"
+    "progress progress";
+  row-gap: 6px;
+  align-items: end;
+}
+
+.creation-gallery-overlay-bottom.has-progress .creation-gallery-overlay-names {
+  grid-area: names;
+}
+
+.creation-gallery-overlay-bottom.has-progress .creation-gallery-overlay-progress {
+  grid-area: progress;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.creation-gallery-overlay-bottom.has-progress .creation-gallery-overlay-status {
+  grid-area: status;
 }
 
 .creation-gallery-overlay-column {
@@ -676,7 +700,7 @@
   line-height: 1.2;
   letter-spacing: -0.01em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -690,7 +714,7 @@
   font-weight: 500;
   line-height: 1.25;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   line-clamp: 1;
@@ -704,11 +728,18 @@
   }
 }
 
-/* Cross-fade legend, on the same 10s clock as the images. */
+/*
+ * Cross-fade legend, on the same 10s clock as the images. One pill, sized to
+ * the longer of the two words, with the words stacked in the same grid cell -
+ * two separately positioned pills would leave the tail of "DRAWING" sticking
+ * out from behind "RENDER" mid-fade.
+ */
 .creation-gallery-phase {
   position: absolute;
   top: 6px;
   left: 6px;
+  display: grid;
+  justify-items: center;
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   background: rgba(0, 0, 0, 0.4);
@@ -722,14 +753,35 @@
   pointer-events: none;
 }
 
+.creation-gallery-phase-text {
+  grid-area: 1 / 1;
+}
+
+/*
+ * The word swaps instead of fading: at half-fade both labels would be drawn at
+ * 50% on top of each other and the pill turned into unreadable mush. It flips
+ * at the midpoint of each image transition (40% and 90% of the 10s cycle).
+ */
 .creation-gallery-phase-original {
-  opacity: 1;
-  animation: gallery-image-fade 10s ease-in-out infinite;
+  animation: gallery-phase-drawing 10s step-end infinite;
 }
 
 .creation-gallery-phase-rendered {
-  opacity: 0;
-  animation: gallery-image-fade-reverse 10s ease-in-out infinite;
+  animation: gallery-phase-render 10s step-end infinite;
+}
+
+@keyframes gallery-phase-drawing {
+  0% { opacity: 1; }
+  40% { opacity: 0; }
+  90% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes gallery-phase-render {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  90% { opacity: 0; }
+  100% { opacity: 0; }
 }
 
 .creation-gallery-status-info {

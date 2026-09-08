@@ -156,9 +156,10 @@
   /* contain, not cover: the render is portrait and the stage is landscape, and
      the model that replaces it is letterboxed the same way. */
   object-fit: contain;
-  /* Just enough softness to read as a stand-in rather than the finished thing. */
+  /* Just enough softness to read as a stand-in rather than the finished thing.
+     No scale: a transformed box grows the container's scrollable overflow, and
+     the Studio is audited for exactly that. */
   filter: blur(1px);
-  transform: scale(1.02);
   opacity: 1;
   transition: opacity 0.45s ease-out;
   pointer-events: none;

@@ -51,8 +51,11 @@
   height: 100%;
   object-fit: cover;
   object-position: center;
-  filter: blur(22px) saturate(1.15) brightness(0.6);
-  transform: scale(1.15);
+  /* No transform. A scaled box still contributes to its parent's scrollable
+     overflow, so an over-scaled backdrop reads as clipped content even though
+     it is only ever decoration. Blur alone softens the edge into the card's
+     own background instead. */
+  filter: blur(20px) saturate(1.2) brightness(0.38);
   pointer-events: none;
   z-index: 0;
 }

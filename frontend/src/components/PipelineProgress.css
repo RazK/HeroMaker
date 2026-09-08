@@ -207,21 +207,14 @@
 }
 
 /*
- * No visible labels in the rail. At any width that leaves room for the stage
- * they truncate to "AI Rende..." and read worse than the picture does; the
- * status chip in the stage's corner names whichever phase is open, and each
- * tile keeps a title tooltip and an aria-label for hover and assistive tech.
+ * The rail carries no visible label. At any width that leaves room for the
+ * stage it would truncate to "AI Rende..." and read worse than the picture
+ * does; the status chip in the stage's corner names whichever phase is open,
+ * and each tile carries a title tooltip and an aria-label. A visually-hidden
+ * span was the obvious alternative and is deliberately not used: the usual
+ * 1px/clip recipe leaves an element whose text overflows its box, which is
+ * indistinguishable from genuinely clipped text when the layout is audited.
  */
-.studio-tile-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
 
 /*
  * A tile must never read as empty while its picture is in flight. The thumb

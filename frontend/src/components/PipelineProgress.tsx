@@ -251,11 +251,16 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
   // User can download/redo only their own creations (or if admin)
   const canDownload = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
 
-  // The stage shows one step at full size. Default to the most advanced thing
-  // worth looking at: whatever is running now, or the last thing that finished.
+  // The stage shows one phase at full size. Default to the thing that most
+  // wants looking at: what is running, then what went wrong - a failure that
+  // opens on the phase before it is a failure nobody sees - and otherwise the
+  // furthest phase that has a picture at all. That last test is on the preview
+  // step rather than the phase: when rigging is skipped, "3D Hero" is pending
+  // but the model from the modelling step is still the best thing on screen.
   const autoStage =
     stages.find((s) => s.status === 'processing') ??
-    [...stages].reverse().find((s) => s.status === 'completed') ??
+    stages.find((s) => s.status === 'failed') ??
+    [...stages].reverse().find((s) => s.previewStep.status === 'completed') ??
     stages[0];
   const stagedStage =
     stages.find((s) => s.steps.some((step) => step.step_name === selectedStepName)) ?? autoStage;
@@ -434,7 +439,6 @@ export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentU
                     </span>
                   );
                 })()}
-                <span className="studio-tile-label">{stage.label}</span>
               </button>
             </li>
           );

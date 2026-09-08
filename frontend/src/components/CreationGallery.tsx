@@ -354,7 +354,7 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
           <input
             type="text"
             className="creation-gallery-search-input"
-            placeholder="Search name, creator, age"
+            placeholder="Search heroes"
             aria-label="Search creations by name, creator, or age"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -422,8 +422,10 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
                        * labels fade on the same clock so it is obvious which of
                        * the two you are looking at.
                        */}
-                      <span className="creation-gallery-phase creation-gallery-phase-original">Drawing</span>
-                      <span className="creation-gallery-phase creation-gallery-phase-rendered">Render</span>
+                      <span className="creation-gallery-phase">
+                        <span className="creation-gallery-phase-text creation-gallery-phase-original">Drawing</span>
+                        <span className="creation-gallery-phase-text creation-gallery-phase-rendered">Render</span>
+                      </span>
                     </>
                   ) : (
                     <img

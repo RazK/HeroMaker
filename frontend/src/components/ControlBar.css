@@ -111,21 +111,29 @@
 }
 
 /*
- * Wide screens: the panel is a column, so the buttons stack. They share the
- * height but stop growing at a sensible slab size - see ACTIONS_MAX_W and the
- * centring in PipelineProgress.css for where the rest of the space goes.
+ * Wide screens: the panel is the column beside the stage, so the four actions
+ * stack and divide its height between them - top of the column level with the
+ * top of the picture, bottom level with the bottom of it. Nothing is left over
+ * inside the panel; the width it is not allowed to take (ACTIONS_MAX_W) becomes
+ * page margin instead, which the centred layout splits evenly.
  */
 .studio-landscape .control-bar-actions {
   flex-direction: column;
   flex-wrap: nowrap;
-  justify-content: center;
   gap: var(--space-3);
 }
 
 .studio-landscape .control-bar-button {
-  flex: 0 1 auto;
-  min-height: 48px;
+  flex: 1 1 0;
+  min-height: 52px;
+  flex-direction: column;
+  gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
+  font-size: 15px;
+}
+
+.studio-landscape .control-bar-button-icon {
+  font-size: 24px;
 }
 
 /* Narrow phones: two per row still, but the label may not push past the edge. */
