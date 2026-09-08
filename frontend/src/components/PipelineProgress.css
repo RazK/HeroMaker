@@ -28,35 +28,52 @@
   overflow: hidden;
 }
 
-/* Portrait: big square on top, three small ones in a row beneath it. */
+/*
+ * Portrait: big square on top, three small ones in a row beneath it.
+ *
+ * Both sides take the same solved number, so the square is exact rather than
+ * rounded. aspect-ratio is the safety net, not the mechanism: if the custom
+ * property ever fails to arrive - a stale cached stylesheet, a dropped inline
+ * style - both sides fall back to auto and the ratio still forces a square.
+ * The worst a missing number can do is make the square the wrong size, never
+ * the wrong shape. It cannot be the mechanism because in the landscape rail
+ * the tiles are laid out along the column's main axis, where flex resolves
+ * height from content and the ratio is ignored.
+ *
+ * flex-shrink is 0 deliberately: a squashed picture is a worse failure than
+ * one that has to be clipped, and the layout is measured so neither happens.
+ */
 .studio-stage {
   position: relative;
   flex: 0 0 auto;
-  width: var(--studio-main);
-  height: var(--studio-main);
+  width: var(--studio-main, 100%);
+  height: var(--studio-main, auto);
+  aspect-ratio: 1 / 1;
 }
 
 .studio-rail {
   flex: 0 0 auto;
   display: flex;
   gap: var(--space-2);
-  width: var(--studio-main);
+  width: var(--studio-main, 100%);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Same rule as the stage: the solved number on both sides, ratio as the net. */
 .studio-rail > li {
   flex: 0 0 auto;
-  width: var(--studio-tile);
-  height: var(--studio-tile);
+  width: var(--studio-tile, auto);
+  height: var(--studio-tile, auto);
+  aspect-ratio: 1 / 1;
 }
 
 /* The action panel takes exactly what the squares left over - see solveStudio. */
 .studio > .control-bar {
   flex: 0 0 auto;
-  width: var(--studio-main);
-  height: var(--studio-actions);
+  width: var(--studio-main, 100%);
+  height: var(--studio-actions, auto);
   min-height: 0;
 }
 
@@ -77,13 +94,13 @@
      for the no-CSS case; only the painted order changes. */
   order: -1;
   flex-direction: column;
-  width: var(--studio-tile);
-  height: var(--studio-main);
+  width: var(--studio-tile, auto);
+  height: var(--studio-main, 100%);
 }
 
 .studio-landscape > .control-bar {
-  width: var(--studio-actions);
-  height: var(--studio-main);
+  width: var(--studio-actions, auto);
+  height: var(--studio-main, 100%);
 }
 
 /* --- rail tiles ---------------------------------------------------------- */
