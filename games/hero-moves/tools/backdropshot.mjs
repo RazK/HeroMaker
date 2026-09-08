@@ -11,6 +11,7 @@
  *
  *   node tools/backdropshot.mjs /tmp/shots/bg
  *   node tools/backdropshot.mjs /tmp/shots/bg --heroes=Cloudy --q=lite --bg=space,reef
+ *   node tools/backdropshot.mjs /tmp/shots/bg --leak=1     # cycle themes, watch the GPU
  */
 import { chromium } from 'playwright'
 import { execFileSync } from 'node:child_process'
@@ -54,20 +55,56 @@ for (const view of VIEWS) {
   const list = only ? only.split(',').filter((id) => all.includes(id)) : all
   console.log(`[${view.id}] ${view.w}x${view.h} · ${list.length} backdrops x ${heroes.length} heroes`)
 
+  // Switching themes has to be free. Three passes over every backdrop, with the
+  // GPU's own counters read after each: if a theme forgets to dispose a texture
+  // the count climbs one pass to the next, and this is the only cheap way to
+  // see that before a player's phone does.
+  if (flag('leak', '') === '1' && view.id === 'desktop') {
+    const passes = []
+    for (let p = 0; p < 3; p++) {
+      for (const bg of await page.evaluate(() => window.__backdrops.map((b) => b.id))) {
+        await page.evaluate((id) => window.__setBackdrop(id), bg)
+      }
+      passes.push(await page.evaluate(() => window.__gpu()))
+      console.log(`  leak pass ${p + 1}:`, JSON.stringify(passes[p]))
+    }
+    const [, b, c] = passes
+    const grew = c.geometries > b.geometries || c.textures > b.textures
+    console.log(grew ? '  LEAK: GPU objects grew between passes' : '  leak check: steady')
+  }
+
+  // Per-theme cost, measured rather than argued: draw calls, triangles, and the
+  // CPU time the backdrop's own update() takes per frame.
+  if (flag('stats', '') === '1' && view.id === 'desktop') {
+    for (const bg of await page.evaluate(() => window.__backdrops.map((b) => b.id))) {
+      await page.evaluate((id) => window.__setBackdrop(id), bg)
+      await page.waitForTimeout(1500)
+      console.log('  stats', JSON.stringify(await page.evaluate(() => window.__stats())))
+    }
+  }
+
   const cdp = await page.context().newCDPSession(page)
-  const files = []
-  for (const bg of list) {
-    await page.evaluate((id) => window.__setBackdrop(id), bg)
-    for (const hero of heroes) {
-      await page.evaluate((h) => window.__setHeroes([h]), hero)
+  // Heroes outer, backdrops inner: switching a theme is a few canvases, but
+  // loading an avatar is a megabyte of VRM parsed in software. Iterating the
+  // other way round reloaded a hero for every single shot and took four times
+  // as long. Files are named with the tile index they belong at, so the sheet
+  // still comes out one row per backdrop.
+  const shots = []
+  for (let h = 0; h < heroes.length; h++) {
+    await page.evaluate((x) => window.__setHeroes([x]), heroes[h])
+    for (let b = 0; b < list.length; b++) {
+      await page.evaluate((id) => window.__setBackdrop(id), list[b])
       await page.waitForTimeout(settle)
       const shot = await cdp.send('Page.captureScreenshot', { format: 'png' })
-      const f = path.join(outDir, `${view.id}-${String(files.length).padStart(3, '0')}-${bg}-${hero}.png`)
+      const idx = b * heroes.length + h
+      const f = path.join(outDir,
+        `${view.id}-${String(idx).padStart(3, '0')}-${list[b]}-${heroes[h]}.png`)
       fs.writeFileSync(f, Buffer.from(shot.data, 'base64'))
-      files.push(f)
+      shots.push(f)
       console.log('  ', path.basename(f))
     }
   }
+  const files = shots.sort()
   await page.close()
 
   // One row per backdrop, one column per hero.

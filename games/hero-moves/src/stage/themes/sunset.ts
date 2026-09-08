@@ -9,7 +9,8 @@
  */
 import * as THREE from 'three'
 import {
-  Band, Particles, disposeTree, glowDisc, paint, rngFor, scrim, skyDome, spriteTex, stageFloor,
+  Band, Particles, QualitySwitch, disposeTree, dither, glowDisc, paint, rngFor, scrim, skyDome,
+  spriteTex, stageFloor,
 } from '../kit'
 import type { Backdrop, Quality, StageEnv } from '../env'
 
@@ -59,7 +60,10 @@ const skyTex = (size: number) => paint(size, size / 2, (g, w, h) => {
     g.fill()
   }
 
-  // First stars, high up where the sky has already gone blue.
+  dither(g, w, h, 6)
+
+  // First stars, high up where the sky has already gone blue. After the dither,
+  // so they stay clean points.
   for (let i = 0; i < size; i++) {
     const y = rng() * h * 0.26
     g.fillStyle = `rgba(255,255,255,${0.1 + rng() * 0.5 * (1 - y / (h * 0.26))})`
@@ -131,15 +135,18 @@ const cityTex = (w: number, h: number, o: CityOpts) => paint(w, h, (g, cw, ch) =
 /** Weathered roof deck: tar, gravel, a painted circle where the dancing goes. */
 const roofTex = (size: number) => paint(size, size, (g, w, h) => {
   const rng = rngFor(3131)
-  g.fillStyle = '#41414f'
+  // Painted light, not dark: a map multiplies with the material colour, and a
+  // dark tar texture under a dark colour rendered the roof as a black band
+  // across the middle of the shot.
+  g.fillStyle = '#8f8b9c'
   g.fillRect(0, 0, w, h)
   for (let i = 0; i < size * 12; i++) {
-    const v = 40 + rng() * 70 | 0
+    const v = 110 + rng() * 70 | 0
     g.fillStyle = `rgba(${v},${v - 4},${v + 8},${0.25 + rng() * 0.4})`
     g.fillRect(rng() * w, rng() * h, 1 + rng() * 2.5, 1 + rng() * 2.5)
   }
   // Seams between the roofing sheets.
-  g.strokeStyle = 'rgba(20,20,28,0.5)'
+  g.strokeStyle = 'rgba(60,56,72,0.5)'
   g.lineWidth = 2
   for (let i = 0; i < 4; i++) {
     const y = (i / 4) * h + rng() * 8
@@ -166,30 +173,50 @@ export function create(q: Quality): Backdrop {
 
   group.add(skyDome(skyTex(T)))
 
+  // Every band sits *outside* the roof disc (radius 11). Standing the near
+  // buildings closer than the ground's own horizon merged their bases into one
+  // black wall across the shot — measured by screenshot; from out here they
+  // rise from behind the roof edge the way a skyline actually does.
   const bands = [
     new Band({
-      radius: 13, height: 7, y: 2.6,
+      radius: 14.8, height: 8, y: 4, repeat: 3,
       texture: cityTex(T, T / 4, {
-        seed: 2, color: '#6b4a86', count: 26, minH: 0.25, maxH: 0.7,
+        seed: 2, color: '#6b4a86', count: 14, minH: 0.25, maxH: 0.7,
         haze: 'rgba(255,186,150,0.75)',
       }),
       opacity: 0.9,
     }),
     new Band({
-      radius: 9.6, height: 8, y: 2.4,
+      radius: 13, height: 7, y: 3.5, repeat: 4,
       texture: cityTex(T, T / 3, {
-        seed: 19, color: '#3a2547', count: 18, minH: 0.3, maxH: 0.85, windows: true,
+        seed: 19, color: '#3a2547', count: 10, minH: 0.3, maxH: 0.85, windows: true,
         haze: 'rgba(255,150,120,0.28)',
       }),
     }),
     new Band({
-      radius: 6.8, height: 8, y: 1.9,
+      radius: 11.2, height: 6, y: 3, repeat: 6,
       texture: cityTex(T, T / 2, {
-        seed: 74, color: '#171122', count: 9, minH: 0.28, maxH: 0.7, windows: true,
+        seed: 74, color: '#171122', count: 6, minH: 0.3, maxH: 0.72, windows: true,
       }),
     }),
   ]
   for (const b of bands) group.add(b.mesh)
+
+  // The streets below, throwing light back up at the near buildings. Without
+  // it the strip between the roof edge and the skyline is a dead black ring.
+  const cityGlow = new Band({
+    radius: 10.6, height: 3, y: 1.2,
+    texture: paint(8, 128, (g, w, h) => {
+      const grd = g.createLinearGradient(0, h, 0, 0)
+      grd.addColorStop(0, 'rgba(255,150,60,0)')
+      grd.addColorStop(0.45, 'rgba(255,168,80,0.55)')
+      grd.addColorStop(1, 'rgba(255,120,60,0)')
+      g.fillStyle = grd
+      g.fillRect(0, 0, w, h)
+    }),
+    color: '#ff9a48', opacity: 0.5, blending: THREE.AdditiveBlending,
+  })
+  group.add(cityGlow.mesh)
 
   const sunGlow = glowDisc('#ffb056', 9, 0.4)
   sunGlow.position.set(6.6, 2.6, -10)
@@ -200,20 +227,23 @@ export function create(q: Quality): Backdrop {
   const surround = roofTex(full ? 512 : 256)
   surround.repeat.set(10, 10)
   group.add(stageFloor({
-    radius: 3.5, map: roof, color: '#8d8a9c', roughness: 0.95,
-    surround: { color: '#5c5a6b', map: surround, radius: 11 },
+    radius: 3.5, map: roof, color: '#e6e2ee', roughness: 0.95,
+    surround: { color: '#a099ad', map: surround, radius: 11 },
     pool: { color: '#ffcf8a', opacity: 0.34, radius: 2.9 },
     contact: 0.46,
   }))
 
   // A parapet wall, low enough to stay under the heroes' knees at the sides.
   const parapet = new THREE.Mesh(
-    new THREE.CylinderGeometry(6.4, 6.4, 0.62, 40, 1, true),
+    new THREE.CylinderGeometry(6.8, 6.8, 0.55, 40, 1, true),
     new THREE.MeshStandardMaterial({
-      color: '#2c2436', roughness: 1, side: THREE.DoubleSide, map: roofTex(256),
+      // Pale enough to read as a wall. At #2c2436 it rendered as a black band
+      // straight across the shot, which looked like a hole in the backdrop.
+      color: '#8b8397', roughness: 1, side: THREE.DoubleSide, map: roofTex(256),
+      emissive: '#3a2130', emissiveIntensity: 0.5,
     }),
   )
-  parapet.position.y = 0.31
+  parapet.position.y = 0.27
   group.add(parapet)
 
   // Festoon lights: a catenary of warm bulbs strung across the roof behind the
@@ -245,7 +275,8 @@ export function create(q: Quality): Backdrop {
 
   // Birds, drifting across the far sky.
   const flock = new THREE.Group()
-  if (full) {
+  flock.visible = full
+  {
     const tex = birdTex()
     for (let i = 0; i < 6; i++) {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -258,6 +289,8 @@ export function create(q: Quality): Backdrop {
     }
     group.add(flock)
   }
+
+  const quality = new QualitySwitch([haze], [flock])
 
   const env: StageEnv = {
     hemi: { sky: '#ffc79a', ground: '#2d2140', intensity: 1.0 },
@@ -284,7 +317,7 @@ export function create(q: Quality): Backdrop {
       }
       wire.position.y = Math.sin(t * 0.6) * 0.02
       ;(sunGlow.material as THREE.MeshBasicMaterial).opacity = 0.34 + beat * 0.06
-      if (flock.children.length) {
+      if (flock.visible) {
         flock.position.x = ((t * 0.35 + 8) % 22) - 11
         flock.position.y = Math.sin(t * 0.25) * 0.5
         for (let i = 0; i < flock.children.length; i++) {
@@ -293,6 +326,7 @@ export function create(q: Quality): Backdrop {
         }
       }
     },
+    setQuality(q) { quality.apply(q) },
     dispose() { disposeTree(group) },
   }
 }

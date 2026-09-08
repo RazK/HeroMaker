@@ -274,3 +274,80 @@ Mixamo is the obvious fourth source and is *not* usable here: the site answers,
 but every download goes through an Adobe login and `api/v1/products` returns
 `403 "Api Key is required"` unauthenticated. Should a login ever be available,
 `MIXAMO_RIG` in `src/anim/retarget.ts` already maps that rig.
+
+## Backdrops
+
+Six sets to dance in — Theatre, Deep Space, Forest Glade, Big Top, Coral Reef,
+Rooftop Sunset. `src/stage/backdrops.ts` names them; `Stage` swaps them:
+
+```ts
+stage.setBackdrop('space')     // disposes the old one on the way out
+stage.setQuality('lite')       // fewer particles, no rim lights, no shadow — no rebuild
+stage.backdropId               // 'space'
+BACKDROPS                      // [{ id, name, blurb }, ...] — theatre first, it is the default
+```
+
+**Nothing is downloaded and nothing is a bitmap.** Every sky, silhouette,
+texture and sprite is painted onto a canvas at boot from code in
+`src/stage/kit.ts`. That is not an aesthetic choice: the page runs under a CSP
+that refuses `fetch()`, and it already carries a 4.65 MB pose model plus ~1.2 MB
+per avatar. **Measured against the same build with the backdrop system removed:
++47.5 KB raw, +15.9 KB gzipped for all six themes plus the lab page** — against
+a budget of 1 MB.
+
+### The rules every theme obeys
+
+* **Something dark sits behind the bodies.** The heroes own the middle ~70% of
+  the frame and they are the point. Whatever the sky is doing, that band of
+  world is a dark tree line, a dark skyline, a ring of spectators or open space —
+  plus a soft scrim over it. Checked against Cloudy, who is white, and
+  Superstar, who is yellow, at both viewports.
+* **The floor is themed but never missing**, and it carries its own painted
+  contact shade as well as the real shadow. The game drops shadow maps on a slow
+  device (`degraded` in `src/main.ts`); without the painted shade, every hero
+  would start floating at exactly the moment the device got slow.
+* **The beat is visible.** `update(dt, phase)` gets the position within the
+  current musical beat, and every theme spends it: footlights chase, the neon
+  floor rim swells, festoon bulbs run, confetti puffs, caustics brighten.
+
+### Three things that were only found by looking
+
+* **A silhouette band tiles, or it is a wall.** Painting a tree line once around
+  a cylinder of radius 7 makes each tree forty metres wide. `BandOpts.repeat` is
+  solved per band so the tile's world size roughly matches the aspect of the
+  canvas it was painted on — the difference between a forest and a green wall.
+* **Painted stars arrive as grey squares.** A 1024-wide dome texture stretched
+  over a 97 m circumference magnifies one texel to about six screen pixels. Deep
+  Space paints no stars at all; every one of them is a point sprite.
+* **The contrast scrim was painting a black ring on the floor.** It is a
+  cylinder at radius 5.4 and the themed ground runs out to 11, so any alpha at
+  its foot lands on the *distant floor*, not behind the bodies. Its gradient now
+  starts above the horizon.
+
+### Judging them without playing
+
+`backdrops.html` puts a real avatar in the real play framing, with the game's
+renderer settings, and nothing else:
+
+```bash
+npm run build && npx vite preview
+# backdrops.html?bg=space&a=Cloudy    one hero, one theme
+# backdrops.html?a=Cloudy,Superstar   a line of them
+# backdrops.html?q=lite               the cheap path
+# arrow keys cycle themes and heroes; window.__setBackdrop(id) does it from a harness
+
+node tools/backdropshot.mjs /tmp/shots/bg                   # every theme x 3 heroes, desktop + phone
+node tools/backdropshot.mjs /tmp/shots/bg --leak=1 --stats=1 # GPU objects and per-frame cost
+```
+
+`--leak=1` cycles all six themes three times and reads the renderer's own object
+counts after each pass: steady at 15 geometries and 19 textures, so a player
+flicking through the menu leaks nothing. `--stats=1` reports what a theme costs
+per frame — **19-31 draw calls, and 0.08-0.28 ms of CPU in the backdrop's own
+`update()`** (measured in software rendering, with no GPU, so a real device is
+faster). `lite` cuts the particle count to 40%, drops the rim lights, the
+shadow map and the flourishes, and takes the draw calls down to 14-20. It never
+rebuilds a theme: the game degrades mid-round, on the one device that can least
+afford a hitch, so the switch is a draw range and a visibility flag. Textures
+are the exception — a theme only gets the smaller ones if it was *built* lite,
+which is what `new Stage(id, 'lite')` and `backdrops.html?q=lite` do.

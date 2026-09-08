@@ -9,8 +9,8 @@
  */
 import * as THREE from 'three'
 import {
-  Band, Particles, disposeTree, glowDisc, lightShaft, paint, rngFor, scrim, skyDome,
-  spriteTex, stageFloor,
+  Band, Particles, QualitySwitch, disposeTree, dither, glowDisc, lightShaft, paint, rngFor,
+  scrim, skyDome, spriteTex, stageFloor,
 } from '../kit'
 import type { Backdrop, Quality, StageEnv } from '../env'
 
@@ -55,10 +55,28 @@ const skyTex = (size: number) => paint(size, size / 2, (g, w, h) => {
     }
     g.restore()
   }
+  dither(g, w, h, 5)
 })
 
 interface TreeOpts {
   seed: number
+  /**
+   * Draw a continuous ridge instead of separate trees.
+   *
+   * The far layer used the same tree painter, and its trunks came out as pale
+   * vertical slabs behind the heroes once the mist was applied — a white wall
+   * exactly where a white hero stands. A ridge has no trunks and no gaps.
+   */
+  hill?: boolean
+  /**
+   * Fraction of the tile filled from the bottom with a bushy understory.
+   *
+   * Trees on their own leave gaps at trunk height, and through the gaps the
+   * pale distant layer showed as a bright strip directly behind the heroes'
+   * legs. A real tree line has undergrowth; this is it, and it is what closes
+   * the dark band the bodies are read against.
+   */
+  understory?: number
   /** Trunk-to-canopy colours, dark first. */
   canopy: string[]
   trunk: string
@@ -104,11 +122,68 @@ const treeTex = (w: number, h: number, o: TreeOpts) => paint(w, h, (g, cw, ch) =
       }
     }
   }
-  for (let i = 0; i < o.count; i++) {
-    const x = (i / o.count) * cw + (rng() - 0.5) * (cw / o.count)
-    one(x)
-    if (x < cw * 0.08) one(x + cw)
-    if (x > cw * 0.92) one(x - cw)
+  const bushes = () => {
+    if (!o.understory) return
+    const top = ch * (1 - o.understory)
+    g.fillStyle = o.canopy[0]
+    g.beginPath()
+    g.moveTo(0, ch)
+    for (let x = 0; x <= cw; x += 6) {
+      const y = top + Math.sin((x / cw) * Math.PI * 8) * ch * 0.03
+        + Math.sin((x / cw) * Math.PI * 22 + 1.1) * ch * 0.018
+      g.lineTo(x, y)
+    }
+    g.lineTo(cw, ch)
+    g.closePath()
+    g.fill()
+    for (let i = 0; i < 30; i++) {
+      const x = rng() * cw
+      const r = ch * (0.02 + rng() * 0.05)
+      g.fillStyle = o.canopy[Math.floor(rng() * o.canopy.length)]
+      g.beginPath(); g.arc(x, top + ch * 0.02, r, 0, Math.PI * 2); g.fill()
+    }
+  }
+
+  if (o.hill) {
+    // A rolling ridge, summed from sines that complete a whole number of cycles
+    // across the tile so the seam is invisible.
+    const ridge = (x: number) => ch * (0.42
+      + 0.16 * Math.sin((x / cw) * Math.PI * 2)
+      + 0.09 * Math.sin((x / cw) * Math.PI * 6 + 1.3)
+      + 0.05 * Math.sin((x / cw) * Math.PI * 10 + 2.6))
+    g.fillStyle = o.canopy[0]
+    g.beginPath()
+    g.moveTo(0, ch)
+    for (let x = 0; x <= cw; x += 4) g.lineTo(x, ridge(x))
+    g.lineTo(cw, ch)
+    g.closePath()
+    g.fill()
+    // A second, nearer ridge for depth.
+    g.fillStyle = o.canopy[1] ?? o.canopy[0]
+    g.beginPath()
+    g.moveTo(0, ch)
+    for (let x = 0; x <= cw; x += 4) g.lineTo(x, ridge(x + cw * 0.31) + ch * 0.2)
+    g.lineTo(cw, ch)
+    g.closePath()
+    g.fill()
+    // Tree tops breaking the ridge line, so it reads as forest not fog.
+    g.fillStyle = o.canopy[0]
+    for (let i = 0; i < o.count * 3; i++) {
+      const x = rng() * cw
+      const y = ridge(x)
+      const r = ch * (0.02 + rng() * 0.035)
+      g.beginPath()
+      g.moveTo(x, y - r * 2.6); g.lineTo(x + r, y + r); g.lineTo(x - r, y + r)
+      g.closePath(); g.fill()
+    }
+  } else {
+    bushes()
+    for (let i = 0; i < o.count; i++) {
+      const x = (i / o.count) * cw + (rng() - 0.5) * (cw / o.count)
+      one(x)
+      if (x < cw * 0.08) one(x + cw)
+      if (x > cw * 0.92) one(x - cw)
+    }
   }
   if (o.mist) {
     const m = g.createLinearGradient(0, ch, 0, ch * 0.35)
@@ -157,30 +232,33 @@ export function create(q: Quality): Backdrop {
   group.add(skyDome(skyTex(T)))
 
   const bands = [
-    // Far hills: pale, misty, barely there.
+    // Far hills: pale, misty, barely there. Each band's `repeat` is solved so
+    // the painted tile lands at roughly the world size it was drawn at — see
+    // BandOpts.repeat, which is the difference between a forest and a wall.
     new Band({
-      radius: 13.5, height: 9, y: 3.4,
+      radius: 13.5, height: 7, y: 3.5, repeat: 3,
       texture: treeTex(T, T / 4, {
-        seed: 12, canopy: ['#8fb0b8', '#9dbcc2', '#84a6ae'], trunk: '#8fa8ae',
-        count: 30, minH: 0.35, maxH: 0.62, mist: 'rgba(214,234,240,0.85)',
+        seed: 12, hill: true, canopy: ['#93b4bd', '#a6c3c9'], trunk: '#9cb6bc',
+        count: 12, minH: 0.4, maxH: 0.75, mist: 'rgba(206,228,235,0.7)',
       }),
       opacity: 0.85, drift: 0.002,
     }),
     // Mid forest.
     new Band({
-      radius: 10, height: 10, y: 3.6,
+      radius: 10, height: 6, y: 3, repeat: 3,
       texture: treeTex(T, T / 3, {
         seed: 44, canopy: ['#3f6b3a', '#4b7a3f', '#355c31'], trunk: '#4a3a2a',
-        count: 22, minH: 0.5, maxH: 0.85, mist: 'rgba(190,222,224,0.4)',
+        count: 9, minH: 0.55, maxH: 0.95, understory: 0.26, mist: 'rgba(190,222,224,0.4)',
       }),
       drift: -0.004,
     }),
-    // Near wall of trees: the dark ground the heroes are read against.
+    // Near wall of trees: the dark ground the heroes are read against. It stops
+    // below the top of the frame, so the sky is still the sky.
     new Band({
-      radius: 6.9, height: 11, y: 4.2,
+      radius: 7.2, height: 4.4, y: 2.2, repeat: 4,
       texture: treeTex(T, T / 2, {
         seed: 88, canopy: ['#1f3a1e', '#284924', '#274a24', '#1a3319'], trunk: '#2c2115',
-        count: 13, minH: 0.6, maxH: 1.0,
+        count: 5, minH: 0.6, maxH: 0.96, understory: 0.3,
       }),
     }),
   ]
@@ -200,15 +278,14 @@ export function create(q: Quality): Backdrop {
 
   // Sunbeams through the canopy, from the same side as the painted sun.
   const shafts: THREE.Mesh[] = []
-  if (full) {
-    for (let i = 0; i < 3; i++) {
-      const s = lightShaft('#ffeeb8', 0.7, 2.4, 11, 0.11 + i * 0.02)
-      s.position.set(-3.4 + i * 3.1, 5.4, -3.6 + i * 0.8)
-      s.rotation.z = 0.36 - i * 0.06
-      s.rotation.x = -0.12
-      group.add(s)
-      shafts.push(s)
-    }
+  for (let i = 0; i < 3; i++) {
+    const s = lightShaft('#ffeeb8', 0.7, 2.4, 11, 0.11 + i * 0.02)
+    s.position.set(-3.4 + i * 3.1, 5.4, -3.6 + i * 0.8)
+    s.rotation.z = 0.36 - i * 0.06
+    s.rotation.x = -0.12
+    s.visible = full
+    group.add(s)
+    shafts.push(s)
   }
   const sunGlow = glowDisc('#fff2c0', 7, 0.3)
   sunGlow.position.set(-6.5, 7.4, -9)
@@ -230,6 +307,8 @@ export function create(q: Quality): Backdrop {
     opacity: 0.95, sway: 0.26, swayRate: 0.9, seed: 23, blending: THREE.NormalBlending,
   }, q)
   group.add(leaves.points)
+
+  const quality = new QualitySwitch([pollen, leaves], shafts)
 
   const env: StageEnv = {
     hemi: { sky: '#cfe8ff', ground: '#4e6a2e', intensity: 1.05 },
@@ -254,10 +333,12 @@ export function create(q: Quality): Backdrop {
       bands[2].mesh.rotation.y = Math.sin(t * 0.13) * 0.012
       bands[2].mesh.scale.set(1 + Math.sin(t * 0.5) * 0.002, 1, 1 + Math.cos(t * 0.4) * 0.002)
       for (let i = 0; i < shafts.length; i++) {
+        if (!shafts[i].visible) continue
         const m = shafts[i].material as THREE.MeshBasicMaterial
         m.opacity = 0.09 + 0.035 * Math.sin(t * 0.5 + i * 1.7) + 0.02 * Math.max(0, Math.cos(phase * Math.PI * 2))
       }
     },
+    setQuality(q) { quality.apply(q) },
     dispose() { disposeTree(group) },
   }
 }

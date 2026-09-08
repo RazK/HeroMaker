@@ -9,7 +9,8 @@
  */
 import * as THREE from 'three'
 import {
-  Band, Particles, disposeTree, lightShaft, paint, rngFor, scrim, skyDome, spriteTex, stageFloor,
+  Band, Particles, QualitySwitch, disposeTree, dither, lightShaft, paint, rngFor, scrim,
+  skyDome, spriteTex, stageFloor,
 } from '../kit'
 import type { Backdrop, Quality, StageEnv } from '../env'
 
@@ -43,6 +44,7 @@ const waterTex = (size: number) => paint(size, size / 2, (g, w, h) => {
     g.beginPath(); g.arc(rng() * w, rng() * h, 0.5 + rng() * 1.2, 0, Math.PI * 2); g.fill()
   }
   g.globalCompositeOperation = 'source-over'
+  dither(g, w, h, 6)
 })
 
 /** A tiling caustic web, summed from sine waves so the tile is seamless. */
@@ -51,14 +53,17 @@ const causticTex = (size: number) => paint(size, size, (g, w, h) => {
   const d = img.data
   const k = (n: number) => (2 * Math.PI * n) / w
   const waves = [
-    [k(3), k(2), 0.0], [k(-2), k(3), 1.7], [k(4), k(-1), 3.1], [k(1), k(5), 2.2],
+    [k(3), k(2), 0.0], [k(-2), k(3), 1.7], [k(5), k(-1), 3.1], [k(1), k(6), 2.2],
+    [k(-4), k(-3), 0.9],
   ]
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       let s = 0
       for (const [kx, ky, p] of waves) s += Math.sin(kx * x + ky * y + p)
-      const v = Math.pow(Math.max(0, s / waves.length) , 3)
-      const a = Math.min(255, v * 520)
+      // Bright where the wave sum crosses zero rather than where it peaks: that
+      // is what turns round blobs into the thin curved web real caustics make.
+      const v = Math.pow(Math.max(0, 1 - Math.abs(s) / waves.length * 2.6), 7)
+      const a = Math.min(255, v * 420)
       const i = (y * w + x) * 4
       d[i] = 200; d[i + 1] = 255; d[i + 2] = 250; d[i + 3] = a
     }
@@ -68,7 +73,7 @@ const causticTex = (size: number) => paint(size, size, (g, w, h) => {
 
 const sandTex = (size: number) => paint(size, size, (g, w, h) => {
   const rng = rngFor(4646)
-  g.fillStyle = '#d9cba2'
+  g.fillStyle = '#cbb98d'
   g.fillRect(0, 0, w, h)
   // Ripples: the sand under shallow water is never flat.
   for (let y = 0; y < h; y += 3) {
@@ -99,13 +104,13 @@ const weedTex = (w: number, h: number, o: WeedOpts) => paint(w, h, (g, cw, ch) =
     if (rng() < 0.6) {
       // Kelp: a curved stalk with leaves.
       const bend = (rng() - 0.5) * cw * 0.03
-      g.lineWidth = Math.max(2, ch * 0.012)
+      g.lineWidth = Math.max(3, ch * 0.022)
       g.beginPath()
       g.moveTo(x, ch)
       g.quadraticCurveTo(x + bend, ch - hh * 0.6, x + bend * 2.4, ch - hh)
       g.stroke()
-      for (let i = 1; i < 7; i++) {
-        const t = i / 7
+      for (let i = 1; i < 10; i++) {
+        const t = i / 10
         const px = x + bend * 2.4 * t * t
         const py = ch - hh * t
         g.beginPath()
@@ -115,7 +120,7 @@ const weedTex = (w: number, h: number, o: WeedOpts) => paint(w, h, (g, cw, ch) =
       }
     } else {
       // Coral head: a cluster of lumps.
-      for (let i = 0; i < 9; i++) {
+      for (let i = 0; i < 7; i++) {
         const px = x + (rng() - 0.5) * hh * 0.7
         const py = ch - rng() * hh * 0.6
         g.beginPath(); g.arc(px, py, hh * (0.08 + rng() * 0.14), 0, Math.PI * 2); g.fill()
@@ -155,7 +160,7 @@ export function create(q: Quality): Backdrop {
 
   // The surface, seen from underneath.
   const surfaceTex = causticTex(full ? 256 : 128)
-  surfaceTex.repeat.set(4, 4)
+  surfaceTex.repeat.set(7, 7)
   const surface = new THREE.Mesh(
     new THREE.CircleGeometry(14, 40),
     new THREE.MeshBasicMaterial({
@@ -169,17 +174,17 @@ export function create(q: Quality): Backdrop {
 
   const bands = [
     new Band({
-      radius: 11, height: 9, y: 3.2,
+      radius: 11, height: 7, y: 3.5, repeat: 3,
       texture: weedTex(T, T / 3, {
-        seed: 5, colors: ['#12546f', '#166b82', '#0e4560'], count: 20, minH: 0.4, maxH: 0.8,
+        seed: 5, colors: ['#12546f', '#166b82', '#0e4560'], count: 12, minH: 0.45, maxH: 0.85,
       }),
       opacity: 0.9, drift: 0.003,
     }),
     new Band({
-      radius: 7.2, height: 8, y: 2.6,
+      radius: 7.2, height: 5.5, y: 2.75, repeat: 4,
       texture: weedTex(T, T / 2, {
-        seed: 66, colors: ['#0b3347', '#0f4257', '#123b4a', '#1d5a5e'], count: 14,
-        minH: 0.5, maxH: 0.95,
+        seed: 66, colors: ['#08293a', '#0d3a4c', '#0e3242', '#164a50'], count: 8,
+        minH: 0.55, maxH: 1.0,
       }),
     }),
   ]
@@ -190,20 +195,20 @@ export function create(q: Quality): Backdrop {
   const disc = sandTex(full ? 512 : 256)
   disc.repeat.set(3, 3)
   group.add(stageFloor({
-    radius: 3.5, map: disc, color: '#bfd9d8', roughness: 1,
-    surround: { color: '#8fb2b4', map: sand, radius: 13 },
+    radius: 3.5, map: disc, color: '#a9c4c2', roughness: 1,
+    surround: { color: '#7d9ea3', map: sand, radius: 13 },
     pool: { color: '#bff4ff', opacity: 0.22, radius: 2.8 },
     contact: 0.4,
   }))
 
   // Caustics crawling across the floor: the same tile, scrolled.
   const floorCaustic = causticTex(full ? 256 : 128)
-  floorCaustic.repeat.set(3, 3)
+  floorCaustic.repeat.set(6, 6)
   const caustic = new THREE.Mesh(
     new THREE.CircleGeometry(3.5, 48),
     new THREE.MeshBasicMaterial({
-      map: floorCaustic, transparent: true, opacity: 0.42, depthWrite: false,
-      blending: THREE.AdditiveBlending, color: '#a8fff2', fog: false, toneMapped: false,
+      map: floorCaustic, transparent: true, opacity: 0.3, depthWrite: false,
+      blending: THREE.AdditiveBlending, color: '#8fe8dd', fog: false, toneMapped: false,
     }),
   )
   caustic.rotation.x = -Math.PI / 2
@@ -212,12 +217,15 @@ export function create(q: Quality): Backdrop {
 
   // God rays.
   const rays: THREE.Mesh[] = []
-  const rayCount = full ? 4 : 2
+  const rayCount = 4
   for (let i = 0; i < rayCount; i++) {
     const s = lightShaft('#cffcff', 0.5, 2.2, 12, 0.14)
-    const a = -0.9 + (i / (rayCount - 1 || 1)) * 1.8
+    const a = -0.9 + (i / (rayCount - 1)) * 1.8
     s.position.set(Math.sin(a) * 4.6, 5.6, -3.2 - Math.cos(a) * 1.6)
     s.rotation.z = a * 0.34
+    // Half the rays on the cheap path: they are the most expensive thing here,
+    // being big translucent quads over most of the frame.
+    if (i % 2 === 1) s.visible = full
     group.add(s)
     rays.push(s)
   }
@@ -241,19 +249,24 @@ export function create(q: Quality): Backdrop {
 
   // A school crossing the back. Sprites, so they always face the camera.
   const school = new THREE.Group()
-  if (full) {
+  school.visible = full
+  {
     const fish = fishTex()
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 7; i++) {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({
         map: fish, transparent: true, depthWrite: false, fog: false, toneMapped: false,
         color: i % 3 === 0 ? '#ff9f5a' : i % 3 === 1 ? '#ffd27a' : '#8fe0ff',
       }))
-      s.scale.set(0.55, 0.28, 1)
-      s.position.set((i % 3) * 0.7, 2.6 + Math.sin(i) * 0.7, -5.4 - (i % 4) * 0.5)
+      s.scale.set(0.3, 0.15, 1)
+      // High and well back: a fish the size of a hero's head, swimming past
+      // its face, is a second thing to look at. There is only one.
+      s.position.set((i % 3) * 0.55, 3.9 + Math.sin(i) * 0.5, -7.6 - (i % 4) * 0.5)
       school.add(s)
     }
     group.add(school)
   }
+
+  const quality = new QualitySwitch([bubbles, plankton], [school, rays[1], rays[3]])
 
   const env: StageEnv = {
     hemi: { sky: '#7fe6f0', ground: '#0b3a52', intensity: 1.15 },
@@ -279,25 +292,27 @@ export function create(q: Quality): Backdrop {
       floorCaustic.offset.set(t * 0.017, t * 0.023)
       surfaceTex.offset.set(Math.sin(t * 0.06) * 0.2, t * 0.012)
       const beat = Math.max(0, Math.cos(phase * Math.PI * 2))
-      ;(caustic.material as THREE.MeshBasicMaterial).opacity = 0.34 + beat * 0.14
+      ;(caustic.material as THREE.MeshBasicMaterial).opacity = 0.24 + beat * 0.1
       for (let i = 0; i < rays.length; i++) {
+        if (!rays[i].visible) continue
         const m = rays[i].material as THREE.MeshBasicMaterial
         m.opacity = 0.1 + 0.045 * Math.sin(t * 0.6 + i * 1.3) + beat * 0.02
         rays[i].rotation.z = (-0.9 + (i / (rays.length - 1 || 1)) * 1.8) * 0.34
           + Math.sin(t * 0.3 + i) * 0.03
       }
-      if (school.children.length) {
-        school.position.x = Math.sin(t * 0.16) * 5.5
+      if (school.visible) {
+        school.position.x = Math.sin(t * 0.16) * 6.5
         school.position.z = Math.cos(t * 0.16) * 1.2
         school.position.y = Math.sin(t * 0.4) * 0.25
         const dir = Math.cos(t * 0.16) >= 0 ? 1 : -1
         for (let i = 0; i < school.children.length; i++) {
           const s = school.children[i] as THREE.Sprite
-          s.scale.x = 0.55 * dir
+          s.scale.x = 0.3 * dir
           s.position.y += Math.sin(t * 2 + i) * dt * 0.12
         }
       }
     },
+    setQuality(q) { quality.apply(q) },
     dispose() { disposeTree(group) },
   }
 }

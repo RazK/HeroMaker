@@ -8,8 +8,8 @@
  */
 import * as THREE from 'three'
 import {
-  Band, Particles, disposeTree, glowDisc, gradientTex, lightShaft, paint, paperTexture,
-  scrim, spriteTex, stageFloor, wobble,
+  Band, Particles, QualitySwitch, disposeTree, glowDisc, gradientTex, lightShaft, paint,
+  paperTexture, scrim, spriteTex, stageFloor, wobble,
 } from '../kit'
 import type { Backdrop, Quality, StageEnv } from '../env'
 
@@ -22,10 +22,10 @@ const curtainTex = () => paint(512, 512, (g, w, h) => {
     const x = (i / folds) * w
     const fw = w / folds
     const grd = g.createLinearGradient(x, 0, x + fw, 0)
-    grd.addColorStop(0, '#1b0c2b')
-    grd.addColorStop(0.42, '#7c3392')
-    grd.addColorStop(0.55, '#93459f')
-    grd.addColorStop(1, '#210f34')
+    grd.addColorStop(0, '#170a24')
+    grd.addColorStop(0.42, '#5b2470')
+    grd.addColorStop(0.55, '#6d2d84')
+    grd.addColorStop(1, '#1c0c2c')
     g.fillStyle = grd
     g.fillRect(x, 0, fw + 1, h)
   }
@@ -89,12 +89,12 @@ export function create(q: Quality): Backdrop {
 
   const bands: Band[] = []
   const curtain = new Band({
-    radius: 8.6, height: 13, y: 4.6, texture: curtainTex(), toneMapped: false,
+    radius: 8.6, height: 13, y: 4.6, repeat: 3, texture: curtainTex(), toneMapped: false,
   })
   bands.push(curtain)
   group.add(curtain.mesh)
 
-  const pelmet = new Band({ radius: 8.2, height: 3.2, y: 8.4, texture: pelmetTex() })
+  const pelmet = new Band({ radius: 8.2, height: 3.2, y: 8.4, repeat: 6, texture: pelmetTex() })
   bands.push(pelmet)
   group.add(pelmet.mesh)
 
@@ -141,23 +141,23 @@ export function create(q: Quality): Backdrop {
     bulbs.push(bulb)
   }
 
-  // Two specials from the rig, crossing over the performers.
+  // Two specials from the rig, crossing over the performers. Built either way
+  // and hidden on the cheap path — see QualitySwitch.
   const shafts: THREE.Mesh[] = []
-  if (full) {
-    for (const side of [-1, 1]) {
-      const s = lightShaft('#ffd9a0', 0.5, 2.6, 9, 0.13)
-      s.position.set(side * 2.2, 4.6, -1.4)
-      s.rotation.z = side * 0.16
-      group.add(s)
-      shafts.push(s)
-    }
+  for (const side of [-1, 1]) {
+    const s = lightShaft('#ffd9a0', 0.5, 2.6, 9, 0.13)
+    s.position.set(side * 2.2, 4.6, -1.4)
+    s.rotation.z = side * 0.16
+    s.visible = full
+    group.add(s)
+    shafts.push(s)
   }
 
   const halo = glowDisc('#ffcf8a', 5.5, 0.16)
   halo.position.set(0, 2.4, -6.4)
   group.add(halo)
 
-  group.add(scrim('#170a26', 0.42))
+  group.add(scrim('#170a26', 0.5))
 
   // Dust in the beam. Nothing sells a theatre like it.
   const dust = new Particles({
@@ -166,6 +166,8 @@ export function create(q: Quality): Backdrop {
     colors: ['#ffe6bd', '#ffd08a', '#fff6e2'], opacity: 0.5, sway: 0.06, seed: 91,
   }, q)
   group.add(dust.points)
+
+  const quality = new QualitySwitch([dust], shafts)
 
   const env: StageEnv = {
     hemi: { sky: '#bfd4ff', ground: '#3a2b4d', intensity: 0.85 },
@@ -192,12 +194,14 @@ export function create(q: Quality): Backdrop {
       ;(rim.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse
       for (let i = 0; i < shafts.length; i++) {
         const s = shafts[i]
+        if (!s.visible) continue
         s.rotation.z = (i ? 1 : -1) * (0.16 + Math.sin(t * 0.4 + i) * 0.05)
         ;(s.material as THREE.MeshBasicMaterial).opacity =
           0.11 + 0.05 * Math.max(0, Math.cos((phase + i * 0.5) * Math.PI * 2))
       }
       for (const b of bands) b.update(dt)
     },
+    setQuality(q) { quality.apply(q) },
     dispose() { disposeTree(group) },
   }
 }

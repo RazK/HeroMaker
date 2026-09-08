@@ -59,8 +59,9 @@ renderer.toneMappingExposure = 1.05
 app.appendChild(renderer.domElement)
 
 const scene = new THREE.Scene()
-const stage = new Stage(params.get('bg') ?? BACKDROPS[0].id)
-stage.setQuality(quality)
+// Quality goes in at construction so the lab shows what a lite device really
+// gets, textures and all — not a full theme with its particles turned down.
+const stage = new Stage(params.get('bg') ?? BACKDROPS[0].id, quality)
 scene.add(stage.group)
 const play = new PlayCamera()
 
@@ -140,6 +141,8 @@ const drawn = () => new Promise<void>((res) => {
 
 let last = performance.now()
 let clock = 0
+let updateMs = 0
+let updateFrames = 0
 renderer.setAnimationLoop(() => {
   const now = performance.now()
   const dt = Math.min(0.1, (now - last) / 1000)
@@ -147,7 +150,12 @@ renderer.setAnimationLoop(() => {
   clock += dt
   const phase = (clock / (60 / BPM)) % 1
   for (const h of heroes) h?.vrm.update(dt)
+  // Cost of the backdrop's own per-frame work, kept separately from the render:
+  // it is the part that is the backdrop's fault on a slow phone.
+  const t0 = performance.now()
   stage.update(dt, phase)
+  updateMs += performance.now() - t0
+  updateFrames++
   play.update(dt, phase)
   renderer.render(scene, play.camera)
   ;(window as { __frames?: number }).__frames = ((window as { __frames?: number }).__frames ?? 0) + 1
@@ -179,5 +187,24 @@ renderer.domElement.addEventListener('click', () => cycle(1))
   w.__setBackdrop = async (id: string) => { setBackdrop(id); await drawn() }
   w.__setHeroes = async (names: string[]) => { await setHeroes(names); await drawn() }
   w.__setQuality = async (q: Quality) => { stage.setQuality(q); await drawn() }
+  // What the GPU is holding. `tools/backdropshot.mjs --leak` cycles the themes
+  // and asserts this does not climb, which is the only cheap way to catch a
+  // backdrop that forgets to dispose something.
+  // What one frame of this theme actually costs: draw calls and triangles from
+  // the renderer, and the measured CPU time of the backdrop's own update.
+  w.__stats = () => {
+    const r = renderer.info.render
+    const out = {
+      backdrop: stage.backdropId,
+      calls: r.calls,
+      triangles: r.triangles,
+      points: r.points,
+      updateMsAvg: updateFrames ? +(updateMs / updateFrames).toFixed(3) : 0,
+      frames: updateFrames,
+    }
+    updateMs = 0; updateFrames = 0
+    return out
+  }
+  w.__gpu = () => ({ ...renderer.info.memory, programs: renderer.info.programs?.length ?? 0 })
   w.__ready = true
 })()

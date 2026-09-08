@@ -36,14 +36,16 @@ export class Stage {
   private id = DEFAULT_BACKDROP
   private quality: Quality = 'full'
 
-  constructor(id: string = DEFAULT_BACKDROP) {
+  constructor(id: string = DEFAULT_BACKDROP, quality: Quality = 'full') {
+    this.quality = quality
     this.hemi = new THREE.HemisphereLight(0xbfd4ff, 0x3a2b4d, 0.85)
     this.group.add(this.hemi)
 
     this.keyLight = new THREE.DirectionalLight(0xfff3e0, 2.5)
     this.keyLight.position.set(0.9, 3.4, 4.2)
-    this.keyLight.castShadow = true
-    this.keyLight.shadow.mapSize.set(1024, 1024)
+    this.keyLight.castShadow = quality === 'full'
+    this.keyLight.shadow.mapSize.set(quality === 'full' ? 1024 : 512,
+      quality === 'full' ? 1024 : 512)
     this.keyLight.shadow.camera.near = 1
     this.keyLight.shadow.camera.far = 14
     const sc = this.keyLight.shadow.camera as THREE.OrthographicCamera
@@ -84,30 +86,29 @@ export class Stage {
       this.backdrop.dispose()
     }
     this.backdrop = createBackdrop(next, this.quality)
+    this.backdrop.setQuality(this.quality)
     this.group.add(this.backdrop.group)
     this.applyEnv(this.backdrop.env)
     this.id = next
   }
 
   /**
-   * `lite` is the cheap path: fewer particles, no extra lights, smaller
-   * textures. The theme is rebuilt because texture sizes are chosen when it is
-   * painted — and a rebuild happens at most once, when the game gives up on
-   * a device that cannot keep up.
+   * `lite` is the cheap path: fewer particles, no rim lights, no shadow, and
+   * the decorations that are flourishes rather than structure turned off.
+   *
+   * It does *not* rebuild the theme. The game degrades in the middle of a round
+   * (`degraded` in `src/main.ts`), on the one device that can least afford a
+   * hitch, so switching costs a visibility flag and a draw range — never a
+   * repaint. Only a theme created while lite gets the smaller textures.
    */
   setQuality(q: Quality): void {
     if (q === this.quality) return
     this.quality = q
-    const id = this.id
-    if (this.backdrop) {
-      this.group.remove(this.backdrop.group)
-      this.backdrop.dispose()
-      this.backdrop = createBackdrop(id, q)
-      this.group.add(this.backdrop.group)
-      this.applyEnv(this.backdrop.env)
-    }
+    this.backdrop?.setQuality(q)
+    if (this.backdrop) this.applyEnv(this.backdrop.env)
     this.keyLight.castShadow = q === 'full'
     this.keyLight.shadow.mapSize.set(q === 'full' ? 1024 : 512, q === 'full' ? 1024 : 512)
+    // The map is sized when it is allocated, so the old one has to go.
     this.keyLight.shadow.map?.dispose()
     this.keyLight.shadow.map = null
   }

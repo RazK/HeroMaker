@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import './ui/style.css'
 import './ui/party.css'
 import { Stage } from './stage/stage'
+import { BACKDROPS } from './stage/backdrops'
 import { PlayCamera } from './stage/camera'
 import { loadHero, type Hero } from './avatar/loader'
 import { PoseTracker } from './pose/tracker'
@@ -103,7 +104,7 @@ renderer.toneMappingExposure = 1.05
 app.appendChild(renderer.domElement)
 
 const scene = new THREE.Scene()
-const stage = new Stage()
+const stage = new Stage(undefined, LITE ? 'lite' : 'full')
 scene.add(stage.group)
 const play = new PlayCamera()
 const tracker = new PoseTracker()
@@ -135,6 +136,8 @@ let lengthId: LengthId = 'normal'
 const picks = [0, 1, 2]
 /** Which player the gallery is currently choosing for. */
 let activeLane = 0
+/** Which set the heroes dance on. Applied live, so the menu is the preview. */
+let backdropId = BACKDROPS[0].id
 /** Arms-only mode, for playing from a chair. Guessed from the camera, overridable. */
 let seated = false
 /** True once somebody has set the stance by hand; the guess stops arguing then. */
@@ -149,6 +152,7 @@ app.append(hud.hud, hud.platesLayer, hud.countdownLayer, menuLayer, pauseLayer, 
 // ---- menu ------------------------------------------------------------------
 const countRow = el('div', { class: 'segmented' })
 const stanceRow = el('div', { class: 'segmented' })
+const stageRow = el('div', { class: 'stage-row' })
 const whoRow = el('div', { class: 'pick-who' })
 const gallery = el('div', { class: 'gallery' })
 const lengthRow = el('div', { class: 'segmented' })
@@ -183,6 +187,8 @@ menuLayer.append(
       el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
     whoRow,
     gallery,
+    el('div', { class: 'reel-label' }, 'Stage'),
+    stageRow,
     el('div', { class: 'actions' }, startBtn),
   ),
 )
@@ -234,6 +240,19 @@ function renderMenu() {
     b.append(el('span', { class: 'who-name' }, hero?.name ?? ''))
     return b
   }))
+
+  // The set changes behind the card as you tap, so the menu is its own preview.
+  stageRow.replaceChildren(...BACKDROPS.map((b) =>
+    el('button', {
+      class: `stage-pick${b.id === backdropId ? ' on' : ''}`,
+      title: b.blurb,
+      onclick: () => {
+        backdropId = b.id
+        audio.uiClick()
+        stage.setBackdrop(b.id)
+        renderMenu()
+      },
+    }, b.name)))
 
   gallery.className = `gallery lane-${activeLane}`
   gallery.replaceChildren(...ROSTER.map((r, k) => {
@@ -550,6 +569,7 @@ function watchFrameCost(elapsed: number) {
   degraded = true
   renderer.shadowMap.enabled = false
   renderer.setPixelRatio(1)
+  stage.setQuality('lite')
   scene.traverse((o) => { (o as THREE.Mesh).castShadow = false })
   resize()
 }
@@ -806,7 +826,8 @@ function startLoadingTracker() {
     document.documentElement.style.setProperty('--time-scale', String(n))
   },
   tracker: () => ({ state: tracker.state, fps: tracker.fps, ms: tracker.lastInferenceMs }),
-  quality: () => ({ degraded, lite: LITE }),
+  quality: () => ({ degraded, lite: LITE, backdrop: stage.backdropId }),
+  setBackdrop: (id: string) => { backdropId = id; stage.setBackdrop(id); renderMenu() },
   /** The exact 192x192 picture a lane is judged from, for the crop harness. */
   laneCrop: (lane: number) => tracker.laneCrop(lane, playerCount),
   /** That picture plus the skeleton read out of it, so the two can be compared. */

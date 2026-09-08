@@ -173,6 +173,26 @@
   box-shadow: 0 2px 6px rgba(23, 16, 31, .35);
 }
 
+/*
+ * The set picker. Six names in a scroller rather than six thumbnails: the
+ * stage behind the card *is* the preview, it changes as you tap, and a row of
+ * postage stamps would have cost the hero gallery its size to say less.
+ */
+.stage-row {
+  display: flex; gap: 6px; overflow-x: auto;
+  padding-bottom: 2px; scrollbar-width: none;
+}
+.stage-row::-webkit-scrollbar { display: none; }
+.stage-pick {
+  pointer-events: auto; cursor: pointer; flex: 0 0 auto;
+  min-height: 34px; padding: .4em .85em; border: 0; border-radius: 999px;
+  font: inherit; font-weight: 800; font-size: clamp(11px, 1.6vmin, 13px);
+  white-space: nowrap;
+  background: rgba(23, 16, 31, .07); color: rgba(23, 16, 31, .66);
+}
+.stage-pick.on { background: var(--grape-ink); color: var(--paper); }
+.stage-pick:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
 /* ---------------------------------------------------------------- plates */
 /*
  * A player's score rides above that player's own head. Projected every frame

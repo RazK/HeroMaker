@@ -9,24 +9,26 @@
  */
 import * as THREE from 'three'
 import {
-  Band, Particles, disposeTree, glowDisc, lightShaft, paint, paperTexture, rngFor, scrim,
-  skyDome, spriteTex, stageFloor,
+  Band, Particles, QualitySwitch, disposeTree, glowDisc, lightShaft, paint, paperTexture,
+  rngFor, scrim, skyDome, spriteTex, stageFloor,
 } from '../kit'
 import type { Backdrop, Quality, StageEnv } from '../env'
 
 /** The canvas overhead: meridian stripes that meet at the apex of the dome. */
 const tentTex = (size: number) => paint(size, size / 2, (g, w, h) => {
-  const stripes = 28
+  const stripes = 56
   for (let i = 0; i < stripes; i++) {
     g.fillStyle = i % 2 ? '#c62b3b' : '#f7ead0'
     g.fillRect((i / stripes) * w, 0, w / stripes + 1, h)
   }
   // Shade down towards the horizon so the tent recedes and the ring is dark.
   const v = g.createLinearGradient(0, 0, 0, h)
-  v.addColorStop(0, 'rgba(255,240,210,0.35)')
-  v.addColorStop(0.3, 'rgba(0,0,0,0)')
-  v.addColorStop(0.5, 'rgba(40,6,14,0.55)')
-  v.addColorStop(0.62, 'rgba(24,4,10,0.9)')
+  v.addColorStop(0, 'rgba(255,240,210,0.30)')
+  v.addColorStop(0.22, 'rgba(0,0,0,0)')
+  // Everything from here down is behind the heroes, so the canvas goes to a
+  // deep red gloom rather than competing with them.
+  v.addColorStop(0.38, 'rgba(48,8,16,0.62)')
+  v.addColorStop(0.5, 'rgba(28,5,12,0.92)')
   v.addColorStop(1, 'rgba(12,2,6,1)')
   g.fillStyle = v
   g.fillRect(0, 0, w, h)
@@ -77,9 +79,9 @@ const crowdTex = (w: number) => paint(w, w / 4, (g, cw, ch) => {
   const rng = rngFor(515)
   g.clearRect(0, 0, cw, ch)
   const rows = [
-    { y: ch * 1.0, s: 0.30, c: '#1a0710' },
-    { y: ch * 0.92, s: 0.24, c: '#2a0d18' },
-    { y: ch * 0.84, s: 0.19, c: '#3a1422' },
+    { y: ch * 1.0, s: 0.22, c: '#1a0710' },
+    { y: ch * 0.9, s: 0.17, c: '#2a0d18' },
+    { y: ch * 0.82, s: 0.13, c: '#3a1422' },
   ]
   for (const r of rows) {
     const n = Math.round(cw / (ch * r.s * 1.5))
@@ -128,16 +130,17 @@ export function create(q: Quality): Backdrop {
   group.add(skyDome(tentTex(T)))
 
   const bands = [
+    // The house: a dark ring of spectators exactly where the heroes stand.
     new Band({
-      radius: 8.4, height: 4.2, y: 1.5, texture: crowdTex(T), opacity: 1,
+      radius: 8.4, height: 3.4, y: 1.2, repeat: 4, texture: crowdTex(T), opacity: 1,
     }),
     new Band({
-      radius: 9.6, height: 2.4, y: 6.4,
+      radius: 9.6, height: 2.4, y: 5.0, repeat: 3,
       texture: buntingTex(T, ['#ffd23f', '#e8453c', '#3fa9f5', '#59c36a', '#ff8ac4'], 3),
       drift: 0.008,
     }),
     new Band({
-      radius: 6.6, height: 1.9, y: 5.0,
+      radius: 6.6, height: 1.9, y: 4.2, repeat: 3,
       texture: buntingTex(T, ['#ffd23f', '#e8453c', '#3fa9f5', '#59c36a', '#ff8ac4'], 9),
       drift: -0.012,
     }),
@@ -178,12 +181,14 @@ export function create(q: Quality): Backdrop {
   // Two specials sweeping across the ring, crossing behind the performers.
   const specials: THREE.Group[] = []
   const specColors = ['#ff9de0', '#8fd6ff']
-  for (let i = 0; i < (full ? 2 : 1); i++) {
+  for (let i = 0; i < 2; i++) {
     const pivot = new THREE.Group()
     pivot.position.set((i ? 3.6 : -3.6), 7.6, -2.2)
     const cone = lightShaft(specColors[i], 0.22, 1.5, 8.4, 0.22)
     cone.position.y = -4.2
     pivot.add(cone)
+    // One special is enough on the cheap path; the second is the flourish.
+    if (i === 1) pivot.visible = full
     group.add(pivot)
     specials.push(pivot)
   }
@@ -216,6 +221,8 @@ export function create(q: Quality): Backdrop {
   }, q)
   group.add(confetti.points)
 
+  const quality = new QualitySwitch([confetti], [specials[1]])
+
   const env: StageEnv = {
     hemi: { sky: '#ffe3c8', ground: '#59202a', intensity: 0.95 },
     key: { color: '#fff1d8', intensity: 2.6, position: [0.8, 3.4, 4.2] },
@@ -245,6 +252,7 @@ export function create(q: Quality): Backdrop {
       }
       ;(halo.material as THREE.MeshBasicMaterial).opacity = 0.18 + beat * 0.08
     },
+    setQuality(q) { quality.apply(q) },
     dispose() { disposeTree(group) },
   }
 }

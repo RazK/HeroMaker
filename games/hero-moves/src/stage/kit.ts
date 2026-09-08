@@ -86,6 +86,24 @@ export function paperTexture(base: string, grain: number, size = 256): THREE.Can
   }, { wrap: true })
 }
 
+/**
+ * Fine noise over a painted gradient.
+ *
+ * A sky is a big smooth ramp stretched over a dome, which is the exact case an
+ * 8-bit texture bands in — visible as terraced stripes across the upper frame,
+ * worst on the smaller `lite` textures. A pixel of dither costs one pass at
+ * boot and removes it.
+ */
+export function dither(g: CanvasRenderingContext2D, w: number, h: number, amount = 5) {
+  const img = g.getImageData(0, 0, w, h)
+  const d = img.data
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() - 0.5) * amount
+    d[i] += n; d[i + 1] += n; d[i + 2] += n
+  }
+  g.putImageData(img, 0, 0)
+}
+
 export type SpriteKind = 'dot' | 'glow' | 'star' | 'flake' | 'chip' | 'streak' | 'bubble'
 
 /** Point sprites, all built from the same soft radial falloff. */
@@ -210,6 +228,17 @@ export interface BandOpts {
   height: number
   y: number
   texture: THREE.Texture
+  /**
+   * How many times the art tiles around the band.
+   *
+   * The single most important number in a backdrop, and the one that was got
+   * wrong first: a tile drawn once around a band of radius 7 is forty-three
+   * metres wide on screen, which turns a tree into a wall and a spectator into
+   * a hill. Pick it so the tile's world size (2*PI*r / repeat by height) has
+   * roughly the aspect ratio of the canvas it was painted on, and the art comes
+   * out the size it was drawn.
+   */
+  repeat?: number
   color?: THREE.ColorRepresentation
   opacity?: number
   blending?: THREE.Blending
@@ -227,6 +256,10 @@ export class Band {
   readonly mesh: THREE.Mesh
   readonly drift: number
   constructor(o: BandOpts) {
+    if (o.repeat && o.repeat !== 1) {
+      o.texture.wrapS = THREE.RepeatWrapping
+      o.texture.repeat.x = o.repeat
+    }
     const geo = new THREE.CylinderGeometry(o.radius, o.radius, o.height, o.segments ?? 48, 1, true)
     this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
       map: o.texture, side: THREE.BackSide, transparent: true, depthWrite: false,
@@ -253,21 +286,27 @@ export class Band {
 export function scrim(color: THREE.ColorRepresentation, strength = 0.5, radius = 5.4): THREE.Mesh {
   const tex = paint(8, 128, (g, w, h) => {
     const grd = g.createLinearGradient(0, h, 0, 0)
-    grd.addColorStop(0, 'rgba(255,255,255,0.75)')
-    grd.addColorStop(0.28, 'rgba(255,255,255,1)')
-    grd.addColorStop(0.72, 'rgba(255,255,255,0.5)')
+    // Zero at the bottom edge on purpose. The veil is a cylinder standing at
+    // radius 5.4 and the themed ground runs out to 11, so any alpha at its foot
+    // is painted straight across the *distant floor* — which showed up as a
+    // black ring round the stage on every light-floored theme. It starts above
+    // the horizon and covers only the band the bodies are in.
+    grd.addColorStop(0, 'rgba(255,255,255,0)')
+    grd.addColorStop(0.12, 'rgba(255,255,255,0.85)')
+    grd.addColorStop(0.35, 'rgba(255,255,255,1)')
+    grd.addColorStop(0.75, 'rgba(255,255,255,0.55)')
     grd.addColorStop(1, 'rgba(255,255,255,0)')
     g.fillStyle = grd
     g.fillRect(0, 0, w, h)
   })
   const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius, radius, 5.6, 32, 1, true),
+    new THREE.CylinderGeometry(radius, radius, 4.7, 32, 1, true),
     new THREE.MeshBasicMaterial({
       map: tex, side: THREE.BackSide, transparent: true, depthWrite: false,
       color, opacity: strength, fog: false, toneMapped: false,
     }),
   )
-  mesh.position.y = 1.5
+  mesh.position.y = 2.85
   mesh.renderOrder = -4
   return mesh
 }
@@ -457,6 +496,12 @@ export class Particles {
     this.points.frustumCulled = false
   }
 
+  /** Draw fewer of the same particles. The buffer is untouched. */
+  setQuality(q: Quality) {
+    this.points.geometry.setDrawRange(0,
+      q === 'lite' ? Math.max(8, Math.round(this.opts.count * LITE_SCALE)) : this.opts.count)
+  }
+
   update(dt: number, beat = 0) {
     this.t += dt
     const o = this.opts
@@ -484,6 +529,25 @@ export class Particles {
       const mat = this.points.material as THREE.PointsMaterial
       mat.size = this.baseSize * (1 + o.beat * Math.max(0, Math.cos(beat * Math.PI * 2)))
     }
+  }
+}
+
+/**
+ * The cheap path, in one object.
+ *
+ * A theme registers its particle fields and its optional decorations — light
+ * shafts, extra sprites, second star fields — and this turns them down. Extras
+ * are always built, never conditionally created, so the switch works in both
+ * directions and costs nothing but a visibility flag.
+ */
+export class QualitySwitch {
+  constructor(
+    private readonly fields: Particles[],
+    private readonly extras: THREE.Object3D[] = [],
+  ) {}
+  apply(q: Quality) {
+    for (const f of this.fields) f.setQuality(q)
+    for (const e of this.extras) e.visible = q === 'full'
   }
 }
 

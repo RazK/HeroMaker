@@ -36,5 +36,15 @@ export interface Backdrop {
   readonly env: StageEnv
   /** `phase` is position within the current musical beat, 0..1. */
   update(dt: number, phase: number): void
+  /**
+   * Switch between the full and cheap paths *without rebuilding*.
+   *
+   * The game gives up on a device by degrading mid-round (`degraded` in
+   * `src/main.ts`), and repainting six canvases at that exact moment would
+   * cost a dropped beat on the one machine that can least afford it. So every
+   * theme builds both paths and this only flips what is drawn: particle
+   * counts, and the decorations that are not load-bearing.
+   */
+  setQuality(q: Quality): void
   dispose(): void
 }

@@ -9,7 +9,8 @@
  */
 import * as THREE from 'three'
 import {
-  Band, Particles, disposeTree, glowDisc, paint, rngFor, scrim, skyDome, spriteTex, stageFloor,
+  Band, Particles, QualitySwitch, disposeTree, dither, glowDisc, paint, rngFor, scrim, skyDome,
+  spriteTex, stageFloor,
 } from '../kit'
 import type { Backdrop, Quality, StageEnv } from '../env'
 
@@ -61,6 +62,7 @@ const nebulaTex = (size: number) => paint(size, size / 2, (g, w, h) => {
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill()
   }
   g.globalCompositeOperation = 'source-over'
+  dither(g, w, h, 6)
 })
 
 /** Wispy alpha clouds for the parallax bands. */
@@ -184,6 +186,7 @@ class Starfield {
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     this.col = new THREE.BufferAttribute(col, 3)
     geo.setAttribute('color', this.col)
+    geo.setDrawRange(0, count)
     this.points = new THREE.Points(geo, new THREE.PointsMaterial({
       size, map: spriteTex('star', 64), transparent: true, vertexColors: true,
       depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
@@ -191,9 +194,12 @@ class Starfield {
     }))
     this.points.frustumCulled = false
   }
+  /** Twinkle fewer of them on the cheap path. */
+  setCount(n: number) { this.points.geometry.setDrawRange(0, n) }
+
   update(dt: number) {
     this.t += dt
-    const n = this.phase.length
+    const n = Math.min(this.phase.length, this.points.geometry.drawRange.count)
     const arr = this.col.array as Float32Array
     for (let i = 0; i < n; i++) {
       const k = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(this.t * 1.6 + this.phase[i]))
@@ -214,11 +220,11 @@ export function create(q: Quality): Backdrop {
 
   const bands = [
     new Band({
-      radius: 12.5, height: 16, y: 4, texture: wispTex(full ? 512 : 256, 31),
+      radius: 12.5, height: 16, y: 4, repeat: 2, texture: wispTex(full ? 512 : 256, 31),
       color: '#7c4bd0', opacity: 0.55, blending: THREE.AdditiveBlending, drift: 0.004,
     }),
     new Band({
-      radius: 9.5, height: 13, y: 3.4, texture: wispTex(full ? 512 : 256, 77),
+      radius: 9.5, height: 13, y: 3.4, repeat: 2, texture: wispTex(full ? 512 : 256, 77),
       color: '#2f8fd0', opacity: 0.4, blending: THREE.AdditiveBlending, drift: -0.007,
     }),
   ]
@@ -226,10 +232,12 @@ export function create(q: Quality): Backdrop {
 
   // Two fields: a fine dust, and a scatter of bright ones with visible spikes.
   const stars = [
-    new Starfield(full ? 620 : 220, 0.075, 9091),
-    new Starfield(full ? 90 : 34, 0.26, 3307),
+    new Starfield(620, 0.075, 9091),
+    new Starfield(90, 0.26, 3307),
   ]
   for (const f of stars) group.add(f.points)
+  stars[0].setCount(full ? 620 : 220)
+  stars[1].setCount(full ? 90 : 34)
 
   // The planet, parked high and to one side so it never sits behind a face.
   const planet = new THREE.Group()
@@ -302,6 +310,12 @@ export function create(q: Quality): Backdrop {
   group.add(shot)
   let shotT = 0, shotWait = 2.5
 
+  const quality = new QualitySwitch([motes], [shot])
+  const setStars = (q: Quality) => {
+    stars[0].setCount(q === 'full' ? 620 : 220)
+    stars[1].setCount(q === 'full' ? 90 : 34)
+  }
+
   const env: StageEnv = {
     hemi: { sky: '#7f96d8', ground: '#140c2c', intensity: 0.75 },
     key: { color: '#e9f0ff', intensity: 2.4, position: [1.1, 3.2, 4.4] },
@@ -339,6 +353,7 @@ export function create(q: Quality): Backdrop {
         (shot.material as THREE.SpriteMaterial).opacity = 0
       }
     },
+    setQuality(q) { quality.apply(q); setStars(q) },
     dispose() { disposeTree(group) },
   }
 }
