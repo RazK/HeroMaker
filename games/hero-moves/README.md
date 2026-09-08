@@ -36,9 +36,24 @@ and **player identity for free** — a lane cannot be mistaken for another lane,
 so nobody's score is ever handed to the wrong hero, and the same person keeps
 the same character for the whole game without anyone being recognised.
 
-Crops overlap by 30% of a lane, because an arm held out is wider than a third
-of a frame. Cropping at the lane edge does not lose a wrist — MoveNet
-*invents* one at the edge, which turns a clean T-pose into a shrug.
+Two things about that crop, both measured rather than reasoned:
+
+* **It is square, and it holds one person.** The model input is 192x192 and the
+  vocabulary was measured at 100% on square frames with one body filling them. A
+  full-height lane strip letterboxes into that square — a quarter of the input
+  becomes black bars — and, with players standing shoulder to shoulder, contains
+  two or three bodies, which a model that returns exactly one skeleton answers
+  with a blend of them. Measured that way: wrists at 0.11-0.6 confidence and not
+  one frame the classifier would name.
+* **It follows the torso, not the pose.** Cropping the next frame around the
+  keypoints the last one found collapses in about a second — a crop that clipped
+  an arm reports a narrower body, which fits a narrower window, which clips
+  more. Shoulders and hips do not move when an arm goes up, so the window is a
+  fixed multiple of them.
+
+The first look at a lane is still wide, because an arm held out is wider than a
+third of a frame and cutting at the lane edge does not lose a wrist — MoveNet
+*invents* one there, which turns a clean T-pose into a shrug.
 
 ## Run it
 
@@ -107,6 +122,20 @@ distance behind the label decides how well:
 Wrong shape scores nothing, which is what makes a three-player scoreboard mean
 something — a continuous scorer hands a player standing perfectly still most of
 the marks for any pose that happens to be near neutral.
+
+The classifier is built to say "I don't know" rather than guess, though, and it
+says so more often than it is wrong: a hand lost in hair, a body at an angle, a
+hero whose legs are half the length the vocabulary assumes. Scoring those frames
+zero charges the classifier's caution to the player, so when there is no
+confident label the older continuous scorer answers the easier question — how
+close is this to the shape — and its answer is capped below what a named pose
+can earn, because it is the weaker instrument.
+
+`tools/lanegate.mjs` measures the first half of that in isolation: it asks the
+page which camera frame each lane's answer came from, works out what the feed
+was showing at that instant from the same seeded routine, and scores only that.
+Sampling rate cannot flatter or damn it — a lane inferred once a minute is
+judged on that one answer.
 
 ## Harnesses
 

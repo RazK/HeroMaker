@@ -170,6 +170,41 @@ photograph of anybody.
 > standing still in the right place is cheaper and more reliable than any
 > model that has to infer the same fact.
 
+**The crop has to be the shape of the input, and it has to hold one person.**
+The vocabulary was measured at 100% on square frames with one avatar filling
+them. Handing the same model a full-height lane strip instead lost on both
+counts: the strip letterboxes into a square input, so a quarter of it is black
+bars and the body lands small, and three people standing shoulder to shoulder
+put two or three bodies in every strip, which a model that returns exactly one
+skeleton answers with a blend of them. Measured: wrists at 0.11-0.6 confidence
+and the classifier refusing to name a single frame — 0% against the 100% the
+same vocabulary scores on square crops.
+
+> **Rule: feed the model the shape it was measured on.** A crop is not just a
+> region, it is an aspect ratio and a subject count. Both are part of the
+> measurement, and changing either invalidates it.
+
+**A tracking window fitted to the pose eats itself.** The obvious next step —
+crop the next frame around the keypoints this one found — collapses in about a
+second: a crop that clipped an arm reports a narrower body, which fits a
+narrower window, which clips more, ending at a head-and-shoulders shot the
+classifier can say nothing about. Size the window off the **torso** instead.
+Shoulders and hips do not move when an arm goes up, they are the joints a 2D
+tracker reads best, and a fixed multiple of them is stable under every pose.
+
+> **Rule: size a tracking window from what does not move.**
+
+**Two ways of not answering are not the same, and only one is the player's
+fault.** A classifier built to say "I don't know" says so far more often than it
+says something wrong — a hand lost in hair, a body at an angle, a hero whose
+legs are half the length the vocabulary assumes. Scoring those frames zero
+charges the classifier's caution to the player, and a whole scoreboard came back
+MISS because of it. A label when the tracker is sure, and the older continuous
+shape match, capped lower, when it is not.
+
+> **Rule: never score a "cannot tell" as a "wrong".** Give the uncertain case a
+> weaker instrument rather than a zero.
+
 **A lane crop amputates the pose it is meant to read.** An arm held out is wider
 than a third of a frame, so a T-pose crosses into the neighbouring lane. Cutting
 at the lane edge does not produce a missing wrist — MoveNet *invents* one at the
@@ -244,6 +279,11 @@ particular vocabulary, and they will hold for the next game too.
   classifier is tuned.
 * **A hand held near the head is lost.** Narrowing ARMS UP from a 62/118 V to 75/105
   moved the hands into the hair and dropped it from 100% to 40%.
+* **Both axes of a skeleton must share a scale.** Every feature worth using is
+  an angle, and an angle is only meaningful if x and y are in the same units.
+  Normalising x per lane width and y per frame height stretched every limb by
+  the lane's aspect ratio and read a raised arm as a crouch — a bug with no
+  symptom except a classifier that is confidently wrong.
 * **A body cut off by the frame is reported, not omitted.** Every keypoint comes
   back with a confidence, and an amputated limb's invented keypoint carries a
   high one. Confidence is not a proxy for visibility.

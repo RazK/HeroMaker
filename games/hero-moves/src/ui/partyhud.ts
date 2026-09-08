@@ -152,7 +152,13 @@ export class PartyHud {
    * people whether the game can currently see all three of them, which is the
    * question a lane-based game gets asked constantly.
    */
-  drawCamera(video: HTMLVideoElement, lanes: Array<Skeleton | null>, count: number) {
+  drawCamera(
+    video: HTMLVideoElement,
+    lanes: Array<Skeleton | null>,
+    count: number,
+    /** Lane width over frame height; lane keypoints use one lane width on both axes. */
+    laneAspect = 1,
+  ) {
     const c = this.camCanvas
     const g = c.getContext('2d')
     if (!g || video.readyState < 2) return
@@ -181,7 +187,7 @@ export class PartyHud {
       // Keypoints are in the lane's own space, and the drawing is mirrored, so
       // x flips inside the lane.
       const px = (x: number) => x0 + (1 - x) * laneW
-      const py = (y: number) => y * c.height
+      const py = (y: number) => y * laneAspect * c.height
       g.lineWidth = 2
       g.strokeStyle = '#3ddc97'
       g.lineCap = 'round'

@@ -12,7 +12,7 @@ import { PartyHud } from './ui/partyhud'
 import { Audio } from './core/audio'
 import { el } from './ui/dom'
 import { damp } from './core/math'
-import type { Skeleton } from './pose/keypoints'
+import { bodyConfidence, type Skeleton } from './pose/keypoints'
 import { classify } from './pose/vocab'
 
 /**
@@ -511,7 +511,7 @@ renderer.setAnimationLoop(() => {
   play.setAirborne(lanes.some((l) => l.anim?.airborne))
   hud.update(s)
   if (s.phase !== 'menu' && s.phase !== 'results') {
-    hud.drawCamera(tracker.video, liveLanes, playerCount)
+    hud.drawCamera(tracker.video, liveLanes, playerCount, tracker.laneAspect)
   } else if (s.phase === 'menu' && tracker.state === 'ready') {
     drawMenuCamera()
   }
@@ -628,6 +628,17 @@ function startLoadingTracker() {
   },
   tracker: () => ({ state: tracker.state, fps: tracker.fps, ms: tracker.lastInferenceMs }),
   quality: () => ({ degraded, lite: LITE }),
+  /** The exact 192x192 picture a lane is judged from, for the crop harness. */
+  laneCrop: (lane: number) => tracker.laneCrop(lane, playerCount),
+  /** That picture plus the skeleton read out of it, so the two can be compared. */
+  laneDebug: (lane: number) => ({
+    crop: tracker.laneCrop(lane, playerCount),
+    aspect: tracker.laneAspect,
+    label: classify(tracker.lanes[lane]).pose?.id ?? null,
+    distance: +classify(tracker.lanes[lane]).distance.toFixed(3),
+    points: Object.entries(tracker.lanes[lane]).map(([name, k]) =>
+      ({ name, x: +k.x.toFixed(3), y: +k.y.toFixed(3), s: +k.score.toFixed(2) })),
+  }),
   /** The routine a given length and seed produces, for the lane gate. */
   routine: (length: LengthId, seed: number) => {
     const song = makeRoutine(LENGTHS.find((l) => l.id === length)?.moves ?? 16, seed)
@@ -648,11 +659,18 @@ function startLoadingTracker() {
    * it to line the game's clock up with a pre-rendered camera feed: the feed
    * opens on a marker pose, and the round is started the frame it appears.
    */
-  laneLabels: () => liveLanes.map((sk, i) => ({
-    pose: sk ? classify(sk).pose?.id ?? null : null,
-    distance: sk ? +classify(sk).distance.toFixed(3) : null,
-    at: tracker.laneAt[i],
-  })),
+  laneLabels: () => liveLanes.map((sk, i) => {
+    const c = sk ? classify(sk) : null
+    return {
+      pose: c?.pose?.id ?? null,
+      distance: c ? +c.distance.toFixed(3) : null,
+      margin: c ? +c.margin.toFixed(3) : null,
+      runnerUp: c?.runnerUp?.id ?? null,
+      conf: sk ? +bodyConfidence(sk).toFixed(2) : null,
+      wrists: sk ? [+sk.leftWrist.score.toFixed(2), +sk.rightWrist.score.toFixed(2)] : null,
+      at: tracker.laneAt[i],
+    }
+  }),
   ready: () => tracker.state,
   wake: () => ensureCamera(),
   /** Milliseconds of camera playback, for lining a recording up with a feed. */

@@ -1,5 +1,5 @@
 import { bodyConfidence, type Skeleton } from '../pose/keypoints'
-import { gradeFor, type Move } from '../pose/moves'
+import { gradeFor, scorePose, type Move } from '../pose/moves'
 import { buildSong, slotAt, secondsPerBeat, upcoming, type Song, type Upcoming } from './song'
 import { VOCAB, classify, type Pose } from '../pose/vocab'
 
@@ -219,7 +219,7 @@ export class PartyGame {
       if (sk && bodyConfidence(sk) > 0.25) p.seenAt = s.beat
       p.seen = s.beat - p.seenAt < SEEN_GRACE_BEATS
       if (!slot || !sk || !p.seen) { p.liveScore = 0; continue }
-      p.liveScore = shapeScore(sk, slot.move.id)
+      p.liveScore = shapeScore(sk, slot.move)
       if (p.liveScore > p.best) { p.best = p.liveScore; p.bestAtBeat = s.beat }
     }
 
@@ -268,14 +268,25 @@ const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
 /**
  * How well a body is making the called shape, 0..1.
  *
- * The label decides whether it counts at all; the distance behind the label
- * only decides how well. A wrong shape scores nothing — which is what makes a
- * three-player scoreboard mean something, since a continuous scorer hands a
- * player standing still most of the marks for a pose that happens to be near
- * neutral.
+ * A label when the tracker is sure, a shape match when it is not.
+ *
+ * The label is the primary judgement, because naming one of eight
+ * deliberately-separated poses is the question 17 noisy 2D keypoints can
+ * actually answer — and because a wrong call then scores nothing, which is what
+ * makes a three-player scoreboard worth reading. A continuous scorer on its own
+ * hands a player standing perfectly still most of the marks for any pose that
+ * happens to sit near neutral.
+ *
+ * But the classifier is built to say "I don't know" rather than guess, and it
+ * says so more often than it is wrong: a hand lost in hair, a body at an angle,
+ * a hero whose legs are half the length the vocabulary assumes. Scoring those
+ * frames zero would be the classifier's caution charged to the player. So when
+ * there is no confident label, the older continuous scorer answers the easier
+ * question — how close is this to the shape — and its answer is capped below
+ * what a named pose can earn, because it is the weaker instrument.
  */
-function shapeScore(sk: Skeleton, wanted: string): number {
+function shapeScore(sk: Skeleton, move: Move): number {
   const c = classify(sk)
-  if (c.pose?.id !== wanted) return 0
-  return 0.62 + 0.38 * clamp01(1 - c.distance / 0.52)
+  if (c.pose) return c.pose.id === move.id ? 0.62 + 0.38 * clamp01(1 - c.distance / 0.52) : 0
+  return 0.8 * scorePose(sk, move.skeleton, move)
 }

@@ -33,10 +33,12 @@ const browser = await chromium.launch({
     '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
     `--use-file-for-fake-video-capture=${feed}`],
 })
-const page = await browser.newPage({ viewport: { width: 900, height: 600 } })
+const page = await browser.newPage({ viewport: { width: 640, height: 420 } })
 page.on('pageerror', (e) => console.log('[pageerror]', e.message))
 await page.context().grantPermissions(['camera'])
-await page.goto(base, { waitUntil: 'load', timeout: 180000 })
+// Lite: this measures the tracker, not the lighting, and shadows here cost
+// more than the inference does.
+await page.goto(`${base}?lite=1`, { waitUntil: 'load', timeout: 180000 })
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000 })
 await page.evaluate((n) => window.__api.setPlayers(n), players)
 await page.evaluate(() => window.__api.wake())
@@ -70,6 +72,8 @@ const expected = (i, t) => {
 
 const seen = new Set()
 const rows = []
+let inferences = 0
+let outsideHold = 0
 const deadline = Date.now() + seconds * 1000
 while (Date.now() < deadline) {
   await page.waitForTimeout(250)
@@ -78,21 +82,30 @@ while (Date.now() < deadline) {
     const key = `${i}:${l.at}`
     if (seen.has(key) || !l.at) return
     seen.add(key)
+    inferences++
     const want = expected(i, l.at / 1000)
-    if (!want) return
-    rows.push({ lane: i, want, got: l.pose, d: l.distance })
+    if (!want) { outsideHold++; return }
+    rows.push({ lane: i, want, got: l.pose, d: l.distance, m: l.margin, up: l.runnerUp, conf: l.conf, w: l.wrists })
   })
 }
 await browser.close()
 
-if (!rows.length) { console.error('no lane samples landed inside a hold — run longer'); process.exit(1) }
+console.log(`${inferences} lane inferences, ${outsideHold} of them between shapes`)
+if (!rows.length) {
+  console.error('no lane samples landed inside a hold — run longer')
+  process.exit(1)
+}
 const byLane = [...new Set(rows.map((r) => r.lane))].sort()
 for (const lane of byLane) {
   const mine = rows.filter((r) => r.lane === lane)
   const hit = mine.filter((r) => r.want === r.got).length
   console.log(`lane ${lane}: ${hit}/${mine.length} correct  ` +
-    mine.map((r) => `${r.want}${r.want === r.got ? '=' : `!=${r.got ?? 'none'}`}`).join(' '))
+    mine.map((r) => `${r.want}${r.want === r.got ? '=' : `!=${r.got ?? 'none'}`}@${r.d}`).join(' '))
 }
 const hit = rows.filter((r) => r.want === r.got).length
 console.log(`\noverall ${hit}/${rows.length} = ${((hit / rows.length) * 100).toFixed(0)}%`)
+if (hit < rows.length) {
+  console.log('\nfirst few in full:')
+  for (const r of rows.slice(0, 6)) console.log('  ' + JSON.stringify(r))
+}
 process.exit(hit === rows.length ? 0 : 1)
