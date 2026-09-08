@@ -56,6 +56,60 @@ class ApiError extends Error {
   }
 }
 
+/**
+ * Turn whatever the server sent into one sentence a person can act on.
+ *
+ * Not every failure comes from the API. A proxy in front of it answers with an
+ * HTML error page, and pasting that page into the login box - which is what
+ * used to happen - tells the user nothing except that something is broken.
+ * FastAPI's validation errors are not strings either: `detail` is a list of
+ * field objects, which rendered as "[object Object]".
+ *
+ * So: use the server's own words when they are words, and otherwise say what
+ * the status code means.
+ */
+function describeError(status: number, body: string): string {
+  const text = (body || '').trim();
+
+  if (text && !text.startsWith('<')) {
+    try {
+      const parsed = JSON.parse(text);
+      const detail = parsed?.detail ?? parsed?.message;
+      if (typeof detail === 'string' && detail.trim()) return detail.trim();
+      // FastAPI validation: [{ loc: ["body", "date_of_birth"], msg: "Field required" }]
+      if (Array.isArray(detail) && detail.length) {
+        const parts = detail
+          .map((d: any) => {
+            const field = Array.isArray(d?.loc) ? d.loc[d.loc.length - 1] : undefined;
+            const msg = typeof d?.msg === 'string' ? d.msg : 'is invalid';
+            return field ? `${String(field).replace(/_/g, ' ')}: ${msg}` : msg;
+          })
+          .filter(Boolean);
+        if (parts.length) return parts.join('; ');
+      }
+    } catch {
+      // Plain text, short enough to be a message rather than a page.
+      if (text.length <= 200 && !text.includes('\n')) return text;
+    }
+  }
+
+  switch (status) {
+    case 400: return 'That request was not valid. Check the fields and try again.';
+    case 401: return 'Wrong username or password.';
+    case 403: return 'This copy of HeroMaker is read-only, so changes are turned off here.';
+    case 404: return 'That is not here any more.';
+    case 409: return 'That name is already taken.';
+    case 413: return 'That file is too big.';
+    case 429: return 'Too many tries. Wait a moment and try again.';
+    case 502:
+    case 503:
+    case 504: return 'The server is not answering right now. Try again in a moment.';
+  }
+  return status >= 500
+    ? `The server had a problem (HTTP ${status}). Try again in a moment.`
+    : `Something went wrong (HTTP ${status}).`;
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const method = options?.method || 'GET';
   const isPolling = url.includes('/api/creations/') && method === 'GET';
@@ -91,13 +145,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   
   if (!response.ok) {
     const errorText = await response.text();
-    let errorMessage = `HTTP ${response.status}`;
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.detail || errorMessage;
-    } catch {
-      errorMessage = errorText || errorMessage;
-    }
+    const errorMessage = describeError(response.status, errorText);
     console.error(`[API] ${method} ${url} failed (${duration}ms):`, {
       status: response.status,
       error: errorMessage,

@@ -50,10 +50,10 @@ echo "API resolver:     ${API_RESOLVER:-<none>}"
 # API_READ_ONLY=true rejects anything that could change data. Set it whenever
 # API_PROXY_TARGET points at an environment other than this one's own backend.
 if [ "${API_READ_ONLY}" = "true" ]; then
-    export API_METHOD_GUARD='limit_except GET HEAD OPTIONS { deny all; }'
-    echo "API access: READ-ONLY (writes rejected at the proxy)"
+    export API_READ_ONLY_FLAG='1'
+    echo "API access: READ-ONLY (writes rejected at the proxy; sign-in still allowed)"
 else
-    export API_METHOD_GUARD=''
+    export API_READ_ONLY_FLAG=''
     echo "API access: read-write"
 fi
 
@@ -63,7 +63,7 @@ sed -e "s|\${PORT}|${PORT}|g" \
     -e "s|\${API_PROXY_HOST}|${API_PROXY_HOST}|g" \
     -e "s|\${API_PROXY_SNI}|${API_PROXY_SNI}|g" \
     -e "s|\${API_RESOLVER}|${API_RESOLVER}|g" \
-    -e "s|\${API_METHOD_GUARD}|${API_METHOD_GUARD}|g" \
+    -e "s|\${API_READ_ONLY_FLAG}|${API_READ_ONLY_FLAG}|g" \
     < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 mv /tmp/nginx.conf.tmp /etc/nginx/conf.d/default.conf
 
