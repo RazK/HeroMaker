@@ -123,10 +123,10 @@
 /* The two three-way switches share a row; see the note in main.ts. */
 .setting-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
 .setting { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
- /* Six segments share one card width, so the type is solved from that width
-  * rather than from the viewport's smaller side: at 320px "Normal" was
-  * rendering as "Norm" behind an overflow clip. */
-.setting .seg { padding: .45em .3em; font-size: clamp(9px, 2.6vw, 14px); }
+/* Three segments share half a card, so the type is solved from the card's width
+   rather than from the viewport's smaller side: at 320px "Normal" was rendering
+   as "Norm" behind an overflow clip. */
+.setting .seg { padding: .45em .3em; font-size: clamp(9px, 2.6vw, 12px); }
 /*
  * "Short" is not an answer to the only question anyone asks of a round length,
  * so each option carries its real duration. Two lines, because three options
@@ -141,6 +141,7 @@
 .seg.on .seg-sub { opacity: .85; }
 
 .pick-who { display: flex; gap: var(--space-2); }
+.pick-who.n3 .who-name { display: none; }
 .who {
   pointer-events: auto; cursor: pointer;
   flex: 1 1 0; min-width: 0; min-height: 44px;
@@ -169,15 +170,16 @@
  * The one scroller in the lobby, and the only one the audit's allowlist knows
  * about. It is a list of six things with the next row peeking out of the
  * bottom, which is what tells a player there is more.
+ *
+ * Natural height where there is room, and the only thing that gives way where
+ * there is not — but never less than one whole row, because below that the
+ * gallery is clipping a tile rather than scrolling it. `flex: 1 1 0` looked
+ * right and was not: in a card sized to its own content a basis of 0
+ * contributes nothing to that content, so the gallery collapsed onto its
+ * min-height and clipped every tile by 6px on a 1440x900 desktop. Rule 1 caught
+ * it; the eye did not.
  */
 #title .gallery {
-  /* Natural height where there is room, and the only thing that gives way
-     where there is not. `flex: 1 1 0` looked right and was not: in a card sized
-     to its content the basis of 0 contributes nothing to that content, so the
-     gallery collapsed onto its min-height and clipped every tile by 6px on a
-     1440x900 desktop — caught by rule 1, invisible to the eye. */
-  /* One whole row of heroes, never less: below this the gallery is clipping a
-     tile rather than scrolling it, which rule 1 fails the build for. */
   flex: 0 1 auto; min-height: 76px;
   overflow-y: auto; align-content: start;
   /* The page sets touch-action: none to stop the whole thing bouncing; this is
@@ -241,9 +243,13 @@
 }
 .stage-pick {
   pointer-events: auto; cursor: pointer; min-width: 0;
-  min-height: 34px; padding: .4em .5em; border: 0; border-radius: 999px;
+  min-height: 34px; padding: .4em .35em; border: 0; border-radius: 999px;
   overflow: hidden; text-overflow: ellipsis;
-  font: inherit; font-weight: 800; font-size: clamp(9px, 2.3vw, 13px);
+  /* Six chips share a card that is never wider than 500px however wide the
+     screen is, so the type is capped low: a viewport-sized clamp put 13px type
+     in a 48px column on a 1440px desktop and truncated "Theatre" there and
+     nowhere else. */
+  font: inherit; font-weight: 800; font-size: clamp(9px, 2.3vw, 10.5px);
   white-space: nowrap;
   background: rgba(23, 16, 31, .07); color: rgba(23, 16, 31, .66);
 }
@@ -355,7 +361,7 @@
  *
  * The short-screen rules in the base sheet shrink type to make a card fit, and
  * twice that has taken the primary button down to 30px — measured, not guessed,
- * by tools/partyfit.mjs. Type may shrink; the target may not.
+ * by the fit rule in tools/screenaudit.mjs. Type may shrink; the target may not.
  */
 .btn { min-height: 44px; }
 .seg { min-height: 34px; }
@@ -367,14 +373,11 @@
  * card will happily take the lot. The stage is the reason anyone chose a hero,
  * so the card is capped and its insides give way instead.
  */
-/*
- * On a short screen the card scrolls, and the one thing that must never scroll
- * out of reach is the button that starts the game. It rides the bottom of the
- * card with a fade under it so the content it covers still reads as content.
- */
-/* The results card is short enough to scroll harmlessly, and its buttons ride
-   the bottom of it. Opaque paper, matching the card exactly: at 97% this
-   gradient painted a paler rectangle that read as a rendering bug. */
+/* The results card is short enough that letting it scroll is harmless, and its
+   two buttons ride the bottom of it. Opaque paper, matching the card exactly:
+   at 97% this gradient painted a paler rectangle that read as a rendering bug.
+   It is the last deliberate overlay in a card, and carries the mark the audit's
+   allowlist keys on. */
 #results .actions {
   position: sticky; bottom: calc(var(--space-3) * -1); z-index: 1;
   padding-bottom: var(--space-1);
@@ -424,8 +427,8 @@
    *    they are, and the headings were 16px of saying it twice
    *  - tighter card padding, gaps and portraits
    *
-   * 70vh rather than 68 takes the last ten from the stage, which still keeps
-   * the 30% the fit rule holds it to.
+   * The last ten come from the stage, in the portrait rule at the foot of this
+   * file, which still keeps the 30% the fit rule holds it to.
    */
   #title .card { gap: 4px; padding: 10px 16px; }
   #title h1 em { display: none; }

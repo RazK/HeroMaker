@@ -185,7 +185,7 @@ measurable without either.
 node tools/posegate.mjs                   # confusion matrix for the pose classifier
 node tools/posecheck.mjs                  # what a perfect performance scores
 node tools/reelfit.mjs                    # does the reel fit at seven viewports
-node tools/partyfit.mjs                   # does the party menu fit at seven viewports
+node tools/screenaudit.mjs                # the screen gate: reachability, overlap, hero spacing, fit
 node tools/clipframing.mjs out.png        # a clip in the real play framing
 node tools/contrast.mjs --phase=results   # fails on text you cannot read
 node tools/make-dancers-video.mjs /tmp/party --n=3 --scale=2
@@ -351,3 +351,69 @@ rebuilds a theme: the game degrades mid-round, on the one device that can least
 afford a hitch, so the switch is a draw range and a visibility flag. Textures
 are the exception — a theme only gets the smaller ones if it was *built* lite,
 which is what `new Stage(id, 'lite')` and `backdrops.html?q=lite` do.
+
+## The screen gate
+
+`tools/screenaudit.mjs` walks the product and fails the build on three things
+no diff review catches, because the screen they break on is never the screen
+they were built at. All three arrived together off one real phone: a control
+that had been pushed past the bottom of a card and could not be found, a
+"Short / Normal / Long" switch that said nothing about time, and three heroes
+standing inside one another.
+
+```bash
+npm run build && npx vite preview          # serves dist on http://127.0.0.1:5183
+node tools/screenaudit.mjs                 # the whole product
+node tools/screenaudit.mjs --quick         # every viewport and phase, one of everything else
+node tools/screenaudit.mjs --players=3 --phase=menu --viewport=phone-in-view
+node tools/screenaudit.mjs --rules=1,3 --shots=/tmp/audit
+```
+
+**Rule 1 — nothing interactive is unreachable.** Every button, link and input
+that is in the DOM and not hidden has to be fully inside the viewport, not cut
+off by any ancestor, and not covered: the rule hit-tests the middle of each
+control and fails if the tap lands on something else. There is exactly one
+licence, `data-scroll`, and exactly one element holds it — the hero gallery,
+which is a list of six characters with the next row peeking under the fold.
+Anything in a declared list still has to *scroll into full, uncovered view*, and
+the rule scrolls it and re-measures rather than taking the container's word.
+
+That one licence is the whole design. The lobby card used to be a single
+scrolling column, so whatever was added last fell off the end of it silently —
+which is precisely what happened to the stage picker. The card no longer
+scrolls at any of the seven viewports: fixed head, one scrolling list, fixed
+foot holding everything a round cannot start without.
+
+**Rule 2 — nothing overlaps that should not.** Text runs (measured with a Range,
+so the box is the glyphs and not the block they sit in), replaced elements and
+controls may not share pixels unless they are ancestors of one another. Real
+layering is legitimate, so there is an allowlist keyed on `data-overlay`, six
+entries, each a sentence you can argue with: the scene canvas everything is
+painted over, the HUD, the strip's beat line, the results card's sticky footer,
+the P2/P3 badge on a hero tile, and the chips that sit on the camera preview. A
+mark only licenses overlapping things *outside* the marked subtree — marking
+the HUD does not excuse the HUD from overlapping itself — because an allowlist
+that exempts whole regions is an allowlist that gets deleted.
+
+**Rule 3 — no two heroes intersect.** `window.__api.heroBoxes()` hands back each
+visible hero's world-space bounding box straight out of the running scene, and
+the rule asserts 5 cm of clear air on X between every pair. Lane spacing is no
+longer a constant: `layoutStage()` solves it from the heroes' own measured
+widths, which the loader already reports, plus clearance and a half-pace depth
+stagger, so a cloud beside a skeleton gets the room the cloud needs. The
+clearance also covers the sideways weight shift, which is clamped so an
+enthusiastic lean cannot spend it.
+
+It walks players x stance x round length x all six sets x every phase, at the
+seven viewports, reusing one page per viewport and changing everything else
+through `window.__api` — no camera, and `?lite=1` so a software renderer is not
+spending the run on pixels nothing asserts. `--quick` keeps every viewport and
+phase and takes one of everything else.
+
+**`tools/partyfit.mjs` is gone.** Its assertions live here as `--rules=fit`:
+tap target size, six hero tiles, portrait size, card overflow, and the share of
+the screen the stage keeps. Two tools measuring the same card is two tools that
+eventually disagree about it. One of those assertions changed on the way in —
+a hero portrait is now measured on its short side, because the tiles cap their
+height and an `object-fit: contain` portrait 78px wide and 41px tall is a 41px
+portrait.

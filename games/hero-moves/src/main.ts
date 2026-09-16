@@ -200,17 +200,14 @@ camHint.dataset.overlay = 'preview-chip'
 /**
  * The foot of the lobby card: pick a set, then start.
  *
- * It is one sticky block rather than two, so that everything a round cannot
- * start without is on screen whatever the card is scrolled to. `data-overlay`
- * is what tools/screenaudit.mjs checks against its allowlist — this block is
- * *meant* to sit over the gallery behind it, and is the only thing in the lobby
- * that is.
+ * One fixed block holding everything a round cannot start without, outside the
+ * only part of the card that scrolls. It needs no overlap licence because it
+ * never covers anything — which is the point of the card no longer scrolling.
  */
 const menuFoot = el('div', { class: 'menu-foot' },
   el('div', { class: 'reel-label' }, 'Stage'),
   stageRow,
   el('div', { class: 'actions' }, startBtn))
-menuFoot.dataset.overlay = 'sticky-footer'
 
 menuLayer.append(
   el('div', { class: 'card' },
@@ -223,14 +220,15 @@ menuLayer.append(
       el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
     whoRow,
     gallery,
-    // The set picker and the start button ride the foot of the card together.
+    // The set picker and the start button are the foot of the card together.
     //
-    // The picker used to sit loose between the gallery and the sticky footer,
-    // which on a phone put it in the part of the card that scrolls — and the
-    // card is inside a page with `touch-action: none`, so on a real phone there
-    // is no gesture that scrolls it. It was not merely below the fold, it was
-    // unreachable, which is what tools/screenaudit.mjs now fails a build for.
-    // Anything a round cannot start without belongs in the footer.
+    // The picker used to sit loose between the gallery and a sticky footer, in
+    // the part of the card that scrolled. Measured at 385x560, that put it 103
+    // pixels past the bottom of the card — and, scrolled all the way down, in
+    // the sliver behind START DANCING. It is technically draggable into view;
+    // nothing on screen suggests there is anything below the button that starts
+    // the game, which is why six stages went unfound on a real phone. Anything
+    // a round cannot start without belongs where the card cannot hide it.
     menuFoot,
   ),
 )
@@ -264,7 +262,9 @@ function renderMenu() {
     el('button', {
       class: `seg${l.id === lengthId ? ' on' : ''}`,
       onclick: () => { lengthId = l.id; audio.uiClick(); renderMenu() },
-      title: `${l.moves} calls, about ${Math.round(roundSeconds(l.id, seated))} seconds`,
+      // The same rounded number the chip shows, or the tooltip and the label
+      // disagree about the same round by two seconds.
+      title: `${l.moves} calls, about ${lengthBlurb(l.id, seated)}`,
     },
       el('span', { class: 'seg-name' }, l.label),
       el('span', { class: 'seg-sub num' }, lengthBlurb(l.id, seated)))))
@@ -276,6 +276,10 @@ function renderMenu() {
   // the one screen whose whole job is choosing between them. Sharing the
   // gallery buys back two thirds of the space and spends it on the artwork.
   activeLane = Math.min(activeLane, playerCount - 1)
+  // Three chips across the card leave about 40px for a name, which renders
+  // "Crayon Kid" as "Cra…" — the thumbnail already says who it is and the
+  // gallery underneath spells it out. Two chips have room, so they keep it.
+  whoRow.className = `pick-who n${playerCount}`
   whoRow.hidden = playerCount < 2
   whoRow.replaceChildren(...Array.from({ length: playerCount }, (_, i) => {
     const hero = ROSTER[picks[i]]
@@ -359,13 +363,17 @@ pauseLayer.append(
 // ---- results ---------------------------------------------------------------
 const resultTitle = el('h1', {}, 'NICE MOVES!')
 const podium = el('div', { class: 'podium' })
-resultsLayer.append(
-  el('div', { class: 'card' }, resultTitle, podium,
-    el('div', { class: 'actions' },
-      el('button', { class: 'btn', onclick: () => beginRun() }, 'DANCE AGAIN'),
-      el('button', { class: 'btn secondary', onclick: () => showMenu() }, 'CHANGE HEROES'),
-    )),
-)
+/**
+ * The results card keeps its sticky footer: a podium of three plus two buttons
+ * is short enough that the card scrolling is harmless, and the two buttons ride
+ * the bottom of it. That is the one deliberate overlay left in a card, so it
+ * carries the mark tools/screenaudit.mjs checks against its allowlist.
+ */
+const resultActions = el('div', { class: 'actions' },
+  el('button', { class: 'btn', onclick: () => beginRun() }, 'DANCE AGAIN'),
+  el('button', { class: 'btn secondary', onclick: () => showMenu() }, 'CHANGE HEROES'))
+resultActions.dataset.overlay = 'sticky-footer'
+resultsLayer.append(el('div', { class: 'card' }, resultTitle, podium, resultActions))
 
 function showResults() {
   const ranked = game.ranking
@@ -504,7 +512,7 @@ const SWAY_LIMIT = 0.08
  *
  * Spacing solved from the widths alone already keeps the boxes apart, but the
  * roster is not a row of the same body: a five-pointed star's points and a
- * cloud's shoulder sit at heights nothing else on stage occupies, and a poses
+ * cloud's shoulder sit at heights nothing else on stage occupies, and a posed
  * arm swings past the measured rest box. Half a pace of depth means the worst
  * case is one hero passing behind another rather than through them.
  */

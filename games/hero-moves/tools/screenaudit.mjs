@@ -219,8 +219,11 @@ function auditPage(opts) {
 
   if (rules.has('1')) {
     // Remember where every scroller sits so the page is handed back untouched.
+    // Every element that *can* scroll, not just those that already are: this
+    // rule scrolls things into view to prove they can be reached, and a gallery
+    // left half-scrolled would follow the run into the next screen it audits.
     const scrollers = [...document.querySelectorAll('*')]
-      .filter((e) => e.scrollTop || e.scrollLeft)
+      .filter((e) => e.scrollHeight > e.clientHeight || e.scrollWidth > e.clientWidth)
       .map((e) => ({ e, top: e.scrollTop, left: e.scrollLeft }))
 
     for (const e of controls) {
@@ -395,8 +398,12 @@ for (const size of sizes) {
   // run on pixels nothing asserts.
   await page.goto(`${url}${url.includes('?') ? '&' : '?'}lite=1`, { waitUntil: 'load', timeout: 180000 })
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000 })
-  const backdrops = await page.evaluate(() => window.__api.backdrops())
-  const stages = list('stage', backdrops)
+  // A build that predates the debug surface still has to be auditable — that is
+  // how you show a gate failing on the bug it was written for. A missing hook
+  // is reported, never quietly skipped.
+  const backdrops = await page.evaluate(() => window.__api.backdrops?.() ?? null)
+  if (!backdrops) console.log('! this build does not expose __api.backdrops(); auditing the default set only')
+  const stages = list('stage', backdrops ?? ['default'])
 
   let state = { players: null, seated: null, length: null, phase: null, stage: null }
   for (const cell of plan.filter((c) => c.size === size)) {
@@ -410,7 +417,9 @@ for (const size of sizes) {
       }
       if (want.seated !== state.seated) await page.evaluate((v) => window.__api.setSeated(v), want.seated)
       if (want.length !== state.length) await page.evaluate((v) => window.__api.setLength(v), want.length)
-      if (want.stage !== state.stage) await page.evaluate((v) => window.__api.setBackdrop(v), want.stage)
+      if (backdrops && want.stage !== state.stage) {
+        await page.evaluate((v) => window.__api.setBackdrop(v), want.stage)
+      }
       // A phase is always re-entered: `stage()` restarts the routine, and the
       // menu has to be returned to first or the game refuses to start again.
       await page.evaluate(() => window.__api.menu())
@@ -427,8 +436,14 @@ for (const size of sizes) {
 
       // Rule 3 is the scene, not the DOM, so it is read separately.
       if (rules.has('3')) {
-        const boxes = await page.evaluate(() => window.__api.heroBoxes())
-        for (let i = 0; i < boxes.length; i++) {
+        const boxes = await page.evaluate(() => window.__api.heroBoxes?.() ?? null)
+        if (!boxes) {
+          found.push({
+            rule: 3, what: 'window.__api.heroBoxes()', where: 'the page',
+            detail: 'not exposed, so no hero can be shown clear of any other',
+          })
+        }
+        for (let i = 0; boxes && i < boxes.length; i++) {
           for (let j = i + 1; j < boxes.length; j++) {
             const a = boxes[i], b = boxes[j]
             if (!a || !b) continue
