@@ -29,18 +29,27 @@ export interface BackdropSpec {
   id: string
   /** Shown in the menu. Keep it short. */
   name: string
+  /**
+   * One word, for the lobby picker.
+   *
+   * All six sets have to be on screen at once — a picker that scrolls is a
+   * picker nobody finds, which is how three of these went unseen on a phone —
+   * and six chips across a 320px card is 37px each. "Rooftop Sunset" does not
+   * fit in 37px and "Sunset" does.
+   */
+  short: string
   /** One line for a tooltip. */
   blurb: string
 }
 
 /** Theatre first: it is the default. */
 export const BACKDROPS: BackdropSpec[] = [
-  { id: 'theatre', name: 'Theatre', blurb: 'Velvet curtains, footlights and a warm spot on the boards.' },
-  { id: 'space', name: 'Deep Space', blurb: 'A nebula, a ringed planet and a glass dance floor among the stars.' },
-  { id: 'nature', name: 'Forest Glade', blurb: 'A sunlit clearing with pollen in the beams and leaves on the breeze.' },
-  { id: 'circus', name: 'Big Top', blurb: 'Under the striped canvas, bunting overhead and confetti on the beat.' },
-  { id: 'reef', name: 'Coral Reef', blurb: 'Caustics on the sand, kelp swaying and bubbles rising to the surface.' },
-  { id: 'sunset', name: 'Rooftop Sunset', blurb: 'Golden hour over the skyline, with festoon lights strung round the roof.' },
+  { id: 'theatre', name: 'Theatre', short: 'Theatre', blurb: 'Velvet curtains, footlights and a warm spot on the boards.' },
+  { id: 'space', name: 'Deep Space', short: 'Space', blurb: 'A nebula, a ringed planet and a glass dance floor among the stars.' },
+  { id: 'nature', name: 'Forest Glade', short: 'Forest', blurb: 'A sunlit clearing with pollen in the beams and leaves on the breeze.' },
+  { id: 'circus', name: 'Big Top', short: 'Circus', blurb: 'Under the striped canvas, bunting overhead and confetti on the beat.' },
+  { id: 'reef', name: 'Coral Reef', short: 'Reef', blurb: 'Caustics on the sand, kelp swaying and bubbles rising to the surface.' },
+  { id: 'sunset', name: 'Rooftop Sunset', short: 'Sunset', blurb: 'Golden hour over the skyline, with festoon lights strung round the roof.' },
 ]
 
 type Factory = (q: Quality) => Backdrop

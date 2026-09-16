@@ -104,6 +104,9 @@ renderer.shadowMap.type = THREE.PCFShadowMap
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.05
+// The scene is what every panel in the game is painted over, so it is the first
+// entry in tools/screenaudit.mjs's overlap allowlist rather than 40,000 findings.
+renderer.domElement.dataset.overlay = 'scene'
 app.appendChild(renderer.domElement)
 
 const scene = new THREE.Scene()
@@ -157,7 +160,17 @@ const countRow = el('div', { class: 'segmented' })
 const stanceRow = el('div', { class: 'segmented' })
 const stageRow = el('div', { class: 'stage-row' })
 const whoRow = el('div', { class: 'pick-who' })
+/**
+ * The hero gallery: the one scrolling list in the lobby.
+ *
+ * `data-scroll` is the single entry in tools/screenaudit.mjs's rule-1
+ * allowlist. Everything else in the card has to be on screen at all times; the
+ * gallery is a list of six characters with the next row peeking out under the
+ * fold, which is an affordance a player reads. Nothing else gets that licence,
+ * which is why the stage picker could not stay where it was.
+ */
 const gallery = el('div', { class: 'gallery' })
+gallery.dataset.scroll = 'hero-gallery'
 const lengthRow = el('div', { class: 'segmented' })
 const menuCam = el('canvas', { width: 480, height: 270, class: 'menu-cam' }) as HTMLCanvasElement
 const camHint = el('p', { class: 'hint' }, '')
@@ -178,6 +191,11 @@ const camBtn = el('button', { class: 'cam-btn', onclick: () => void ensureCamera
  * the thing that made it.
  */
 const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, stanceRow, camBtn, camHint)
+// The stance switch, the camera button and the hint all sit *on* the preview
+// picture on purpose — that is where the evidence for the guess is.
+stanceRow.dataset.overlay = 'preview-chip'
+camBtn.dataset.overlay = 'preview-chip'
+camHint.dataset.overlay = 'preview-chip'
 
 /**
  * The foot of the lobby card: pick a set, then start.
@@ -275,14 +293,14 @@ function renderMenu() {
   stageRow.replaceChildren(...BACKDROPS.map((b) =>
     el('button', {
       class: `stage-pick${b.id === backdropId ? ' on' : ''}`,
-      title: b.blurb,
+      title: `${b.name} — ${b.blurb}`,
       onclick: () => {
         backdropId = b.id
         audio.uiClick()
         stage.setBackdrop(b.id)
         renderMenu()
       },
-    }, b.name)))
+    }, b.short)))
 
   gallery.className = `gallery lane-${activeLane}`
   gallery.replaceChildren(...ROSTER.map((r, k) => {
@@ -303,7 +321,11 @@ function renderMenu() {
     b.append(el('span', { class: 'gname' }, r.name))
     // Whoever else already has this hero, said out loud rather than by a
     // colour a player would have to learn.
-    for (const j of others) b.append(el('span', { class: `gbadge lane-${j}` }, `P${j + 1}`))
+    for (const j of others) {
+      const badge = el('span', { class: `gbadge lane-${j}` }, `P${j + 1}`)
+      badge.dataset.overlay = 'tile-badge'
+      b.append(badge)
+    }
     return b
   }))
 }
@@ -381,6 +403,10 @@ game.onPhase = (p: PartyPhase) => {
   hud.hud.hidden = p === 'menu' || p === 'results'
   hud.platesLayer.hidden = p === 'menu' || p === 'results'
   hud.countdownLayer.hidden = p !== 'countdown'
+  // The pause card covers the HUD, so the pause button under it is a control
+  // nobody can press — a tap in the middle of it lands on the scrim. RESUME on
+  // the card is the same command, said where it can be reached.
+  hud.pauseBtn.hidden = p === 'paused'
   if (p === 'results') { showResults(); audio.setMusic(false); celebrate() }
   if (p === 'menu') { hud.resetStrip(); audio.setMusic(false); idleDance() }
   if (p === 'dancing') audio.setMusic(true)

@@ -83,6 +83,25 @@ def _session() -> Session:
     return SessionLocal()
 
 
+def _safe_rollback(db: Optional[Session]) -> None:
+    """Rollback that cannot itself raise - used only on the failure path."""
+    if db is None:
+        return
+    try:
+        db.rollback()
+    except Exception:  # pragma: no cover
+        logger.debug("usage: rollback failed", exc_info=True)
+
+
+def _safe_close(db: Optional[Session]) -> None:
+    if db is None:
+        return
+    try:
+        db.close()
+    except Exception:  # pragma: no cover
+        logger.debug("usage: close failed", exc_info=True)
+
+
 def record_usage(
     ctx: Optional[UsageContext],
     provider: str,
@@ -118,8 +137,14 @@ def record_usage(
         meta.setdefault("not_billed_reason", "call failed; provider assumed not to bill")
         cost_usd_micros = 0
 
-    db = _session()
+    # NOTE: session creation is INSIDE the try. If the database itself is
+    # unreachable, `_session()` raises, and a bookkeeping failure must never
+    # propagate into the pipeline. (Caught by
+    # tests/test_usage.py::test_recording_never_raises_even_when_the_database_is_broken,
+    # which found this exact hole.)
+    db = None
     try:
+        db = _session()
         event = UsageEvent(
             user_id=ctx.user_id,
             creation_id=ctx.creation_id,
@@ -144,7 +169,7 @@ def record_usage(
         )
         return event_id
     except Exception:
-        db.rollback()
+        _safe_rollback(db)
         # Loud, with everything needed to reconstruct the row by hand.
         logger.error(
             "FAILED TO RECORD USAGE EVENT - cost is real but unrecorded. "
@@ -156,7 +181,7 @@ def record_usage(
         )
         return None
     finally:
-        db.close()
+        _safe_close(db)
 
 
 def finalize_usage(
@@ -176,8 +201,9 @@ def finalize_usage(
     if not event_id:
         return
 
-    db = _session()
+    db = None
     try:
+        db = _session()
         event = db.get(UsageEvent, event_id)
         if event is None:
             logger.warning("finalize_usage: event %s not found", event_id)
@@ -203,11 +229,11 @@ def finalize_usage(
         logger.info("usage: event %s finalized status=%s cost_micros=%s",
                     event_id, status, event.cost_usd_micros)
     except Exception:
-        db.rollback()
+        _safe_rollback(db)
         logger.error("FAILED TO FINALIZE USAGE EVENT %s (status=%s)",
                      event_id, status, exc_info=True)
     finally:
-        db.close()
+        _safe_close(db)
 
 
 @contextmanager
@@ -290,8 +316,9 @@ def finalize_usage_by_provider_ref(
     """
     if not provider_ref:
         return
-    db = _session()
+    db = None
     try:
+        db = _session()
         event = (
             db.query(UsageEvent)
             .filter(
@@ -315,7 +342,7 @@ def finalize_usage_by_provider_ref(
         )
         return
     finally:
-        db.close()
+        _safe_close(db)
 
     finalize_usage(
         event_id,

@@ -41,7 +41,21 @@
  * them is what the screen is for, and everything above the gallery is paying
  * rent for that space.
  */
-#title .card { padding: var(--space-4); gap: var(--space-2); }
+/*
+ * The lobby card does not scroll. Exactly one thing inside it does.
+ *
+ * It used to be one long scrolling column, and the last thing in that column —
+ * the stage picker — sat below the START button, past the end of everything a
+ * player could see. Nothing hinted it was there, so on a phone six of the
+ * game's stages effectively did not exist. A scrolling card hides whatever it
+ * runs out of room for, silently, and what it hides is whatever was added last.
+ *
+ * So the card is a fixed head, one declared scrolling list (the hero gallery,
+ * which is a list and reads as one), and a fixed foot holding everything a
+ * round cannot start without. tools/screenaudit.mjs rule 1 fails the build for
+ * any control clipped by anything that is not that one declared list.
+ */
+#title .card { padding: var(--space-4); gap: var(--space-2); overflow: hidden; }
 #title h1 { font-size: clamp(26px, 4.6vmin, 42px); }
 #title h1 em { font-size: .42em; letter-spacing: .14em; margin-bottom: .3em; }
 
@@ -109,7 +123,10 @@
 /* The two three-way switches share a row; see the note in main.ts. */
 .setting-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
 .setting { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.setting .seg { padding: .45em .3em; }
+ /* Six segments share one card width, so the type is solved from that width
+  * rather than from the viewport's smaller side: at 320px "Normal" was
+  * rendering as "Norm" behind an overflow clip. */
+.setting .seg { padding: .45em .3em; font-size: clamp(9px, 2.6vw, 14px); }
 /*
  * "Short" is not an answer to the only question anyone asks of a round length,
  * so each option carries its real duration. Two lines, because three options
@@ -148,6 +165,26 @@
 .who:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 
 .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+/*
+ * The one scroller in the lobby, and the only one the audit's allowlist knows
+ * about. It is a list of six things with the next row peeking out of the
+ * bottom, which is what tells a player there is more.
+ */
+#title .gallery {
+  /* Natural height where there is room, and the only thing that gives way
+     where there is not. `flex: 1 1 0` looked right and was not: in a card sized
+     to its content the basis of 0 contributes nothing to that content, so the
+     gallery collapsed onto its min-height and clipped every tile by 6px on a
+     1440x900 desktop — caught by rule 1, invisible to the eye. */
+  /* One whole row of heroes, never less: below this the gallery is clipping a
+     tile rather than scrolling it, which rule 1 fails the build for. */
+  flex: 0 1 auto; min-height: 76px;
+  overflow-y: auto; align-content: start;
+  /* The page sets touch-action: none to stop the whole thing bouncing; this is
+     the one place a drag is supposed to do something. */
+  touch-action: pan-y; overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
 .gtile {
   position: relative;
   pointer-events: auto; cursor: pointer;
@@ -190,15 +227,23 @@
  * stage behind the card *is* the preview, it changes as you tap, and a row of
  * postage stamps would have cost the hero gallery its size to say less.
  */
+/*
+ * Six sets, all six on screen, one row.
+ *
+ * This was a horizontal scroller, which put three of them past the right edge
+ * of a phone inside a card that was itself scrolled past — two scrollers deep,
+ * for a control with no affordance at either level. A grid has no hidden state.
+ * One row rather than two because the second row cost the hero gallery 39px it
+ * did not have, and the sets have one-word names for exactly this.
+ */
 .stage-row {
-  display: flex; gap: 6px; overflow-x: auto;
-  padding-bottom: 2px; scrollbar-width: none;
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
 }
-.stage-row::-webkit-scrollbar { display: none; }
 .stage-pick {
-  pointer-events: auto; cursor: pointer; flex: 0 0 auto;
-  min-height: 34px; padding: .4em .85em; border: 0; border-radius: 999px;
-  font: inherit; font-weight: 800; font-size: clamp(11px, 1.6vmin, 13px);
+  pointer-events: auto; cursor: pointer; min-width: 0;
+  min-height: 34px; padding: .4em .5em; border: 0; border-radius: 999px;
+  overflow: hidden; text-overflow: ellipsis;
+  font: inherit; font-weight: 800; font-size: clamp(9px, 2.3vw, 13px);
   white-space: nowrap;
   background: rgba(23, 16, 31, .07); color: rgba(23, 16, 31, .66);
 }
@@ -327,34 +372,31 @@
  * out of reach is the button that starts the game. It rides the bottom of the
  * card with a fade under it so the content it covers still reads as content.
  */
-#title .menu-foot, #results .actions {
+/* The results card is short enough to scroll harmlessly, and its buttons ride
+   the bottom of it. Opaque paper, matching the card exactly: at 97% this
+   gradient painted a paler rectangle that read as a rendering bug. */
+#results .actions {
   position: sticky; bottom: calc(var(--space-3) * -1); z-index: 1;
   padding-bottom: var(--space-1);
-  /* Opaque paper, matching the card exactly. The card used to be 97% opaque
-     and this gradient added another 97% on top of it, which painted a paler
-     rectangle behind the buttons — visible on every screenshot as a white box
-     that looked like a rendering bug. */
-  background: linear-gradient(rgba(253, 247, 236, 0), var(--paper) 12px);
+  background: linear-gradient(rgba(253, 247, 236, 0), var(--paper) 32%);
 }
 /*
- * Everything a round cannot start without lives down here.
- *
- * The set picker was loose in the scrolling part of the card, under the hero
- * gallery. On a 385x560 phone that put it 100px past the bottom of the card,
- * and `touch-action: none` on the body means there is no gesture that scrolls
- * a card on a phone — so six of the game's stages had no route to them at all.
- * A sticky foot is the only part of a scrolling card that is always there.
+ * Everything a round cannot start without lives down here, outside the scroller.
  */
 #title .menu-foot {
+  flex: 0 0 auto;
   display: flex; flex-direction: column; gap: 4px;
-  /* The top 12px is the fade, so nothing may be painted in it — the STAGE
-     label sat there on the first pass and read as printed over a hero's face. */
-  padding-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(23, 16, 31, .1);
 }
 
 @media (orientation: portrait) {
   #title .card { padding: var(--space-3) var(--space-4); gap: 6px; max-height: 68vh; }
   #title h1 { font-size: clamp(22px, 5vmin, 34px); }
+  /* Three columns of 100px images is 250px of gallery on a 380px card. The
+     artwork stays legible well under that, and the height buys back the rows
+     the picker used to hide. */
+  .gtile img { max-height: clamp(52px, 8.5vh, 92px); }
   .menu-camwrap { aspect-ratio: auto; height: clamp(52px, 8.5vh, 92px); }
   .stance .seg { padding: .2em .5em; }
   /* Three chips across a phone leave no room for a name; the thumbnail says
@@ -369,10 +411,82 @@
   .menu-camwrap .hint { display: block; font-size: 11px; }
   .who img { width: 26px; height: 26px; }
   .who-name { display: none; }
-  #title .card { gap: 6px; }
   .gname { font-size: 9px; }
-  .menu-camwrap { height: clamp(56px, 11vh, 90px); }
+  .menu-camwrap { height: clamp(40px, 8.5vh, 70px); }
+  /*
+   * The lobby card cannot scroll any more, so on a short screen every pixel it
+   * wants has to come from somewhere it is not needed. Measured on a 320x480
+   * phone, where the head and foot wanted 53px more than the card has and the
+   * hero gallery was paying for all of it:
+   *
+   *  - the presenter line over the title, and a smaller title
+   *  - the headings over the two switches: "1P 2P 3P" and "Short 25s" say what
+   *    they are, and the headings were 16px of saying it twice
+   *  - tighter card padding, gaps and portraits
+   *
+   * 70vh rather than 68 takes the last ten from the stage, which still keeps
+   * the 30% the fit rule holds it to.
+   */
+  #title .card { gap: 4px; padding: 10px 16px; }
+  #title h1 em { display: none; }
+  #title h1 { font-size: clamp(18px, 4vmin, 24px); }
+  .setting .reel-label { display: none; }
+  .setting .seg { padding: .3em .2em; }
+  #title .menu-foot { padding-top: 5px; }
+  /* 52px is the floor a hero portrait stops being a smudge at — measured, and
+     the number the fit rule holds every viewport to. The cap above it exists to
+     stop a 100px-wide column becoming a 100px-tall one on a phone. */
+  .gtile img { max-height: clamp(52px, 8.5vh, 72px); }
+  .stage-pick { min-height: 28px; padding: .3em .2em; }
+  .who { min-height: 38px; }
+  /* The results card holds a podium of three and two buttons, and on a 320x480
+     phone that left the celebrating heroes 28% of the screen — under the 30%
+     the fit rule holds every card to, and the heroes are the prize. */
+  #results .card { padding: 10px 16px; gap: var(--space-2); }
+  .podium { gap: 4px; }
+  .podium-row { padding: .2em .45em; gap: 8px; }
+  .podium-row img { width: 34px; height: 34px; }
+  #results h1 { font-size: clamp(20px, 4.4vmin, 30px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .p-grade.show { animation: none; opacity: 1; }
+}
+
+/*
+ * Only portrait gives the stage its height back. In landscape the card is a
+ * column beside the heroes, so capping its height there just shrinks the hero
+ * gallery for nothing — measured, it took a 900x430 card from 386px to 301px.
+ */
+@media (orientation: portrait) and (max-height: 620px) {
+  #title .card { max-height: 70vh; }
+}
+
+/*
+ * The last stop: a 320x480 phone, where one full row of hero portraits at the
+ * size they stop being smudges needs eleven pixels the head of the card is
+ * holding. Measured, not guessed — the head gives them back in fives and ones.
+ */
+@media (orientation: portrait) and (max-height: 500px) {
+  #title h1 { font-size: 15px; }
+  /* The preview can be a thin strip once there is a picture in it, but while
+     it is empty it is holding a 40px button, and a box shorter than its own
+     control is exactly what rule 1 fails a build for. */
+  .menu-camwrap { height: clamp(34px, 7.4vh, 70px); }
+  .menu-camwrap.off { height: 46px; }
+  .who { min-height: 34px; }
+  .who img { width: 24px; height: 24px; }
+  #title .menu-foot { padding-top: 4px; }
+  .gname { font-size: 8px; }
+}
+
+/*
+ * Below 360px the card is 294px wide, which is 37px per round-length segment
+ * and 40px per stage chip. At that width the horizontal padding is the only
+ * thing standing between "Normal" and "Norma…", so it goes: a chip that has to
+ * truncate its own one-word label is worse than a chip with tight shoulders.
+ */
+@media (max-width: 360px) {
+  .setting .seg { padding: .45em .1em; letter-spacing: -.01em; }
+  /* "Theatre" is the longest of the six and the one that decides the column. */
+  .stage-pick { padding: .3em .1em; letter-spacing: -.01em; font-size: 8.5px; }
 }

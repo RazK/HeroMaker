@@ -50,6 +50,14 @@ export class PartyHud {
   private tiles = new Map<number, HTMLElement>()
 
   constructor() {
+    // Every one of these floats over the 3D stage by design, which is what the
+    // 'hud' entry in tools/screenaudit.mjs's overlap allowlist says. The mark
+    // only licenses overlapping things *outside* the marked subtree — two
+    // pieces of HUD landing on each other is still a finding.
+    this.hud.dataset.overlay = 'hud'
+    this.plates.dataset.overlay = 'hud'
+    this.countdownLayer.dataset.overlay = 'hud'
+    this.strip.dataset.overlay = 'strip'
     this.countdownLayer.append(this.countdownNum)
     for (let i = 0; i < 3; i++) {
       const score = el('div', { class: 'p-score num' }, '0')

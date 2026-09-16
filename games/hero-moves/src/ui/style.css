@@ -121,7 +121,10 @@ h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
 /* Which of the two heroes a tap in the grid applies to. */
 .segmented { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(23,16,31,.09); }
 .seg {
-  pointer-events: auto; cursor: pointer; flex: 1;
+  /* min-width: 0 or the longest label sets the floor and the row overflows its
+     card: measured at 320x480, "Long / 1:15" pushed 2px past the right edge and
+     was clipped. A segmented control divides the space it has. */
+  pointer-events: auto; cursor: pointer; flex: 1 1 0; min-width: 0; overflow: hidden;
   font: inherit; font-weight: 800; font-size: clamp(12px, 1.8vmin, 15px);
   padding: .45em .6em; border: 0; border-radius: 999px;
   background: transparent; color: rgba(23,16,31,.62);

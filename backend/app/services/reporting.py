@@ -50,7 +50,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import pricing
-from app.models import Creation, CreationStep, CreditTransaction, Payment, UsageEvent, User
+from app.models import Creation, CreditTransaction, Payment, UsageEvent, User
 
 logger = logging.getLogger(__name__)
 
