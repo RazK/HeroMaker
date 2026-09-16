@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import User, Creation
+from app.services import ledger
 
 
 def list_users_with_stats(db: Session) -> List[Dict[str, Any]]:
@@ -64,8 +65,32 @@ def update_user(
     if not user:
         return None
     
-    if credits is not None:
-        user.credits = credits
+    if credits is not None and int(credits) != int(user.credits or 0):
+        # An admin setting a balance is a credit movement like any other, so it
+        # goes through the ledger rather than overwriting the column. Writing
+        # `user.credits = n` directly would silently desynchronise the cache
+        # from the ledger and make the balance unauditable again - exactly the
+        # bug the ledger exists to remove.
+        #
+        # `allow_negative=True`: an admin may deliberately set a balance lower
+        # than what has already been spent (a clawback). The ledger records it
+        # as an explicit admin_adjust with the before/after in metadata, so the
+        # anomaly is visible instead of impossible.
+        target = int(credits)
+        previous = int(user.credits or 0)
+        ledger.post(
+            db=db,
+            user_id=user_id,
+            delta=target - previous,
+            reason="admin_adjust",
+            metadata={
+                "source": "admin.update_user",
+                "previous_balance": previous,
+                "requested_balance": target,
+            },
+            allow_negative=True,
+        )
+        db.refresh(user)
     if is_admin is not None:
         user.is_admin = is_admin
     if name is not None:

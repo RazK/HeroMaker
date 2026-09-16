@@ -110,6 +110,18 @@
 .setting-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
 .setting { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .setting .seg { padding: .45em .3em; }
+/*
+ * "Short" is not an answer to the only question anyone asks of a round length,
+ * so each option carries its real duration. Two lines, because three options
+ * share half a card and "Short · 25s" on one line is 70px of text in a 48px
+ * button on a phone.
+ */
+.seg-name { display: block; line-height: 1.05; }
+.seg-sub {
+  display: block; line-height: 1.05;
+  font-size: .78em; font-weight: 700; opacity: .72;
+}
+.seg.on .seg-sub { opacity: .85; }
 
 .pick-who { display: flex; gap: var(--space-2); }
 .who {
@@ -315,14 +327,29 @@
  * out of reach is the button that starts the game. It rides the bottom of the
  * card with a fade under it so the content it covers still reads as content.
  */
-#title .actions, #results .actions {
+#title .menu-foot, #results .actions {
   position: sticky; bottom: calc(var(--space-3) * -1); z-index: 1;
   padding-bottom: var(--space-1);
   /* Opaque paper, matching the card exactly. The card used to be 97% opaque
      and this gradient added another 97% on top of it, which painted a paler
      rectangle behind the buttons — visible on every screenshot as a white box
      that looked like a rendering bug. */
-  background: linear-gradient(rgba(253, 247, 236, 0), var(--paper) 32%);
+  background: linear-gradient(rgba(253, 247, 236, 0), var(--paper) 12px);
+}
+/*
+ * Everything a round cannot start without lives down here.
+ *
+ * The set picker was loose in the scrolling part of the card, under the hero
+ * gallery. On a 385x560 phone that put it 100px past the bottom of the card,
+ * and `touch-action: none` on the body means there is no gesture that scrolls
+ * a card on a phone — so six of the game's stages had no route to them at all.
+ * A sticky foot is the only part of a scrolling card that is always there.
+ */
+#title .menu-foot {
+  display: flex; flex-direction: column; gap: 4px;
+  /* The top 12px is the fade, so nothing may be painted in it — the STAGE
+     label sat there on the first pass and read as printed over a hero's face. */
+  padding-top: 12px;
 }
 
 @media (orientation: portrait) {

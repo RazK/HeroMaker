@@ -1,6 +1,7 @@
+import logging
 import os
 from pathlib import Path
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config.settings import DATABASE_URL
@@ -31,6 +32,36 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+_logger = logging.getLogger(__name__)
+
+if engine.dialect.name == "sqlite":
+    @event.listens_for(engine, "connect")
+    def _sqlite_connection_pragmas(dbapi_connection, connection_record):
+        """
+        Make SQLite survive concurrent writers.
+
+        The credit ledger (app/services/ledger.py) performs conditional UPDATEs
+        that several requests can attempt at once. SQLite serialises writers,
+        but by default a writer that loses the race fails INSTANTLY with
+        "database is locked" rather than waiting.
+
+        - busy_timeout: wait up to 10s for a lock instead of failing at once.
+        - WAL: readers no longer block the writer, which removes most of the
+          contention in the first place.
+
+        Neither changes any query's semantics; both are no-ops on Postgres,
+        which is what production runs. Failures here are logged and ignored -
+        a filesystem that cannot do WAL (some network mounts) must not stop the
+        app from starting.
+        """
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA busy_timeout = 10000")
+            cursor.execute("PRAGMA journal_mode = WAL")
+            cursor.close()
+        except Exception as exc:  # pragma: no cover - environment dependent
+            _logger.warning("Could not apply SQLite pragmas: %s", exc)
 
 def get_db():
     db = SessionLocal()

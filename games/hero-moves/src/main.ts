@@ -7,12 +7,15 @@ import { PlayCamera } from './stage/camera'
 import { loadHero, type Hero } from './avatar/loader'
 import { PoseTracker } from './pose/tracker'
 import { PoseSolver } from './pose/solver'
-import { PartyGame, LENGTHS, makeRoutine, type PartyPhase, type LengthId, type Player } from './game/party'
+import {
+  PartyGame, LENGTHS, makeRoutine, roundSeconds, lengthBlurb,
+  type PartyPhase, type LengthId, type Player,
+} from './game/party'
 import { Performer, loadAllClips } from './anim/performer'
 import { PartyHud } from './ui/partyhud'
 import { Audio } from './core/audio'
 import { el } from './ui/dom'
-import { damp } from './core/math'
+import { clamp, damp } from './core/math'
 import { bodyConfidence, type Skeleton } from './pose/keypoints'
 import { classify } from './pose/vocab'
 
@@ -176,6 +179,21 @@ const camBtn = el('button', { class: 'cam-btn', onclick: () => void ensureCamera
  */
 const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, stanceRow, camBtn, camHint)
 
+/**
+ * The foot of the lobby card: pick a set, then start.
+ *
+ * It is one sticky block rather than two, so that everything a round cannot
+ * start without is on screen whatever the card is scrolled to. `data-overlay`
+ * is what tools/screenaudit.mjs checks against its allowlist — this block is
+ * *meant* to sit over the gallery behind it, and is the only thing in the lobby
+ * that is.
+ */
+const menuFoot = el('div', { class: 'menu-foot' },
+  el('div', { class: 'reel-label' }, 'Stage'),
+  stageRow,
+  el('div', { class: 'actions' }, startBtn))
+menuFoot.dataset.overlay = 'sticky-footer'
+
 menuLayer.append(
   el('div', { class: 'card' },
     el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves'),
@@ -187,9 +205,15 @@ menuLayer.append(
       el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
     whoRow,
     gallery,
-    el('div', { class: 'reel-label' }, 'Stage'),
-    stageRow,
-    el('div', { class: 'actions' }, startBtn),
+    // The set picker and the start button ride the foot of the card together.
+    //
+    // The picker used to sit loose between the gallery and the sticky footer,
+    // which on a phone put it in the part of the card that scrolls — and the
+    // card is inside a page with `touch-action: none`, so on a real phone there
+    // is no gesture that scrolls it. It was not merely below the fold, it was
+    // unreachable, which is what tools/screenaudit.mjs now fails a build for.
+    // Anything a round cannot start without belongs in the footer.
+    menuFoot,
   ),
 )
 
@@ -214,12 +238,18 @@ function renderMenu() {
       title: v ? 'Arms only — no calls that need your legs' : 'Whole body',
     }, label)))
 
+  // The switch says how long the round is, in seconds, because "Short" is not
+  // an answer to the only question anyone asks of it. The number is solved
+  // from the real generator (see roundSeconds) rather than written down, and
+  // it moves with the stance, since a seated routine draws from a smaller pool.
   lengthRow.replaceChildren(...LENGTHS.map((l) =>
     el('button', {
       class: `seg${l.id === lengthId ? ' on' : ''}`,
       onclick: () => { lengthId = l.id; audio.uiClick(); renderMenu() },
-      title: l.blurb,
-    }, l.label)))
+      title: `${l.moves} calls, about ${Math.round(roundSeconds(l.id, seated))} seconds`,
+    },
+      el('span', { class: 'seg-name' }, l.label),
+      el('span', { class: 'seg-sub num' }, lengthBlurb(l.id, seated)))))
 
   // One big gallery for everybody, and a row saying who is choosing.
   //
@@ -433,15 +463,63 @@ async function loadLane(i: number, heroIndex: number) {
   })
 }
 
-/** Lay the visible heroes out across the stage, evenly, facing front. */
+/**
+ * Clear air between two neighbouring heroes' own bounding boxes, in metres.
+ *
+ * It has to cover the sideways weight shift as well as the gap you can see:
+ * each hero slides up to SWAY_LIMIT with its player's hips, and two neighbours
+ * can lean toward each other at once, so the clearance is more than twice that.
+ */
+const LANE_CLEARANCE = 0.22
+/** How far a hero may drift sideways with its player. See LANE_CLEARANCE. */
+const SWAY_LIMIT = 0.08
+/**
+ * A slight stagger in depth, alternating lane by lane.
+ *
+ * Spacing solved from the widths alone already keeps the boxes apart, but the
+ * roster is not a row of the same body: a five-pointed star's points and a
+ * cloud's shoulder sit at heights nothing else on stage occupies, and a poses
+ * arm swings past the measured rest box. Half a pace of depth means the worst
+ * case is one hero passing behind another rather than through them.
+ */
+const LANE_DEPTH = 0.3
+/** Stand-in width for a lane whose hero has not downloaded yet. */
+const TYPICAL_WIDTH = 1.7
+
+/** Where each visible lane stands, solved from the heroes actually on stage. */
+function laneSpots(): Array<{ x: number; z: number }> {
+  const widths = lanes.slice(0, playerCount).map((l) => l.hero?.width ?? TYPICAL_WIDTH)
+  const xs: number[] = []
+  let x = 0
+  for (let i = 0; i < playerCount; i++) {
+    // Each neighbour pair is pushed apart by its own two half-widths, so a
+    // cloud beside a skeleton gets the room the cloud needs and no more.
+    if (i > 0) x += (widths[i - 1] + widths[i]) / 2 + LANE_CLEARANCE
+    xs.push(x)
+  }
+  const mid = (xs[0] + xs[playerCount - 1]) / 2
+  return xs.map((v, i) => ({ x: v - mid, z: playerCount > 1 ? (i % 2) * LANE_DEPTH : 0 }))
+}
+
+/**
+ * Lay the visible heroes out across the stage, facing front.
+ *
+ * The gap used to be a constant — 0.55 m in portrait — against heroes the
+ * loader measures at 1.5-1.7 m across. Two of them shared the same cubic metre
+ * of stage, which on a phone is not "close together", it is one body growing
+ * out of another, and it was reported as exactly that. The spacing is now the
+ * heroes' own measured widths plus clearance, and tools/screenaudit.mjs reads
+ * the world boxes back out of the scene and fails the build if they ever touch.
+ */
 function layoutStage() {
-  const portrait = app.clientHeight > app.clientWidth
-  const gap = playerCount === 1 ? 0 : portrait ? 0.55 : 1.05
+  const spots = laneSpots()
   for (let i = 0; i < MAX_PLAYERS; i++) {
-    const x = (i - (playerCount - 1) / 2) * gap
-    lanes[i].root.position.set(x, 0, 0)
-    // A touch of inward turn so three heroes read as a group on a stage.
-    lanes[i].root.rotation.y = playerCount > 1 ? -x * 0.1 : 0
+    const spot = spots[i] ?? { x: 0, z: 0 }
+    lanes[i].root.position.set(spot.x, 0, spot.z)
+    // A touch of inward turn so three heroes read as a group on a stage. Capped
+    // rather than proportional: the line is twice as wide as it used to be, and
+    // the same factor would have the outer two facing each other.
+    lanes[i].root.rotation.y = playerCount > 1 ? -clamp(spot.x / 1.4, -1, 1) * 0.1 : 0
   }
 }
 
@@ -509,6 +587,7 @@ function resize() {
   const card = document.querySelector('.layer.sheet:not([hidden]) .card')
   const headroom = card ? card.getBoundingClientRect().top : h * 0.45
   const widest = Math.max(...heroes.map((x) => x.width))
+  const zs = lanes.slice(0, playerCount).map((l) => l.root.position.z)
   const spread = playerCount > 1
     ? Math.abs(lanes[playerCount - 1].root.position.x - lanes[0].root.position.x)
     : 0
@@ -520,7 +599,14 @@ function resize() {
   play.frame({
     heroHeight: Math.max(...heroes.map((x) => x.height)),
     spanX: spread + widest * (portrait && playerCount > 1 ? 0.6 : 1),
-    spanZ: widest * 0.5,
+    // What may never be cropped, however small that leaves everyone. Lanes are
+    // now spaced by the heroes' own widths, so the line is wide enough that
+    // the portrait cap — which exists to let fingertips go — would happily cut
+    // an outer hero's *body* off the side of a phone. Fingertips are expendable
+    // and bodies are not, so the floor is the line plus a torso's worth of each
+    // end hero.
+    spanXMin: spread + widest * 0.34,
+    spanZ: widest * 0.5 + (Math.max(...zs) - Math.min(...zs)),
     aspect: w / h, portrait, headroom, viewportH: h, viewportW: w,
   })
 }
@@ -614,8 +700,11 @@ renderer.setAnimationLoop(() => {
     // hips: a rig whose arms move and whose body never does reads as a puppet.
     // Small on purpose — the hero has to stay in its own lane.
     if (sk && !lane.anim?.active) {
+      // Clamped, because the lanes are only spaced far enough apart to stay
+      // clear of each other by LANE_CLEARANCE, and an enthusiastic lean must
+      // not be able to spend it.
       const hip = (sk.leftHip.x + sk.rightHip.x) / 2
-      lane.sway = damp(lane.sway, (hip - 0.5) * 0.5, 4, dt)
+      lane.sway = damp(lane.sway, clamp((hip - 0.5) * 0.5, -SWAY_LIMIT, SWAY_LIMIT), 4, dt)
     } else {
       lane.sway = damp(lane.sway, 0, 4, dt)
     }
@@ -809,6 +898,13 @@ function startLoadingTracker() {
   start: (seed?: number) => beginRun(seed),
   setPlayers: (n: number) => { playerCount = n; applyCount(); renderMenu() },
   setLength: (id: LengthId) => { lengthId = id; renderMenu() },
+  /** The round lengths and how long each one really is, for the menu gate. */
+  lengths: () => LENGTHS.map((l) => ({
+    id: l.id, label: l.label, moves: l.moves,
+    seconds: +roundSeconds(l.id, seated).toFixed(2), shown: lengthBlurb(l.id, seated),
+  })),
+  /** Every set the picker offers, so a harness can walk all six. */
+  backdrops: () => BACKDROPS.map((b) => b.id),
   pick: (lane: number, hero: number) => { picks[lane] = hero; void loadLane(lane, hero); renderMenu() },
   pause: () => game.pause(clock),
   resume: () => game.resume(clock),
@@ -848,6 +944,22 @@ function startLoadingTracker() {
       slots: song.slots.map((s) => ({ id: s.move.id, startBeat: s.startBeat, beats: s.beats })),
     }
   },
+  /**
+   * Every visible hero's world-space bounding box, for the overlap gate.
+   *
+   * Two heroes sharing the same cubic metre of stage was a shipped bug and a
+   * bad one — three-year-olds' characters growing out of each other — so it is
+   * read straight out of the live scene rather than recomputed from the numbers
+   * that put them there. tools/screenaudit.mjs rule 3 asserts these boxes are
+   * clear of each other on X at every player count, stance, length and stage.
+   */
+  heroBoxes: () => lanes.slice(0, playerCount).map((l, i) => {
+    if (!l.hero) return null
+    l.root.updateMatrixWorld(true)
+    const b = new THREE.Box3().setFromObject(l.root)
+    const round = (v: THREE.Vector3) => [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]
+    return { lane: i, min: round(b.min), max: round(b.max), width: +l.hero.width.toFixed(3) }
+  }),
   /** Hero measurements and the solved camera, for the framing harnesses. */
   debugFraming: () => ({
     heroes: lanes.slice(0, playerCount).map((l) => l.hero && {

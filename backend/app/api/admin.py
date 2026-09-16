@@ -14,8 +14,14 @@ from app.schemas.admin import (
 )
 from app.services.auth import get_current_user
 from app.services.users import list_users_with_stats, update_user, delete_user
+from app.api import finance
 
 router = APIRouter()
+
+# Finance: margin report (JSON + server-rendered HTML) and the credit ledger's
+# audit views. Kept in its own module because it is a different concern from
+# user/coupon CRUD, but mounted here so everything admin lives under one prefix.
+router.include_router(finance.router, prefix="/finance", tags=["admin-finance"])
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

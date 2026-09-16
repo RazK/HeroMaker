@@ -52,6 +52,16 @@ export interface Framing {
   heroHeight: number
   /** How far apart the pair sits across the stage, including their own width. */
   spanX: number
+  /**
+   * The part of that span that may never leave the frame.
+   *
+   * Portrait deliberately crops the outermost fingertips (see
+   * PORTRAIT_WIDTH_CAP), and once lanes are spaced by the heroes' own widths
+   * that licence is enough to push a whole hero off the side. This is the
+   * line plus a torso at each end: the cap may cut into `spanX`, never past
+   * this. Defaults to `spanX`, i.e. crop nothing.
+   */
+  spanXMin?: number
   /** How far apart the pair sits in depth. Matters once the camera swings. */
   spanZ: number
   aspect: number
@@ -122,7 +132,10 @@ export class PlayCamera {
     const forHeight = f.heroHeight / fill / (2 * halfHeight)
     const forWidth = span / fillW / (2 * halfHeight * f.aspect)
 
-    const cap = f.portrait ? forHeight * PORTRAIT_WIDTH_CAP : Infinity
+    // The cap lets the width solution go; the floor says how far. Solving the
+    // floor through the same fill keeps both in one unit — camera distance.
+    const forWidthMin = (f.spanXMin ?? f.spanX) / fillW / (2 * halfHeight * f.aspect)
+    const cap = f.portrait ? Math.max(forHeight * PORTRAIT_WIDTH_CAP, forWidthMin) : Infinity
     this.distance = clamp(Math.min(Math.max(forHeight, forWidth), cap), 3, 16)
     // Step the line sideways by however much world one third of a frame is at
     // this distance, so three heroes clear the card as reliably as one does.

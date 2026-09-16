@@ -19,11 +19,11 @@ import { VOCAB, SEATED_IDS, classify, type Pose } from '../pose/vocab'
 
 export type PartyPhase = 'menu' | 'countdown' | 'dancing' | 'paused' | 'results'
 
-/** Round lengths offered in the menu. Beats, at the routine's tempo. */
+/** Round lengths offered in the menu. Calls, at the routine's tempo. */
 export const LENGTHS = [
-  { id: 'short', label: 'Short', moves: 8, blurb: '~30 sec' },
-  { id: 'normal', label: 'Normal', moves: 16, blurb: '~1 min' },
-  { id: 'long', label: 'Long', moves: 32, blurb: '~2 min' },
+  { id: 'short', label: 'Short', moves: 8 },
+  { id: 'normal', label: 'Normal', moves: 16 },
+  { id: 'long', label: 'Long', moves: 32 },
 ] as const
 export type LengthId = (typeof LENGTHS)[number]['id']
 
@@ -121,6 +121,54 @@ export function makeRoutine(moves: number, seed = 1, seated = false): Song {
   }
   return buildSong(steps, { bpm: 100, leadInBeats: 8, lookup: CALLS })
 }
+
+/**
+ * How long a round of each length really lasts, in seconds.
+ *
+ * The menu said "Short / Normal / Long", which tells a parent deciding whether
+ * there is time before dinner precisely nothing, and the blurbs that sat beside
+ * them in this file — "~30 sec", "~1 min", "~2 min" — were guesses that had
+ * drifted a long way from the generator: a "Long" round is a little over a
+ * minute, not two.
+ *
+ * So the number is measured from `makeRoutine` rather than written down. It is
+ * not a constant: the last third of the calls are held for two beats instead of
+ * four, four times in ten, so a short round is anywhere from 36 to 40 beats
+ * including the eight-beat lead-in. The mean over the seeds the game draws from
+ * is what gets shown, which is the honest answer to "how long is this".
+ */
+const DURATION_SEEDS = 64
+const durationCache = new Map<string, number>()
+export function roundSeconds(length: LengthId, seated = false): number {
+  const key = `${length}:${seated}`
+  const cached = durationCache.get(key)
+  if (cached !== undefined) return cached
+  const spec = LENGTHS.find((l) => l.id === length) ?? LENGTHS[1]
+  let total = 0
+  for (let i = 0; i < DURATION_SEEDS; i++) {
+    // Spread the seeds the way the game does — it seeds from the clock.
+    const song = makeRoutine(spec.moves, (i * 2654435761) >>> 0, seated)
+    total += (song.leadInBeats + song.totalBeats) * secondsPerBeat(song.bpm)
+  }
+  const seconds = total / DURATION_SEEDS
+  durationCache.set(key, seconds)
+  return seconds
+}
+
+/**
+ * A duration a child can read. Rounded to five seconds, because the routine is
+ * randomly generated and a number like "38s" claims a precision it does not
+ * have.
+ */
+export function formatDuration(seconds: number): string {
+  const s = Math.round(seconds / 5) * 5
+  if (s < 60) return `${s}s`
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+/** "Short · 40s" — the label the menu shows, and what the harnesses assert. */
+export const lengthBlurb = (length: LengthId, seated = false) =>
+  formatDuration(roundSeconds(length, seated))
 
 export class PartyGame {
   song: Song = makeRoutine(16)
