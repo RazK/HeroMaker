@@ -201,11 +201,34 @@ const AUDIT = () => {
     }
   }
 
+  // ---- rule 4: the hero shot is above the fold ---------------------------
+  // The product owner's complaint, made measurable: with the page scrolled to
+  // the top, the live card and the primary call to action must be wholly
+  // inside the first screen, and pricing must not have started yet.
+  const winH = window.innerHeight
+  const seen = (sel) => {
+    const el = document.querySelector(sel)
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return {
+      top: Math.round(r.top), bottom: Math.round(r.bottom),
+      width: Math.round(r.width), height: Math.round(r.height),
+    }
+  }
+  const fold = {
+    winH,
+    scrolled: Math.round(window.scrollY),
+    card: seen('[data-hero-card]'),
+    cta: seen('[data-primary-cta]'),
+    pricing: seen('#pricing'),
+  }
+
   return {
     runCount: runs.length,
     contrast,
     clipped,
     overlaps: overlaps.slice(0, 20),
+    fold,
     horizontalScroll: docW > winW + 1 ? { docW, winW } : null,
   }
 }
@@ -223,17 +246,54 @@ const SAMPLE = async (page, rect) => {
   return shot
 }
 
+// A throwaway static server rooted at this folder. The card fetches a `.vrm`
+// and dynamically imports a sibling module; both are refused on a file://
+// origin, so the mockups have to be audited the way they are actually served.
+const TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+  '.glb': 'model/gltf-binary', '.vrm': 'model/gltf-binary',
+  '.vrma': 'model/gltf-binary', '.woff2': 'font/woff2',
+}
+
+const server = createServer((req, res) => {
+  const rel = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^([/\\.]+)/, '')
+  const path = join(DIR, rel || 'index.html')
+  let stat
+  try { stat = statSync(path) } catch { res.writeHead(404).end('not found'); return }
+  if (stat.isDirectory()) { res.writeHead(404).end('not found'); return }
+  res.writeHead(200, {
+    'content-type': TYPES[extname(path).toLowerCase()] || 'application/octet-stream',
+    'content-length': stat.size,
+    'cache-control': 'no-store',
+  })
+  createReadStream(path).pipe(res)
+})
+
+await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+const ORIGIN = `http://127.0.0.1:${server.address().port}`
+
 const browser = await chromium.launch()
 let concepts = 0
 
 for (const file of files) {
-  const url = 'file://' + join(DIR, file)
+  const url = `${ORIGIN}/${file}`
   const findings = []
 
   for (const vp of VIEWPORTS) {
     const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } })
     await page.goto(url, { waitUntil: 'load' })
-    await page.waitForTimeout(400)
+    // Give the card a chance to go live so the screenshots show the avatar
+    // rather than its still. A card that never arrives is not a failure here -
+    // that is exactly the fallback, and rule 4 measures the box either way.
+    await page.waitForFunction(
+      () => document.querySelector('[data-hero-card].is-live, [data-hero-card].is-still'),
+      null, { timeout: 25000 },
+    ).catch(() => {})
+    await page.waitForTimeout(700)
+    await page.evaluate(() => window.scrollTo(0, 0))
 
     const r = await page.evaluate(AUDIT)
 
@@ -254,11 +314,33 @@ for (const file of files) {
       )
     }
 
+    // rule 4 - only at the two sizes the brief names.
     if (vp.name === 'phone' || vp.name === 'desktop') {
-      await page.screenshot({
-        path: join(DIR, `${basename(file, '.html')}-${vp.name}.png`),
-        fullPage: true,
-      })
+      const f = r.fold
+      if (!f.card) {
+        findings.push(`[${vp.name}] no live hero card on the page ([data-hero-card])`)
+      } else if (f.card.height < 120 || f.card.width < 120) {
+        findings.push(`[${vp.name}] the hero card is ${f.card.width}x${f.card.height}px - too small to be the hero shot`)
+      } else if (f.card.bottom > f.winH || f.card.top < 0) {
+        findings.push(
+          `[${vp.name}] the hero card is not in the first screen: ` +
+          `${f.card.top}..${f.card.bottom} of ${f.winH}px (needs scrolling)`)
+      }
+      if (!f.cta) {
+        findings.push(`[${vp.name}] no primary call to action marked ([data-primary-cta])`)
+      } else if (f.cta.bottom > f.winH || f.cta.top < 0) {
+        findings.push(
+          `[${vp.name}] the primary call to action is below the fold: ` +
+          `${f.cta.top}..${f.cta.bottom} of ${f.winH}px`)
+      }
+      if (f.pricing && f.pricing.top < f.winH) {
+        findings.push(
+          `[${vp.name}] pricing starts in the first screen at ${f.pricing.top}px of ${f.winH}px - it belongs well below`)
+      }
+
+      const stem = join(DIR, `${basename(file, '.html')}-${vp.name}`)
+      await page.screenshot({ path: `${stem}-fold.png` })
+      await page.screenshot({ path: `${stem}.png`, fullPage: true })
     }
     await page.close()
   }
@@ -275,6 +357,7 @@ for (const file of files) {
 }
 
 await browser.close()
+await new Promise((resolve) => server.close(resolve))
 console.log()
 console.log(concepts === 0
   ? `All ${files.length} concept(s) pass.`
