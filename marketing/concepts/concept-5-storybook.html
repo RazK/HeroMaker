@@ -41,15 +41,15 @@ body{
   position:absolute;left:50%;top:-22vh;width:150vw;max-width:1700px;height:70vh;
   transform:translateX(-50%);
   background:
-    radial-gradient(48% 62% at 50% 46%, rgba(255,193,114,.075), rgba(255,193,114,0) 70%),
-    radial-gradient(60% 70% at 20% 58%, rgba(143,227,206,.045), rgba(143,227,206,0) 70%),
-    radial-gradient(55% 70% at 82% 48%, rgba(163,120,255,.065), rgba(163,120,255,0) 72%);
+    radial-gradient(48% 62% at 50% 46%, rgba(255,193,114,.14), rgba(255,193,114,0) 70%),
+    radial-gradient(60% 70% at 20% 58%, rgba(143,227,206,.085), rgba(143,227,206,0) 70%),
+    radial-gradient(55% 70% at 82% 48%, rgba(163,120,255,.12), rgba(163,120,255,0) 72%);
   filter:blur(18px);
   animation:breathe 14s ease-in-out infinite;
 }
 .sky .topfade{
   position:absolute;left:0;right:0;top:0;height:320px;
-  background:linear-gradient(to bottom, rgba(7,11,28,.97), rgba(7,11,28,.88) 38%, rgba(7,11,28,0));
+  background:linear-gradient(to bottom, rgba(7,11,28,.96), rgba(7,11,28,.7) 40%, rgba(7,11,28,0));
 }
 .sky .horizon{
   position:absolute;left:0;right:0;bottom:0;height:420px;
@@ -155,9 +155,10 @@ h2{
   display:flex;gap:10px 26px;flex-wrap:wrap;justify-content:center;
   margin:24px auto 0;color:var(--ink-2);font-size:15px;max-width:70ch;text-align:center;
 }
-.magic-foot span{display:inline-flex;align-items:center;gap:8px}
+.magic-foot > span{display:inline-flex;align-items:flex-start;gap:9px;text-align:left}
+.magic-foot .t{display:block}
 .magic-foot b{color:var(--ink);font-weight:600}
-.tick{width:16px;height:16px;flex:none}
+.tick{width:16px;height:16px;flex:none;margin-top:4px}
 
 /* ---------- doors ---------- */
 .doors{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
@@ -238,16 +239,17 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
   .prices{grid-template-columns:1fr}
   .magic-grid{grid-template-columns:1fr;gap:10px}
   .cross{padding:0}
-  .cross svg{width:92px;height:40px;transform:rotate(90deg);margin:28px 0 30px}
+  .cross svg{width:120px;height:44px;transform:rotate(90deg);margin:34px 0 36px}
 }
 @media (max-width:560px){
   body{font-size:16px}
+  .nav{flex-direction:column;align-items:flex-start;gap:12px}
+  .nav .navlinks{gap:18px}
   section{padding:44px 0}
   .steps{grid-template-columns:1fr}
   .parent-grid{grid-template-columns:1fr}
   .magic{padding:20px 14px 24px;border-radius:22px}
-  .magic-foot{flex-direction:column;align-items:center;gap:12px}
-  .magic-foot span{text-align:left}
+  .magic-foot{flex-direction:column;align-items:flex-start;gap:12px;max-width:34ch}
   .parents{padding:22px 14px;border-radius:22px}
   .btn{width:100%}
   .cta-row{flex-direction:column}
@@ -354,7 +356,8 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
             <g fill="#E8873C"><circle cx="150" cy="83" r="4.5"/><circle cx="170" cy="83" r="4.5"/></g>
             <path d="M148 95q12 11 24 0" fill="none" stroke="#C0392B" stroke-width="5" stroke-linecap="round"/>
             <g fill="none" stroke="#E8B23C" stroke-width="5" stroke-linecap="round">
-              <path d="M266 48v16M258 56h16M262 40l-6 6M272 62l6 6"/>
+              <circle cx="266" cy="52" r="11"/>
+              <path d="M266 30v-8M266 82v-8M244 52h-8M296 52h-8M250 36l-6-6M282 68l6 6M282 36l6-6M250 68l-6 6"/>
             </g>
             <g fill="none" stroke="#5FB9A8" stroke-width="5" stroke-linecap="round">
               <path d="M36 266q10-16 20 0t20 0"/>
@@ -365,19 +368,22 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
         </div>
 
         <div class="cross" aria-hidden="true">
-          <svg viewBox="0 0 92 40">
+          <svg viewBox="0 0 120 44">
             <defs>
-              <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#8FE3CE" stop-opacity=".25"/>
-                <stop offset="55%" stop-color="#FFC172" stop-opacity=".95"/>
-                <stop offset="100%" stop-color="#FFE3B8"/>
+              <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="4" y1="22" x2="114" y2="22">
+                <stop offset="0%" stop-color="#8FE3CE" stop-opacity=".18"/>
+                <stop offset="40%" stop-color="#8FE3CE" stop-opacity=".7"/>
+                <stop offset="78%" stop-color="#FFC172"/>
+                <stop offset="100%" stop-color="#FFE7C6"/>
               </linearGradient>
             </defs>
-            <path d="M4 20h72" stroke="url(#beam)" stroke-width="4" stroke-linecap="round" fill="none"/>
-            <path d="M70 12l14 8-14 8z" fill="#FFE3B8"/>
-            <circle cx="24" cy="20" r="3.4" fill="#FFF3DE" style="animation:drift 5s ease-in-out infinite"/>
-            <circle cx="46" cy="10" r="2.4" fill="#8FE3CE" opacity=".9" style="animation:drift 7s ease-in-out infinite"/>
-            <circle cx="56" cy="31" r="2.2" fill="#FFC172" style="animation:drift 6s ease-in-out infinite"/>
+            <path d="M4 22h96" stroke="url(#beam)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+            <path d="M96 13l18 9-18 9z" fill="#FFE7C6"/>
+            <g fill="#FFF3DE">
+              <circle cx="30" cy="22" r="3.2" style="animation:drift 5s ease-in-out infinite"/>
+              <circle cx="58" cy="11" r="2.3" fill="#8FE3CE" style="animation:drift 7s ease-in-out infinite"/>
+              <circle cx="74" cy="34" r="2.1" fill="#FFC172" style="animation:drift 6s ease-in-out infinite"/>
+            </g>
           </svg>
           <span class="word">6 minutes</span>
         </div>
@@ -402,9 +408,8 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
             </defs>
             <rect x="0" y="0" width="320" height="300" rx="12" fill="#090E26"/>
             <rect x="0" y="0" width="320" height="300" rx="12" fill="url(#halo)"/>
-            <g stroke="#1E2A5C" stroke-width="1.4">
-              <path d="M36 262h248M64 276h192M88 288h144"/>
-            </g>
+            <ellipse cx="160" cy="258" rx="118" ry="26" fill="none" stroke="#1C2758" stroke-width="1.4"/>
+            <ellipse cx="160" cy="258" rx="82" ry="18" fill="none" stroke="#1C2758" stroke-width="1.2"/>
             <ellipse cx="160" cy="260" rx="66" ry="11" fill="#FFC172" opacity=".20"/>
             <g style="animation:drift 6.5s ease-in-out infinite">
               <g stroke="url(#limb)" stroke-width="15" stroke-linecap="round" fill="none">
@@ -443,8 +448,8 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
       </div>
 
       <p class="magic-foot">
-        <span><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.6l4 4L14 4" fill="none" stroke="#8FE3CE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> <b>Keeps the odd bits</b> — horns, seven fingers, all of it</span>
-        <span><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.6l4 4L14 4" fill="none" stroke="#8FE3CE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> <b>A real file</b> — standard VRM, yours to download</span>
+        <span><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.6l4 4L14 4" fill="none" stroke="#8FE3CE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t"><b>Keeps the odd bits</b> — horns, seven fingers, all of it</span></span>
+        <span><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.6l4 4L14 4" fill="none" stroke="#8FE3CE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t"><b>A real file</b> — standard VRM, yours to download</span></span>
       </p>
     </div>
   </section>

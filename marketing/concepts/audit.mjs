@@ -5,8 +5,9 @@
  * re-measures all of them the same way, so "concept 2 passed" and "concept 4
  * passed" mean the same thing.
  *
- * Three rules, and they are the three faults that have been reported from a
- * real phone on this project before:
+ * Four rules. The first three are the faults that have been reported from a
+ * real phone on this project before; the fourth is the one the product owner
+ * reported from the top of the page.
  *
  *   1. CONTRAST   every run of text reaches 4.5:1 against what is actually
  *                 behind it (3:1 at 24px+, or 19px+ bold). Backgrounds are
@@ -15,18 +16,34 @@
  *                 brightest and darkest point, and judged on the worse one.
  *   2. FITS       nothing is cut off, and the page never scrolls sideways.
  *   3. NO OVERLAP no two runs of text sit on top of each other.
+ *   4. ABOVE THE  the live drawing-to-hero card and the primary call to action
+ *      FOLD       are both wholly inside the first screen, with no scrolling,
+ *                 and pricing is not. Measured from the element boxes with the
+ *                 page scrolled to the top - not eyeballed from a screenshot.
  *
  * Text is measured as glyphs via Range.getClientRects(), not as element boxes -
  * an element box is mostly empty space and overlapping boxes are normal.
  *
+ * The pages are served over HTTP rather than opened as file:// URLs, because
+ * the card fetches a 1.1 MB `.vrm` and a `file://` origin refuses that. The
+ * server is a throwaway rooted at this folder, on an ephemeral port, up only
+ * for the run. That is also how a human should preview them:
+ *
+ *   npx serve marketing/concepts     # or: python3 -m http.server -d ...
+ *
  *   node marketing/concepts/audit.mjs            # all concepts
  *   node marketing/concepts/audit.mjs concept-2  # one of them
+ *
+ * Screenshots written next to each concept: `-desktop.png` / `-phone.png` are
+ * the whole page, `-desktop-fold.png` / `-phone-fold.png` are only the first
+ * screen, so rule 4 can be judged on its own.
  *
  * Exit code is the number of concepts with findings.
  */
 import { createRequire } from 'node:module'
-import { readdirSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { createServer } from 'node:http'
+import { createReadStream, readdirSync, statSync } from 'node:fs'
+import { join, basename, extname, normalize } from 'node:path'
 
 // Playwright is a devDependency of the game, not of this folder - there is no
 // package.json here and there should not be one for five static mockups. Resolve

@@ -6,6 +6,29 @@ AI-powered character creation pipeline that transforms 2D images into 3D VRM ava
 
 > Transform drawings into animated 3D characters in minutes
 
+## Live
+
+| What | Where |
+|------|-------|
+| **The product** | <https://heromaker.up.railway.app> |
+| API docs | <https://heromaker.up.railway.app/docs> |
+| Health | <https://heromaker.up.railway.app/health> |
+| Public gallery (JSON) | <https://heromaker.up.railway.app/api/creations/> |
+| **Hero Moves** (webcam party game) | <https://razk.github.io/HeroMaker/hero-moves/> |
+| Hero Moves, camera-free prototype | <https://razk.github.io/HeroMaker/hero-moves/reel.html> |
+
+The product deploys from Railway (`backend/`, `frontend/`,
+`vrm-converter-service/`). Hero Moves deploys separately to GitHub Pages from
+`staging`, via `.github/workflows/pages.yml` — the game needs a camera, and a
+camera needs a real https origin.
+
+A finished hero's files are served from
+`/api/files/{user_id}/{creation_id}/{filename}`, where the useful names are
+`original.jpg` (the drawing as photographed), `rendered.png` (the AI render)
+and `avatar.vrm` (the rigged result). Prefix a filename with `thumb_` for a
+thumbnail. That is how the marketing material in `marketing/` was assembled
+from real heroes rather than mock-ups.
+
 ## Quick Start with Docker
 
 **Prerequisites:**

@@ -86,3 +86,9 @@ marketing/photos/needs-consent/*.jpg
 # decides whether any photo of a person is published; anonymising lowers the
 # risk but does not establish permission, so these stay out of git too.
 marketing/photos/anonymised/*.jpg
+
+# Concept mockup assets are COPIES of files already tracked elsewhere:
+# the avatars and clips live in games/hero-moves/assets/, and the drawing crop
+# in marketing/photos/. audit.mjs serves them from their real homes, so the
+# copies are a local convenience, not a second source of truth.
+marketing/concepts/assets/
