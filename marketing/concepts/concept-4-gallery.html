@@ -18,8 +18,9 @@
     --muted:#545454;        /*  7.5:1 on white */
     --rule:#D8D3CC;
     --rule-strong:#B9B2A9;
-    --accent:#9E2B0E;       /*  7.5:1 on white */
-    --display:'Fraunces', Georgia, 'Times New Roman', serif;
+    --accent:#7A2E86;       /*  7.5:1 on white */
+    --display:'Barriecito','Comic Sans MS',system-ui,cursive;
+    --serif:'Fraunces', Georgia, 'Times New Roman', serif;
     --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     --gutter:16px;
     --measure:34em;
@@ -390,12 +391,153 @@
   }
   .foot-links a:hover{ color:var(--ink); border-bottom-color:var(--ink); }
   .copyright{ font-size:0.8125rem; color:var(--muted); font-weight:500; width:100%; }
+
+  h1,h2{ font-family:var(--display); font-weight:400; letter-spacing:0; }
+  h1{ font-size:clamp(29px,3.2vw,44px); line-height:1.16; }
+  h2{ font-size:clamp(24px,2.6vw,33px); line-height:1.2; }
+  .wordmark{ font-family:var(--display); font-weight:400; display:flex; align-items:center; gap:10px; }
+  .wordmark img{ width:34px; height:34px; flex:none; border-radius:8px; background:#FAF8F5; }
+  .hero{ padding-top:22px; padding-bottom:20px; }
+  .hero h1{ max-width:16ch; }
+  .hero .lede{ margin-top:14px; max-width:44ch; }
+  .cta-row{ margin-top:0; }
+  .hero-note{ margin-top:12px; max-width:54ch; }
+  @media (max-width:560px){
+    .hero{ padding-top:14px; padding-bottom:14px; }
+    .hero h1{ font-size:25px; line-height:1.14; }
+    .hero .lede{ font-size:14.5px; line-height:1.5; margin-top:9px; }
+    .fold-grid{ gap:12px; }
+    .livecard{ --lc-pad:11px; }
+    .hero .eyebrow{ margin-bottom:10px; }
+    .hero .hero-note{ margin-top:10px; font-size:13px; }
+  }
+  .heroes{ margin-top:28px; }
+  :root{
+    --lc-card-bg:var(--paper);
+    --lc-card-border:1px solid var(--rule);
+    --lc-shadow:none;
+    --lc-radius:2px;
+    --lc-media-radius:0;
+    --lc-pad:14px;
+    --lc-media-bg:var(--paper-warm);
+    --lc-media-border:1px solid var(--rule);
+    --lc-stage-bg:linear-gradient(170deg,#F7F5F2 0%,#EFECE7 62%,#E6E2DB 100%);
+    --lc-cap-ink:var(--ink);
+    --lc-sub-ink:var(--muted);
+    --lc-tile-bg:var(--paper);
+    --lc-tile-border:1px solid var(--rule);
+    --lc-tile-media:var(--paper-warm);
+  }
+
+  /* ---------- the live hero card ----------
+     One card, two halves: a real drawing on the left, a real pipeline VRM on
+     the right, animating. The 3D half is driven by hero-card.js, which
+     compiles the game's own retargeting out of games/hero-moves/src/anim/.
+     Every --lc-* token below is set per concept so the card belongs to its
+     page; the geometry is the same everywhere so the fold budget is too. */
+  .fold-grid{display:grid;gap:16px;align-content:start}
+  .fold-copy,.fold-act{min-width:0}
+  @media(min-width:960px){
+    .fold-grid{
+      grid-template-columns:1.02fr .98fr;
+      grid-template-areas:"copy card" "act card";
+      column-gap:clamp(28px,3.6vw,56px);row-gap:20px;align-items:start;
+    }
+    .fold-copy{grid-area:copy}.livecard{grid-area:card}.fold-act{grid-area:act}
+  }
+  .livecard{
+    margin:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--lc-gap,10px);
+    background:var(--lc-card-bg);border:var(--lc-card-border,none);
+    border-radius:var(--lc-radius,16px);padding:var(--lc-pad,12px);
+    box-shadow:var(--lc-shadow,none);
+  }
+  .livecard-half{display:flex;flex-direction:column;min-width:0}
+  .livecard-media{
+    position:relative;overflow:hidden;aspect-ratio:3/4;
+    border-radius:var(--lc-media-radius,10px);
+    background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
+  }
+  .livecard-drawing{width:100%;height:100%;object-fit:cover}
+  .herocard{background:var(--lc-stage-bg,var(--lc-media-bg,#fff))}
+  .herocard-still{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    padding:7%;transition:opacity .45s ease;
+  }
+  .herocard canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .herocard.is-live .herocard-still{opacity:0}
+  .livecard-cap{margin:9px 1px 1px}
+  .livecard-cap b{
+    display:block;font-size:13px;line-height:1.25;font-weight:700;
+    color:var(--lc-cap-ink);letter-spacing:0;
+  }
+  .livecard-cap span{
+    display:block;margin-top:2px;font-size:12.5px;line-height:1.35;
+    color:var(--lc-sub-ink);
+  }
+  @media(min-width:1100px){
+    .livecard-cap b{font-size:14.5px}.livecard-cap span{font-size:13.5px}
+  }
+  /* No WebGL, a failed fetch, or a reader who asked for stillness: the card
+     keeps the render of the same avatar rather than going blank. */
+  @media(prefers-reduced-motion:reduce){
+    .herocard canvas{display:none}
+    .herocard.is-live .herocard-still{opacity:1}
+  }
+
+
+  @media(max-width:560px){
+    .fold-grid{gap:14px}
+    .livecard-media{aspect-ratio:4/5}
+    .livecard-cap b{font-size:12.5px}
+    .livecard-cap span{font-size:12px}
+  }
+
+  /* ---------- the real roster ---------- */
+  .heroes{
+    list-style:none;margin:26px 0 0;padding:0;
+    display:grid;grid-template-columns:repeat(2,1fr);gap:12px;
+  }
+  @media(min-width:640px){.heroes{grid-template-columns:repeat(3,1fr);gap:14px}}
+  @media(min-width:1020px){.heroes{grid-template-columns:repeat(6,1fr)}}
+  .heroes li{
+    margin:0;text-align:center;padding:10px 8px 12px;
+    background:var(--lc-tile-bg,transparent);border:var(--lc-tile-border,none);
+    border-radius:var(--lc-radius,16px);min-width:0;
+  }
+  .heroes img{
+    width:100%;height:auto;aspect-ratio:1;object-fit:contain;
+    background:var(--lc-tile-media,transparent);border-radius:calc(var(--lc-radius,16px) - 6px);
+  }
+  .heroes b{display:block;margin-top:8px;font-size:13.5px;line-height:1.25;color:var(--lc-cap-ink)}
+  .heroes span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
+<style>
+/* The same Barriecito file Google Fonts serves for `family=Barriecito`, kept
+   beside the page so the brand face is there when fonts.googleapis.com is not
+   (offline, or behind a proxy that re-terminates TLS). SIL Open Font License. */
+@font-face{
+  font-family:'Barriecito';font-style:normal;font-weight:400;font-display:swap;
+  src:url('assets/barriecito-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/": "https://cdn.jsdelivr.net/npm/three@0.185.1/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js",
+    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.min.js"
+  }
+}
+</script>
+<script type="module" src="hero-card.js"></script>
 </head>
 <body>
 
 <header class="wrap site-head">
-  <a class="wordmark" href="#">HeroMaker</a>
+  <a class="wordmark" href="#top"><img src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async"><span>HeroMaker</span></a>
   <nav class="site-nav" aria-label="Primary">
     <a href="#doors">Studio</a>
     <a href="#doors">My Heroes</a>
@@ -405,142 +547,83 @@
 </header>
 
 <!-- 1. HERO -->
-<section class="hero wrap" aria-labelledby="hero-h">
-  <p class="eyebrow"><span class="mark">—</span>&nbsp;&nbsp;Drawing to 3D, in about six minutes</p>
-  <h1 id="hero-h">Your child's drawing, rebuilt as a hero that stands up and moves.</h1>
-  <p class="lede">Photograph the thing they drew this morning. We render it, build it in three dimensions, and rig it with a skeleton — so by the afternoon they are dancing in front of the webcam as the character they invented.</p>
-  <div class="cta-row">
-    <a class="btn" href="#pricing">Turn a drawing into a hero</a>
-    <a class="textlink" href="#how">See how it works</a>
+<section class="hero wrap" id="top" aria-labelledby="hero-h">
+  <div class="fold-grid">
+    <div class="fold-copy">
+      <p class="eyebrow"><span class="mark">&mdash;</span>&nbsp;&nbsp;Drawing to 3D, in about six minutes</p>
+      <h1 id="hero-h">Your child's drawing, rebuilt as a hero that stands up and moves.</h1>
+      <p class="lede">Photograph the thing they drew this morning. We build it in three dimensions and rig it with a skeleton &mdash; the hero on the right is one of those files, playing motion capture here.</p>
+    </div>
+      <figure class="livecard" data-hero-shot>
+        <div class="livecard-half">
+          <div class="livecard-media">
+            <img class="livecard-drawing" src="assets/drawing-superbear-crop.jpg" width="848" height="1222"
+                 fetchpriority="high" decoding="async"
+                 alt="A child's crayon drawing of a super bear in a red cape, photographed at a HeroMaker event">
+          </div>
+          <p class="livecard-cap"><b>The drawing</b><span>Crayon, photographed at an event.</span></p>
+        </div>
+        <div class="livecard-half">
+          <div class="livecard-media herocard" data-hero-card
+               data-vrm="assets/Yummy_Bear.opt.vrm"
+               data-clip="assets/Dance_Charleston.glb"
+               data-rim="#7A2E86" data-key="#FFFFFF" data-ambient="0.85"
+               data-shadow="0.22" data-shadow-color="#2B2722"
+               data-zoom="1.45" data-outline="0">
+            <img class="herocard-still" src="assets/Yummy_Bear.thumb.webp" width="512" height="512"
+                 decoding="async"
+                 alt="Yummy Bear, a caped super-bear, rendered from the VRM file">
+          </div>
+          <p class="livecard-cap"><b>The hero, live</b><span>A real VRM, moving now.</span></p>
+        </div>
+      </figure>
+    <div class="fold-act">
+      <div class="cta-row">
+        <a class="btn" data-primary-cta href="#doors">Turn a drawing into a hero</a>
+        <a class="textlink" href="#how">See how it works</a>
+      </div>
+      <p class="hero-note">Both halves are real: a drawing from one of our events, a hero from the live gallery. Shown side by side, not the same child's pair.</p>
+    </div>
   </div>
-  <p class="hero-note">Works today, in the browser. No app, no headset, no waiting list.</p>
 </section>
 
-<!-- 2. THE TRANSFORMATION -->
+<!-- 2. THE REAL HEROES -->
 <section class="wrap rule-top" aria-labelledby="tr-h">
-  <p class="eyebrow">The transformation</p>
-  <h2 id="tr-h" style="margin-top:20px;max-width:18ch;">One page of felt-tip, given a body.</h2>
-  <p class="lede" style="margin-top:24px;">Nothing is redrawn by an adult and nothing is swapped for a template. The proportions your child chose — the enormous head, the four fingers, the cape that is wider than the body — survive into the model.</p>
-
-  <div class="plates">
-    <div class="plate">
-      <figure>
-        <div class="frame">
-          <svg class="inner" viewBox="0 0 400 500" role="img" aria-label="A child's felt-tip drawing of a caped hero with a large head and a sun in the corner">
-            <rect width="400" height="500" fill="#FFFDF9"></rect>
-            <!-- sun -->
-            <g stroke="#9E2B0E" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="0.9">
-              <circle cx="330" cy="74" r="22"></circle>
-              <path d="M330 38 v-14 M330 124 v14 M294 74 h-15 M381 74 h14 M305 49 l-10-10 M355 99 l11 11 M355 49 l11-10 M305 99 l-10 11"></path>
-            </g>
-            <!-- ground -->
-            <path d="M34 432 C120 425 210 440 366 430" stroke="#101010" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.75"></path>
-            <!-- cape -->
-            <path d="M138 196 C96 250 92 330 116 392 C150 372 172 372 196 384 L196 200 Z" fill="#9E2B0E" opacity="0.16"></path>
-            <path d="M138 196 C96 250 92 330 116 392 C150 372 172 372 196 384" stroke="#9E2B0E" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
-            <!-- head -->
-            <path d="M200 44 C132 44 104 96 106 136 C108 180 146 208 200 208 C256 208 292 178 293 136 C295 94 266 44 200 44 Z" stroke="#101010" stroke-width="4.6" fill="#FFFFFF" stroke-linejoin="round"></path>
-            <!-- eyes + smile -->
-            <circle cx="170" cy="126" r="8.5" fill="#101010"></circle>
-            <circle cx="232" cy="126" r="8.5" fill="#101010"></circle>
-            <path d="M162 160 C184 184 220 184 240 158" stroke="#101010" stroke-width="4.4" fill="none" stroke-linecap="round"></path>
-            <!-- hair tufts -->
-            <path d="M146 62 l-14 -26 M200 40 l2 -30 M254 62 l16 -26" stroke="#101010" stroke-width="4" fill="none" stroke-linecap="round"></path>
-            <!-- body -->
-            <path d="M166 208 C160 268 160 340 168 396 L236 396 C244 338 244 266 238 208 Z" stroke="#101010" stroke-width="4.6" fill="#FFFFFF" stroke-linejoin="round"></path>
-            <!-- star on chest -->
-            <path d="M202 250 l13 28 30 4 -22 21 6 30 -27 -15 -27 15 6 -30 -22 -21 30 -4 Z" fill="#9E2B0E" opacity="0.85"></path>
-            <!-- arms -->
-            <path d="M168 232 C124 246 104 222 96 190" stroke="#101010" stroke-width="4.6" fill="none" stroke-linecap="round"></path>
-            <path d="M238 232 C284 244 306 220 316 186" stroke="#101010" stroke-width="4.6" fill="none" stroke-linecap="round"></path>
-            <g stroke="#101010" stroke-width="3.6" fill="none" stroke-linecap="round">
-              <path d="M96 190 l-12 -18 M96 190 l-19 -4 M96 190 l-4 -20"></path>
-              <path d="M316 186 l13 -18 M316 186 l19 -3 M316 186 l4 -20"></path>
-            </g>
-            <!-- legs -->
-            <path d="M180 396 L176 452 M222 396 L228 452" stroke="#101010" stroke-width="4.6" stroke-linecap="round"></path>
-            <path d="M176 452 l-26 6 M228 452 l26 6" stroke="#101010" stroke-width="4.6" stroke-linecap="round" fill="none"></path>
-          </svg>
-        </div>
-        <figcaption class="platecap">
-          <p class="caption"><strong>Drawing</strong></p>
-          <p class="caption">Felt-tip on printer paper, photographed on a kitchen table. Uploaded exactly as it was.</p>
-        </figcaption>
-      </figure>
-    </div>
-
-    <div class="arrowcell" aria-hidden="true">
-      <svg viewBox="0 0 120 24" fill="none">
-        <path d="M0 12 H104" stroke="#9E2B0E" stroke-width="2"></path>
-        <path d="M94 4 L112 12 L94 20" stroke="#9E2B0E" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
-      </svg>
-    </div>
-
-    <div class="plate">
-      <figure>
-        <div class="frame render">
-          <svg class="inner" viewBox="0 0 400 500" role="img" aria-label="Placeholder render of the finished three-dimensional hero standing on a turntable">
-            <defs>
-              <linearGradient id="g-body" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#FFFFFF"></stop>
-                <stop offset="0.55" stop-color="#EDE9E2"></stop>
-                <stop offset="1" stop-color="#CFC8BD"></stop>
-              </linearGradient>
-              <linearGradient id="g-cape" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#B7472C"></stop>
-                <stop offset="1" stop-color="#8A2409"></stop>
-              </linearGradient>
-              <radialGradient id="g-floor" cx="0.5" cy="0.5" r="0.5">
-                <stop offset="0" stop-color="#B6AEA2" stop-opacity="0.55"></stop>
-                <stop offset="1" stop-color="#B6AEA2" stop-opacity="0"></stop>
-              </radialGradient>
-            </defs>
-            <ellipse cx="200" cy="446" rx="132" ry="26" fill="url(#g-floor)"></ellipse>
-            <!-- cape -->
-            <path d="M142 200 C98 258 96 352 124 410 C156 392 178 390 200 400 L200 204 Z" fill="url(#g-cape)"></path>
-            <!-- legs -->
-            <g stroke-linecap="round" fill="none">
-              <path d="M186 366 V434 M224 366 V434" stroke="#9A9186" stroke-width="32"></path>
-              <path d="M186 366 V434 M224 366 V434" stroke="#E9E5DE" stroke-width="29"></path>
-            </g>
-            <ellipse cx="183" cy="446" rx="19" ry="9" fill="#E3DED6" stroke="#9A9186" stroke-width="1.2"></ellipse>
-            <ellipse cx="227" cy="446" rx="19" ry="9" fill="#E3DED6" stroke="#9A9186" stroke-width="1.2"></ellipse>
-            <!-- torso -->
-            <path d="M166 212 C160 272 162 342 172 392 L240 392 C250 342 252 272 246 212 Z" fill="url(#g-body)" stroke="#9A9186" stroke-width="1.2"></path>
-            <path d="M206 258 l12 26 28 4 -20 20 5 28 -25 -14 -25 14 5 -28 -20 -20 28 -4 Z" fill="#B7472C" opacity="0.9"></path>
-            <!-- arms -->
-            <g stroke-linecap="round" fill="none">
-              <path d="M172 236 C138 250 116 230 108 198" stroke="#9A9186" stroke-width="29"></path>
-              <path d="M240 236 C274 250 296 230 304 198" stroke="#9A9186" stroke-width="29"></path>
-              <path d="M172 236 C138 250 116 230 108 198" stroke="#EDE9E2" stroke-width="26"></path>
-              <path d="M240 236 C274 250 296 230 304 198" stroke="#EDE9E2" stroke-width="26"></path>
-            </g>
-            <circle cx="108" cy="197" r="16" fill="#E9E5DE" stroke="#9A9186" stroke-width="1.2"></circle>
-            <circle cx="304" cy="197" r="16" fill="#E9E5DE" stroke="#9A9186" stroke-width="1.2"></circle>
-            <!-- head -->
-            <path d="M200 52 C136 52 110 102 112 140 C114 182 150 210 200 210 C252 210 288 182 290 140 C292 100 262 52 200 52 Z" fill="url(#g-body)" stroke="#9A9186" stroke-width="1.2"></path>
-            <ellipse cx="172" cy="132" rx="9" ry="10" fill="#2B2722"></ellipse>
-            <ellipse cx="230" cy="132" rx="9" ry="10" fill="#2B2722"></ellipse>
-            <path d="M166 164 C188 188 220 188 238 162" stroke="#2B2722" stroke-width="4" fill="none" stroke-linecap="round"></path>
-            <!-- rig hint -->
-            <g stroke="#6F675C" stroke-width="1" opacity="0.5">
-              <path d="M200 96 v284 M200 232 L118 202 M200 232 L296 202 M200 372 L186 430 M200 372 L224 430"></path>
-              <g fill="#6F675C">
-                <circle cx="200" cy="96" r="3.4"></circle><circle cx="200" cy="232" r="3.4"></circle>
-                <circle cx="200" cy="304" r="3.4"></circle><circle cx="200" cy="372" r="3.4"></circle>
-                <circle cx="118" cy="202" r="3.4"></circle><circle cx="296" cy="202" r="3.4"></circle>
-                <circle cx="186" cy="430" r="3.4"></circle><circle cx="224" cy="430" r="3.4"></circle>
-              </g>
-            </g>
-          </svg>
-        </div>
-        <figcaption class="platecap">
-          <p class="caption"><strong>Render — placeholder</strong></p>
-          <p class="caption">The finished VRM, turning on a plain floor, with its 22-bone skeleton showing. Real capture to replace this frame.</p>
-        </figcaption>
-      </figure>
-    </div>
-  </div>
+  <p class="eyebrow">The roster</p>
+  <h2 id="tr-h" style="margin-top:20px;max-width:20ch;">Every one of these was a drawing.</h2>
+  <p class="lede" style="margin-top:20px;">Six heroes made at real events, rendered from the VRM files themselves. The proportions your child chose &mdash; the enormous head, the four fingers, the cape that is wider than the body &mdash; survive into the model.</p>
+    <ul class="heroes">
+      <li>
+        <img src="assets/Yummy_Bear.thumb.webp" alt="Yummy Bear, caped super-bear, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Yummy Bear</b><span>caped super-bear</span>
+      </li>
+      <li>
+        <img src="assets/Superstar.thumb.webp" alt="Superstar, a star with legs, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Superstar</b><span>a star with legs</span>
+      </li>
+      <li>
+        <img src="assets/Gingerella.thumb.webp" alt="Gingerella, cape, boots, attitude, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Gingerella</b><span>cape, boots, attitude</span>
+      </li>
+      <li>
+        <img src="assets/Skelly.thumb.webp" alt="Skelly, skeleton in a green hat, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Skelly</b><span>skeleton in a green hat</span>
+      </li>
+      <li>
+        <img src="assets/Cloudy.thumb.webp" alt="Cloudy, a cloud that wears shoes, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Cloudy</b><span>a cloud that wears shoes</span>
+      </li>
+      <li>
+        <img src="assets/Crayon_Kid.thumb.webp" alt="Crayon Kid, masked, in blue, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Crayon Kid</b><span>masked, in blue</span>
+      </li>
+    </ul>
 </section>
 
 <!-- 3. THREE DOORS -->
@@ -702,7 +785,7 @@
 
 <!-- 7. FOOTER -->
 <footer class="wrap site-foot">
-  <a class="wordmark" href="#">HeroMaker</a>
+  <a class="wordmark" href="#top"><img src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async"><span>HeroMaker</span></a>
   <nav class="foot-links" aria-label="Footer">
     <a href="#doors">Studio</a>
     <a href="#doors">My Heroes</a>

@@ -1,7 +1,11 @@
 /* GENERATED — do not edit.
  * Built from games/hero-moves/src/{avatar/loader,anim/clips,anim/retarget}.ts
  * by marketing/concepts/build-engine.mjs. Re-run that script to refresh it.
+ * three and @pixiv/three-vrm come from the CDN via the page import map.
  */
+
+// games/hero-moves/engine.ts
+import * as THREE3 from "three";
 
 // games/hero-moves/src/avatar/loader.ts
 import * as THREE from "three";
@@ -298,6 +302,7 @@ async function loadRetargeted(url, vrm, rig = UE_RIG) {
 }
 export {
   MIXAMO_RIG,
+  THREE3 as THREE,
   UE_RIG,
   loadHero,
   loadRetargeted,

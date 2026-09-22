@@ -14,13 +14,14 @@
   --panel:#121A40;
   --panel-2:#0E1535;
   --line:#2B3570;
-  --glow:#FFC172;
-  --glow-deep:#E89A3C;
-  --accent:#8FE3CE;
+  --glow:#FDD119;
+  --glow-deep:#E8B23C;
+  --accent:#E58BC4;
   --ink:#F6F3FF;
   --ink-2:#C6C2E4;
   --ink-3:#0A0700;
   --r:20px;
+  --display:'Barriecito','Comic Sans MS',system-ui,cursive;
   --maxw:1180px;
 }
 *{box-sizing:border-box}
@@ -41,7 +42,7 @@ body{
   position:absolute;left:50%;top:-22vh;width:150vw;max-width:1700px;height:70vh;
   transform:translateX(-50%);
   background:
-    radial-gradient(48% 62% at 50% 46%, rgba(255,193,114,.14), rgba(255,193,114,0) 70%),
+    radial-gradient(48% 62% at 50% 46%, rgba(253,209,25,.14), rgba(253,209,25,0) 70%),
     radial-gradient(60% 70% at 20% 58%, rgba(143,227,206,.085), rgba(143,227,206,0) 70%),
     radial-gradient(55% 70% at 82% 48%, rgba(163,120,255,.12), rgba(163,120,255,0) 72%);
   filter:blur(18px);
@@ -84,7 +85,7 @@ a{color:var(--glow);text-decoration:none}
   display:inline-flex;align-items:center;justify-content:center;gap:10px;
   padding:15px 26px;border-radius:999px;font-weight:600;font-size:17px;
   background:var(--glow);color:var(--ink-3);border:1px solid #FFD9A8;
-  box-shadow:0 0 0 1px rgba(255,193,114,.18),0 14px 40px -12px rgba(255,193,114,.55);
+  box-shadow:0 0 0 1px rgba(253,209,25,.18),0 14px 40px -12px rgba(253,209,25,.55);
   cursor:pointer;
 }
 .btn:hover{background:#FFD49A;color:var(--ink-3);text-decoration:none}
@@ -133,7 +134,7 @@ h2{
 }
 .magic::before{
   content:"";position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(38% 52% at 62% 46%, rgba(255,193,114,.16), rgba(255,193,114,0) 72%);
+  background:radial-gradient(38% 52% at 62% 46%, rgba(253,209,25,.16), rgba(253,209,25,0) 72%);
   animation:breathe 11s ease-in-out infinite;
 }
 .magic > *{position:relative;z-index:1}
@@ -144,7 +145,7 @@ h2{
   background:var(--panel-2);border:1px solid var(--line);border-radius:22px;
   padding:18px;text-align:center;
 }
-.stage.out{border-color:#4A3E70;box-shadow:0 0 0 1px rgba(255,193,114,.10),0 22px 60px -30px rgba(255,193,114,.55)}
+.stage.out{border-color:#4A3E70;box-shadow:0 0 0 1px rgba(253,209,25,.10),0 22px 60px -30px rgba(253,209,25,.55)}
 .stage svg{display:block;width:100%;height:auto;border-radius:14px}
 .stage .cap{margin:14px 0 2px;font-weight:600;font-size:16px;color:var(--ink)}
 .stage .cap-sub{margin:0;color:var(--ink-2);font-size:14px}
@@ -190,7 +191,7 @@ h2{
   background:linear-gradient(180deg,#121A40,#0C1230);
   border:1px solid var(--line);border-radius:var(--r);padding:26px 22px;
 }
-.price.best{border-color:var(--glow-deep);background:linear-gradient(180deg,#1A1B3C,#0E1230);box-shadow:0 30px 90px -44px rgba(255,193,114,.75)}
+.price.best{border-color:var(--glow-deep);background:linear-gradient(180deg,#1A1B3C,#0E1230);box-shadow:0 30px 90px -44px rgba(253,209,25,.75)}
 .tag{
   display:inline-block;background:var(--glow);color:var(--ink-3);font-size:12.5px;font-weight:600;
   letter-spacing:.8px;text-transform:uppercase;padding:5px 12px;border-radius:999px;margin-bottom:12px;
@@ -260,7 +261,139 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
     animation:none !important;transition:none !important;
   }
 }
+
+h1,h2{font-family:var(--display);font-weight:400;letter-spacing:0}
+h1{font-size:clamp(29px,3.3vw,46px);line-height:1.16}
+h2{font-size:clamp(24px,2.7vw,34px);line-height:1.2}
+.brand{font-family:var(--display);font-weight:400;font-size:24px;letter-spacing:.01em}
+.brand .mark{width:36px;height:36px;border-radius:9px;background:#FAF8F5}
+.hero{padding:22px 0 18px;text-align:left}
+.hero h1{max-width:15ch}
+.hero .sub{margin-top:12px;max-width:46ch}
+.hero .cta-row{margin-top:0;justify-content:flex-start}
+.hero-note{margin-top:12px;font-size:14px;max-width:52ch}
+.magic{padding:24px 20px}
+:root{
+  --lc-card-bg:var(--panel-2);
+  --lc-card-border:1px solid var(--line);
+  --lc-shadow:0 0 0 1px rgba(253,209,25,.10),0 22px 60px -30px rgba(253,209,25,.55);
+  --lc-radius:20px;
+  --lc-pad:14px;
+  --lc-media-radius:14px;
+  --lc-media-bg:#0B1230;
+  --lc-media-border:1px solid var(--line);
+  --lc-stage-bg:radial-gradient(60% 56% at 50% 44%, rgba(253,209,25,.20), rgba(11,18,48,0) 72%), #0B1230;
+  --lc-cap-ink:var(--ink);
+  --lc-sub-ink:var(--ink-2);
+  --lc-tile-bg:var(--panel);
+  --lc-tile-border:1px solid var(--line);
+  --lc-tile-media:#0B1230;
+}
+
+  /* ---------- the live hero card ----------
+     One card, two halves: a real drawing on the left, a real pipeline VRM on
+     the right, animating. The 3D half is driven by hero-card.js, which
+     compiles the game's own retargeting out of games/hero-moves/src/anim/.
+     Every --lc-* token below is set per concept so the card belongs to its
+     page; the geometry is the same everywhere so the fold budget is too. */
+  .fold-grid{display:grid;gap:16px;align-content:start}
+  .fold-copy,.fold-act{min-width:0}
+  @media(min-width:960px){
+    .fold-grid{
+      grid-template-columns:1.02fr .98fr;
+      grid-template-areas:"copy card" "act card";
+      column-gap:clamp(28px,3.6vw,56px);row-gap:20px;align-items:start;
+    }
+    .fold-copy{grid-area:copy}.livecard{grid-area:card}.fold-act{grid-area:act}
+  }
+  .livecard{
+    margin:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--lc-gap,10px);
+    background:var(--lc-card-bg);border:var(--lc-card-border,none);
+    border-radius:var(--lc-radius,16px);padding:var(--lc-pad,12px);
+    box-shadow:var(--lc-shadow,none);
+  }
+  .livecard-half{display:flex;flex-direction:column;min-width:0}
+  .livecard-media{
+    position:relative;overflow:hidden;aspect-ratio:3/4;
+    border-radius:var(--lc-media-radius,10px);
+    background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
+  }
+  .livecard-drawing{width:100%;height:100%;object-fit:cover}
+  .herocard{background:var(--lc-stage-bg,var(--lc-media-bg,#fff))}
+  .herocard-still{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    padding:7%;transition:opacity .45s ease;
+  }
+  .herocard canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .herocard.is-live .herocard-still{opacity:0}
+  .livecard-cap{margin:9px 1px 1px}
+  .livecard-cap b{
+    display:block;font-size:13px;line-height:1.25;font-weight:700;
+    color:var(--lc-cap-ink);letter-spacing:0;
+  }
+  .livecard-cap span{
+    display:block;margin-top:2px;font-size:12.5px;line-height:1.35;
+    color:var(--lc-sub-ink);
+  }
+  @media(min-width:1100px){
+    .livecard-cap b{font-size:14.5px}.livecard-cap span{font-size:13.5px}
+  }
+  /* No WebGL, a failed fetch, or a reader who asked for stillness: the card
+     keeps the render of the same avatar rather than going blank. */
+  @media(prefers-reduced-motion:reduce){
+    .herocard canvas{display:none}
+    .herocard.is-live .herocard-still{opacity:1}
+  }
+
+
+  @media(max-width:560px){
+    .fold-grid{gap:14px}
+    .livecard-media{aspect-ratio:4/5}
+    .livecard-cap b{font-size:12.5px}
+    .livecard-cap span{font-size:12px}
+  }
+
+  /* ---------- the real roster ---------- */
+  .heroes{
+    list-style:none;margin:26px 0 0;padding:0;
+    display:grid;grid-template-columns:repeat(2,1fr);gap:12px;
+  }
+  @media(min-width:640px){.heroes{grid-template-columns:repeat(3,1fr);gap:14px}}
+  @media(min-width:1020px){.heroes{grid-template-columns:repeat(6,1fr)}}
+  .heroes li{
+    margin:0;text-align:center;padding:10px 8px 12px;
+    background:var(--lc-tile-bg,transparent);border:var(--lc-tile-border,none);
+    border-radius:var(--lc-radius,16px);min-width:0;
+  }
+  .heroes img{
+    width:100%;height:auto;aspect-ratio:1;object-fit:contain;
+    background:var(--lc-tile-media,transparent);border-radius:calc(var(--lc-radius,16px) - 6px);
+  }
+  .heroes b{display:block;margin-top:8px;font-size:13.5px;line-height:1.25;color:var(--lc-cap-ink)}
+  .heroes span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
+<style>
+/* The same Barriecito file Google Fonts serves for `family=Barriecito`, kept
+   beside the page so the brand face is there when fonts.googleapis.com is not
+   (offline, or behind a proxy that re-terminates TLS). SIL Open Font License. */
+@font-face{
+  font-family:'Barriecito';font-style:normal;font-weight:400;font-display:swap;
+  src:url('assets/barriecito-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/": "https://cdn.jsdelivr.net/npm/three@0.185.1/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js",
+    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.min.js"
+  }
+}
+</script>
+<script type="module" src="hero-card.js"></script>
 </head>
 <body>
 
@@ -283,17 +416,11 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
 
   <header class="nav">
     <div class="brand">
-      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-        <defs><radialGradient id="mg" cx="50%" cy="42%" r="60%">
-          <stop offset="0%" stop-color="#FFE3B8"/><stop offset="60%" stop-color="#FFC172"/><stop offset="100%" stop-color="#E8873C"/>
-        </radialGradient></defs>
-        <circle cx="16" cy="16" r="13" fill="none" stroke="#3B4890" stroke-width="1.5"/>
-        <path d="M16 5.5l2.7 6.3 6.8.6-5.1 4.5 1.5 6.7L16 20.1l-5.9 3.5 1.5-6.7-5.1-4.5 6.8-.6z" fill="url(#mg)"/>
-      </svg>
+      <img class="mark" src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async">
       HeroMaker
     </div>
     <div class="navlinks">
-      <a href="#magic">The magic</a>
+      <a href="#magic">The heroes</a>
       <a href="#how">How it works</a>
       <a href="#pricing">Pricing</a>
       <a href="#parents">For parents</a>
@@ -301,156 +428,90 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
   </header>
 
   <!-- 1. HERO -->
-  <section class="hero">
-    <p class="eyebrow"><span class="dot"></span> Live today · about 6 minutes a hero</p>
-    <h1>Tonight, the drawing on your fridge <span class="lit">stands up and dances.</span></h1>
-    <p class="sub">Photograph what your child drew. HeroMaker turns it into a real, rigged 3D character — then they step in front of the webcam and dance as it.</p>
-    <div class="cta-row">
-      <a class="btn" href="#pricing">Bring a drawing to life</a>
-      <a class="btn ghost" href="#magic">See it happen</a>
+  <section class="hero" id="top">
+    <div class="fold-grid">
+      <div class="fold-copy">
+        <p class="eyebrow"><span class="dot"></span> Live today · about 6 minutes a hero</p>
+        <h1>Tonight, the drawing on your fridge <span class="lit">stands up and dances.</span></h1>
+        <p class="sub">Photograph what your child drew. HeroMaker turns it into a real, rigged 3D character &mdash; like the one on the right, dancing in this page right now.</p>
+      </div>
+      <figure class="livecard" data-hero-shot>
+        <div class="livecard-half">
+          <div class="livecard-media">
+            <img class="livecard-drawing" src="assets/drawing-superbear-crop.jpg" width="848" height="1222"
+                 fetchpriority="high" decoding="async"
+                 alt="A child's crayon drawing of a super bear in a red cape, photographed at a HeroMaker event">
+          </div>
+          <p class="livecard-cap"><b>The drawing</b><span>Crayon, photographed at an event.</span></p>
+        </div>
+        <div class="livecard-half">
+          <div class="livecard-media herocard" data-hero-card
+               data-vrm="assets/Yummy_Bear.opt.vrm"
+               data-clip="assets/Dance_Charleston.glb"
+               data-rim="#E58BC4" data-key="#FFF2D8" data-ambient="0.42"
+               data-shadow="0.5" data-shadow-color="#000008"
+               data-zoom="1.45" data-outline="0">
+            <img class="herocard-still" src="assets/Yummy_Bear.thumb.webp" width="512" height="512"
+                 decoding="async"
+                 alt="Yummy Bear, a caped super-bear, rendered from the VRM file">
+          </div>
+          <p class="livecard-cap"><b>The hero, live</b><span>A real VRM, moving now.</span></p>
+        </div>
+      </figure>
+      <div class="fold-act">
+        <div class="cta-row">
+          <a class="btn" data-primary-cta href="#doors">Bring a drawing to life</a>
+          <a class="btn ghost" href="#how">See how it works</a>
+        </div>
+        <p class="hero-note">Both halves are real: a drawing from one of our events, a hero from the live gallery.</p>
+      </div>
     </div>
-    <p class="hero-note">No app to install. Works in the browser you already have open.</p>
   </section>
 
-  <!-- 2. THE TRANSFORMATION -->
+  <!-- 2. THE REAL HEROES -->
   <section id="magic">
     <div class="sec-head">
       <span class="kicker">The whole idea</span>
-      <h2>One photo in. One hero out.</h2>
-      <p>Not a filter, not a sticker. A real 3D model with a skeleton, ready to move.</p>
+      <h2>Every one of these was a drawing.</h2>
+      <p>Six heroes made at real events, rendered from the VRM files themselves. Not a filter, not a sticker — a real 3D model with a skeleton, ready to move.</p>
     </div>
-
     <div class="magic">
-      <div class="magic-grid">
-
-        <div class="stage">
-          <svg viewBox="0 0 320 300" role="img" aria-label="A child's crayon drawing of a horned hero on lined paper">
-            <defs>
-              <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#FBF4E6"/><stop offset="100%" stop-color="#EFE3CE"/>
-              </linearGradient>
-            </defs>
-            <rect x="0" y="0" width="320" height="300" rx="12" fill="url(#paper)"/>
-            <g stroke="#DFD1B8" stroke-width="1">
-              <line x1="16" y1="58" x2="304" y2="58"/><line x1="16" y1="110" x2="304" y2="110"/>
-              <line x1="16" y1="162" x2="304" y2="162"/><line x1="16" y1="214" x2="304" y2="214"/>
-              <line x1="16" y1="266" x2="304" y2="266"/>
-            </g>
-            <!-- crayon fill on the shirt -->
-            <path d="M134 132h52v58h-52z" fill="#7FD0C0" opacity=".5"/>
-            <g stroke="#5FB9A8" stroke-width="4" stroke-linecap="round" opacity=".55">
-              <path d="M138 142l44 6M138 158l44 6M138 174l44 6"/>
-            </g>
-            <g fill="none" stroke="#2F3C66" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="160" cy="86" r="30"/>
-              <path d="M141 62l-9-23M179 62l9-23"/>
-              <path d="M160 116v12"/>
-              <rect x="130" y="128" width="60" height="66" rx="16"/>
-              <path d="M130 146l-42 34M190 146l42 34"/>
-              <path d="M148 194l-7 54M172 194l7 54"/>
-              <path d="M141 248l-18 5M179 248l18 5"/>
-            </g>
-            <g fill="#EFE3CE" stroke="#2F3C66" stroke-width="5">
-              <circle cx="88" cy="180" r="6"/><circle cx="232" cy="180" r="6"/>
-            </g>
-            <g fill="#E8873C"><circle cx="150" cy="83" r="4.5"/><circle cx="170" cy="83" r="4.5"/></g>
-            <path d="M148 95q12 11 24 0" fill="none" stroke="#C0392B" stroke-width="5" stroke-linecap="round"/>
-            <g fill="none" stroke="#E8B23C" stroke-width="5" stroke-linecap="round">
-              <circle cx="266" cy="52" r="11"/>
-              <path d="M266 30v-8M266 82v-8M244 52h-8M296 52h-8M250 36l-6-6M282 68l6 6M282 36l6-6M250 68l-6 6"/>
-            </g>
-            <g fill="none" stroke="#5FB9A8" stroke-width="5" stroke-linecap="round">
-              <path d="M36 266q10-16 20 0t20 0"/>
-            </g>
-          </svg>
-          <p class="cap">Crayon, age 7</p>
-          <p class="cap-sub">A phone photo is enough</p>
-        </div>
-
-        <div class="cross" aria-hidden="true">
-          <svg viewBox="0 0 120 44">
-            <defs>
-              <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="4" y1="22" x2="114" y2="22">
-                <stop offset="0%" stop-color="#8FE3CE" stop-opacity=".18"/>
-                <stop offset="40%" stop-color="#8FE3CE" stop-opacity=".7"/>
-                <stop offset="78%" stop-color="#FFC172"/>
-                <stop offset="100%" stop-color="#FFE7C6"/>
-              </linearGradient>
-            </defs>
-            <path d="M4 22h96" stroke="url(#beam)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
-            <path d="M96 13l18 9-18 9z" fill="#FFE7C6"/>
-            <g fill="#FFF3DE">
-              <circle cx="30" cy="22" r="3.2" style="animation:drift 5s ease-in-out infinite"/>
-              <circle cx="58" cy="11" r="2.3" fill="#8FE3CE" style="animation:drift 7s ease-in-out infinite"/>
-              <circle cx="74" cy="34" r="2.1" fill="#FFC172" style="animation:drift 6s ease-in-out infinite"/>
-            </g>
-          </svg>
-          <span class="word">6 minutes</span>
-        </div>
-
-        <div class="stage out">
-          <svg viewBox="0 0 320 300" role="img" aria-label="The same character rebuilt as a glowing rigged 3D hero">
-            <defs>
-              <radialGradient id="halo" cx="50%" cy="50%" r="54%">
-                <stop offset="0%" stop-color="#FFC172" stop-opacity=".34"/>
-                <stop offset="68%" stop-color="#FFC172" stop-opacity=".05"/>
-                <stop offset="100%" stop-color="#FFC172" stop-opacity="0"/>
-              </radialGradient>
-              <linearGradient id="body" x1="0.1" y1="0" x2="0.9" y2="1">
-                <stop offset="0%" stop-color="#8FE3CE"/><stop offset="100%" stop-color="#2A8590"/>
-              </linearGradient>
-              <linearGradient id="limb" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#63C7BC"/><stop offset="100%" stop-color="#25727F"/>
-              </linearGradient>
-              <linearGradient id="head" x1="0.2" y1="0" x2="0.8" y2="1">
-                <stop offset="0%" stop-color="#FFE7C6"/><stop offset="100%" stop-color="#E8873C"/>
-              </linearGradient>
-            </defs>
-            <rect x="0" y="0" width="320" height="300" rx="12" fill="#090E26"/>
-            <rect x="0" y="0" width="320" height="300" rx="12" fill="url(#halo)"/>
-            <ellipse cx="160" cy="258" rx="118" ry="26" fill="none" stroke="#1C2758" stroke-width="1.4"/>
-            <ellipse cx="160" cy="258" rx="82" ry="18" fill="none" stroke="#1C2758" stroke-width="1.2"/>
-            <ellipse cx="160" cy="260" rx="66" ry="11" fill="#FFC172" opacity=".20"/>
-            <g style="animation:drift 6.5s ease-in-out infinite">
-              <g stroke="url(#limb)" stroke-width="15" stroke-linecap="round" fill="none">
-                <path d="M130 146l-42 34"/><path d="M190 146l42 34"/>
-                <path d="M148 192l-7 54"/><path d="M172 192l7 54"/>
-              </g>
-              <g fill="#1E6C78">
-                <ellipse cx="135" cy="250" rx="15" ry="7"/><ellipse cx="185" cy="250" rx="15" ry="7"/>
-              </g>
-              <rect x="150" y="110" width="20" height="22" rx="9" fill="#2A8590"/>
-              <rect x="126" y="122" width="68" height="76" rx="24" fill="url(#body)"/>
-              <path d="M143 60l-4-24 22 16zM177 60l4-24-22 16z" fill="#E8873C"/>
-              <circle cx="160" cy="84" r="32" fill="url(#head)"/>
-              <circle cx="150" cy="81" r="5" fill="#13204A"/><circle cx="171" cy="81" r="5" fill="#13204A"/>
-              <path d="M148 94q12 11 24 0" fill="none" stroke="#13204A" stroke-width="4.5" stroke-linecap="round"/>
-              <g stroke="#FFE7C6" stroke-width="1.8" opacity=".85" fill="none">
-                <path d="M160 108v84M160 146l-30 0M160 146l30 0M130 146l-42 34M190 146l42 34M148 192l-7 54M172 192l7 54"/>
-              </g>
-              <g fill="#FFF3DE">
-                <circle cx="160" cy="108" r="3.4"/><circle cx="130" cy="146" r="3"/><circle cx="190" cy="146" r="3"/>
-                <circle cx="88" cy="180" r="3"/><circle cx="232" cy="180" r="3"/>
-                <circle cx="148" cy="192" r="3"/><circle cx="172" cy="192" r="3"/>
-                <circle cx="141" cy="246" r="2.8"/><circle cx="179" cy="246" r="2.8"/>
-              </g>
-            </g>
-            <g fill="#FFF3DE" opacity=".6">
-              <circle cx="52" cy="66" r="2.2" style="animation:twinkle 5s ease-in-out infinite"/>
-              <circle cx="272" cy="106" r="1.9" style="animation:twinkle 7s ease-in-out infinite"/>
-              <circle cx="244" cy="44" r="1.7" style="animation:twinkle 6s ease-in-out infinite"/>
-            </g>
-          </svg>
-          <p class="cap">Rigged 3D hero</p>
-          <p class="cap-sub">22 bones, ready to dance</p>
-        </div>
-
+    <ul class="heroes">
+      <li>
+        <img src="assets/Yummy_Bear.thumb.webp" alt="Yummy Bear, caped super-bear, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Yummy Bear</b><span>caped super-bear</span>
+      </li>
+      <li>
+        <img src="assets/Superstar.thumb.webp" alt="Superstar, a star with legs, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Superstar</b><span>a star with legs</span>
+      </li>
+      <li>
+        <img src="assets/Gingerella.thumb.webp" alt="Gingerella, cape, boots, attitude, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Gingerella</b><span>cape, boots, attitude</span>
+      </li>
+      <li>
+        <img src="assets/Skelly.thumb.webp" alt="Skelly, skeleton in a green hat, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Skelly</b><span>skeleton in a green hat</span>
+      </li>
+      <li>
+        <img src="assets/Cloudy.thumb.webp" alt="Cloudy, a cloud that wears shoes, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Cloudy</b><span>a cloud that wears shoes</span>
+      </li>
+      <li>
+        <img src="assets/Crayon_Kid.thumb.webp" alt="Crayon Kid, masked, in blue, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Crayon Kid</b><span>masked, in blue</span>
+      </li>
+    </ul>
+      <div class="magic-foot">
+        <span><b>Keeps the odd bits</b> — horns, seven fingers, all of it</span>
+        <span><b>A real file</b> — standard VRM, yours to download</span>
       </div>
-
-      <p class="magic-foot">
-        <span><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.6l4 4L14 4" fill="none" stroke="#8FE3CE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t"><b>Keeps the odd bits</b> — horns, seven fingers, all of it</span></span>
-        <span><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.6l4 4L14 4" fill="none" stroke="#8FE3CE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t"><b>A real file</b> — standard VRM, yours to download</span></span>
-      </p>
     </div>
   </section>
 
@@ -466,7 +527,7 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
       <a class="door" href="#pricing">
         <svg class="ic" viewBox="0 0 48 48" aria-hidden="true">
           <rect x="6" y="10" width="36" height="28" rx="7" fill="#1B2455" stroke="#3B4890" stroke-width="1.6"/>
-          <path d="M24 18v12M18 24h12" stroke="#FFC172" stroke-width="3" stroke-linecap="round"/>
+          <path d="M24 18v12M18 24h12" stroke="#FDD119" stroke-width="3" stroke-linecap="round"/>
         </svg>
         <h3>Studio</h3>
         <p>Photograph a drawing and watch it become a hero. One at a time, start to finish, in about six minutes.</p>
@@ -477,7 +538,7 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
         <svg class="ic" viewBox="0 0 48 48" aria-hidden="true">
           <rect x="5" y="12" width="17" height="24" rx="5" fill="#1B2455" stroke="#3B4890" stroke-width="1.6"/>
           <rect x="26" y="12" width="17" height="24" rx="5" fill="#1B2455" stroke="#3B4890" stroke-width="1.6"/>
-          <circle cx="13.5" cy="21" r="3.6" fill="#FFC172"/><circle cx="34.5" cy="21" r="3.6" fill="#8FE3CE"/>
+          <circle cx="13.5" cy="21" r="3.6" fill="#FDD119"/><circle cx="34.5" cy="21" r="3.6" fill="#E58BC4"/>
           <path d="M8 32h11M29 32h11" stroke="#3B4890" stroke-width="2.4" stroke-linecap="round"/>
         </svg>
         <h3>My Heroes</h3>
@@ -488,7 +549,7 @@ footer{border-top:1px solid var(--line);margin-top:30px;padding:28px 0 44px}
       <a class="door" href="#doors">
         <svg class="ic" viewBox="0 0 48 48" aria-hidden="true">
           <circle cx="24" cy="24" r="17" fill="#1B2455" stroke="#3B4890" stroke-width="1.6"/>
-          <path d="M20 17l12 7-12 7z" fill="#FFC172"/>
+          <path d="M20 17l12 7-12 7z" fill="#FDD119"/>
         </svg>
         <h3>Playground</h3>
         <p>Turn the webcam on and dance. Your hero copies every move, and the game says how close you got.</p>

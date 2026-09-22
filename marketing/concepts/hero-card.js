@@ -65,9 +65,25 @@ function shadowTexture(THREE) {
   return tex
 }
 
+/**
+ * The engine, however it can be had.
+ *
+ * `hero-card-engine.js` leaves three and @pixiv/three-vrm to the page's import
+ * map, which points at cdn.jsdelivr.net. Where that CDN is unreachable — a
+ * corporate proxy, no network, CI — the import rejects and the same code,
+ * bundled with its dependencies, comes off the disk instead. Either way the
+ * animation is the game's, and `THREE` comes back from the engine so the stage
+ * and the clips are built against one copy of three.
+ */
+let enginePromise = null
+const loadEngine = () => (enginePromise ??= import('./hero-card-engine.js').catch((err) => {
+  console.warn('hero-card: CDN modules unavailable, using the bundled engine —', err && err.message)
+  return import('./hero-card-engine.bundle.js')
+}))
+
 async function start(card) {
-  const engine = await import('./hero-card-engine.js')
-  const THREE = await import('three')
+  const engine = await loadEngine()
+  const THREE = engine.THREE
 
   const num = (name, fallback) => {
     const v = parseFloat(card.dataset[name])
@@ -119,12 +135,15 @@ async function start(card) {
   }
 
   // Some heroes are wider than they are tall; frame on whichever is bigger.
-  const frame = Math.max(hero.height, hero.width * 1.05) * num('zoom', 1.24)
+  // Framed with headroom on purpose: the clip lifts the hips and swings the
+  // arms well outside the rest bounding box, and a hero whose feet leave the
+  // frame mid-step looks broken rather than lively.
+  const frame = Math.max(hero.height, hero.width * 1.05) * num('zoom', 1.45)
   const camera = new THREE.PerspectiveCamera(26, 1, 0.05, 60)
   const dist = (frame / 2) / Math.tan((26 * Math.PI / 180) / 2)
   const yaw = num('yaw', 0.18)
-  camera.position.set(Math.sin(yaw) * dist, hero.height * num('eye', 0.56), Math.cos(yaw) * dist)
-  camera.lookAt(0, hero.height * num('look', 0.5), 0)
+  camera.position.set(Math.sin(yaw) * dist, hero.height * num('eye', 0.54), Math.cos(yaw) * dist)
+  camera.lookAt(0, hero.height * num('look', 0.47), 0)
 
   const resize = () => {
     const w = Math.max(1, Math.round(card.clientWidth))

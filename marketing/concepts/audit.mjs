@@ -218,6 +218,7 @@ const AUDIT = () => {
   const fold = {
     winH,
     scrolled: Math.round(window.scrollY),
+    shot: seen('[data-hero-shot]'),
     card: seen('[data-hero-card]'),
     cta: seen('[data-primary-cta]'),
     pricing: seen('#pricing'),
@@ -325,6 +326,12 @@ for (const file of files) {
         findings.push(
           `[${vp.name}] the hero card is not in the first screen: ` +
           `${f.card.top}..${f.card.bottom} of ${f.winH}px (needs scrolling)`)
+      } else if (f.shot && (f.shot.bottom > f.winH || f.shot.top < 0)) {
+        // The live half fits but its captions do not, which is still a card
+        // the reader has to scroll to finish.
+        findings.push(
+          `[${vp.name}] the hero shot is cut by the fold: ` +
+          `${f.shot.top}..${f.shot.bottom} of ${f.winH}px`)
       }
       if (!f.cta) {
         findings.push(`[${vp.name}] no primary call to action marked ([data-primary-cta])`)

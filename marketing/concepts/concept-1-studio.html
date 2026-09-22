@@ -17,8 +17,10 @@
     --line-strong:rgba(255,255,255,0.16);
     --ink:#F2F2F5;
     --ink-2:#A9A9B6;
-    --accent:#FF6B35;
-    --accent-soft:#FF8F62;
+    --accent:#FA5197;
+    --accent-2:#FDD119;
+    --display:'Barriecito','Comic Sans MS',system-ui,cursive;
+    --accent-soft:#FF8FC4;
     --radius:16px;
     --maxw:1180px;
   }
@@ -40,8 +42,9 @@
     color:var(--accent-soft);margin:0 0 18px;
   }
   h1,h2,h3{margin:0;font-weight:600;letter-spacing:-0.025em;color:var(--ink)}
-  h1{font-size:clamp(34px,6.2vw,60px);line-height:1.06}
-  h2{font-size:clamp(26px,3.4vw,38px);line-height:1.15}
+  h1,h2{font-family:var(--display);font-weight:400;letter-spacing:0}
+  h1{font-size:clamp(29px,3.2vw,44px);line-height:1.18}
+  h2{font-size:clamp(24px,2.9vw,34px);line-height:1.2}
   h3{font-size:19px;line-height:1.3;letter-spacing:-0.015em}
   p{margin:0}
   .lede{color:var(--ink-2);font-size:clamp(16px,1.35vw,18.5px);line-height:1.62}
@@ -50,7 +53,8 @@
   header.nav{border-bottom:1px solid var(--line);background:var(--bg)}
   .nav-in{display:flex;align-items:center;gap:16px;height:68px}
   .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-0.02em;font-size:16px}
-  .mark{width:26px;height:26px;flex:none}
+  .brandword{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.01em}
+  .mark{width:34px;height:34px;flex:none;border-radius:8px;background:#FAF8F5}
   .nav-links{display:none;margin-left:auto;gap:28px;align-items:center}
   .nav-links a{color:var(--ink-2);text-decoration:none;font-size:14px;font-weight:500}
   .nav-links a:hover{color:var(--ink)}
@@ -67,18 +71,19 @@
     padding:13px 22px;border-radius:10px;text-decoration:none;border:1px solid transparent;
     white-space:nowrap;
   }
-  .btn-primary{background:var(--accent);color:#0A0A0B;box-shadow:0 8px 24px rgba(255,107,53,0.18)}
+  .btn-primary{background:var(--accent);color:#0A0A0B;box-shadow:0 8px 24px rgba(250,81,151,0.18)}
   .btn-primary:hover{background:var(--accent-soft)}
   .btn-ghost{background:var(--bg);color:var(--ink);border-color:var(--line-strong)}
   .btn-ghost:hover{border-color:rgba(255,255,255,0.3)}
   .btn-sm{padding:9px 16px;font-size:14px}
 
   /* ---------- hero ---------- */
-  .hero{padding:76px 0 8px;text-align:center}
-  .hero h1{max-width:880px;margin:0 auto}
-  .hero .lede{max-width:60ch;margin:24px auto 0}
-  .hero-cta{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:34px}
-  .microline{margin-top:22px;font-size:13.5px;color:var(--ink-2)}
+  .hero{padding:26px 0 18px}
+  .hero h1{max-width:18ch}
+  .hero .lede{max-width:46ch;margin:14px 0 0}
+  .hero .eyebrow{margin-bottom:12px}
+  .hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:0}
+  .microline{margin-top:12px;font-size:13px;color:var(--ink-2);max-width:52ch}
   @media(max-width:519px){.hero-cta{flex-direction:column}.hero-cta .btn{width:100%}}
 
   /* ---------- transformation ---------- */
@@ -159,7 +164,7 @@
     background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     padding:26px 24px 28px;display:flex;flex-direction:column;min-width:0;
   }
-  .price.best{background:var(--panel-2);border-color:rgba(255,107,53,0.42);box-shadow:0 20px 60px rgba(0,0,0,0.55)}
+  .price.best{background:var(--panel-2);border-color:rgba(250,81,151,0.42);box-shadow:0 20px 60px rgba(0,0,0,0.55)}
   .badge{
     align-self:flex-start;background:var(--accent);color:#0A0A0B;border-radius:999px;
     padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;
@@ -195,22 +200,138 @@
   .foot-links a{color:var(--ink-2);font-size:14px;text-decoration:none}
   .foot-links a:hover{color:var(--ink)}
   .copy{font-size:13.5px;color:var(--ink-2)}
+
+  :root{
+    --lc-card-bg:var(--panel);
+    --lc-card-border:1px solid var(--line);
+    --lc-shadow:0 20px 50px rgba(0,0,0,.5);
+    --lc-radius:16px;
+    --lc-pad:14px;
+    --lc-media-bg:#0D0D11;
+    --lc-media-border:1px solid var(--line);
+    --lc-stage-bg:radial-gradient(62% 58% at 50% 44%, rgba(250,81,151,.16), rgba(13,13,17,0) 72%), #0D0D11;
+    --lc-cap-ink:var(--ink);
+    --lc-sub-ink:var(--ink-2);
+    --lc-tile-bg:var(--panel);
+    --lc-tile-border:1px solid var(--line);
+    --lc-tile-media:#0D0D11;
+  }
+
+  /* ---------- the live hero card ----------
+     One card, two halves: a real drawing on the left, a real pipeline VRM on
+     the right, animating. The 3D half is driven by hero-card.js, which
+     compiles the game's own retargeting out of games/hero-moves/src/anim/.
+     Every --lc-* token below is set per concept so the card belongs to its
+     page; the geometry is the same everywhere so the fold budget is too. */
+  .fold-grid{display:grid;gap:16px;align-content:start}
+  .fold-copy,.fold-act{min-width:0}
+  @media(min-width:960px){
+    .fold-grid{
+      grid-template-columns:1.02fr .98fr;
+      grid-template-areas:"copy card" "act card";
+      column-gap:clamp(28px,3.6vw,56px);row-gap:20px;align-items:start;
+    }
+    .fold-copy{grid-area:copy}.livecard{grid-area:card}.fold-act{grid-area:act}
+  }
+  .livecard{
+    margin:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--lc-gap,10px);
+    background:var(--lc-card-bg);border:var(--lc-card-border,none);
+    border-radius:var(--lc-radius,16px);padding:var(--lc-pad,12px);
+    box-shadow:var(--lc-shadow,none);
+  }
+  .livecard-half{display:flex;flex-direction:column;min-width:0}
+  .livecard-media{
+    position:relative;overflow:hidden;aspect-ratio:3/4;
+    border-radius:var(--lc-media-radius,10px);
+    background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
+  }
+  .livecard-drawing{width:100%;height:100%;object-fit:cover}
+  .herocard{background:var(--lc-stage-bg,var(--lc-media-bg,#fff))}
+  .herocard-still{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    padding:7%;transition:opacity .45s ease;
+  }
+  .herocard canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .herocard.is-live .herocard-still{opacity:0}
+  .livecard-cap{margin:9px 1px 1px}
+  .livecard-cap b{
+    display:block;font-size:13px;line-height:1.25;font-weight:700;
+    color:var(--lc-cap-ink);letter-spacing:0;
+  }
+  .livecard-cap span{
+    display:block;margin-top:2px;font-size:12.5px;line-height:1.35;
+    color:var(--lc-sub-ink);
+  }
+  @media(min-width:1100px){
+    .livecard-cap b{font-size:14.5px}.livecard-cap span{font-size:13.5px}
+  }
+  /* No WebGL, a failed fetch, or a reader who asked for stillness: the card
+     keeps the render of the same avatar rather than going blank. */
+  @media(prefers-reduced-motion:reduce){
+    .herocard canvas{display:none}
+    .herocard.is-live .herocard-still{opacity:1}
+  }
+
+
+  @media(max-width:560px){
+    .fold-grid{gap:14px}
+    .livecard-media{aspect-ratio:4/5}
+    .livecard-cap b{font-size:12.5px}
+    .livecard-cap span{font-size:12px}
+  }
+
+  /* ---------- the real roster ---------- */
+  .heroes{
+    list-style:none;margin:26px 0 0;padding:0;
+    display:grid;grid-template-columns:repeat(2,1fr);gap:12px;
+  }
+  @media(min-width:640px){.heroes{grid-template-columns:repeat(3,1fr);gap:14px}}
+  @media(min-width:1020px){.heroes{grid-template-columns:repeat(6,1fr)}}
+  .heroes li{
+    margin:0;text-align:center;padding:10px 8px 12px;
+    background:var(--lc-tile-bg,transparent);border:var(--lc-tile-border,none);
+    border-radius:var(--lc-radius,16px);min-width:0;
+  }
+  .heroes img{
+    width:100%;height:auto;aspect-ratio:1;object-fit:contain;
+    background:var(--lc-tile-media,transparent);border-radius:calc(var(--lc-radius,16px) - 6px);
+  }
+  .heroes b{display:block;margin-top:8px;font-size:13.5px;line-height:1.25;color:var(--lc-cap-ink)}
+  .heroes span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
+<style>
+/* The same Barriecito file Google Fonts serves for `family=Barriecito`, kept
+   beside the page so the brand face is there when fonts.googleapis.com is not
+   (offline, or behind a proxy that re-terminates TLS). SIL Open Font License. */
+@font-face{
+  font-family:'Barriecito';font-style:normal;font-weight:400;font-display:swap;
+  src:url('assets/barriecito-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/": "https://cdn.jsdelivr.net/npm/three@0.185.1/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js",
+    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.min.js"
+  }
+}
+</script>
+<script type="module" src="hero-card.js"></script>
 </head>
 <body>
 
 <header class="nav">
   <div class="wrap nav-in">
-    <div class="brand">
-      <svg class="mark" viewBox="0 0 26 26" fill="none" aria-hidden="true">
-        <rect x="0.75" y="0.75" width="24.5" height="24.5" rx="7" stroke="rgba(255,255,255,0.22)"/>
-        <path d="M8 18.5V8.2c0-.4.45-.63.77-.4L18 14.3" stroke="#FF6B35" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="17.6" cy="14.1" r="2.4" fill="#FF6B35"/>
-      </svg>
+    <div class="brand brandword">
+      <img class="mark" src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async">
       <span>HeroMaker</span>
     </div>
     <nav class="nav-links">
-      <a href="#transformation">How it works</a>
+      <a href="#how">How it works</a>
       <a href="#doors">Studio</a>
       <a href="#pricing">Pricing</a>
       <a href="#parents">For parents</a>
@@ -220,179 +341,85 @@
 </header>
 
 <!-- 1. HERO -->
-<section class="hero">
-  <div class="wrap">
-    <p class="eyebrow">Drawing to rigged 3D character</p>
-    <h1>Your child's drawing, rebuilt as a real 3D hero.</h1>
-    <p class="lede">Photograph the sketch on your fridge. About six minutes later it is a fully modelled, fully rigged 3D character — one your kid can dance as, on camera, in the living room.</p>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="#pricing">Make your first hero</a>
-      <a class="btn btn-ghost" href="#transformation">See one being made</a>
+<section class="hero" id="top">
+  <div class="wrap fold-grid">
+    <div class="fold-copy">
+      <p class="eyebrow">Drawing to rigged 3D character</p>
+      <h1>Your child's drawing, standing up.</h1>
+      <p class="lede">Photograph the sketch on the fridge. About six minutes later it is a fully rigged 3D character &mdash; the one to the right is a real VRM file, moving in this page right now.</p>
     </div>
-    <p class="microline">No ads. No subscription. Credits never expire.</p>
+      <figure class="livecard" data-hero-shot>
+        <div class="livecard-half">
+          <div class="livecard-media">
+            <img class="livecard-drawing" src="assets/drawing-superbear-crop.jpg" width="848" height="1222"
+                 fetchpriority="high" decoding="async"
+                 alt="A child's crayon drawing of a super bear in a red cape, photographed at a HeroMaker event">
+          </div>
+          <p class="livecard-cap"><b>The drawing</b><span>Crayon, photographed at an event.</span></p>
+        </div>
+        <div class="livecard-half">
+          <div class="livecard-media herocard" data-hero-card
+               data-vrm="assets/Yummy_Bear.opt.vrm"
+               data-clip="assets/Dance_Charleston.glb"
+               data-rim="#FA5197" data-key="#FFF4E4" data-ambient="0.5"
+               data-shadow="0.5" data-shadow-color="#000000"
+               data-zoom="1.45" data-outline="0">
+            <img class="herocard-still" src="assets/Yummy_Bear.thumb.webp" width="512" height="512"
+                 decoding="async"
+                 alt="Yummy Bear, a caped super-bear, rendered from the VRM file">
+          </div>
+          <p class="livecard-cap"><b>The hero, live</b><span>A real VRM, moving now.</span></p>
+        </div>
+      </figure>
+    <div class="fold-act">
+      <div class="hero-cta">
+        <a class="btn btn-primary" data-primary-cta href="#doors">Make your first hero</a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="microline">Both halves are real: a drawing from one of our events, and a hero from the live gallery. Shown side by side &mdash; not the same child's pair.</p>
+    </div>
   </div>
 </section>
 
-<!-- 2. THE TRANSFORMATION -->
-<section class="section" id="transformation">
+<!-- 2. THE REAL HEROES -->
+<section class="section" id="transformation" style="padding-top:56px">
   <div class="wrap">
     <div class="section-head center">
-      <h2>One photo in. One real character out.</h2>
-      <p class="lede">Nothing is traced over or filtered. The drawing is rebuilt as geometry, given a skeleton, and handed back as a standard VRM file that moves like any professional game character.</p>
+      <h2>Every one of these was a drawing.</h2>
+      <p class="lede">Six heroes made at real events, rendered here from the VRM files themselves. Nothing is traced over or filtered: the drawing is rebuilt as geometry, given a 22-bone skeleton, and handed back as a standard VRM that moves like any professional game character.</p>
     </div>
-
-    <div class="transform">
-      <!-- drawing -->
-      <div class="tpanel">
-        <div class="stage stage-paper">
-          <svg viewBox="0 0 300 340" width="100%" height="auto" role="img" aria-label="A child's crayon drawing of a hero with spiky hair and arms outstretched">
-            <rect width="300" height="340" fill="#EFE8DA"/>
-            <g stroke-linecap="round" stroke-linejoin="round" fill="none">
-              <!-- sun scribble -->
-              <g stroke="#E0A32B" stroke-width="4" opacity="0.85">
-                <circle cx="252" cy="52" r="17"/>
-                <path d="M252 22v-9M252 91v9M282 52h9M213 52h9M274 30l6-6M224 74l-7 7M274 74l6 6M224 30l-7-7"/>
-              </g>
-              <!-- hair -->
-              <g stroke="#2F5FA6" stroke-width="5">
-                <path d="M113 70 L103 40 L130 59"/>
-                <path d="M150 54 L149 22 L172 50"/>
-                <path d="M187 70 L210 45 L202 76"/>
-              </g>
-              <!-- head -->
-              <path d="M150 52c30 0 55 24 56 52 1 28-24 55-56 55s-57-26-56-55c1-29 26-52 56-52z" stroke="#2F5FA6" stroke-width="5"/>
-              <!-- face -->
-              <circle cx="131" cy="99" r="5.5" fill="#2F5FA6" stroke="none"/>
-              <circle cx="170" cy="99" r="5.5" fill="#2F5FA6" stroke="none"/>
-              <path d="M125 122c9 17 41 19 51 0" stroke="#D6453D" stroke-width="4.5"/>
-              <!-- body -->
-              <path d="M121 166 L179 164 L189 240 L112 242 Z" stroke="#E0692B" stroke-width="5"/>
-              <path d="M136 186 l13 14 l16 -22" stroke="#D6453D" stroke-width="4.5"/>
-              <!-- arms -->
-              <path d="M124 181 L69 149" stroke="#E0692B" stroke-width="5"/>
-              <path d="M177 179 L231 151" stroke="#E0692B" stroke-width="5"/>
-              <circle cx="63" cy="145" r="9" stroke="#E0692B" stroke-width="4.5"/>
-              <circle cx="237" cy="147" r="9" stroke="#E0692B" stroke-width="4.5"/>
-              <!-- legs -->
-              <path d="M133 242 L126 302" stroke="#2F5FA6" stroke-width="5"/>
-              <path d="M170 241 L180 301" stroke="#2F5FA6" stroke-width="5"/>
-              <path d="M126 302 L103 308" stroke="#2F5FA6" stroke-width="5"/>
-              <path d="M180 301 L203 308" stroke="#2F5FA6" stroke-width="5"/>
-              <!-- ground scribble -->
-              <path d="M40 322 C100 314 200 330 262 318" stroke="#4E8B4B" stroke-width="5" opacity="0.8"/>
-            </g>
-          </svg>
-        </div>
-        <div class="tmeta">
-          <span class="tlabel">Step 01 — Input</span>
-          <span class="tname">Ada, age 7 &middot; felt-tip on A4</span>
-        </div>
-        <p class="tsub">Photographed on a kitchen table with a phone. Crooked paper and shadows are fine.</p>
-      </div>
-
-      <!-- arrow -->
-      <div class="arrowcol">
-        <div class="arrowbox">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path d="M3 10h13M11.5 5.2 16.6 10l-5.1 4.8" stroke="#FF6B35" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <span class="arrowtime">~6 minutes</span>
-      </div>
-
-      <!-- 3d -->
-      <div class="tpanel">
-        <div class="stage stage-dark">
-          <svg viewBox="0 0 300 340" width="100%" height="auto" role="img" aria-label="The same hero rebuilt as a shaded, rigged 3D character standing on a grid floor">
-            <defs>
-              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#15151C"/>
-                <stop offset="1" stop-color="#0B0B0F"/>
-              </linearGradient>
-              <linearGradient id="suit" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#FF9459"/>
-                <stop offset="0.55" stop-color="#F2661F"/>
-                <stop offset="1" stop-color="#B8410F"/>
-              </linearGradient>
-              <linearGradient id="skin" x1="0.2" y1="0" x2="0.9" y2="1">
-                <stop offset="0" stop-color="#F3F2F6"/>
-                <stop offset="0.6" stop-color="#C9C8D4"/>
-                <stop offset="1" stop-color="#8E8D9C"/>
-              </linearGradient>
-              <linearGradient id="hairg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#6E7C99"/>
-                <stop offset="1" stop-color="#3B4459"/>
-              </linearGradient>
-              <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55">
-                <stop offset="0" stop-color="#FF6B35" stop-opacity="0.16"/>
-                <stop offset="1" stop-color="#FF6B35" stop-opacity="0"/>
-              </radialGradient>
-              <radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5">
-                <stop offset="0" stop-color="#000" stop-opacity="0.75"/>
-                <stop offset="1" stop-color="#000" stop-opacity="0"/>
-              </radialGradient>
-            </defs>
-
-            <rect width="300" height="340" fill="url(#sky)"/>
-            <rect width="300" height="340" fill="url(#glow)"/>
-
-            <!-- grid floor -->
-            <g stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="1">
-              <path d="M0 300h300M0 312h300M0 326h300M0 288h300"/>
-              <path d="M150 282 L150 340M110 284 L82 340M190 284 L218 340M70 288 L14 340M230 288 L286 340"/>
-            </g>
-            <ellipse cx="150" cy="306" rx="78" ry="15" fill="url(#shadow)"/>
-
-            <!-- legs -->
-            <rect x="127" y="220" width="20" height="80" rx="9.5" fill="url(#suit)" transform="rotate(-3 137 260)"/>
-            <rect x="153" y="220" width="20" height="80" rx="9.5" fill="url(#suit)" opacity="0.9" transform="rotate(3 163 260)"/>
-            <ellipse cx="132" cy="300" rx="14" ry="7" fill="#8E3610"/>
-            <ellipse cx="168" cy="300" rx="14" ry="7" fill="#7E2F0D"/>
-            <!-- torso -->
-            <path d="M122 162 q28 -8 56 0 l10 62 q-38 10 -76 0 Z" fill="url(#suit)"/>
-            <path d="M150 156 v70" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="1.6"/>
-            <path d="M140 182 l11 12 l14 -19" stroke="#FFE2D3" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <!-- arms -->
-            <path d="M124 172 L74 146 q-6 -3 -3 -9 q3 -6 9 -3 L131 158 Z" fill="url(#suit)"/>
-            <path d="M176 171 L226 148 q6 -3 9 3 q3 6 -3 9 L181 185 Z" fill="url(#suit)" opacity="0.92"/>
-            <circle cx="68" cy="139" r="10" fill="url(#skin)"/>
-            <circle cx="234" cy="141" r="10" fill="url(#skin)"/>
-            <!-- head -->
-            <path d="M150 58c29 0 52 24 52 52s-23 52-52 52-52-23-52-52 23-52 52-52z" fill="url(#skin)"/>
-            <path d="M150 58c29 0 52 24 52 52 0 6-1 12-3 17-6-38-27-56-60-58 3-7 6-11 11-11z" fill="#FFFFFF" fill-opacity="0.22"/>
-            <!-- hair -->
-            <path d="M112 74 L100 40 L131 62 L150 32 L173 58 L210 40 L200 80 q-45 -16 -88 -6 Z" fill="url(#hairg)"/>
-            <!-- face -->
-            <ellipse cx="131" cy="104" rx="5.5" ry="6.5" fill="#23232C"/>
-            <ellipse cx="171" cy="104" rx="5.5" ry="6.5" fill="#23232C"/>
-            <circle cx="133" cy="101" r="1.8" fill="#FFFFFF"/>
-            <circle cx="173" cy="101" r="1.8" fill="#FFFFFF"/>
-            <path d="M132 126c8 12 30 13 38 0" stroke="#5E3A2E" stroke-width="4" fill="none" stroke-linecap="round"/>
-
-            <!-- rig overlay -->
-            <g stroke="#FF6B35" stroke-opacity="0.8" stroke-width="1.4" fill="none">
-              <path d="M150 166 L150 196 L150 224"/>
-              <path d="M128 174 L98 159 L70 141"/>
-              <path d="M172 173 L203 160 L232 143"/>
-              <path d="M150 224 L139 230 L137 260 L132 296"/>
-              <path d="M150 224 L161 230 L163 260 L168 296"/>
-            </g>
-            <g fill="#FF6B35">
-              <circle cx="150" cy="166" r="3.4"/><circle cx="150" cy="196" r="3.4"/><circle cx="150" cy="224" r="3.4"/><circle cx="139" cy="230" r="2.6"/><circle cx="161" cy="230" r="2.6"/>
-              <circle cx="98" cy="159" r="3"/><circle cx="70" cy="141" r="3"/>
-              <circle cx="203" cy="160" r="3"/><circle cx="232" cy="143" r="3"/>
-              <circle cx="137" cy="260" r="3"/><circle cx="132" cy="296" r="3"/>
-              <circle cx="163" cy="260" r="3"/><circle cx="168" cy="296" r="3"/>
-            </g>
-          </svg>
-        </div>
-        <div class="tmeta">
-          <span class="tlabel on">Step 02 — Output</span>
-          <span class="tname">ada-hero.vrm &middot; 22 bones, rigged</span>
-        </div>
-        <p class="tsub">A standard VRM avatar. Yours to keep, download and take anywhere VRM is supported.</p>
-      </div>
-    </div>
+    <ul class="heroes">
+      <li>
+        <img src="assets/Yummy_Bear.thumb.webp" alt="Yummy Bear, caped super-bear, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Yummy Bear</b><span>caped super-bear</span>
+      </li>
+      <li>
+        <img src="assets/Superstar.thumb.webp" alt="Superstar, a star with legs, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Superstar</b><span>a star with legs</span>
+      </li>
+      <li>
+        <img src="assets/Gingerella.thumb.webp" alt="Gingerella, cape, boots, attitude, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Gingerella</b><span>cape, boots, attitude</span>
+      </li>
+      <li>
+        <img src="assets/Skelly.thumb.webp" alt="Skelly, skeleton in a green hat, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Skelly</b><span>skeleton in a green hat</span>
+      </li>
+      <li>
+        <img src="assets/Cloudy.thumb.webp" alt="Cloudy, a cloud that wears shoes, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Cloudy</b><span>a cloud that wears shoes</span>
+      </li>
+      <li>
+        <img src="assets/Crayon_Kid.thumb.webp" alt="Crayon Kid, masked, in blue, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Crayon Kid</b><span>masked, in blue</span>
+      </li>
+    </ul>
   </div>
 </section>
 
@@ -407,43 +434,43 @@
       <div class="door">
         <div class="dooricon">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-            <rect x="2.2" y="4.6" width="17.6" height="13.2" rx="3" stroke="#FF6B35" stroke-width="1.7"/>
-            <circle cx="11" cy="11.2" r="3.4" stroke="#FF6B35" stroke-width="1.7"/>
-            <path d="M7.6 4.6 8.9 2.2h4.2l1.3 2.4" stroke="#FF6B35" stroke-width="1.7" stroke-linejoin="round"/>
+            <rect x="2.2" y="4.6" width="17.6" height="13.2" rx="3" stroke="#FA5197" stroke-width="1.7"/>
+            <circle cx="11" cy="11.2" r="3.4" stroke="#FA5197" stroke-width="1.7"/>
+            <path d="M7.6 4.6 8.9 2.2h4.2l1.3 2.4" stroke="#FA5197" stroke-width="1.7" stroke-linejoin="round"/>
           </svg>
         </div>
         <h3>Studio</h3>
         <p>Photograph a drawing and watch it become a rigged 3D character. Six minutes, start to finish, nothing to install.</p>
         <a class="doorlink" href="#pricing">Create a hero
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8F62" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
       </div>
       <div class="door">
         <div class="dooricon">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-            <rect x="2.4" y="3.2" width="7.4" height="7.4" rx="2" stroke="#FF6B35" stroke-width="1.7"/>
-            <rect x="12.2" y="3.2" width="7.4" height="7.4" rx="2" stroke="#FF6B35" stroke-width="1.7"/>
-            <rect x="2.4" y="12.6" width="7.4" height="7.4" rx="2" stroke="#FF6B35" stroke-width="1.7"/>
-            <rect x="12.2" y="12.6" width="7.4" height="7.4" rx="2" stroke="#FF6B35" stroke-width="1.7"/>
+            <rect x="2.4" y="3.2" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
+            <rect x="12.2" y="3.2" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
+            <rect x="2.4" y="12.6" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
+            <rect x="12.2" y="12.6" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
           </svg>
         </div>
         <h3>My Heroes</h3>
         <p>Every character your family has made, in one gallery. Spin them around, replay their animations, download the files.</p>
         <a class="doorlink" href="#pricing">Open the gallery
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8F62" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
       </div>
       <div class="door">
         <div class="dooricon">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-            <circle cx="11" cy="4.6" r="2.6" stroke="#FF6B35" stroke-width="1.7"/>
-            <path d="M11 8v6M11 14l-4 5.6M11 14l4 5.6M4.6 10.2 11 8.4l6.4 1.8" stroke="#FF6B35" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="11" cy="4.6" r="2.6" stroke="#FA5197" stroke-width="1.7"/>
+            <path d="M11 8v6M11 14l-4 5.6M11 14l4 5.6M4.6 10.2 11 8.4l6.4 1.8" stroke="#FA5197" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
         <h3>Playground</h3>
         <p>Turn on the webcam and your child's hero copies their moves in real time. Eight poses, a scoring round, and a shareable reel.</p>
         <a class="doorlink" href="#pricing">Start the dance game
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8F62" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
       </div>
     </div>
@@ -506,9 +533,9 @@
         <div class="credits">30 credits</div>
         <div class="heroes">3 heroes</div>
         <ul class="pricelist">
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Try it with one drawing</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Download every VRM file</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Try it with one drawing</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Download every VRM file</span></li>
         </ul>
         <a class="btn btn-ghost" href="#">Choose Starter</a>
       </div>
@@ -520,9 +547,9 @@
         <div class="credits">100 credits</div>
         <div class="heroes">10 heroes</div>
         <ul class="pricelist">
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Enough for a whole sketchbook</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share heroes between siblings</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Enough for a whole sketchbook</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share heroes between siblings</span></li>
         </ul>
         <a class="btn btn-primary" href="#">Choose Maker</a>
       </div>
@@ -534,9 +561,9 @@
         <div class="credits">300 credits</div>
         <div class="heroes">30 heroes</div>
         <ul class="pricelist">
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>For classrooms and big families</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8F62" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Priority processing</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>For classrooms and big families</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
+          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Priority processing</span></li>
         </ul>
         <a class="btn btn-ghost" href="#">Choose Studio</a>
       </div>
@@ -555,28 +582,28 @@
       </div>
       <div class="plist">
         <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(255,107,53,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8F62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div>
             <h3>No ads, ever</h3>
             <p>Nothing is sold to your child inside the app. You buy a credit pack and that is the whole business model.</p>
           </div>
         </div>
         <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(255,107,53,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8F62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div>
             <h3>You own what your child makes</h3>
             <p>Every hero downloads as a standard VRM file. It is yours to keep, print, animate or take to another app.</p>
           </div>
         </div>
         <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(255,107,53,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8F62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div>
             <h3>Drawings never train a model</h3>
             <p>Uploads are used to build your character and nothing else. They are not sold, shared or used as training data.</p>
           </div>
         </div>
         <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(255,107,53,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8F62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div>
             <h3>Delete everything in one click</h3>
             <p>Remove a single hero or wipe the whole account. Webcam video is processed on your device and never uploaded.</p>
@@ -589,12 +616,8 @@
 
 <footer>
   <div class="wrap foot-in">
-    <div class="brand">
-      <svg class="mark" viewBox="0 0 26 26" fill="none" aria-hidden="true">
-        <rect x="0.75" y="0.75" width="24.5" height="24.5" rx="7" stroke="rgba(255,255,255,0.22)"/>
-        <path d="M8 18.5V8.2c0-.4.45-.63.77-.4L18 14.3" stroke="#FF6B35" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="17.6" cy="14.1" r="2.4" fill="#FF6B35"/>
-      </svg>
+    <div class="brand brandword">
+      <img class="mark" src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async">
       <span>HeroMaker</span>
     </div>
     <div class="foot-links">

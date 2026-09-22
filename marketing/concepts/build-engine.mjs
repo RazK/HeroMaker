@@ -35,29 +35,50 @@ try {
 }
 
 const ENTRY = `
+export * as THREE from 'three'
 export { loadHero } from './src/avatar/loader'
 export { loadVrma, loadRetargeted } from './src/anim/clips'
 export { UE_RIG, MIXAMO_RIG } from './src/anim/retarget'
 `
 
-const BANNER = `/* GENERATED — do not edit.
+const banner = (what) => `/* GENERATED — do not edit.
  * Built from games/hero-moves/src/{avatar/loader,anim/clips,anim/retarget}.ts
  * by marketing/concepts/build-engine.mjs. Re-run that script to refresh it.
+ * ${what}
  */`
 
-const result = await esbuild.build({
+const common = {
   stdin: { contents: ENTRY, resolveDir: GAME, sourcefile: 'engine.ts', loader: 'ts' },
   bundle: true,
   format: 'esm',
   target: 'es2020',
   platform: 'browser',
-  // Resolved by the import map in each concept page, from cdn.jsdelivr.net.
-  external: ['three', 'three/*', '@pixiv/three-vrm', '@pixiv/three-vrm-animation'],
-  banner: { js: BANNER },
-  outfile: join(HERE, 'hero-card-engine.js'),
   legalComments: 'none',
   metafile: true,
-})
+}
 
-const out = Object.values(result.metafile.outputs)[0]
-console.log(`hero-card-engine.js  ${(out.bytes / 1024).toFixed(1)} KB`)
+const builds = [
+  // The one the pages ask for first: three and @pixiv/three-vrm stay external
+  // and the import map in each concept resolves them from cdn.jsdelivr.net.
+  {
+    ...common,
+    external: ['three', 'three/*', '@pixiv/three-vrm', '@pixiv/three-vrm-animation'],
+    banner: { js: banner('three and @pixiv/three-vrm come from the CDN via the page import map.') },
+    outfile: join(HERE, 'hero-card-engine.js'),
+  },
+  // The one it falls back to when the CDN is unreachable — behind a corporate
+  // proxy, on a plane, or in CI. Same source, dependencies bundled in, so the
+  // mockups animate from a folder with no network at all.
+  {
+    ...common,
+    minify: true,
+    banner: { js: banner('three and @pixiv/three-vrm bundled in, for when the CDN is unreachable.') },
+    outfile: join(HERE, 'hero-card-engine.bundle.js'),
+  },
+]
+
+for (const opts of builds) {
+  const result = await esbuild.build(opts)
+  const [name, out] = Object.entries(result.metafile.outputs)[0]
+  console.log(`${name.split('/').pop().padEnd(28)} ${(out.bytes / 1024).toFixed(1)} KB`)
+}

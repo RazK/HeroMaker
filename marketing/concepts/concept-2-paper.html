@@ -14,14 +14,15 @@
     --card:       #FFFDF8;  /* a card on top of the paper */
     --ink:        #241F1A;  /* 15.3:1 on paper */
     --ink-soft:   #574C40;  /* 7.8:1 on paper */
-    --accent:     #A8301A;  /* crayon red, 6.3:1 on paper */
-    --accent-deep:#8C2814;  /* 8.1:1 on paper */
-    --ochre:      #B4762A;  /* decorative only, never text */
+    --accent:     #B01E6B;  /* crayon red, 6.3:1 on paper */
+    --accent-deep:#8E1557;  /* 8.1:1 on paper */
+    --ochre:      #AF5CB9;  /* decorative only, never text */
     --rule:       #D9CCB6;
     --shadow: 0 1px 2px rgba(36,31,26,.07), 0 10px 24px -12px rgba(36,31,26,.30);
     --shadow-lift: 0 2px 4px rgba(36,31,26,.08), 0 22px 44px -20px rgba(36,31,26,.38);
     --gutter: 16px;
     --serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --display: "Barriecito", "Comic Sans MS", system-ui, cursive;
     --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   }
 
@@ -32,7 +33,7 @@
     background-color:var(--paper);
     background-image:
       radial-gradient(1200px 700px at 12% -8%,  rgba(255,255,255,.85), rgba(255,255,255,0) 60%),
-      radial-gradient(900px 600px at 105% 4%,   rgba(180,118,42,.07), rgba(180,118,42,0) 60%),
+      radial-gradient(900px 600px at 105% 4%,   rgba(175,92,185,.07), rgba(175,92,185,0) 60%),
       radial-gradient(900px 900px at 50% 118%,  rgba(168,48,26,.05), rgba(168,48,26,0) 62%);
     background-attachment:fixed;
     color:var(--ink);
@@ -126,7 +127,7 @@
   .plate .cap{ margin:14px 0 0; padding-top:12px; border-top:1px dashed var(--rule); }
   .cap .k{ display:block; font-family:var(--sans); font-size:11px; line-height:1.4; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:9px; }
   .cap .v{ display:block; font-family:var(--serif); font-size:17.5px; line-height:1.45; color:var(--ink); }
-  .tape{ position:absolute; top:-11px; width:74px; height:22px; background:rgba(180,118,42,.22); border-left:1px solid rgba(180,118,42,.3); border-right:1px solid rgba(180,118,42,.3); }
+  .tape{ position:absolute; top:-11px; width:74px; height:22px; background:rgba(175,92,185,.22); border-left:1px solid rgba(175,92,185,.3); border-right:1px solid rgba(175,92,185,.3); }
   .tape.a{ left:22px; transform:rotate(-4deg); }
   .tape.b{ right:22px; transform:rotate(3deg); }
 
@@ -162,7 +163,7 @@
   .photo{
     position:relative; margin:0; border-radius:14px; border:1px solid var(--rule);
     background:
-      linear-gradient(150deg, rgba(180,118,42,.16), rgba(168,48,26,.09) 52%, rgba(36,31,26,.07)),
+      linear-gradient(150deg, rgba(175,92,185,.16), rgba(168,48,26,.09) 52%, rgba(36,31,26,.07)),
       var(--paper-deep);
     box-shadow:var(--shadow); overflow:hidden;
   }
@@ -234,7 +235,138 @@
   .foot-note{ font-size:14px; color:var(--ink-soft); margin:18px 0 0; }
 
   .band{ background:var(--paper-deep); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+
+  h1, h2 { font-family: var(--display); font-weight: 400; letter-spacing: 0; }
+  h1 { font-size: clamp(29px, 3.3vw, 46px); line-height: 1.16; }
+  h2 { font-size: clamp(24px, 2.7vw, 34px); line-height: 1.2; }
+  .wordmark b { font-family: var(--display); font-weight: 400; font-size: 23px; letter-spacing: .01em; }
+  .wordmark img { width: 34px; height: 34px; flex: none; border-radius: 8px; background: #FAF8F5; }
+  .hero { padding: 24px 0 18px; }
+  .hero h1 { max-width: 15ch; }
+  .hero .lede { max-width: 46ch; margin-top: 14px; }
+  .hero-actions { margin-top: 0; }
+  .hero-note { margin-top: 12px; font-size: 13.5px; max-width: 54ch; }
+  .transform-band { margin-top: 10px; padding: 40px 0 48px; }
+  :root{
+    --lc-card-bg: var(--card);
+    --lc-card-border: 1px solid var(--rule);
+    --lc-shadow: var(--shadow-lift);
+    --lc-radius: 10px;
+    --lc-pad: 14px;
+    --lc-media-bg: #FFFDF8;
+    --lc-media-border: 1px solid var(--rule);
+    --lc-stage-bg: radial-gradient(64% 58% at 50% 46%, rgba(175,92,185,.14), rgba(255,253,248,0) 72%), #FFFDF8;
+    --lc-cap-ink: var(--ink);
+    --lc-sub-ink: var(--ink-soft);
+    --lc-tile-bg: var(--card);
+    --lc-tile-border: 1px solid var(--rule);
+    --lc-tile-media: #FFFDF8;
+  }
+
+  /* ---------- the live hero card ----------
+     One card, two halves: a real drawing on the left, a real pipeline VRM on
+     the right, animating. The 3D half is driven by hero-card.js, which
+     compiles the game's own retargeting out of games/hero-moves/src/anim/.
+     Every --lc-* token below is set per concept so the card belongs to its
+     page; the geometry is the same everywhere so the fold budget is too. */
+  .fold-grid{display:grid;gap:16px;align-content:start}
+  .fold-copy,.fold-act{min-width:0}
+  @media(min-width:960px){
+    .fold-grid{
+      grid-template-columns:1.02fr .98fr;
+      grid-template-areas:"copy card" "act card";
+      column-gap:clamp(28px,3.6vw,56px);row-gap:20px;align-items:start;
+    }
+    .fold-copy{grid-area:copy}.livecard{grid-area:card}.fold-act{grid-area:act}
+  }
+  .livecard{
+    margin:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--lc-gap,10px);
+    background:var(--lc-card-bg);border:var(--lc-card-border,none);
+    border-radius:var(--lc-radius,16px);padding:var(--lc-pad,12px);
+    box-shadow:var(--lc-shadow,none);
+  }
+  .livecard-half{display:flex;flex-direction:column;min-width:0}
+  .livecard-media{
+    position:relative;overflow:hidden;aspect-ratio:3/4;
+    border-radius:var(--lc-media-radius,10px);
+    background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
+  }
+  .livecard-drawing{width:100%;height:100%;object-fit:cover}
+  .herocard{background:var(--lc-stage-bg,var(--lc-media-bg,#fff))}
+  .herocard-still{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    padding:7%;transition:opacity .45s ease;
+  }
+  .herocard canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .herocard.is-live .herocard-still{opacity:0}
+  .livecard-cap{margin:9px 1px 1px}
+  .livecard-cap b{
+    display:block;font-size:13px;line-height:1.25;font-weight:700;
+    color:var(--lc-cap-ink);letter-spacing:0;
+  }
+  .livecard-cap span{
+    display:block;margin-top:2px;font-size:12.5px;line-height:1.35;
+    color:var(--lc-sub-ink);
+  }
+  @media(min-width:1100px){
+    .livecard-cap b{font-size:14.5px}.livecard-cap span{font-size:13.5px}
+  }
+  /* No WebGL, a failed fetch, or a reader who asked for stillness: the card
+     keeps the render of the same avatar rather than going blank. */
+  @media(prefers-reduced-motion:reduce){
+    .herocard canvas{display:none}
+    .herocard.is-live .herocard-still{opacity:1}
+  }
+
+
+  @media(max-width:560px){
+    .fold-grid{gap:14px}
+    .livecard-media{aspect-ratio:4/5}
+    .livecard-cap b{font-size:12.5px}
+    .livecard-cap span{font-size:12px}
+  }
+
+  /* ---------- the real roster ---------- */
+  .heroes{
+    list-style:none;margin:26px 0 0;padding:0;
+    display:grid;grid-template-columns:repeat(2,1fr);gap:12px;
+  }
+  @media(min-width:640px){.heroes{grid-template-columns:repeat(3,1fr);gap:14px}}
+  @media(min-width:1020px){.heroes{grid-template-columns:repeat(6,1fr)}}
+  .heroes li{
+    margin:0;text-align:center;padding:10px 8px 12px;
+    background:var(--lc-tile-bg,transparent);border:var(--lc-tile-border,none);
+    border-radius:var(--lc-radius,16px);min-width:0;
+  }
+  .heroes img{
+    width:100%;height:auto;aspect-ratio:1;object-fit:contain;
+    background:var(--lc-tile-media,transparent);border-radius:calc(var(--lc-radius,16px) - 6px);
+  }
+  .heroes b{display:block;margin-top:8px;font-size:13.5px;line-height:1.25;color:var(--lc-cap-ink)}
+  .heroes span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
+<style>
+/* The same Barriecito file Google Fonts serves for `family=Barriecito`, kept
+   beside the page so the brand face is there when fonts.googleapis.com is not
+   (offline, or behind a proxy that re-terminates TLS). SIL Open Font License. */
+@font-face{
+  font-family:'Barriecito';font-style:normal;font-weight:400;font-display:swap;
+  src:url('assets/barriecito-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/": "https://cdn.jsdelivr.net/npm/three@0.185.1/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js",
+    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.min.js"
+  }
+}
+</script>
+<script type="module" src="hero-card.js"></script>
 </head>
 <body>
 
@@ -253,10 +385,10 @@
       <stop offset="0%" stop-color="#F6D9C4"/><stop offset="62%" stop-color="#E7B893"/><stop offset="100%" stop-color="#B9825C"/>
     </radialGradient>
     <radialGradient id="suit3d" cx="32%" cy="24%" r="82%">
-      <stop offset="0%" stop-color="#D4573C"/><stop offset="58%" stop-color="#A8301A"/><stop offset="100%" stop-color="#6E1D0E"/>
+      <stop offset="0%" stop-color="#D4573C"/><stop offset="58%" stop-color="#B01E6B"/><stop offset="100%" stop-color="#6E1D0E"/>
     </radialGradient>
     <linearGradient id="cape3d" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#D79A3E"/><stop offset="55%" stop-color="#B4762A"/><stop offset="100%" stop-color="#7C4E16"/>
+      <stop offset="0%" stop-color="#D79A3E"/><stop offset="55%" stop-color="#AF5CB9"/><stop offset="100%" stop-color="#7C4E16"/>
     </linearGradient>
     <radialGradient id="stage" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="rgba(36,31,26,.26)"/><stop offset="100%" stop-color="rgba(36,31,26,0)"/>
@@ -267,10 +399,7 @@
 <header class="site">
   <div class="wrap site-row">
     <a class="wordmark" href="#top">
-      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true" focusable="false">
-        <path d="M4 24 L15 5 L26 24 Z" fill="none" stroke="#A8301A" stroke-width="2.6" stroke-linejoin="round" filter="url(#crayon2)"/>
-        <circle cx="15" cy="17" r="3.1" fill="#241F1A"/>
-      </svg>
+      <img src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async">
       <b>HeroMaker</b>
     </a>
     <nav class="site-links" aria-label="Primary">
@@ -284,162 +413,86 @@
 
 <main id="top">
 
-  <!-- 1 ── HERO ─────────────────────────────────────────────── -->
+  <!-- 1 ── HERO ───────────────────────────────── -->
   <section class="hero">
-    <div class="wrap">
-      <div class="hero-grid">
-      <div class="hero-copy">
-      <p class="eyebrow">Drawing in · hero out · six minutes</p>
-      <div class="inner">
-        <h1>Your child draws a hero.<br>We stand it
-          <span class="underline-word">up in 3D<svg viewBox="0 0 220 16" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-            <path d="M3 10 C48 3, 96 14, 146 6 C176 1, 200 8, 217 5" fill="none" stroke="#A8301A" stroke-width="5" stroke-linecap="round" filter="url(#crayon)"/>
-          </svg></span>.
-        </h1>
-        <p class="lede">Photograph the drawing on your kitchen table. About six minutes later it is a real, rigged 3D character — and your child can dance with it, live, through the webcam.</p>
+    <div class="wrap fold-grid">
+      <div class="fold-copy">
+        <p class="eyebrow">Drawing in · hero out · six minutes</p>
+        <h1>Your child draws a hero. We stand it up in 3D.</h1>
+        <p class="lede">Photograph the drawing on the kitchen table. About six minutes later it is a real, rigged 3D character &mdash; the one on the right is a VRM file, dancing in this page.</p>
       </div>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="#doors">Make your first hero</a>
-        <a class="btn btn-ghost" href="#how">See how it works</a>
-      </div>
-      <p class="hero-note">From $5 for three heroes. No subscription, no ads, credits never expire.</p>
-      </div>
-
-      <div class="hero-shot">
-        <figure class="photo tall">
-          <div class="ph-inner">
-            <svg viewBox="0 0 56 56" aria-hidden="true" focusable="false">
-              <circle cx="28" cy="16" r="9" fill="none" stroke="#5A4B3A" stroke-width="2.6"/>
-              <path d="M11 50 q17 -18 34 0" fill="none" stroke="#5A4B3A" stroke-width="2.6" stroke-linecap="round"/>
-              <rect x="33" y="27" width="18" height="14" rx="2" fill="none" stroke="#5A4B3A" stroke-width="2.6"/>
-            </svg>
-            <span class="ph-label">Photo: a child holding up their drawing to the camera</span>
+      <figure class="livecard" data-hero-shot>
+        <div class="livecard-half">
+          <div class="livecard-media">
+            <img class="livecard-drawing" src="assets/drawing-superbear-crop.jpg" width="848" height="1222"
+                 fetchpriority="high" decoding="async"
+                 alt="A child's crayon drawing of a super bear in a red cape, photographed at a HeroMaker event">
           </div>
-        </figure>
-      </div>
+          <p class="livecard-cap"><b>The drawing</b><span>Crayon, photographed at an event.</span></p>
+        </div>
+        <div class="livecard-half">
+          <div class="livecard-media herocard" data-hero-card
+               data-vrm="assets/Yummy_Bear.opt.vrm"
+               data-clip="assets/Dance_Charleston.glb"
+               data-rim="#B01E6B" data-key="#FFF6E6" data-ambient="0.72"
+               data-shadow="0.3" data-shadow-color="#4A3A2A"
+               data-zoom="1.45" data-outline="0">
+            <img class="herocard-still" src="assets/Yummy_Bear.thumb.webp" width="512" height="512"
+                 decoding="async"
+                 alt="Yummy Bear, a caped super-bear, rendered from the VRM file">
+          </div>
+          <p class="livecard-cap"><b>The hero, live</b><span>A real VRM, moving now.</span></p>
+        </div>
+      </figure>
+      <div class="fold-act">
+        <div class="hero-actions">
+          <a class="btn btn-primary" data-primary-cta href="#doors">Make your first hero</a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <p class="hero-note">Both halves are real &mdash; a drawing from one of our events, a hero from the live gallery. Side by side, not the same child's pair.</p>
       </div>
     </div>
   </section>
 
-  <!-- 2 ── THE TRANSFORMATION ───────────────────────────────── -->
+  <!-- 2 ── THE REAL HEROES ─────────────────────── -->
   <section class="band transform-band" aria-labelledby="tr-h">
     <div class="wrap">
       <div class="band-head">
-        <h2 id="tr-h">The same character. One of them can dance.</h2>
-        <p class="lede">Nothing is redrawn by an adult and nothing is swapped for a stock model. What your child put on the paper is what stands up.</p>
+        <h2 id="tr-h">Every one of these was a drawing.</h2>
+        <p class="lede">Six heroes made at real events, rendered from the VRM files themselves. Nothing is redrawn by an adult and nothing is swapped for a stock model. What your child put on the paper is what stands up.</p>
       </div>
-
-      <div class="tri">
-        <!-- the drawing -->
-        <figure class="plate tilt-l" style="margin:0">
-          <span class="tape a" aria-hidden="true"></span>
-          <span class="tape b" aria-hidden="true"></span>
-          <svg class="art" viewBox="0 0 320 330" role="img" aria-label="A child's crayon drawing of a caped hero with a star on its chest">
-            <rect x="0" y="0" width="320" height="330" fill="#FFFDF8"/>
-            <g filter="url(#crayon)">
-              <!-- colouring outside the lines -->
-              <path d="M118 66 q42 -30 88 4 q22 34 -6 62 q-44 26 -84 -4 q-18 -30 2 -62 Z" fill="#E7B893" opacity=".62"/>
-              <path d="M104 156 q56 -16 112 2 l8 84 q-64 14 -128 0 Z" fill="#A8301A" opacity=".40"/>
-              <path d="M214 148 q40 26 26 88 q-24 16 -42 6 q16 -48 4 -88 Z" fill="#B4762A" opacity=".45"/>
-            </g>
-            <g fill="none" stroke="#241F1A" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon)">
-              <!-- cape -->
-              <path d="M212 146 q44 28 30 92 q-26 16 -46 6"/>
-              <!-- head -->
-              <path d="M160 54 q54 0 54 46 q0 44 -54 44 q-54 0 -54 -44 q0 -46 54 -46 Z"/>
-              <!-- hair tufts -->
-              <path d="M126 62 l-8 -18 M150 50 l-4 -22 M176 52 l8 -20 M200 66 l16 -14"/>
-              <!-- eyes + smile -->
-              <path d="M140 92 l0 8 M182 92 l0 8"/>
-              <path d="M138 114 q22 16 46 0"/>
-              <!-- body -->
-              <path d="M160 144 l0 14 M108 162 q52 -18 106 0 l6 84 q-58 14 -118 0 Z"/>
-              <!-- arms -->
-              <path d="M110 176 l-52 -30 l-14 22"/>
-              <path d="M216 176 l50 -34 l16 20"/>
-              <!-- legs -->
-              <path d="M132 244 l-6 56 l-26 6 M188 244 l8 56 l26 6"/>
-            </g>
-            <!-- chest star -->
-            <path d="M160 178 l9 20 l22 2 l-16 15 l5 22 l-20 -12 l-20 12 l5 -22 l-16 -15 l22 -2 Z" fill="#B4762A" stroke="#241F1A" stroke-width="3" stroke-linejoin="round" filter="url(#crayon2)"/>
-          </svg>
-          <figcaption class="cap">
-            <span class="k">Step one — what your child made</span>
-            <span class="v">Crayon on A4, photographed at the table.</span>
-          </figcaption>
-        </figure>
-
-        <!-- arrow -->
-        <div class="arrowcell" aria-hidden="true">
-          <svg class="arrow-h" width="150" height="66" viewBox="0 0 150 66" focusable="false">
-            <path d="M6 44 C40 10, 96 10, 132 32" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" filter="url(#crayon)"/>
-            <path d="M116 20 L136 34 L113 42" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon)"/>
-          </svg>
-          <svg class="arrow-v" width="70" height="78" viewBox="0 0 70 78" focusable="false">
-            <path d="M22 6 C58 26, 8 44, 36 68" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" filter="url(#crayon)"/>
-            <path d="M22 50 L37 71 L52 52" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon)"/>
-          </svg>
-          <span class="t">about<br>6 minutes</span>
-        </div>
-
-        <!-- the hero -->
-        <figure class="plate tilt-r" style="margin:0">
-          <svg class="art" viewBox="0 0 320 330" role="img" aria-label="The same character rebuilt as a shaded, rigged 3D model standing on a soft stage">
-            <rect x="0" y="0" width="320" height="330" fill="#241F1A"/>
-            <rect x="0" y="0" width="320" height="330" fill="url(#stage)" opacity=".5"/>
-            <g stroke="#3B322A" stroke-width="1.2" opacity=".5">
-              <path d="M0 284 H320 M0 306 H320 M58 266 V330 M160 264 V330 M262 266 V330"/>
-            </g>
-            <ellipse cx="160" cy="303" rx="88" ry="16" fill="#120F0C" opacity=".7"/>
-
-            <!-- cape, behind everything, peeking both sides -->
-            <path d="M116 156 q44 -16 88 0 q26 66 24 122 q-68 22 -136 0 q-2 -56 24 -122 Z" fill="url(#cape3d)"/>
-
-            <!-- legs -->
-            <path d="M134 224 q-10 36 -10 66 q18 9 34 2 q0 -34 4 -68 Z" fill="url(#suit3d)"/>
-            <path d="M186 224 q12 36 12 66 q-18 9 -34 2 q0 -34 -4 -68 Z" fill="url(#suit3d)"/>
-            <ellipse cx="133" cy="293" rx="17" ry="9" fill="#5F1A0C"/>
-            <ellipse cx="187" cy="293" rx="17" ry="9" fill="#5F1A0C"/>
-
-            <!-- torso -->
-            <path d="M113 164 q47 -22 94 0 q11 34 7 66 q-52 17 -108 0 q-4 -32 7 -66 Z" fill="url(#suit3d)"/>
-
-            <!-- arms -->
-            <path d="M115 174 q-32 -8 -55 -32 q7 -16 19 -19 q21 22 44 29 Z" fill="url(#suit3d)"/>
-            <path d="M205 174 q34 -9 55 -33 q14 8 16 22 q-25 21 -59 30 Z" fill="url(#suit3d)"/>
-            <circle cx="54" cy="136" r="13" fill="url(#skin3d)"/>
-            <circle cx="268" cy="150" r="13" fill="url(#skin3d)"/>
-
-            <!-- neck, behind the head -->
-            <path d="M160 140 l0 24" stroke="#C08A63" stroke-width="20" stroke-linecap="round"/>
-
-            <!-- head -->
-            <ellipse cx="160" cy="102" rx="51" ry="47" fill="url(#skin3d)"/>
-            <path d="M110 92 q9 -45 50 -45 q41 0 50 45 q-23 -19 -50 -19 q-27 0 -50 19 Z" fill="#4A3A2C"/>
-            <ellipse cx="141" cy="102" rx="5" ry="6.5" fill="#241F1A"/>
-            <ellipse cx="181" cy="102" rx="5" ry="6.5" fill="#241F1A"/>
-            <path d="M142 122 q18 15 38 0" fill="none" stroke="#8A5A3E" stroke-width="4" stroke-linecap="round"/>
-
-            <!-- chest star -->
-            <path d="M160 180 l9 19 l21 2 l-15 14 l4 21 l-19 -11 l-19 11 l4 -21 l-15 -14 l21 -2 Z" fill="#E3B35C"/>
-
-            <!-- rig hints -->
-            <g stroke="#F1E9DA" stroke-width="1.3" opacity=".6" fill="none">
-              <path d="M160 102 L160 168 L160 226 M115 174 L54 136 M205 174 L268 150 M144 226 L133 291 M176 226 L187 291"/>
-            </g>
-            <g fill="#F1E9DA" opacity=".85">
-              <circle cx="160" cy="102" r="3.3"/><circle cx="160" cy="168" r="3.3"/><circle cx="160" cy="226" r="3.3"/>
-              <circle cx="115" cy="174" r="2.9"/><circle cx="205" cy="174" r="2.9"/>
-              <circle cx="54" cy="136" r="2.9"/><circle cx="268" cy="150" r="2.9"/>
-              <circle cx="133" cy="291" r="2.9"/><circle cx="187" cy="291" r="2.9"/>
-            </g>
-          </svg>
-          <figcaption class="cap">
-            <span class="k">Step two — what comes back</span>
-            <span class="v">A rigged VRM hero, 22 bones, ready to move.</span>
-          </figcaption>
-        </figure>
-      </div>
+    <ul class="heroes">
+      <li>
+        <img src="assets/Yummy_Bear.thumb.webp" alt="Yummy Bear, caped super-bear, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Yummy Bear</b><span>caped super-bear</span>
+      </li>
+      <li>
+        <img src="assets/Superstar.thumb.webp" alt="Superstar, a star with legs, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Superstar</b><span>a star with legs</span>
+      </li>
+      <li>
+        <img src="assets/Gingerella.thumb.webp" alt="Gingerella, cape, boots, attitude, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Gingerella</b><span>cape, boots, attitude</span>
+      </li>
+      <li>
+        <img src="assets/Skelly.thumb.webp" alt="Skelly, skeleton in a green hat, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Skelly</b><span>skeleton in a green hat</span>
+      </li>
+      <li>
+        <img src="assets/Cloudy.thumb.webp" alt="Cloudy, a cloud that wears shoes, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Cloudy</b><span>a cloud that wears shoes</span>
+      </li>
+      <li>
+        <img src="assets/Crayon_Kid.thumb.webp" alt="Crayon Kid, masked, in blue, rendered from the VRM file"
+             width="512" height="512" loading="lazy" decoding="async">
+        <b>Crayon Kid</b><span>masked, in blue</span>
+      </li>
+    </ul>
     </div>
   </section>
 
@@ -453,8 +506,8 @@
         <a class="door" href="#">
           <svg class="icon" viewBox="0 0 56 56" aria-hidden="true" focusable="false">
             <rect x="6" y="9" width="44" height="34" rx="4" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
-            <path d="M15 36 L25 22 L33 32 L39 26 L46 36" fill="none" stroke="#A8301A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon2)"/>
-            <circle cx="39" cy="18" r="3.4" fill="#B4762A"/>
+            <path d="M15 36 L25 22 L33 32 L39 26 L46 36" fill="none" stroke="#B01E6B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon2)"/>
+            <circle cx="39" cy="18" r="3.4" fill="#AF5CB9"/>
           </svg>
           <h3>Studio</h3>
           <p>Photograph a drawing, answer two questions, and watch it become a hero. Ten credits, about six minutes.</p>
@@ -465,8 +518,8 @@
           <svg class="icon" viewBox="0 0 56 56" aria-hidden="true" focusable="false">
             <rect x="5" y="12" width="20" height="32" rx="3" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
             <rect x="31" y="12" width="20" height="32" rx="3" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
-            <path d="M12 34 q6 -12 12 0 M38 34 q6 -12 12 0" fill="none" stroke="#A8301A" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
-            <circle cx="15" cy="23" r="3" fill="#B4762A"/><circle cx="41" cy="23" r="3" fill="#B4762A"/>
+            <path d="M12 34 q6 -12 12 0 M38 34 q6 -12 12 0" fill="none" stroke="#B01E6B" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
+            <circle cx="15" cy="23" r="3" fill="#AF5CB9"/><circle cx="41" cy="23" r="3" fill="#AF5CB9"/>
           </svg>
           <h3>My Heroes</h3>
           <p>Every hero your family has made, kept in one shelf. Spin them, replay them, download them, delete them.</p>
@@ -477,7 +530,7 @@
           <svg class="icon" viewBox="0 0 56 56" aria-hidden="true" focusable="false">
             <circle cx="28" cy="13" r="6" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
             <path d="M28 20 L28 36 M28 24 L14 18 M28 24 L44 20 M28 36 L18 49 M28 36 L39 49" fill="none" stroke="#241F1A" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
-            <path d="M46 8 q6 6 0 12 M8 10 q-6 6 0 12" fill="none" stroke="#A8301A" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
+            <path d="M46 8 q6 6 0 12 M8 10 q-6 6 0 12" fill="none" stroke="#B01E6B" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
           </svg>
           <h3>Playground</h3>
           <p>Stand in front of the webcam and your hero copies you, move for move. No controller, no download.</p>
@@ -590,22 +643,22 @@
         <p class="lede">Four things we think you should know before your child's drawing goes anywhere.</p>
         <div class="assure">
           <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <h3>No ads, ever</h3>
             <p>Nothing is sold to your child, and nothing is sold about them. You pay for credits; that is the whole business.</p>
           </div>
           <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <h3>You own what your child makes</h3>
             <p>The drawing is theirs and so is the hero. Download the 3D file whenever you like and keep it.</p>
           </div>
           <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <h3>Drawings never train anything</h3>
             <p>Your child's artwork is used to build your child's hero. It is not added to any training set, ours or anyone else's.</p>
           </div>
           <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <h3>Delete it all in one click</h3>
             <p>Remove a single hero or wipe the whole account. Webcam video stays in the browser and is never uploaded.</p>
           </div>
@@ -622,7 +675,7 @@
     <div class="foot-row">
       <a class="wordmark" href="#top">
         <svg width="26" height="26" viewBox="0 0 30 30" aria-hidden="true" focusable="false">
-          <path d="M4 24 L15 5 L26 24 Z" fill="none" stroke="#A8301A" stroke-width="2.6" stroke-linejoin="round" filter="url(#crayon2)"/>
+          <path d="M4 24 L15 5 L26 24 Z" fill="none" stroke="#B01E6B" stroke-width="2.6" stroke-linejoin="round" filter="url(#crayon2)"/>
           <circle cx="15" cy="17" r="3.1" fill="#241F1A"/>
         </svg>
         <b>HeroMaker</b>
