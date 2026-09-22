@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeroMaker — your child's drawing, standing up in 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:      #FAF7F0;  /* main cartridge ground */
+    --paper-deep: #F1E9DA;  /* laid-down panel */
+    --card:       #FFFDF8;  /* a card on top of the paper */
+    --ink:        #241F1A;  /* 15.3:1 on paper */
+    --ink-soft:   #574C40;  /* 7.8:1 on paper */
+    --accent:     #A8301A;  /* crayon red, 6.3:1 on paper */
+    --accent-deep:#8C2814;  /* 8.1:1 on paper */
+    --ochre:      #B4762A;  /* decorative only, never text */
+    --rule:       #D9CCB6;
+    --shadow: 0 1px 2px rgba(36,31,26,.07), 0 10px 24px -12px rgba(36,31,26,.30);
+    --shadow-lift: 0 2px 4px rgba(36,31,26,.08), 0 22px 44px -20px rgba(36,31,26,.38);
+    --gutter: 16px;
+    --serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; max-width:100%; overflow-x:hidden; }
+
+  body{
+    background-color:var(--paper);
+    background-image:
+      radial-gradient(1200px 700px at 12% -8%,  rgba(255,255,255,.85), rgba(255,255,255,0) 60%),
+      radial-gradient(900px 600px at 105% 4%,   rgba(180,118,42,.07), rgba(180,118,42,0) 60%),
+      radial-gradient(900px 900px at 50% 118%,  rgba(168,48,26,.05), rgba(168,48,26,0) 62%);
+    background-attachment:fixed;
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:17px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* paper grain — inline SVG turbulence, no image files, never over the pointer */
+  body::after{
+    content:"";
+    position:fixed; inset:0; z-index:60; pointer-events:none;
+    opacity:.5;
+    background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23g)' opacity='0.16'/%3E%3C/svg%3E");
+    mix-blend-mode:multiply;
+  }
+
+  .wrap{ width:100%; max-width:1120px; margin:0 auto; padding-left:var(--gutter); padding-right:var(--gutter); }
+  section{ position:relative; }
+
+  h1,h2,h3,.serif{ font-family:var(--serif); font-weight:600; letter-spacing:-.01em; }
+  h1{ font-size:clamp(33px,5.6vw,50px); line-height:1.12; margin:0 0 18px; font-weight:700; }
+  h2{ font-size:clamp(27px,4.4vw,40px); line-height:1.15; margin:0 0 14px; }
+  h3{ font-size:21px; line-height:1.25; margin:0 0 8px; }
+  p{ margin:0 0 16px; }
+  a{ color:var(--accent-deep); }
+
+  .eyebrow{
+    font-family:var(--sans); font-size:12px; font-weight:600;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft);
+    margin:0 0 16px;
+  }
+  .lede{ font-size:clamp(17px,2.1vw,20px); color:var(--ink-soft); max-width:56ch; }
+  .small{ font-size:14px; color:var(--ink-soft); }
+
+  /* ---------- buttons ---------- */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    font-family:var(--sans); font-size:16px; font-weight:600; line-height:1;
+    padding:16px 26px; border-radius:14px; text-decoration:none; border:2px solid transparent; white-space:nowrap;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-primary{ background:var(--accent); color:var(--card); box-shadow:var(--shadow); }
+  .btn-primary:hover{ transform:translateY(-2px) rotate(-.4deg); box-shadow:var(--shadow-lift); }
+  .btn-ghost{ background:transparent; color:var(--ink); border-color:var(--ink); }
+  .btn-ghost:hover{ background:rgba(36,31,26,.06); }
+
+  /* ---------- header ---------- */
+  header.site{ padding:22px 0 6px; }
+  .site-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+  .wordmark{ display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink); }
+  .wordmark b{ font-family:var(--serif); font-size:22px; font-weight:700; letter-spacing:-.015em; }
+  .site-links{ display:flex; align-items:center; gap:22px; }
+  .site-links a{ font-size:15px; font-weight:500; color:var(--ink-soft); text-decoration:none; }
+  .site-links a:hover{ color:var(--accent-deep); }
+  @media (max-width:640px){
+    .site-links .hide-sm{ display:none; }
+    .site-row{ flex-wrap:nowrap; }
+    .site-links .btn{ padding:11px 15px; font-size:14px; }
+  }
+
+  /* ---------- hero ---------- */
+  .hero{ padding:34px 0 8px; }
+  .hero h1{ max-width:14em; }
+  .hero .inner{ max-width:100%; }
+  .hero-grid{ display:grid; grid-template-columns:1fr; gap:30px; align-items:center; }
+  @media (min-width:980px){ .hero-grid{ grid-template-columns:1.32fr .68fr; gap:54px; } .hero{ padding:46px 0 10px; } }
+  .hero-shot{ position:relative; }
+  .hero-shot .photo{ transform:rotate(1.2deg); }
+  .underline-word{ position:relative; display:inline-block; white-space:nowrap; }
+  .underline-word svg{ position:absolute; left:-2%; bottom:-.22em; width:104%; height:.36em; overflow:visible; pointer-events:none; }
+  .hero-actions{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:26px; }
+  @media (max-width:520px){ .hero-actions .btn{ flex:1 1 100%; } }
+  .hero-note{ margin:18px 0 0; font-size:14px; color:var(--ink-soft); }
+
+  /* ---------- the transformation ---------- */
+  .transform-band{ margin-top:44px; padding:46px 0 56px; }
+  .band-head{ text-align:center; max-width:620px; margin:0 auto 32px; }
+  .band-head .lede{ margin-left:auto; margin-right:auto; }
+  .tri{ display:grid; grid-template-columns:1fr; gap:22px; align-items:center; }
+  @media (min-width:900px){ .tri{ grid-template-columns:1fr 140px 1fr; gap:12px; } }
+
+  .plate{
+    background:var(--card); border:1px solid var(--rule); border-radius:8px;
+    padding:20px 20px 16px; box-shadow:var(--shadow); position:relative;
+  }
+  .plate.tilt-l{ transform:rotate(-1.1deg); }
+  .plate.tilt-r{ transform:rotate(.9deg); }
+  .plate svg.art{ display:block; width:100%; height:auto; }
+  .plate .cap{ margin:14px 0 0; padding-top:12px; border-top:1px dashed var(--rule); }
+  .cap .k{ display:block; font-family:var(--sans); font-size:11px; line-height:1.4; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:9px; }
+  .cap .v{ display:block; font-family:var(--serif); font-size:17.5px; line-height:1.45; color:var(--ink); }
+  .tape{ position:absolute; top:-11px; width:74px; height:22px; background:rgba(180,118,42,.22); border-left:1px solid rgba(180,118,42,.3); border-right:1px solid rgba(180,118,42,.3); }
+  .tape.a{ left:22px; transform:rotate(-4deg); }
+  .tape.b{ right:22px; transform:rotate(3deg); }
+
+  .arrowcell{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:4px 0; }
+  .arrowcell svg{ display:block; }
+  .arrowcell .arrow-h{ display:none; }
+  @media (min-width:900px){ .arrowcell .arrow-h{ display:block; } .arrowcell .arrow-v{ display:none; } }
+  .arrowcell .t{ font-family:var(--serif); font-style:italic; font-size:17px; color:var(--ink-soft); text-align:center; }
+
+  /* ---------- three doors ---------- */
+  .doors{ padding:46px 0 10px; }
+  .door-grid{ display:grid; grid-template-columns:1fr; gap:18px; margin-top:26px; }
+  @media (min-width:760px){ .door-grid{ grid-template-columns:repeat(3,1fr); gap:20px; } }
+  .door{
+    background:var(--card); border:1px solid var(--rule); border-radius:16px;
+    padding:24px 22px 22px; box-shadow:var(--shadow); text-decoration:none; color:var(--ink);
+    display:flex; flex-direction:column; transition:transform .16s ease, box-shadow .16s ease;
+  }
+  .door:hover{ transform:translateY(-3px); box-shadow:var(--shadow-lift); }
+  .door .icon{ width:56px; height:56px; margin-bottom:14px; }
+  .door p{ color:var(--ink-soft); font-size:15.5px; margin-bottom:16px; }
+  .door .go{ margin-top:auto; font-weight:600; font-size:15px; color:var(--accent-deep); }
+
+  /* ---------- how it works ---------- */
+  .how{ padding:52px 0 8px; }
+  .steps{ display:grid; grid-template-columns:1fr; gap:22px; margin-top:28px; }
+  @media (min-width:820px){ .steps{ grid-template-columns:repeat(4,1fr); gap:26px; } }
+  .step{ position:relative; padding-top:6px; }
+  .step .n{ font-family:var(--serif); font-size:15px; font-weight:700; color:var(--card); background:var(--accent); width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+  .step p{ color:var(--ink-soft); font-size:15.5px; margin:0; }
+
+  /* ---------- photo placeholders ---------- */
+  .photo{
+    position:relative; margin:0; border-radius:14px; border:1px solid var(--rule);
+    background:
+      linear-gradient(150deg, rgba(180,118,42,.16), rgba(168,48,26,.09) 52%, rgba(36,31,26,.07)),
+      var(--paper-deep);
+    box-shadow:var(--shadow); overflow:hidden;
+  }
+  .photo.tall{ aspect-ratio:4/3; }
+  .photo.wide{ aspect-ratio:4/3; }
+  @media (min-width:980px){ .photo.tall{ aspect-ratio:4/5; } }
+  @media (min-width:760px){ .photo.wide{ aspect-ratio:16/5; } }
+  .ph-inner{
+    position:absolute; inset:12px; border:2px dashed rgba(90,75,58,.42); border-radius:9px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    padding:18px 16px; text-align:center;
+  }
+  .ph-inner svg{ display:block; width:52px; height:52px; opacity:.5; }
+  .ph-label{
+    display:inline-block; max-width:34ch;
+    font-family:var(--sans); font-size:11px; font-weight:600; line-height:1.55;
+    letter-spacing:.13em; text-transform:uppercase; color:var(--ink);
+    background:rgba(255,253,248,.88); border-radius:999px; padding:7px 14px;
+  }
+  @media (max-width:520px){ .ph-inner{ gap:10px; } .ph-inner svg{ width:38px; height:38px; } .ph-label{ letter-spacing:.09em; } }
+
+  /* ---------- pricing ---------- */
+  .pricing{ padding:54px 0 8px; }
+  .price-grid{ display:grid; grid-template-columns:1fr; gap:18px; margin-top:28px; align-items:stretch; }
+  @media (min-width:820px){ .price-grid{ grid-template-columns:repeat(3,1fr); gap:20px; } }
+  .tier{
+    background:var(--card); border:1px solid var(--rule); border-radius:16px;
+    padding:26px 22px 24px; box-shadow:var(--shadow); position:relative;
+    display:flex; flex-direction:column;
+  }
+  .tier.best{ border:2px solid var(--accent); box-shadow:var(--shadow-lift); }
+  .ribbon{
+    display:inline-block; background:var(--accent); color:var(--card);
+    font-family:var(--sans); font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    padding:6px 12px; border-radius:999px; margin-bottom:12px; align-self:flex-start;
+  }
+  .tier .name{ font-family:var(--serif); font-size:21px; font-weight:600; margin:0 0 2px; }
+  .tier .amt{ font-family:var(--serif); font-size:44px; font-weight:700; line-height:1; margin:8px 0 4px; }
+  .tier .per{ font-size:14px; color:var(--ink-soft); margin:0 0 16px; }
+  .tier ul{ list-style:none; margin:0 0 22px; padding:0; }
+  .tier li{ font-size:15.5px; color:var(--ink-soft); padding:7px 0 7px 26px; position:relative; border-top:1px dashed var(--rule); }
+  .tier li:first-child{ border-top:none; }
+  .tier li::before{ content:""; position:absolute; left:2px; top:15px; width:12px; height:7px; border-left:2px solid var(--accent); border-bottom:2px solid var(--accent); transform:rotate(-45deg); }
+  .tier .btn{ width:100%; margin-top:auto; }
+  .credit-note{ margin:24px auto 0; text-align:center; max-width:58ch; font-size:15.5px; color:var(--ink-soft); }
+
+  /* ---------- parents ---------- */
+  .parents{ margin-top:56px; }
+  .parents .slab{
+    background:var(--ink); color:var(--paper-deep); border-radius:20px;
+    padding:38px 26px 34px; box-shadow:var(--shadow-lift);
+  }
+  @media (min-width:820px){ .parents .slab{ padding:46px 48px 42px; } }
+  .parents h2{ color:var(--card); }
+  .parents .lede{ color:var(--paper-deep); }
+  .assure{ display:grid; grid-template-columns:1fr; gap:18px; margin-top:26px; }
+  @media (min-width:760px){ .assure{ grid-template-columns:repeat(2,1fr); gap:22px 40px; } }
+  .assure div{ padding-left:30px; position:relative; }
+  .assure h3{ color:var(--card); font-size:17.5px; margin:0 0 4px; }
+  .assure p{ color:var(--paper-deep); font-size:15.5px; margin:0; }
+  .assure .mk{ position:absolute; left:0; top:4px; width:18px; height:18px; }
+
+  /* ---------- footer ---------- */
+  footer.site{ padding:44px 0 46px; margin-top:52px; border-top:1px solid var(--rule); }
+  .foot-row{ display:flex; flex-wrap:wrap; gap:16px 28px; align-items:center; justify-content:space-between; }
+  .foot-links{ display:flex; flex-wrap:wrap; gap:18px 24px; }
+  .foot-links a{ font-size:15px; color:var(--ink-soft); text-decoration:none; }
+  .foot-links a:hover{ color:var(--accent-deep); text-decoration:underline; }
+  .foot-note{ font-size:14px; color:var(--ink-soft); margin:18px 0 0; }
+
+  .band{ background:var(--paper-deep); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+</style>
+</head>
+<body>
+
+<!-- reusable defs: crayon wobble + shading -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="crayon" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="crayon2" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="3" seed="19" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <radialGradient id="skin3d" cx="34%" cy="28%" r="78%">
+      <stop offset="0%" stop-color="#F6D9C4"/><stop offset="62%" stop-color="#E7B893"/><stop offset="100%" stop-color="#B9825C"/>
+    </radialGradient>
+    <radialGradient id="suit3d" cx="32%" cy="24%" r="82%">
+      <stop offset="0%" stop-color="#D4573C"/><stop offset="58%" stop-color="#A8301A"/><stop offset="100%" stop-color="#6E1D0E"/>
+    </radialGradient>
+    <linearGradient id="cape3d" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D79A3E"/><stop offset="55%" stop-color="#B4762A"/><stop offset="100%" stop-color="#7C4E16"/>
+    </linearGradient>
+    <radialGradient id="stage" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(36,31,26,.26)"/><stop offset="100%" stop-color="rgba(36,31,26,0)"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<header class="site">
+  <div class="wrap site-row">
+    <a class="wordmark" href="#top">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true" focusable="false">
+        <path d="M4 24 L15 5 L26 24 Z" fill="none" stroke="#A8301A" stroke-width="2.6" stroke-linejoin="round" filter="url(#crayon2)"/>
+        <circle cx="15" cy="17" r="3.1" fill="#241F1A"/>
+      </svg>
+      <b>HeroMaker</b>
+    </a>
+    <nav class="site-links" aria-label="Primary">
+      <a class="hide-sm" href="#doors">Studio</a>
+      <a class="hide-sm" href="#how">How it works</a>
+      <a class="hide-sm" href="#pricing">Pricing</a>
+      <a href="#doors" class="btn btn-primary" style="padding:12px 18px;font-size:15px;color:#FFFDF8">Open the Studio</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- 1 ── HERO ─────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+      <div class="hero-copy">
+      <p class="eyebrow">Drawing in · hero out · six minutes</p>
+      <div class="inner">
+        <h1>Your child draws a hero.<br>We stand it
+          <span class="underline-word">up in 3D<svg viewBox="0 0 220 16" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <path d="M3 10 C48 3, 96 14, 146 6 C176 1, 200 8, 217 5" fill="none" stroke="#A8301A" stroke-width="5" stroke-linecap="round" filter="url(#crayon)"/>
+          </svg></span>.
+        </h1>
+        <p class="lede">Photograph the drawing on your kitchen table. About six minutes later it is a real, rigged 3D character — and your child can dance with it, live, through the webcam.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#doors">Make your first hero</a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="hero-note">From $5 for three heroes. No subscription, no ads, credits never expire.</p>
+      </div>
+
+      <div class="hero-shot">
+        <figure class="photo tall">
+          <div class="ph-inner">
+            <svg viewBox="0 0 56 56" aria-hidden="true" focusable="false">
+              <circle cx="28" cy="16" r="9" fill="none" stroke="#5A4B3A" stroke-width="2.6"/>
+              <path d="M11 50 q17 -18 34 0" fill="none" stroke="#5A4B3A" stroke-width="2.6" stroke-linecap="round"/>
+              <rect x="33" y="27" width="18" height="14" rx="2" fill="none" stroke="#5A4B3A" stroke-width="2.6"/>
+            </svg>
+            <span class="ph-label">Photo: a child holding up their drawing to the camera</span>
+          </div>
+        </figure>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 ── THE TRANSFORMATION ───────────────────────────────── -->
+  <section class="band transform-band" aria-labelledby="tr-h">
+    <div class="wrap">
+      <div class="band-head">
+        <h2 id="tr-h">The same character. One of them can dance.</h2>
+        <p class="lede">Nothing is redrawn by an adult and nothing is swapped for a stock model. What your child put on the paper is what stands up.</p>
+      </div>
+
+      <div class="tri">
+        <!-- the drawing -->
+        <figure class="plate tilt-l" style="margin:0">
+          <span class="tape a" aria-hidden="true"></span>
+          <span class="tape b" aria-hidden="true"></span>
+          <svg class="art" viewBox="0 0 320 330" role="img" aria-label="A child's crayon drawing of a caped hero with a star on its chest">
+            <rect x="0" y="0" width="320" height="330" fill="#FFFDF8"/>
+            <g filter="url(#crayon)">
+              <!-- colouring outside the lines -->
+              <path d="M118 66 q42 -30 88 4 q22 34 -6 62 q-44 26 -84 -4 q-18 -30 2 -62 Z" fill="#E7B893" opacity=".62"/>
+              <path d="M104 156 q56 -16 112 2 l8 84 q-64 14 -128 0 Z" fill="#A8301A" opacity=".40"/>
+              <path d="M214 148 q40 26 26 88 q-24 16 -42 6 q16 -48 4 -88 Z" fill="#B4762A" opacity=".45"/>
+            </g>
+            <g fill="none" stroke="#241F1A" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon)">
+              <!-- cape -->
+              <path d="M212 146 q44 28 30 92 q-26 16 -46 6"/>
+              <!-- head -->
+              <path d="M160 54 q54 0 54 46 q0 44 -54 44 q-54 0 -54 -44 q0 -46 54 -46 Z"/>
+              <!-- hair tufts -->
+              <path d="M126 62 l-8 -18 M150 50 l-4 -22 M176 52 l8 -20 M200 66 l16 -14"/>
+              <!-- eyes + smile -->
+              <path d="M140 92 l0 8 M182 92 l0 8"/>
+              <path d="M138 114 q22 16 46 0"/>
+              <!-- body -->
+              <path d="M160 144 l0 14 M108 162 q52 -18 106 0 l6 84 q-58 14 -118 0 Z"/>
+              <!-- arms -->
+              <path d="M110 176 l-52 -30 l-14 22"/>
+              <path d="M216 176 l50 -34 l16 20"/>
+              <!-- legs -->
+              <path d="M132 244 l-6 56 l-26 6 M188 244 l8 56 l26 6"/>
+            </g>
+            <!-- chest star -->
+            <path d="M160 178 l9 20 l22 2 l-16 15 l5 22 l-20 -12 l-20 12 l5 -22 l-16 -15 l22 -2 Z" fill="#B4762A" stroke="#241F1A" stroke-width="3" stroke-linejoin="round" filter="url(#crayon2)"/>
+          </svg>
+          <figcaption class="cap">
+            <span class="k">Step one — what your child made</span>
+            <span class="v">Crayon on A4, photographed at the table.</span>
+          </figcaption>
+        </figure>
+
+        <!-- arrow -->
+        <div class="arrowcell" aria-hidden="true">
+          <svg class="arrow-h" width="150" height="66" viewBox="0 0 150 66" focusable="false">
+            <path d="M6 44 C40 10, 96 10, 132 32" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" filter="url(#crayon)"/>
+            <path d="M116 20 L136 34 L113 42" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon)"/>
+          </svg>
+          <svg class="arrow-v" width="70" height="78" viewBox="0 0 70 78" focusable="false">
+            <path d="M22 6 C58 26, 8 44, 36 68" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" filter="url(#crayon)"/>
+            <path d="M22 50 L37 71 L52 52" fill="none" stroke="#A8301A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon)"/>
+          </svg>
+          <span class="t">about<br>6 minutes</span>
+        </div>
+
+        <!-- the hero -->
+        <figure class="plate tilt-r" style="margin:0">
+          <svg class="art" viewBox="0 0 320 330" role="img" aria-label="The same character rebuilt as a shaded, rigged 3D model standing on a soft stage">
+            <rect x="0" y="0" width="320" height="330" fill="#241F1A"/>
+            <rect x="0" y="0" width="320" height="330" fill="url(#stage)" opacity=".5"/>
+            <g stroke="#3B322A" stroke-width="1.2" opacity=".5">
+              <path d="M0 284 H320 M0 306 H320 M58 266 V330 M160 264 V330 M262 266 V330"/>
+            </g>
+            <ellipse cx="160" cy="303" rx="88" ry="16" fill="#120F0C" opacity=".7"/>
+
+            <!-- cape, behind everything, peeking both sides -->
+            <path d="M116 156 q44 -16 88 0 q26 66 24 122 q-68 22 -136 0 q-2 -56 24 -122 Z" fill="url(#cape3d)"/>
+
+            <!-- legs -->
+            <path d="M134 224 q-10 36 -10 66 q18 9 34 2 q0 -34 4 -68 Z" fill="url(#suit3d)"/>
+            <path d="M186 224 q12 36 12 66 q-18 9 -34 2 q0 -34 -4 -68 Z" fill="url(#suit3d)"/>
+            <ellipse cx="133" cy="293" rx="17" ry="9" fill="#5F1A0C"/>
+            <ellipse cx="187" cy="293" rx="17" ry="9" fill="#5F1A0C"/>
+
+            <!-- torso -->
+            <path d="M113 164 q47 -22 94 0 q11 34 7 66 q-52 17 -108 0 q-4 -32 7 -66 Z" fill="url(#suit3d)"/>
+
+            <!-- arms -->
+            <path d="M115 174 q-32 -8 -55 -32 q7 -16 19 -19 q21 22 44 29 Z" fill="url(#suit3d)"/>
+            <path d="M205 174 q34 -9 55 -33 q14 8 16 22 q-25 21 -59 30 Z" fill="url(#suit3d)"/>
+            <circle cx="54" cy="136" r="13" fill="url(#skin3d)"/>
+            <circle cx="268" cy="150" r="13" fill="url(#skin3d)"/>
+
+            <!-- neck, behind the head -->
+            <path d="M160 140 l0 24" stroke="#C08A63" stroke-width="20" stroke-linecap="round"/>
+
+            <!-- head -->
+            <ellipse cx="160" cy="102" rx="51" ry="47" fill="url(#skin3d)"/>
+            <path d="M110 92 q9 -45 50 -45 q41 0 50 45 q-23 -19 -50 -19 q-27 0 -50 19 Z" fill="#4A3A2C"/>
+            <ellipse cx="141" cy="102" rx="5" ry="6.5" fill="#241F1A"/>
+            <ellipse cx="181" cy="102" rx="5" ry="6.5" fill="#241F1A"/>
+            <path d="M142 122 q18 15 38 0" fill="none" stroke="#8A5A3E" stroke-width="4" stroke-linecap="round"/>
+
+            <!-- chest star -->
+            <path d="M160 180 l9 19 l21 2 l-15 14 l4 21 l-19 -11 l-19 11 l4 -21 l-15 -14 l21 -2 Z" fill="#E3B35C"/>
+
+            <!-- rig hints -->
+            <g stroke="#F1E9DA" stroke-width="1.3" opacity=".6" fill="none">
+              <path d="M160 102 L160 168 L160 226 M115 174 L54 136 M205 174 L268 150 M144 226 L133 291 M176 226 L187 291"/>
+            </g>
+            <g fill="#F1E9DA" opacity=".85">
+              <circle cx="160" cy="102" r="3.3"/><circle cx="160" cy="168" r="3.3"/><circle cx="160" cy="226" r="3.3"/>
+              <circle cx="115" cy="174" r="2.9"/><circle cx="205" cy="174" r="2.9"/>
+              <circle cx="54" cy="136" r="2.9"/><circle cx="268" cy="150" r="2.9"/>
+              <circle cx="133" cy="291" r="2.9"/><circle cx="187" cy="291" r="2.9"/>
+            </g>
+          </svg>
+          <figcaption class="cap">
+            <span class="k">Step two — what comes back</span>
+            <span class="v">A rigged VRM hero, 22 bones, ready to move.</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 ── THREE DOORS ──────────────────────────────────────── -->
+  <section class="doors" id="doors" aria-labelledby="doors-h">
+    <div class="wrap">
+      <h2 id="doors-h">Three doors in</h2>
+      <p class="lede">Make something new, visit what you already made, or go and play with it.</p>
+      <div class="door-grid">
+
+        <a class="door" href="#">
+          <svg class="icon" viewBox="0 0 56 56" aria-hidden="true" focusable="false">
+            <rect x="6" y="9" width="44" height="34" rx="4" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
+            <path d="M15 36 L25 22 L33 32 L39 26 L46 36" fill="none" stroke="#A8301A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#crayon2)"/>
+            <circle cx="39" cy="18" r="3.4" fill="#B4762A"/>
+          </svg>
+          <h3>Studio</h3>
+          <p>Photograph a drawing, answer two questions, and watch it become a hero. Ten credits, about six minutes.</p>
+          <span class="go">Make a hero →</span>
+        </a>
+
+        <a class="door" href="#">
+          <svg class="icon" viewBox="0 0 56 56" aria-hidden="true" focusable="false">
+            <rect x="5" y="12" width="20" height="32" rx="3" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
+            <rect x="31" y="12" width="20" height="32" rx="3" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
+            <path d="M12 34 q6 -12 12 0 M38 34 q6 -12 12 0" fill="none" stroke="#A8301A" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
+            <circle cx="15" cy="23" r="3" fill="#B4762A"/><circle cx="41" cy="23" r="3" fill="#B4762A"/>
+          </svg>
+          <h3>My Heroes</h3>
+          <p>Every hero your family has made, kept in one shelf. Spin them, replay them, download them, delete them.</p>
+          <span class="go">Open the shelf →</span>
+        </a>
+
+        <a class="door" href="#">
+          <svg class="icon" viewBox="0 0 56 56" aria-hidden="true" focusable="false">
+            <circle cx="28" cy="13" r="6" fill="none" stroke="#241F1A" stroke-width="3" filter="url(#crayon2)"/>
+            <path d="M28 20 L28 36 M28 24 L14 18 M28 24 L44 20 M28 36 L18 49 M28 36 L39 49" fill="none" stroke="#241F1A" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
+            <path d="M46 8 q6 6 0 12 M8 10 q-6 6 0 12" fill="none" stroke="#A8301A" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
+          </svg>
+          <h3>Playground</h3>
+          <p>Stand in front of the webcam and your hero copies you, move for move. No controller, no download.</p>
+          <span class="go">Start dancing →</span>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 ── HOW IT WORKS ─────────────────────────────────────── -->
+  <section class="how" id="how" aria-labelledby="how-h">
+    <div class="wrap">
+      <h2 id="how-h">How it works</h2>
+      <p class="lede">Four steps. Your child does the first and the last one.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="n">1</div>
+          <h3>Snap the drawing</h3>
+          <p>A phone photo of the paper is enough — crayon, felt tip, biro, on a table or the fridge door.</p>
+        </div>
+        <div class="step">
+          <div class="n">2</div>
+          <h3>We build it in 3D</h3>
+          <p>The character is redrawn cleanly, given volume, and turned into a real mesh that holds its own shape.</p>
+        </div>
+        <div class="step">
+          <div class="n">3</div>
+          <h3>We rig it to move</h3>
+          <p>A 22-bone humanoid skeleton goes in, so any dance we have ever recorded plays on it correctly.</p>
+        </div>
+        <div class="step">
+          <div class="n">4</div>
+          <h3>Play as it</h3>
+          <p>Open the Playground and your hero mirrors your child through the webcam, live, in the browser.</p>
+        </div>
+      </div>
+
+      <figure class="photo wide" style="margin-top:40px;">
+        <div class="ph-inner">
+          <svg viewBox="0 0 56 56" aria-hidden="true" focusable="false">
+            <circle cx="20" cy="13" r="7" fill="none" stroke="#5A4B3A" stroke-width="2.6"/>
+            <path d="M20 20 L20 34 M20 23 L10 18 M20 23 L31 17 M20 34 L13 48 M20 34 L28 48" fill="none" stroke="#5A4B3A" stroke-width="2.6" stroke-linecap="round"/>
+            <rect x="35" y="20" width="18" height="14" rx="2" fill="none" stroke="#5A4B3A" stroke-width="2.6"/>
+            <path d="M33 40 h22" fill="none" stroke="#5A4B3A" stroke-width="2.6" stroke-linecap="round"/>
+          </svg>
+          <span class="ph-label">Photo: a child dancing in front of a laptop, their hero mirroring the move on screen</span>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 5 ── PRICING ──────────────────────────────────────────── -->
+  <section class="pricing" id="pricing" aria-labelledby="pr-h">
+    <div class="wrap">
+      <h2 id="pr-h">Buy credits, not a subscription</h2>
+      <p class="lede">One hero costs 10 credits. Credits never expire — buy a pack in April and finish it at Christmas.</p>
+
+      <div class="price-grid">
+        <div class="tier">
+          <p class="name">Starter</p>
+          <p class="amt">$5</p>
+          <p class="per">30 credits · 3 heroes</p>
+          <ul>
+            <li>The easiest way to try it once</li>
+            <li>Nothing to cancel, nothing renews</li>
+            <li>Full Playground access</li>
+            <li>Download every hero you make</li>
+          </ul>
+          <a class="btn btn-ghost" href="#">Get Starter</a>
+        </div>
+
+        <div class="tier best">
+          <span class="ribbon">Best value</span>
+          <p class="name">Maker</p>
+          <p class="amt">$15</p>
+          <p class="per">100 credits · 10 heroes</p>
+          <ul>
+            <li>Enough for a whole rainy half-term</li>
+            <li>Works out at $1.50 a hero</li>
+            <li>Full Playground access</li>
+            <li>Download every hero you make</li>
+          </ul>
+          <a class="btn btn-primary" href="#">Get Maker</a>
+        </div>
+
+        <div class="tier">
+          <p class="name">Studio</p>
+          <p class="amt">$40</p>
+          <p class="per">300 credits · 30 heroes</p>
+          <ul>
+            <li>For siblings, classes and clubs</li>
+            <li>Works out at $1.33 a hero</li>
+            <li>Full Playground access</li>
+            <li>Download every hero you make</li>
+          </ul>
+          <a class="btn btn-ghost" href="#">Get Studio</a>
+        </div>
+      </div>
+
+      <p class="credit-note">Every hero costs 10 credits. Credits never expire and there is nothing to cancel.</p>
+    </div>
+  </section>
+
+  <!-- 6 ── FOR PARENTS ──────────────────────────────────────── -->
+  <section class="parents" aria-labelledby="pa-h">
+    <div class="wrap">
+      <div class="slab">
+        <h2 id="pa-h">For the grown-up paying</h2>
+        <p class="lede">Four things we think you should know before your child's drawing goes anywhere.</p>
+        <div class="assure">
+          <div>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>No ads, ever</h3>
+            <p>Nothing is sold to your child, and nothing is sold about them. You pay for credits; that is the whole business.</p>
+          </div>
+          <div>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>You own what your child makes</h3>
+            <p>The drawing is theirs and so is the hero. Download the 3D file whenever you like and keep it.</p>
+          </div>
+          <div>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Drawings never train anything</h3>
+            <p>Your child's artwork is used to build your child's hero. It is not added to any training set, ours or anyone else's.</p>
+          </div>
+          <div>
+            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#E3B35C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Delete it all in one click</h3>
+            <p>Remove a single hero or wipe the whole account. Webcam video stays in the browser and is never uploaded.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- 7 ── FOOTER ─────────────────────────────────────────────── -->
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <a class="wordmark" href="#top">
+        <svg width="26" height="26" viewBox="0 0 30 30" aria-hidden="true" focusable="false">
+          <path d="M4 24 L15 5 L26 24 Z" fill="none" stroke="#A8301A" stroke-width="2.6" stroke-linejoin="round" filter="url(#crayon2)"/>
+          <circle cx="15" cy="17" r="3.1" fill="#241F1A"/>
+        </svg>
+        <b>HeroMaker</b>
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="#pricing">Pricing</a>
+        <a href="#how">How it works</a>
+        <a href="#">Privacy</a>
+        <a href="#">Contact</a>
+      </nav>
+    </div>
+    <p class="foot-note">Made for the drawings that were going to end up in a drawer.</p>
+  </div>
+</footer>
+
+</body>
+</html>

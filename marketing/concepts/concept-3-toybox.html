@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeroMaker — the thing your kid drew, now a real 3D hero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14100E;
+    --paper:#FFF6E8;
+    --white:#FFFFFF;
+    --blue:#1B3DE0;
+    --red:#C42317;
+    --yellow:#FFC61A;
+    --green:#0B7A3E;
+    --blue-tint:#DDE4FF;
+    --red-tint:#FFDED8;
+    --yellow-tint:#FFE9B4;
+    --green-tint:#CBEFD9;
+    --border:3px solid var(--ink);
+    --pop:0 7px 0 var(--ink);
+    --pop-sm:0 5px 0 var(--ink);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;overflow-x:clip;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-weight:600;
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4,.display{font-family:'Fredoka','Nunito',system-ui,sans-serif;font-weight:700;line-height:1.02;letter-spacing:-0.02em;margin:0;}
+  p{margin:0;}
+  a{color:inherit;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px;}
+  @media(min-width:800px){.wrap{padding:0 32px;}}
+
+  /* ---------- pressable buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    font-family:'Fredoka',sans-serif;font-weight:600;letter-spacing:-0.01em;
+    text-decoration:none;border:var(--border);border-radius:999px;
+    padding:16px 30px;font-size:20px;line-height:1.1;
+    box-shadow:var(--pop);transition:transform .08s ease, box-shadow .08s ease;
+    cursor:pointer;
+  }
+  .btn:hover{transform:translateY(4px);box-shadow:0 3px 0 var(--ink);}
+  .btn:active{transform:translateY(7px);box-shadow:0 0 0 var(--ink);}
+  .btn-red{background:var(--red);color:#fff;}
+  .btn-blue{background:var(--blue);color:#fff;}
+  .btn-white{background:var(--white);color:var(--ink);}
+  .btn-lg{font-size:22px;padding:18px 34px;}
+
+  .eyebrow{
+    display:inline-block;font-family:'Fredoka',sans-serif;font-weight:600;
+    font-size:14px;letter-spacing:0.12em;text-transform:uppercase;
+    border:var(--border);border-radius:999px;padding:7px 16px;background:var(--white);color:var(--ink);
+  }
+  .sec{padding:64px 0;}
+  @media(min-width:800px){.sec{padding:96px 0;}}
+  .sec-head{max-width:860px;margin:0 0 40px;}
+  .sec-head h2{font-size:clamp(32px,6.4vw,54px);}
+  .sec-head p{margin-top:16px;font-size:18px;max-width:620px;}
+
+  /* ---------- top bar ---------- */
+  .topbar{border-bottom:var(--border);background:var(--yellow);}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:68px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Fredoka',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.01em;text-decoration:none;}
+  .brand-mark{width:34px;height:34px;border:var(--border);border-radius:10px;background:var(--red);flex:none;display:block;}
+  .topnav{display:flex;align-items:center;gap:20px;font-size:16px;font-weight:800;}
+  .topnav a{text-decoration:none;border-bottom:3px solid transparent;padding-bottom:2px;}
+  .topnav a:hover{border-bottom-color:var(--ink);}
+  .topnav .btn{padding:10px 20px;font-size:16px;box-shadow:var(--pop-sm);}
+  @media(max-width:559px){.topnav .nav-link{display:none;}}
+
+  /* ---------- hero ---------- */
+  .hero{border-bottom:var(--border);background:
+     linear-gradient(var(--paper),var(--paper));position:relative;}
+  .hero-grid{display:grid;gap:36px;padding-top:52px;padding-bottom:60px;}
+  @media(min-width:960px){.hero-grid{grid-template-columns:1.12fr .88fr;align-items:center;gap:48px;padding-top:80px;padding-bottom:88px;}}
+  .hero h1{font-size:clamp(40px,7.6vw,72px);}
+  .hero h1{line-height:1.1;}
+  .hero h1 .hl{
+    background:var(--yellow);
+    border-radius:8px;
+    padding:0 8px;margin:0 -2px;
+    -webkit-box-decoration-break:clone;box-decoration-break:clone;
+  }
+  .hero-sub{margin-top:26px;font-size:19px;max-width:520px;}
+  .hero-cta{margin-top:32px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+  @media(max-width:559px){.hero-cta{flex-direction:column;align-items:stretch;}.hero-cta .btn{width:100%;}}
+  .hero-note{margin-top:20px;font-size:15px;font-weight:700;}
+
+  .stat-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px;}
+  .chip{border:var(--border);border-radius:999px;background:var(--white);padding:9px 16px;font-size:14px;font-weight:800;}
+
+  /* ---------- panels / cards ---------- */
+  .panel{border:var(--border);border-radius:26px;background:var(--white);box-shadow:var(--pop);}
+  .tilt-l{transform:rotate(-0.8deg);}
+  .tilt-r{transform:rotate(0.8deg);}
+
+  /* ---------- transformation ---------- */
+  .tf{background:var(--blue-tint);border-top:var(--border);border-bottom:var(--border);}
+  .tf-grid{display:grid;gap:22px;align-items:center;}
+  @media(min-width:900px){.tf-grid{grid-template-columns:1fr 120px 1fr;gap:20px;}}
+  @media(min-width:1100px){.tf-card{padding:26px 26px 30px;}}
+  .tf-card{border:var(--border);border-radius:26px;box-shadow:var(--pop);padding:20px 20px 24px;background:var(--white);}
+  .tf-card .tf-label{
+    display:inline-block;font-family:'Fredoka',sans-serif;font-size:13px;font-weight:600;
+    letter-spacing:0.14em;text-transform:uppercase;border:var(--border);border-radius:999px;
+    padding:6px 14px;margin-bottom:14px;background:var(--yellow);
+  }
+  .tf-card.is-3d .tf-label{background:var(--green-tint);}
+  .tf-art{display:block;width:100%;height:auto;border:var(--border);border-radius:18px;overflow:hidden;background:#FFFDF5;}
+  .tf-cap{margin-top:14px;font-size:16px;font-weight:700;}
+  .tf-arrow{display:flex;justify-content:center;}
+  .tf-arrow-badge{
+    width:88px;height:88px;border:var(--border);border-radius:999px;background:var(--red);
+    display:flex;align-items:center;justify-content:center;box-shadow:var(--pop);flex:none;
+    transform:rotate(90deg);
+  }
+  @media(min-width:900px){.tf-arrow-badge{transform:rotate(0deg);}}
+  .tf-foot{margin-top:26px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+  .tf-foot p{font-size:16px;font-weight:700;}
+
+  /* ---------- doors ---------- */
+  .doors{display:grid;gap:22px;}
+  @media(min-width:860px){.doors{grid-template-columns:repeat(3,1fr);gap:24px;}}
+  .door{
+    border:var(--border);border-radius:28px;box-shadow:var(--pop);
+    padding:22px 22px 26px;display:flex;flex-direction:column;gap:14px;
+    text-decoration:none;transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .door:hover{transform:translateY(4px) rotate(0deg);box-shadow:0 3px 0 var(--ink);}
+  .door-blue{background:var(--blue);color:#fff;}
+  .door-yellow{background:var(--yellow);color:var(--ink);}
+  .door-red{background:var(--red);color:#fff;}
+  .door h3{font-size:30px;}
+  .door p{font-size:16.5px;}
+  .door-art{border:var(--border);border-radius:18px;background:#FFFDF5;display:block;width:100%;height:auto;}
+  .door-go{
+    align-self:flex-start;margin-top:2px;font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;
+    border:var(--border);border-radius:999px;background:var(--white);color:var(--ink);
+    padding:10px 20px;box-shadow:var(--pop-sm);
+  }
+
+  /* ---------- steps ---------- */
+  .steps{display:grid;gap:20px;counter-reset:s;}
+  @media(min-width:760px){.steps{grid-template-columns:repeat(2,1fr);}}
+  @media(min-width:1060px){.steps{grid-template-columns:repeat(4,1fr);gap:20px;}}
+  .step{border:var(--border);border-radius:24px;background:var(--white);box-shadow:var(--pop);padding:22px;display:flex;flex-direction:column;gap:12px;}
+  .step-num{
+    width:56px;height:56px;border:var(--border);border-radius:999px;background:var(--yellow);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fredoka',sans-serif;font-weight:700;font-size:26px;color:var(--ink);flex:none;
+  }
+  .step h3{font-size:22px;}
+  .step p{font-size:16.5px;}
+
+  /* ---------- pricing ---------- */
+  .pricing{background:var(--yellow-tint);border-top:var(--border);border-bottom:var(--border);}
+  .plans{display:grid;gap:22px;align-items:start;}
+  @media(min-width:900px){.plans{grid-template-columns:repeat(3,1fr);gap:24px;}}
+  .plan{border:var(--border);border-radius:28px;background:var(--white);box-shadow:var(--pop);padding:26px 24px 28px;display:flex;flex-direction:column;gap:14px;}
+  .plan-best{background:var(--blue);color:#fff;}
+  .plan-flag{
+    align-self:flex-start;font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;
+    letter-spacing:0.14em;text-transform:uppercase;background:var(--yellow);color:var(--ink);
+    border:var(--border);border-radius:999px;padding:7px 15px;
+  }
+  .plan h3{font-size:26px;}
+  .plan-price{font-family:'Fredoka',sans-serif;font-weight:700;font-size:56px;line-height:1;letter-spacing:-0.03em;}
+  .plan-meta{font-size:17px;font-weight:800;}
+  .plan ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+  .plan li{font-size:16.5px;font-weight:700;padding-left:36px;position:relative;}
+  .plan li::before{
+    content:"\2713";position:absolute;left:0;top:0;width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    border:3px solid currentColor;border-radius:999px;
+    font-family:'Fredoka',sans-serif;font-size:13px;font-weight:700;line-height:1;
+  }
+  .plan .btn{width:100%;font-size:18px;padding:14px 20px;margin-top:4px;}
+  .credit-note{
+    margin-top:26px;border:var(--border);border-radius:22px;background:var(--white);
+    padding:18px 22px;box-shadow:var(--pop);font-size:16.5px;font-weight:700;
+  }
+
+  /* ---------- parents ---------- */
+  .parents{background:var(--green);color:#fff;border-bottom:var(--border);}
+  .parents-grid{display:grid;gap:28px;}
+  @media(min-width:940px){.parents-grid{grid-template-columns:1fr 1fr;gap:44px;align-items:start;}}
+  .parents h2{font-size:clamp(32px,6.2vw,50px);}
+  .parents .lede{margin-top:16px;font-size:18px;max-width:520px;}
+  .promises{list-style:none;margin:0;padding:0;display:grid;gap:14px;}
+  .promise{background:var(--white);color:var(--ink);border:var(--border);border-radius:20px;padding:16px 18px;box-shadow:var(--pop-sm);display:flex;gap:14px;align-items:flex-start;}
+  .promise svg{flex:none;margin-top:2px;}
+  .promise h3{font-size:19px;margin-bottom:4px;}
+  .promise p{font-size:16px;font-weight:600;}
+
+  /* ---------- photo placeholders ---------- */
+  .photo{
+    border:3px dashed var(--ink);border-radius:22px;
+    background:linear-gradient(135deg,#FFE0B8 0%,#FFC9DA 45%,#CFD9FF 100%);
+    display:flex;align-items:flex-end;padding:16px;min-height:220px;
+  }
+  .photo span{
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:12.5px;letter-spacing:0.12em;text-transform:uppercase;
+    background:var(--white);color:var(--ink);border:var(--border);border-radius:999px;padding:7px 14px;
+  }
+  .photo-tall{min-height:320px;}
+
+  /* ---------- footer ---------- */
+  footer{background:var(--ink);color:var(--paper);}
+  .foot-grid{display:grid;gap:26px;padding-top:48px;padding-bottom:40px;}
+  @media(min-width:800px){.foot-grid{grid-template-columns:1.4fr 1fr 1fr;gap:40px;}}
+  footer h4{font-family:'Fredoka',sans-serif;font-size:15px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;}
+  .foot-links{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px;}
+  .foot-links a{font-size:16px;font-weight:700;text-decoration:underline;text-underline-offset:3px;}
+  .foot-blurb{font-size:16px;font-weight:600;max-width:360px;margin-top:12px;}
+  .foot-bottom{border-top:3px solid #6A605A;padding-top:18px;padding-bottom:34px;margin:0;font-size:14.5px;font-weight:700;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>HeroMaker</a>
+    <nav class="topnav" aria-label="Main">
+      <a class="nav-link" href="#how">How it works</a>
+      <a class="nav-link" href="#pricing">Pricing</a>
+      <a class="btn btn-red" href="#studio">Start a hero</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- 1. HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">Live today &middot; about 6 minutes</span>
+        <h1 style="margin-top:22px">The monster your kid drew is now a <span class="hl">real 3D hero</span>.</h1>
+        <p class="hero-sub">Photograph the drawing. We render it, build it in 3D, rig it with a full skeleton, and hand back a character they can dance as on camera &mdash; in the browser, before dinner.</p>
+        <div class="hero-cta">
+          <a class="btn btn-red btn-lg" href="#studio">Make your first hero</a>
+          <a class="btn btn-white btn-lg" href="#transformation">See one become 3D</a>
+        </div>
+        <p class="hero-note">$5 gets you three heroes. Credits never expire.</p>
+      </div>
+      <div class="panel tilt-r" style="padding:16px">
+        <div class="photo photo-tall" role="img" aria-label="Placeholder for a photo of a child holding up their drawing next to a screen showing the finished 3D hero">
+          <span>Photo: child holding their drawing beside the finished 3D hero</span>
+        </div>
+        <div class="stat-row">
+          <span class="chip">Runs in the browser</span>
+          <span class="chip">No app to install</span>
+          <span class="chip">Webcam optional</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. THE TRANSFORMATION -->
+  <section class="tf sec" id="transformation">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">The whole point</span>
+        <h2 style="margin-top:18px">Paper goes in. A rigged character comes out.</h2>
+        <p>Same lopsided smile. Same cape. Now it has a spine, arms that bend and 22 bones that take motion capture.</p>
+      </div>
+
+      <div class="tf-grid">
+        <div class="tf-card tilt-l">
+          <span class="tf-label">What they drew</span>
+          <svg class="tf-art" viewBox="0 0 440 360" role="img" aria-label="A child's crayon drawing of a caped hero with a big round head, on lined paper">
+            <defs>
+              <filter id="wobble" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="9" result="noise"/>
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+              </filter>
+            </defs>
+            <rect width="440" height="360" fill="#FFFDF5"/>
+            <g stroke="#E4DCC6" stroke-width="2">
+              <line x1="0" y1="60" x2="440" y2="60"/><line x1="0" y1="110" x2="440" y2="110"/>
+              <line x1="0" y1="160" x2="440" y2="160"/><line x1="0" y1="210" x2="440" y2="210"/>
+              <line x1="0" y1="260" x2="440" y2="260"/><line x1="0" y1="310" x2="440" y2="310"/>
+            </g>
+            <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#wobble)" transform="rotate(-2.4 214 186)">
+              <!-- sun -->
+              <circle cx="376" cy="62" r="26" stroke="#E8A317" stroke-width="7"/>
+              <g stroke="#E8A317" stroke-width="7">
+                <line x1="376" y1="18" x2="376" y2="28"/><line x1="376" y1="96" x2="376" y2="106"/>
+                <line x1="332" y1="62" x2="342" y2="62"/><line x1="410" y1="62" x2="420" y2="62"/>
+                <line x1="345" y1="31" x2="352" y2="38"/><line x1="400" y1="86" x2="407" y2="93"/>
+              </g>
+              <!-- cape -->
+              <path d="M148 168 C112 210 104 268 118 306 C152 292 176 276 190 258 Z" fill="#C42317" stroke="#8E1A10" stroke-width="6"/>
+              <!-- body -->
+              <path d="M186 166 C168 200 166 250 174 294 L248 294 C258 250 256 200 240 166 Z" fill="#1B3DE0" stroke="#12227E" stroke-width="7"/>
+              <!-- star on chest -->
+              <path d="M212 200 l10 22 24 3 -18 16 5 24 -21 -12 -21 12 5 -24 -18 -16 24 -3 Z" fill="#FFC61A" stroke="#8A6400" stroke-width="4"/>
+              <!-- arms -->
+              <path d="M188 182 C150 190 130 168 124 140" stroke="#14100E" stroke-width="8"/>
+              <path d="M240 182 C282 190 306 170 314 142" stroke="#14100E" stroke-width="8"/>
+              <circle cx="120" cy="134" r="12" fill="#FFD9B8" stroke="#14100E" stroke-width="6"/>
+              <circle cx="318" cy="136" r="12" fill="#FFD9B8" stroke="#14100E" stroke-width="6"/>
+              <!-- legs -->
+              <path d="M192 294 L186 338" stroke="#14100E" stroke-width="9"/>
+              <path d="M232 294 L240 338" stroke="#14100E" stroke-width="9"/>
+              <path d="M170 340 L200 340" stroke="#14100E" stroke-width="10"/>
+              <path d="M228 340 L258 340" stroke="#14100E" stroke-width="10"/>
+              <!-- head -->
+              <circle cx="213" cy="104" r="62" fill="#FFD9B8" stroke="#14100E" stroke-width="8"/>
+              <path d="M155 88 C170 40 258 38 272 88" fill="#7A3E12" stroke="#14100E" stroke-width="7"/>
+              <circle cx="192" cy="104" r="7" fill="#14100E"/>
+              <circle cx="238" cy="100" r="7" fill="#14100E"/>
+              <path d="M186 128 C206 150 236 146 246 126" stroke="#14100E" stroke-width="7"/>
+            </g>
+          </svg>
+          <p class="tf-cap">Felt tip on lined paper. Photographed on a kitchen table.</p>
+        </div>
+
+        <div class="tf-arrow" aria-hidden="true">
+          <div class="tf-arrow-badge">
+            <svg width="44" height="40" viewBox="0 0 44 40" fill="none">
+              <path d="M4 20 H32" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+              <path d="M24 8 L38 20 L24 32" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="tf-card is-3d tilt-r">
+          <span class="tf-label">What we shipped back</span>
+          <svg class="tf-art" viewBox="0 0 440 360" role="img" aria-label="The same hero rebuilt as a smooth, shaded 3D character standing on a turntable, with rig joints marked">
+            <defs>
+              <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#F2F5FF"/><stop offset="100%" stop-color="#DDE4FF"/>
+              </linearGradient>
+              <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#FFE7CE"/><stop offset="100%" stop-color="#E8B184"/>
+              </linearGradient>
+              <linearGradient id="suit" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#3D5BF0"/><stop offset="100%" stop-color="#12227E"/>
+              </linearGradient>
+              <linearGradient id="capeG" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#E2503F"/><stop offset="100%" stop-color="#8E1A10"/>
+              </linearGradient>
+              <linearGradient id="hairG" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#9A5520"/><stop offset="100%" stop-color="#5A2C0B"/>
+              </linearGradient>
+            </defs>
+            <rect width="440" height="360" fill="url(#bgGrad)"/>
+            <g stroke="#B9C4F0" stroke-width="2" opacity="0.8">
+              <line x1="0" y1="300" x2="440" y2="300"/><line x1="0" y1="330" x2="440" y2="330"/>
+              <line x1="110" y1="286" x2="70" y2="360"/><line x1="330" y1="286" x2="370" y2="360"/>
+              <line x1="220" y1="286" x2="220" y2="360"/>
+            </g>
+            <ellipse cx="220" cy="330" rx="104" ry="20" fill="#9FB0E8" opacity="0.55"/>
+            <g stroke="#14100E" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M150 170 C112 214 106 272 122 312 C158 298 182 280 196 260 Z" fill="url(#capeG)" stroke-width="5"/>
+              <path d="M186 168 C170 202 168 252 176 296 L250 296 C260 252 258 202 242 168 Z" fill="url(#suit)" stroke-width="5"/>
+              <path d="M212 202 l10 22 24 3 -18 16 5 24 -21 -12 -21 12 5 -24 -18 -16 24 -3 Z" fill="#FFC61A" stroke-width="4"/>
+              <path d="M188 184 C152 192 132 170 126 142" stroke-width="16" fill="none" stroke="#14100E"/>
+              <path d="M188 184 C152 192 132 170 126 142" stroke-width="10" fill="none" stroke="#3D5BF0"/>
+              <path d="M242 184 C282 192 306 172 314 144" stroke-width="16" fill="none" stroke="#14100E"/>
+              <path d="M242 184 C282 192 306 172 314 144" stroke-width="10" fill="none" stroke="#3D5BF0"/>
+              <circle cx="122" cy="136" r="13" fill="url(#skin)" stroke-width="5"/>
+              <circle cx="318" cy="138" r="13" fill="url(#skin)" stroke-width="5"/>
+              <path d="M194 296 L188 334" stroke-width="18" stroke="#14100E"/>
+              <path d="M194 296 L188 334" stroke-width="12" stroke="#12227E"/>
+              <path d="M232 296 L240 334" stroke-width="18" stroke="#14100E"/>
+              <path d="M232 296 L240 334" stroke-width="12" stroke="#12227E"/>
+              <path d="M172 336 L204 336" stroke-width="16" stroke="#14100E"/>
+              <path d="M226 336 L258 336" stroke-width="16" stroke="#14100E"/>
+              <circle cx="214" cy="106" r="60" fill="url(#skin)" stroke-width="5"/>
+              <path d="M158 92 C172 44 258 42 272 92 C240 76 190 76 158 92 Z" fill="url(#hairG)" stroke-width="5"/>
+              <circle cx="194" cy="106" r="8" fill="#14100E"/>
+              <circle cx="238" cy="102" r="8" fill="#14100E"/>
+              <path d="M190 130 C208 150 236 146 246 128" stroke-width="6" fill="none"/>
+            </g>
+            <g fill="#0B7A3E" stroke="#FFFFFF" stroke-width="3">
+              <circle cx="214" cy="150" r="7"/><circle cx="214" cy="186" r="7"/>
+              <circle cx="214" cy="240" r="7"/><circle cx="188" cy="184" r="7"/>
+              <circle cx="242" cy="184" r="7"/><circle cx="194" cy="296" r="7"/>
+              <circle cx="232" cy="296" r="7"/>
+            </g>
+          </svg>
+          <p class="tf-cap">A rigged VRM: 22 bones, ready for any dance we throw at it.</p>
+        </div>
+      </div>
+
+      <div class="tf-foot">
+        <a class="btn btn-blue" href="#studio">Turn a drawing into this</a>
+        <p>One drawing, one hero, ten credits.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. THREE DOORS -->
+  <section class="sec" id="studio">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Three doors</span>
+        <h2 style="margin-top:18px">Pick the one you came for.</h2>
+        <p>Make something new, go back to what you already made, or put it on screen and dance with it.</p>
+      </div>
+      <div class="doors">
+        <a class="door door-blue tilt-l" href="#studio">
+          <svg class="door-art" viewBox="0 0 320 170" role="img" aria-label="Illustration of a phone photographing a drawing">
+            <rect width="320" height="170" fill="#FFFDF5"/>
+            <rect x="30" y="34" width="150" height="112" rx="10" fill="#FFF2D6" stroke="#14100E" stroke-width="5"/>
+            <path d="M74 118 L104 72 L134 118 Z" fill="#C42317" stroke="#14100E" stroke-width="5"/>
+            <circle cx="70" cy="66" r="14" fill="#FFC61A" stroke="#14100E" stroke-width="5"/>
+            <rect x="206" y="22" width="84" height="132" rx="16" fill="#1B3DE0" stroke="#14100E" stroke-width="5"/>
+            <rect x="218" y="42" width="60" height="86" rx="7" fill="#DDE4FF" stroke="#14100E" stroke-width="4"/>
+            <circle cx="248" cy="142" r="6" fill="#FFFFFF"/>
+          </svg>
+          <h3>Studio</h3>
+          <p>Photograph a drawing and watch it become a hero. Roughly six minutes, start to finish.</p>
+          <span class="door-go">Make a hero &rarr;</span>
+        </a>
+        <a class="door door-yellow tilt-r" href="#studio">
+          <svg class="door-art" viewBox="0 0 320 170" role="img" aria-label="Illustration of a shelf of finished hero characters">
+            <rect width="320" height="170" fill="#FFFDF5"/>
+            <rect x="24" y="126" width="272" height="14" rx="6" fill="#14100E"/>
+            <g stroke="#14100E" stroke-width="5">
+              <circle cx="80" cy="66" r="26" fill="#C42317"/><rect x="60" y="92" width="40" height="34" rx="10" fill="#FFC61A"/>
+              <circle cx="160" cy="58" r="30" fill="#1B3DE0"/><rect x="136" y="88" width="48" height="38" rx="10" fill="#DDE4FF"/>
+              <circle cx="242" cy="70" r="22" fill="#0B7A3E"/><rect x="222" y="92" width="40" height="34" rx="10" fill="#CBEFD9"/>
+            </g>
+            <g fill="#FFFFFF"><circle cx="72" cy="62" r="4"/><circle cx="90" cy="62" r="4"/><circle cx="151" cy="54" r="5"/><circle cx="171" cy="54" r="5"/><circle cx="235" cy="66" r="4"/><circle cx="250" cy="66" r="4"/></g>
+          </svg>
+          <h3>My Heroes</h3>
+          <p>Every hero your family has made, kept in one shelf. Download them, rename them, hand them around.</p>
+          <span class="door-go">Open the shelf &rarr;</span>
+        </a>
+        <a class="door door-red tilt-l" href="#studio">
+          <svg class="door-art" viewBox="0 0 320 170" role="img" aria-label="Illustration of a webcam view with a dancing character and a score">
+            <rect width="320" height="170" fill="#FFFDF5"/>
+            <rect x="20" y="20" width="176" height="130" rx="12" fill="#DDE4FF" stroke="#14100E" stroke-width="5"/>
+            <g stroke="#14100E" stroke-width="7" stroke-linecap="round" fill="none">
+              <circle cx="108" cy="58" r="17" fill="#FFC61A"/>
+              <path d="M108 76 L108 110"/><path d="M108 84 L80 66"/><path d="M108 84 L138 68"/>
+              <path d="M108 110 L88 138"/><path d="M108 110 L130 138"/>
+            </g>
+            <rect x="212" y="46" width="86" height="78" rx="14" fill="#FFC61A" stroke="#14100E" stroke-width="5"/>
+            <path d="M232 86 l12 14 24 -30" stroke="#14100E" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3>Playground</h3>
+          <p>Switch on the webcam and dance. Their hero copies them, move for move, on the big screen.</p>
+          <span class="door-go">Start dancing &rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. HOW IT WORKS -->
+  <section class="sec" id="how" style="background:var(--red-tint);border-top:var(--border);border-bottom:var(--border)">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">How it works</span>
+        <h2 style="margin-top:18px">Four steps. You do one of them.</h2>
+        <p>The rest is our pipeline, and it takes about six minutes while they go and find the next drawing.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Snap the drawing</h3>
+          <p>Flatten it on a table and take one photo with your phone. Crayon, felt tip, pencil, all fine.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>We render the character</h3>
+          <p>Our model reads the drawing and paints a clean, full-colour version of exactly that character.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>We build and rig it in 3D</h3>
+          <p>It becomes a solid model with a 22-bone skeleton, so arms, legs and head all move properly.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h3>They play as it</h3>
+          <p>Open the Playground, wave at the webcam, and their hero dances the moves they make.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. PRICING -->
+  <section class="pricing sec" id="pricing">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Pricing</span>
+        <h2 style="margin-top:18px">Buy credits. Spend them when a good drawing turns up.</h2>
+        <p>One hero costs 10 credits. No subscription, no monthly anything, and credits never expire.</p>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <h3>Starter</h3>
+          <div class="plan-price">$5</div>
+          <p class="plan-meta">30 credits &middot; 3 heroes</p>
+          <ul>
+            <li>Try it on one weekend</li>
+            <li>Full 3D file for every hero</li>
+            <li>Playground included</li>
+          </ul>
+          <a class="btn btn-blue" href="#studio">Get Starter</a>
+        </div>
+        <div class="plan plan-best tilt-r">
+          <span class="plan-flag">Best value</span>
+          <h3>Maker</h3>
+          <div class="plan-price">$15</div>
+          <p class="plan-meta">100 credits &middot; 10 heroes</p>
+          <ul>
+            <li>Enough for a whole cast</li>
+            <li>Full 3D file for every hero</li>
+            <li>Playground included</li>
+          </ul>
+          <a class="btn btn-white" href="#studio">Get Maker</a>
+        </div>
+        <div class="plan">
+          <h3>Studio</h3>
+          <div class="plan-price">$40</div>
+          <p class="plan-meta">300 credits &middot; 30 heroes</p>
+          <ul>
+            <li>For classrooms and big families</li>
+            <li>Full 3D file for every hero</li>
+            <li>Playground included</li>
+          </ul>
+          <a class="btn btn-blue" href="#studio">Get Studio</a>
+        </div>
+      </div>
+      <p class="credit-note">Every hero costs 10 credits. Credits never expire &mdash; buy once, use them across years of drawings.</p>
+    </div>
+  </section>
+
+  <!-- 6. FOR PARENTS -->
+  <section class="parents sec">
+    <div class="wrap parents-grid">
+      <div>
+        <span class="eyebrow">For parents</span>
+        <h2 style="margin-top:18px">Screen time that leaves something behind.</h2>
+        <p class="lede">You are handing us a picture your child made. Here is exactly what happens to it, in plain words.</p>
+        <div class="photo" style="margin-top:26px" role="img" aria-label="Placeholder for a photo of a parent and child at a laptop looking at the finished hero">
+          <span>Photo: parent and child at the laptop, hero on screen</span>
+        </div>
+      </div>
+      <ul class="promises">
+        <li class="promise">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#FFC61A" stroke="#14100E" stroke-width="3"/><path d="M8 13.5 l3.5 3.5 L18.5 9.5" stroke="#14100E" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div><h3>No ads, ever</h3><p>Nothing is sold to your child inside the product. You buy credits, that is the whole business.</p></div>
+        </li>
+        <li class="promise">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#FFC61A" stroke="#14100E" stroke-width="3"/><path d="M8 13.5 l3.5 3.5 L18.5 9.5" stroke="#14100E" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div><h3>You own what they make</h3><p>The drawing and the hero are yours. Download the 3D file and keep it, with or without us.</p></div>
+        </li>
+        <li class="promise">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#FFC61A" stroke="#14100E" stroke-width="3"/><path d="M8 13.5 l3.5 3.5 L18.5 9.5" stroke="#14100E" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div><h3>Drawings never train anything</h3><p>We use your child's artwork to build your child's hero. It does not go into any training set.</p></div>
+        </li>
+        <li class="promise">
+          <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#FFC61A" stroke="#14100E" stroke-width="3"/><path d="M8 13.5 l3.5 3.5 L18.5 9.5" stroke="#14100E" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div><h3>Delete it all in one click</h3><p>Photos, heroes, account. One button removes everything, and webcam video never leaves the device.</p></div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<!-- 7. FOOTER -->
+<footer>
+  <div class="wrap foot-grid">
+    <div>
+      <h4>HeroMaker</h4>
+      <p class="foot-blurb">Turning kitchen-table drawings into rigged 3D heroes since the first one worked.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul class="foot-links">
+        <li><a href="#studio">Studio</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#how">How it works</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul class="foot-links">
+        <li><a href="#parents">Privacy</a></li>
+        <li><a href="#parents">Terms</a></li>
+        <li><a href="mailto:hello@heromaker.example">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap"><p class="foot-bottom">&copy; 2026 HeroMaker. Made for people with a fridge full of drawings.</p></div>
+</footer>
+
+</body>
+</html>

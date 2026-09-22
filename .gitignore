@@ -81,3 +81,8 @@ marketing/photos/*.jpg.orig
 # Photos of identifiable people, held back until consent is confirmed.
 # This repository publishes to GitHub Pages; committing these would publish them.
 marketing/photos/needs-consent/*.jpg
+
+# Anonymised photos: derived from the held-back originals. The product owner
+# decides whether any photo of a person is published; anonymising lowers the
+# risk but does not establish permission, so these stay out of git too.
+marketing/photos/anonymised/*.jpg

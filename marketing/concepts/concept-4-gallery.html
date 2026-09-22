@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeroMaker — Your child's drawing, rebuilt as a real 3D hero</title>
+<meta name="description" content="Photograph a drawing. About six minutes later it is a rigged 3D character your child can play as.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ---------- tokens ---------- */
+  :root{
+    --paper:#FFFFFF;
+    --paper-warm:#F7F5F2;
+    --ink:#101010;          /* 19.0:1 on white */
+    --body:#3A3A3A;         /* 10.9:1 on white */
+    --muted:#545454;        /*  7.5:1 on white */
+    --rule:#D8D3CC;
+    --rule-strong:#B9B2A9;
+    --accent:#9E2B0E;       /*  7.5:1 on white */
+    --display:'Fraunces', Georgia, 'Times New Roman', serif;
+    --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --gutter:16px;
+    --measure:34em;
+  }
+  @media (min-width:700px){ :root{ --gutter:40px; } }
+  @media (min-width:1100px){ :root{ --gutter:64px; } }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--body);
+    font-family:var(--sans);
+    font-size:17px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  img,svg{ display:block; max-width:100%; }
+  a{ color:var(--ink); }
+
+  .wrap{
+    width:100%;
+    max-width:1240px;
+    margin:0 auto;
+    padding-left:var(--gutter);
+    padding-right:var(--gutter);
+  }
+  .narrow{ max-width:var(--measure); }
+
+  /* ---------- type ---------- */
+  h1,h2,h3{ font-family:var(--display); color:var(--ink); font-weight:400; margin:0; }
+  h1{
+    font-size:clamp(2.4rem, 7.4vw, 4.75rem);
+    line-height:1.045;
+    letter-spacing:-0.022em;
+    font-weight:300;
+  }
+  h2{
+    font-size:clamp(1.75rem, 4.2vw, 2.9rem);
+    line-height:1.12;
+    letter-spacing:-0.018em;
+    font-weight:400;
+  }
+  h3{
+    font-size:clamp(1.25rem, 2.2vw, 1.5rem);
+    line-height:1.2;
+    letter-spacing:-0.01em;
+    font-weight:500;
+  }
+  p{ margin:0; }
+  .lede{
+    font-size:clamp(1.0625rem, 1.5vw, 1.25rem);
+    line-height:1.6;
+    color:var(--body);
+    max-width:var(--measure);
+  }
+  .eyebrow{
+    font-size:0.75rem;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    font-weight:600;
+    color:var(--muted);
+    margin:0;
+  }
+  .eyebrow .mark{ color:var(--accent); font-weight:600; }
+  .caption{
+    font-size:0.8125rem;
+    line-height:1.5;
+    letter-spacing:0.01em;
+    color:var(--muted);
+    font-weight:500;
+    margin:0;
+  }
+  .caption strong{ color:var(--ink); font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.6875rem; }
+
+  /* ---------- rhythm ---------- */
+  section{ padding-block:clamp(64px, 9vw, 136px); }
+  .rule-top{ border-top:1px solid var(--rule); }
+  .stack > * + *{ margin-top:24px; }
+
+  /* ---------- header ---------- */
+  .site-head{
+    padding-block:24px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    gap:16px 28px;
+    border-bottom:1px solid var(--rule);
+  }
+  .wordmark{
+    font-family:var(--display);
+    font-size:1.0625rem;
+    font-weight:500;
+    letter-spacing:0.02em;
+    color:var(--ink);
+    text-decoration:none;
+    margin-right:auto;
+  }
+  .site-nav{ display:flex; gap:12px 22px; flex-wrap:wrap; }
+  @media (max-width:639px){
+    .site-head{ flex-direction:column; align-items:stretch; gap:18px; padding-block:20px 22px; }
+    .wordmark{ margin-right:0; }
+  }
+  .site-nav a{
+    font-size:0.8125rem;
+    letter-spacing:0.09em;
+    text-transform:uppercase;
+    font-weight:600;
+    color:var(--muted);
+    text-decoration:none;
+    padding-bottom:2px;
+    border-bottom:1px solid transparent;
+  }
+  .site-nav a:hover{ color:var(--ink); border-bottom-color:var(--ink); }
+
+  /* ---------- buttons ---------- */
+  .btn{
+    display:inline-block;
+    font-family:var(--sans);
+    font-size:0.9375rem;
+    font-weight:600;
+    letter-spacing:0.01em;
+    line-height:1;
+    padding:18px 30px;
+    background:var(--ink);
+    color:#FFFFFF;
+    text-decoration:none;
+    border:1px solid var(--ink);
+    border-radius:2px;
+  }
+  .btn:hover{ background:#000; }
+  .btn-quiet{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--rule-strong);
+  }
+  .btn-quiet:hover{ border-color:var(--ink); }
+  .textlink{
+    font-size:0.9375rem;
+    font-weight:600;
+    color:var(--ink);
+    text-decoration:none;
+    border-bottom:1px solid var(--rule-strong);
+    padding-bottom:2px;
+  }
+  .textlink:hover{ border-bottom-color:var(--ink); }
+  .cta-row{ display:flex; flex-wrap:wrap; align-items:center; gap:20px 28px; }
+
+  /* ---------- hero ---------- */
+  .hero{ padding-block:clamp(56px, 11vw, 150px) clamp(48px, 7vw, 104px); }
+  .hero h1{ margin-top:28px; max-width:19ch; }
+  .hero .lede{ margin-top:32px; }
+  .hero .cta-row{ margin-top:40px; }
+  .hero-note{ margin-top:28px; font-size:0.8125rem; color:var(--muted); font-weight:500; }
+
+  /* ---------- transformation ---------- */
+  .plates{
+    margin-top:clamp(40px, 5vw, 72px);
+    display:grid;
+    gap:clamp(28px, 4vw, 48px);
+    grid-template-columns:1fr;
+    align-items:start;
+  }
+  @media (min-width:860px){
+    .plates{ grid-template-columns:1fr 96px 1fr; gap:clamp(24px,3vw,40px); }
+  }
+  .plate figure{ margin:0; }
+  .frame{
+    border:1px solid var(--rule);
+    padding:clamp(14px, 2vw, 26px);
+    background:var(--paper);
+  }
+  .frame .inner{
+    aspect-ratio:4/5;
+    display:block;
+    width:100%;
+  }
+  .frame.render .inner{
+    background:linear-gradient(170deg,#E8E4DD 0%,#DCD7CF 52%,#CEC8BD 100%);
+  }
+  .platecap{ margin-top:16px; padding-top:14px; border-top:1px solid var(--rule); }
+  .platecap .caption + .caption{ margin-top:6px; }
+  .arrowcell{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:56px;
+  }
+  @media (min-width:860px){ .arrowcell{ align-self:stretch; margin-bottom:104px; } }
+  .arrowcell svg{ width:64px; height:auto; }
+  @media (max-width:859px){ .arrowcell svg{ transform:rotate(90deg); width:44px; } }
+
+  /* ---------- doors ---------- */
+  .doors{
+    margin-top:clamp(36px, 4.5vw, 64px);
+    display:grid;
+    gap:0;
+    grid-template-columns:1fr;
+    border-top:1px solid var(--rule);
+  }
+  @media (min-width:840px){
+    .doors{ grid-template-columns:repeat(3,1fr); border-bottom:1px solid var(--rule); }
+  }
+  .door{
+    padding:36px 0 40px;
+    border-bottom:1px solid var(--rule);
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:16px;
+  }
+  @media (min-width:840px){
+    .door{ padding:40px 36px 44px; border-bottom:none; border-left:1px solid var(--rule); }
+    .door:first-child{ border-left:none; padding-left:0; }
+    .door:last-child{ padding-right:0; }
+  }
+  .door .num{
+    font-family:var(--display);
+    font-size:0.9375rem;
+    letter-spacing:0.16em;
+    color:var(--muted);
+    font-weight:500;
+  }
+  .door p{ font-size:0.9375rem; color:var(--body); max-width:30ch; }
+  .door .textlink{ margin-top:auto; padding-top:8px; }
+
+  /* ---------- steps ---------- */
+  .steps{ margin-top:clamp(32px,4vw,56px); border-top:1px solid var(--rule); }
+  .step{
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:6px 24px;
+    align-items:baseline;
+    padding:26px 0;
+    border-bottom:1px solid var(--rule);
+  }
+  @media (min-width:760px){
+    .step{ grid-template-columns:56px 14rem 1fr; gap:0 36px; padding:32px 0; }
+  }
+  .step .n{
+    font-family:var(--display);
+    font-size:0.875rem;
+    letter-spacing:0.14em;
+    color:var(--muted);
+    font-weight:500;
+    grid-column:1;
+  }
+  .step h3{ grid-column:2; }
+  @media (max-width:759px){ .step h3{ grid-column:2; } .step p{ grid-column:2; } }
+  .step p{ font-size:0.9375rem; max-width:44ch; }
+
+  /* ---------- wide plate ---------- */
+  .wideplate{ max-width:880px; }
+  .wideplate .inner{
+    aspect-ratio:16/9;
+    width:100%;
+    display:block;
+    background:linear-gradient(105deg,#EDEAE4 0%,#E1DCD4 45%,#D2CCC1 100%);
+    box-shadow:inset 0 0 0 1px rgba(16,16,16,0.08);
+  }
+  @media (max-width:600px){ .wideplate .inner{ aspect-ratio:4/3; } }
+
+  /* ---------- pricing ---------- */
+  .prices{
+    margin-top:clamp(36px,4.5vw,64px);
+    display:grid;
+    grid-template-columns:1fr;
+    border-top:1px solid var(--rule);
+  }
+  @media (min-width:840px){ .prices{ grid-template-columns:repeat(3,1fr); border-bottom:1px solid var(--rule); } }
+  .price{
+    padding:32px 0 36px;
+    border-bottom:1px solid var(--rule);
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:14px;
+  }
+  @media (min-width:840px){
+    .price{ padding:36px 32px 40px; border-bottom:none; border-left:1px solid var(--rule); }
+    .price:first-child{ border-left:none; padding-left:0; }
+    .price:last-child{ padding-right:0; }
+  }
+  .price-head{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px 12px;
+    min-height:24px;
+  }
+  .price .tier{
+    font-size:0.75rem;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    font-weight:600;
+    color:var(--muted);
+  }
+  .price .amount{
+    font-family:var(--display);
+    font-size:clamp(2.75rem,5.4vw,3.5rem);
+    line-height:1;
+    letter-spacing:-0.02em;
+    color:var(--ink);
+    font-weight:300;
+  }
+  .price ul{ margin:0; padding:0; list-style:none; align-self:stretch; }
+  .price li{
+    font-size:0.9375rem;
+    color:var(--body);
+    padding:9px 0;
+    border-top:1px solid var(--rule);
+  }
+  .price li:first-child{ border-top:none; padding-top:0; }
+  .price .btn{ margin-top:auto; }
+  .price ul{ margin-bottom:10px; }
+  .tag{
+    display:inline-block;
+    font-size:0.6875rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    font-weight:600;
+    color:#FFFFFF;
+    background:var(--accent);
+    padding:5px 10px;
+    line-height:1.2;
+    border-radius:2px;
+  }
+  .price-note{
+    margin-top:28px;
+    font-size:0.9375rem;
+    color:var(--body);
+    max-width:var(--measure);
+  }
+
+  /* ---------- parents ---------- */
+  .parents{ background:var(--paper-warm); }
+  .promises{
+    margin-top:clamp(32px,4vw,52px);
+    display:grid;
+    gap:0;
+    grid-template-columns:1fr;
+    border-top:1px solid var(--rule-strong);
+  }
+  @media (min-width:760px){ .promises{ grid-template-columns:1fr 1fr; column-gap:clamp(32px,5vw,72px); } }
+  .promise{ padding:22px 0; border-bottom:1px solid var(--rule-strong); }
+  .promise h3{ font-size:1.0625rem; font-family:var(--sans); font-weight:600; letter-spacing:0; }
+  .promise p{ margin-top:6px; font-size:0.9375rem; color:var(--body); max-width:42ch; }
+
+  /* ---------- footer ---------- */
+  .site-foot{
+    border-top:1px solid var(--rule);
+    padding-block:44px 56px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:24px 40px;
+    align-items:baseline;
+  }
+  .site-foot .wordmark{ margin-right:auto; }
+  .foot-links{ display:flex; flex-wrap:wrap; gap:14px 26px; }
+  .foot-links a{
+    font-size:0.8125rem;
+    font-weight:500;
+    color:var(--muted);
+    text-decoration:none;
+    border-bottom:1px solid transparent;
+  }
+  .foot-links a:hover{ color:var(--ink); border-bottom-color:var(--ink); }
+  .copyright{ font-size:0.8125rem; color:var(--muted); font-weight:500; width:100%; }
+</style>
+</head>
+<body>
+
+<header class="wrap site-head">
+  <a class="wordmark" href="#">HeroMaker</a>
+  <nav class="site-nav" aria-label="Primary">
+    <a href="#doors">Studio</a>
+    <a href="#doors">My Heroes</a>
+    <a href="#doors">Playground</a>
+    <a href="#pricing">Pricing</a>
+  </nav>
+</header>
+
+<!-- 1. HERO -->
+<section class="hero wrap" aria-labelledby="hero-h">
+  <p class="eyebrow"><span class="mark">—</span>&nbsp;&nbsp;Drawing to 3D, in about six minutes</p>
+  <h1 id="hero-h">Your child's drawing, rebuilt as a hero that stands up and moves.</h1>
+  <p class="lede">Photograph the thing they drew this morning. We render it, build it in three dimensions, and rig it with a skeleton — so by the afternoon they are dancing in front of the webcam as the character they invented.</p>
+  <div class="cta-row">
+    <a class="btn" href="#pricing">Turn a drawing into a hero</a>
+    <a class="textlink" href="#how">See how it works</a>
+  </div>
+  <p class="hero-note">Works today, in the browser. No app, no headset, no waiting list.</p>
+</section>
+
+<!-- 2. THE TRANSFORMATION -->
+<section class="wrap rule-top" aria-labelledby="tr-h">
+  <p class="eyebrow">The transformation</p>
+  <h2 id="tr-h" style="margin-top:20px;max-width:18ch;">One page of felt-tip, given a body.</h2>
+  <p class="lede" style="margin-top:24px;">Nothing is redrawn by an adult and nothing is swapped for a template. The proportions your child chose — the enormous head, the four fingers, the cape that is wider than the body — survive into the model.</p>
+
+  <div class="plates">
+    <div class="plate">
+      <figure>
+        <div class="frame">
+          <svg class="inner" viewBox="0 0 400 500" role="img" aria-label="A child's felt-tip drawing of a caped hero with a large head and a sun in the corner">
+            <rect width="400" height="500" fill="#FFFDF9"></rect>
+            <!-- sun -->
+            <g stroke="#9E2B0E" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="0.9">
+              <circle cx="330" cy="74" r="22"></circle>
+              <path d="M330 38 v-14 M330 124 v14 M294 74 h-15 M381 74 h14 M305 49 l-10-10 M355 99 l11 11 M355 49 l11-10 M305 99 l-10 11"></path>
+            </g>
+            <!-- ground -->
+            <path d="M34 432 C120 425 210 440 366 430" stroke="#101010" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.75"></path>
+            <!-- cape -->
+            <path d="M138 196 C96 250 92 330 116 392 C150 372 172 372 196 384 L196 200 Z" fill="#9E2B0E" opacity="0.16"></path>
+            <path d="M138 196 C96 250 92 330 116 392 C150 372 172 372 196 384" stroke="#9E2B0E" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
+            <!-- head -->
+            <path d="M200 44 C132 44 104 96 106 136 C108 180 146 208 200 208 C256 208 292 178 293 136 C295 94 266 44 200 44 Z" stroke="#101010" stroke-width="4.6" fill="#FFFFFF" stroke-linejoin="round"></path>
+            <!-- eyes + smile -->
+            <circle cx="170" cy="126" r="8.5" fill="#101010"></circle>
+            <circle cx="232" cy="126" r="8.5" fill="#101010"></circle>
+            <path d="M162 160 C184 184 220 184 240 158" stroke="#101010" stroke-width="4.4" fill="none" stroke-linecap="round"></path>
+            <!-- hair tufts -->
+            <path d="M146 62 l-14 -26 M200 40 l2 -30 M254 62 l16 -26" stroke="#101010" stroke-width="4" fill="none" stroke-linecap="round"></path>
+            <!-- body -->
+            <path d="M166 208 C160 268 160 340 168 396 L236 396 C244 338 244 266 238 208 Z" stroke="#101010" stroke-width="4.6" fill="#FFFFFF" stroke-linejoin="round"></path>
+            <!-- star on chest -->
+            <path d="M202 250 l13 28 30 4 -22 21 6 30 -27 -15 -27 15 6 -30 -22 -21 30 -4 Z" fill="#9E2B0E" opacity="0.85"></path>
+            <!-- arms -->
+            <path d="M168 232 C124 246 104 222 96 190" stroke="#101010" stroke-width="4.6" fill="none" stroke-linecap="round"></path>
+            <path d="M238 232 C284 244 306 220 316 186" stroke="#101010" stroke-width="4.6" fill="none" stroke-linecap="round"></path>
+            <g stroke="#101010" stroke-width="3.6" fill="none" stroke-linecap="round">
+              <path d="M96 190 l-12 -18 M96 190 l-19 -4 M96 190 l-4 -20"></path>
+              <path d="M316 186 l13 -18 M316 186 l19 -3 M316 186 l4 -20"></path>
+            </g>
+            <!-- legs -->
+            <path d="M180 396 L176 452 M222 396 L228 452" stroke="#101010" stroke-width="4.6" stroke-linecap="round"></path>
+            <path d="M176 452 l-26 6 M228 452 l26 6" stroke="#101010" stroke-width="4.6" stroke-linecap="round" fill="none"></path>
+          </svg>
+        </div>
+        <figcaption class="platecap">
+          <p class="caption"><strong>Drawing</strong></p>
+          <p class="caption">Felt-tip on printer paper, photographed on a kitchen table. Uploaded exactly as it was.</p>
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="arrowcell" aria-hidden="true">
+      <svg viewBox="0 0 120 24" fill="none">
+        <path d="M0 12 H104" stroke="#9E2B0E" stroke-width="2"></path>
+        <path d="M94 4 L112 12 L94 20" stroke="#9E2B0E" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
+      </svg>
+    </div>
+
+    <div class="plate">
+      <figure>
+        <div class="frame render">
+          <svg class="inner" viewBox="0 0 400 500" role="img" aria-label="Placeholder render of the finished three-dimensional hero standing on a turntable">
+            <defs>
+              <linearGradient id="g-body" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#FFFFFF"></stop>
+                <stop offset="0.55" stop-color="#EDE9E2"></stop>
+                <stop offset="1" stop-color="#CFC8BD"></stop>
+              </linearGradient>
+              <linearGradient id="g-cape" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#B7472C"></stop>
+                <stop offset="1" stop-color="#8A2409"></stop>
+              </linearGradient>
+              <radialGradient id="g-floor" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0" stop-color="#B6AEA2" stop-opacity="0.55"></stop>
+                <stop offset="1" stop-color="#B6AEA2" stop-opacity="0"></stop>
+              </radialGradient>
+            </defs>
+            <ellipse cx="200" cy="446" rx="132" ry="26" fill="url(#g-floor)"></ellipse>
+            <!-- cape -->
+            <path d="M142 200 C98 258 96 352 124 410 C156 392 178 390 200 400 L200 204 Z" fill="url(#g-cape)"></path>
+            <!-- legs -->
+            <g stroke-linecap="round" fill="none">
+              <path d="M186 366 V434 M224 366 V434" stroke="#9A9186" stroke-width="32"></path>
+              <path d="M186 366 V434 M224 366 V434" stroke="#E9E5DE" stroke-width="29"></path>
+            </g>
+            <ellipse cx="183" cy="446" rx="19" ry="9" fill="#E3DED6" stroke="#9A9186" stroke-width="1.2"></ellipse>
+            <ellipse cx="227" cy="446" rx="19" ry="9" fill="#E3DED6" stroke="#9A9186" stroke-width="1.2"></ellipse>
+            <!-- torso -->
+            <path d="M166 212 C160 272 162 342 172 392 L240 392 C250 342 252 272 246 212 Z" fill="url(#g-body)" stroke="#9A9186" stroke-width="1.2"></path>
+            <path d="M206 258 l12 26 28 4 -20 20 5 28 -25 -14 -25 14 5 -28 -20 -20 28 -4 Z" fill="#B7472C" opacity="0.9"></path>
+            <!-- arms -->
+            <g stroke-linecap="round" fill="none">
+              <path d="M172 236 C138 250 116 230 108 198" stroke="#9A9186" stroke-width="29"></path>
+              <path d="M240 236 C274 250 296 230 304 198" stroke="#9A9186" stroke-width="29"></path>
+              <path d="M172 236 C138 250 116 230 108 198" stroke="#EDE9E2" stroke-width="26"></path>
+              <path d="M240 236 C274 250 296 230 304 198" stroke="#EDE9E2" stroke-width="26"></path>
+            </g>
+            <circle cx="108" cy="197" r="16" fill="#E9E5DE" stroke="#9A9186" stroke-width="1.2"></circle>
+            <circle cx="304" cy="197" r="16" fill="#E9E5DE" stroke="#9A9186" stroke-width="1.2"></circle>
+            <!-- head -->
+            <path d="M200 52 C136 52 110 102 112 140 C114 182 150 210 200 210 C252 210 288 182 290 140 C292 100 262 52 200 52 Z" fill="url(#g-body)" stroke="#9A9186" stroke-width="1.2"></path>
+            <ellipse cx="172" cy="132" rx="9" ry="10" fill="#2B2722"></ellipse>
+            <ellipse cx="230" cy="132" rx="9" ry="10" fill="#2B2722"></ellipse>
+            <path d="M166 164 C188 188 220 188 238 162" stroke="#2B2722" stroke-width="4" fill="none" stroke-linecap="round"></path>
+            <!-- rig hint -->
+            <g stroke="#6F675C" stroke-width="1" opacity="0.5">
+              <path d="M200 96 v284 M200 232 L118 202 M200 232 L296 202 M200 372 L186 430 M200 372 L224 430"></path>
+              <g fill="#6F675C">
+                <circle cx="200" cy="96" r="3.4"></circle><circle cx="200" cy="232" r="3.4"></circle>
+                <circle cx="200" cy="304" r="3.4"></circle><circle cx="200" cy="372" r="3.4"></circle>
+                <circle cx="118" cy="202" r="3.4"></circle><circle cx="296" cy="202" r="3.4"></circle>
+                <circle cx="186" cy="430" r="3.4"></circle><circle cx="224" cy="430" r="3.4"></circle>
+              </g>
+            </g>
+          </svg>
+        </div>
+        <figcaption class="platecap">
+          <p class="caption"><strong>Render — placeholder</strong></p>
+          <p class="caption">The finished VRM, turning on a plain floor, with its 22-bone skeleton showing. Real capture to replace this frame.</p>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- 3. THREE DOORS -->
+<section class="wrap rule-top" id="doors" aria-labelledby="doors-h">
+  <p class="eyebrow">Three doors</p>
+  <h2 id="doors-h" style="margin-top:20px;max-width:16ch;">Where would you like to begin?</h2>
+
+  <div class="doors">
+    <article class="door">
+      <p class="num">I.</p>
+      <h3>Studio</h3>
+      <p>Photograph a drawing and watch it become a hero. One upload, about six minutes, no settings to understand.</p>
+      <a class="textlink" href="#pricing">Make a hero</a>
+    </article>
+    <article class="door">
+      <p class="num">II.</p>
+      <h3>My Heroes</h3>
+      <p>Every hero your child has made, kept together on one shelf. Download any of them, or delete them for good.</p>
+      <a class="textlink" href="#pricing">Open the shelf</a>
+    </article>
+    <article class="door">
+      <p class="num">III.</p>
+      <h3>Playground</h3>
+      <p>The dance game. The webcam reads your child's pose, and their hero moves with them on screen.</p>
+      <a class="textlink" href="#pricing">Start dancing</a>
+    </article>
+  </div>
+</section>
+
+<!-- 4. HOW IT WORKS -->
+<section class="wrap rule-top" id="how" aria-labelledby="how-h">
+  <p class="eyebrow">How it works</p>
+  <h2 id="how-h" style="margin-top:20px;max-width:14ch;">Four steps, one of them yours.</h2>
+
+  <div class="steps">
+    <div class="step">
+      <p class="n">01</p>
+      <h3>Snap the drawing</h3>
+      <p>Lay the page flat, take a photo with your phone, and upload it — crayon, pencil, marker or paint all work.</p>
+    </div>
+    <div class="step">
+      <p class="n">02</p>
+      <h3>We render it</h3>
+      <p>The drawing is interpreted into a clean full-body character that keeps your child's shapes and colours.</p>
+    </div>
+    <div class="step">
+      <p class="n">03</p>
+      <h3>We build it in 3D</h3>
+      <p>That character becomes a real 3D model and is rigged with a humanoid skeleton so it can be animated.</p>
+    </div>
+    <div class="step">
+      <p class="n">04</p>
+      <h3>They play as it</h3>
+      <p>It appears in the Playground, ready for the webcam — and it is yours to download and keep.</p>
+    </div>
+  </div>
+
+  <figure class="wideplate" style="margin:clamp(40px,5vw,72px) 0 0;">
+    <div class="frame">
+      <svg class="inner" viewBox="0 0 1600 900" role="img" aria-label="Storyboard placeholder: a child mid-jump in front of a laptop, their hero copying the pose on screen">
+        <g stroke="#5E564B" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.62">
+          <path d="M120 762 H1480"></path>
+          <!-- child, mid-jump -->
+          <circle cx="560" cy="250" r="54"></circle>
+          <path d="M560 304 V470"></path>
+          <path d="M560 352 L466 258 M560 352 L654 258"></path>
+          <path d="M466 258 l-6 -30 M654 258 l8 -30"></path>
+          <path d="M560 470 L498 600 M560 470 L630 596"></path>
+          <path d="M498 600 l-34 14 M630 596 l34 16"></path>
+          <path d="M392 330 q-26 26 -30 60 M356 262 q-40 38 -46 90" opacity="0.7"></path>
+          <ellipse cx="566" cy="762" rx="92" ry="13" opacity="0.45" stroke-dasharray="9 11"></ellipse>
+          <!-- laptop -->
+          <path d="M1120 462 H1362 V630 H1120 Z"></path>
+          <path d="M1108 634 H1374 L1412 700 H1070 Z"></path>
+          <!-- the hero on the screen, same pose -->
+          <g stroke-width="2.6">
+            <circle cx="1241" cy="516" r="21"></circle>
+            <path d="M1241 537 V584"></path>
+            <path d="M1241 550 L1207 518 M1241 550 L1275 518"></path>
+            <path d="M1241 584 L1219 614 M1241 584 L1264 612"></path>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="platecap">
+      <p class="caption"><strong>Photo — placeholder</strong></p>
+      <p class="caption">A child mid-jump in a living room, laptop on the floor, their hero copying the pose on screen.</p>
+    </figcaption>
+  </figure>
+</section>
+
+<!-- 5. PRICING -->
+<section class="wrap rule-top" id="pricing" aria-labelledby="price-h">
+  <p class="eyebrow">Packs</p>
+  <h2 id="price-h" style="margin-top:20px;max-width:16ch;">Buy credits once. Use them whenever.</h2>
+  <p class="lede" style="margin-top:24px;">One hero costs 10 credits. Credits never expire, and there is no subscription to remember to cancel.</p>
+
+  <div class="prices">
+    <article class="price">
+      <div class="price-head"><p class="tier">Starter</p></div>
+      <p class="amount">$5</p>
+      <ul>
+        <li>30 credits</li>
+        <li>3 heroes</li>
+        <li>A first drawing, tested properly</li>
+      </ul>
+      <a class="btn btn-quiet" href="#">Choose Starter</a>
+    </article>
+    <article class="price">
+      <div class="price-head"><p class="tier">Maker</p><p class="tag">Best value</p></div>
+      <p class="amount">$15</p>
+      <ul>
+        <li>100 credits</li>
+        <li>10 heroes</li>
+        <li>Enough for a whole cast of characters</li>
+      </ul>
+      <a class="btn" href="#">Choose Maker</a>
+    </article>
+    <article class="price">
+      <div class="price-head"><p class="tier">Studio</p></div>
+      <p class="amount">$40</p>
+      <ul>
+        <li>300 credits</li>
+        <li>30 heroes</li>
+        <li>For siblings, classrooms and clubs</li>
+      </ul>
+      <a class="btn btn-quiet" href="#">Choose Studio</a>
+    </article>
+  </div>
+  <p class="price-note">Ten credits per hero, at every pack size. Nothing renews, nothing lapses, and unused credits are still there next summer.</p>
+</section>
+
+<!-- 6. FOR PARENTS -->
+<section class="parents" aria-labelledby="par-h">
+  <div class="wrap">
+    <p class="eyebrow">For parents</p>
+    <h2 id="par-h" style="margin-top:20px;max-width:18ch;">The plain terms, in four lines.</h2>
+
+    <div class="promises">
+      <div class="promise">
+        <h3>No advertising</h3>
+        <p>There are no ads in HeroMaker and nothing is sold to your child inside the game.</p>
+      </div>
+      <div class="promise">
+        <h3>You own what they make</h3>
+        <p>Every hero is yours. Download the file, keep it, use it elsewhere — it is a standard VRM.</p>
+      </div>
+      <div class="promise">
+        <h3>Drawings train nothing</h3>
+        <p>Your child's artwork is used to build their hero and for nothing else. We do not train models on it.</p>
+      </div>
+      <div class="promise">
+        <h3>Delete it all, any time</h3>
+        <p>One button removes the drawings, the heroes and the account, from our servers and our backups.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. FOOTER -->
+<footer class="wrap site-foot">
+  <a class="wordmark" href="#">HeroMaker</a>
+  <nav class="foot-links" aria-label="Footer">
+    <a href="#doors">Studio</a>
+    <a href="#doors">My Heroes</a>
+    <a href="#doors">Playground</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#">Privacy</a>
+    <a href="#">Contact</a>
+  </nav>
+  <p class="copyright">&copy; 2026 HeroMaker. Made for the drawings on your fridge.</p>
+</footer>
+
+</body>
+</html>
