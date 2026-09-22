@@ -92,3 +92,15 @@ marketing/photos/anonymised/*.jpg
 # in marketing/photos/. audit.mjs serves them from their real homes, so the
 # copies are a local convenience, not a second source of truth.
 marketing/concepts/assets/
+
+# Drawing/hero pairs are re-fetchable from the live site with
+# `.venv/bin/python marketing/fetch_pairs.py --all`, so only the handful the
+# concepts actually reference are committed. The rest would be megabytes of
+# duplicate marketing assets with a second source of truth.
+marketing/photos/pairs/*.jpg
+!marketing/photos/pairs/cookie-man-*.jpg
+!marketing/photos/pairs/crayon-kid-*.jpg
+!marketing/photos/pairs/turtle-cool-*.jpg
+!marketing/photos/pairs/super-sevivon-*.jpg
+!marketing/photos/pairs/lady-milana-*.jpg
+!marketing/photos/pairs/dooby-dam-dam-*.jpg

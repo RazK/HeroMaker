@@ -172,7 +172,10 @@ async function start(card) {
     console.warn('hero-card: clip unavailable —', err && err.message)
   }
 
+  // The whole card, so the caption beside the canvas can say "live" only once
+  // it is. `arm` puts `is-still` on the same pair when this never gets here.
   card.classList.add('is-live')
+  card.closest('[data-hero-shot]')?.classList.add('is-live')
 
   const clock = new THREE.Clock()
   let visible = true
@@ -209,6 +212,9 @@ function arm(card) {
   start(card).catch((err) => {
     card.classList.remove('is-live')
     card.classList.add('is-still')
+    const shot = card.closest('[data-hero-shot]')
+    shot?.classList.remove('is-live')
+    shot?.classList.add('is-still')
     console.warn('hero-card: falling back to the still —', err && err.message)
   })
 }
@@ -218,7 +224,10 @@ function init() {
   if (cards.length === 0) return
 
   if (reduceMotion() || !hasWebGL()) {
-    cards.forEach((c) => c.classList.add('is-still'))
+    cards.forEach((c) => {
+      c.classList.add('is-still')
+      c.closest('[data-hero-shot]')?.classList.add('is-still')
+    })
     return
   }
 

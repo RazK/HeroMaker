@@ -470,13 +470,19 @@
     display:block;font-size:13px;line-height:1.25;font-weight:700;
     color:var(--lc-cap-ink);letter-spacing:0;
   }
-  .livecard-cap span{
+  .livecard-cap i{
     display:block;margin-top:2px;font-size:12.5px;line-height:1.35;
-    color:var(--lc-sub-ink);
+    font-style:normal;color:var(--lc-sub-ink);
   }
   @media(min-width:1100px){
-    .livecard-cap b{font-size:14.5px}.livecard-cap span{font-size:13.5px}
+    .livecard-cap b{font-size:14.5px}.livecard-cap i{font-size:13.5px}
   }
+  /* The caption tells the truth about its own half. Until the VRM is up - and
+     for good if WebGL, the network or the reader's motion preference says no -
+     the card is showing a render of the file, and says so. */
+  [data-hero-shot] .lc-live{display:none}
+  [data-hero-shot].is-live .lc-live{display:block}
+  [data-hero-shot].is-live .lc-still{display:none}
   /* No WebGL, a failed fetch, or a reader who asked for stillness: the card
      keeps the render of the same avatar rather than going blank. */
   @media(prefers-reduced-motion:reduce){
@@ -489,27 +495,31 @@
     .fold-grid{gap:14px}
     .livecard-media{aspect-ratio:4/5}
     .livecard-cap b{font-size:12.5px}
-    .livecard-cap span{font-size:12px}
+    .livecard-cap i{font-size:12px}
   }
 
-  /* ---------- the real roster ---------- */
-  .heroes{
+  /* ---------- true pairs ----------
+     Each tile is one child's drawing and the exact hero it became, both
+     straight off the live product. Nothing here is an illustration. */
+  .pairs{
     list-style:none;margin:26px 0 0;padding:0;
-    display:grid;grid-template-columns:repeat(2,1fr);gap:12px;
+    display:grid;grid-template-columns:1fr;gap:14px;
   }
-  @media(min-width:640px){.heroes{grid-template-columns:repeat(3,1fr);gap:14px}}
-  @media(min-width:1020px){.heroes{grid-template-columns:repeat(6,1fr)}}
-  .heroes li{
-    margin:0;text-align:center;padding:10px 8px 12px;
+  @media(min-width:620px){.pairs{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:1000px){.pairs{grid-template-columns:repeat(3,1fr);gap:18px}}
+  .pairs li{
+    margin:0;padding:10px 10px 12px;min-width:0;
     background:var(--lc-tile-bg,transparent);border:var(--lc-tile-border,none);
-    border-radius:var(--lc-radius,16px);min-width:0;
+    border-radius:var(--lc-radius,16px);
   }
-  .heroes img{
-    width:100%;height:auto;aspect-ratio:1;object-fit:contain;
-    background:var(--lc-tile-media,transparent);border-radius:calc(var(--lc-radius,16px) - 6px);
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .pair img{
+    width:100%;height:auto;aspect-ratio:3/4;object-fit:cover;object-position:center;
+    background:var(--lc-tile-media,transparent);
+    border-radius:calc(var(--lc-radius,16px) - 7px);
   }
-  .heroes b{display:block;margin-top:8px;font-size:13.5px;line-height:1.25;color:var(--lc-cap-ink)}
-  .heroes span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
+  .pairs b{display:block;margin-top:9px;font-size:14px;line-height:1.25;color:var(--lc-cap-ink)}
+  .pairs span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
 <style>
@@ -552,29 +562,32 @@
     <div class="fold-copy">
       <p class="eyebrow"><span class="mark">&mdash;</span>&nbsp;&nbsp;Drawing to 3D, in about six minutes</p>
       <h1 id="hero-h">Your child's drawing, rebuilt as a hero that stands up and moves.</h1>
-      <p class="lede">Photograph the thing they drew this morning. We build it in three dimensions and rig it with a skeleton &mdash; the hero on the right is one of those files, playing motion capture here.</p>
+      <p class="lede">Photograph the thing they drew this morning. We build it in three dimensions and rig it with a skeleton. On the right: one child's drawing, and the hero it actually became.</p>
     </div>
       <figure class="livecard" data-hero-shot>
         <div class="livecard-half">
           <div class="livecard-media">
-            <img class="livecard-drawing" src="assets/drawing-superbear-crop.jpg" width="848" height="1222"
-                 fetchpriority="high" decoding="async"
-                 alt="A child's crayon drawing of a super bear in a red cape, photographed at a HeroMaker event">
+            <img class="livecard-drawing" src="assets/pairs/crayon-kid-drawing.jpg"
+                 width="1100" height="1100" fetchpriority="high" decoding="async"
+                 alt="A child's crayon drawing of a masked hero in a blue suit with a yellow S, an orange cape and red boots">
           </div>
-          <p class="livecard-cap"><b>The drawing</b><span>Crayon, photographed at an event.</span></p>
+          <p class="livecard-cap"><b>What one child drew</b><i>Crayon on paper, at an event.</i></p>
         </div>
         <div class="livecard-half">
           <div class="livecard-media herocard" data-hero-card
-               data-vrm="assets/Yummy_Bear.opt.vrm"
+               data-vrm="assets/Crayon_Kid.opt.vrm"
                data-clip="assets/Dance_Charleston.glb"
                data-rim="#7A2E86" data-key="#FFFFFF" data-ambient="0.85"
                data-shadow="0.22" data-shadow-color="#2B2722"
                data-zoom="1.45" data-outline="0">
-            <img class="herocard-still" src="assets/Yummy_Bear.thumb.webp" width="512" height="512"
-                 decoding="async"
-                 alt="Yummy Bear, a caped super-bear, rendered from the VRM file">
+            <img class="herocard-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
+                 width="900" height="900" decoding="async"
+                 alt="Crayon Kid: the same masked hero, rebuilt as a 3D model">
           </div>
-          <p class="livecard-cap"><b>The hero, live</b><span>A real VRM, moving now.</span></p>
+          <p class="livecard-cap">
+            <span class="lc-live"><b>The hero it became</b><i>Crayon Kid &mdash; the real VRM, dancing.</i></span>
+            <span class="lc-still"><b>The hero it became</b><i>Crayon Kid &mdash; the real VRM file.</i></span>
+          </p>
         </div>
       </figure>
     <div class="fold-act">
@@ -582,7 +595,7 @@
         <a class="btn" data-primary-cta href="#doors">Turn a drawing into a hero</a>
         <a class="textlink" href="#how">See how it works</a>
       </div>
-      <p class="hero-note">Both halves are real: a drawing from one of our events, a hero from the live gallery. Shown side by side, not the same child's pair.</p>
+      <p class="hero-note">One child's drawing and the exact hero it became, made at a HeroMaker event. The 3D half is the real VRM file, playing motion capture here.</p>
     </div>
   </div>
 </section>
@@ -590,38 +603,50 @@
 <!-- 2. THE REAL HEROES -->
 <section class="wrap rule-top" aria-labelledby="tr-h">
   <p class="eyebrow">The roster</p>
-  <h2 id="tr-h" style="margin-top:20px;max-width:20ch;">Every one of these was a drawing.</h2>
-  <p class="lede" style="margin-top:20px;">Six heroes made at real events, rendered from the VRM files themselves. The proportions your child chose &mdash; the enormous head, the four fingers, the cape that is wider than the body &mdash; survive into the model.</p>
-    <ul class="heroes">
+  <h2 id="tr-h" style="margin-top:20px;max-width:20ch;">This drawing. This hero. Every time.</h2>
+  <p class="lede" style="margin-top:20px;">Six more, each one a drawing and the hero it became. The proportions your child chose &mdash; the enormous head, the four fingers, the cape that is wider than the body &mdash; survive into the model.</p>
+    <ul class="pairs">
       <li>
-        <img src="assets/Yummy_Bear.thumb.webp" alt="Yummy Bear, caped super-bear, rendered from the VRM file"
-             width="512" height="512" loading="lazy" decoding="async">
-        <b>Yummy Bear</b><span>caped super-bear</span>
+        <div class="pair">
+          <img src="assets/pairs/cookie-man-drawing.jpg" alt="a child's oil-pastel gingerbread man" loading="lazy" decoding="async">
+          <img src="assets/pairs/cookie-man-hero.jpg" alt="Cookie Man as a 3D model, with the same blue eyes, red smile and three buttons" loading="lazy" decoding="async">
+        </div>
+        <b>Cookie Man</b><span>blue eyes, red smile, three buttons</span>
       </li>
       <li>
-        <img src="assets/Superstar.thumb.webp" alt="Superstar, a star with legs, rendered from the VRM file"
-             width="512" height="512" loading="lazy" decoding="async">
-        <b>Superstar</b><span>a star with legs</span>
+        <div class="pair">
+          <img src="assets/pairs/turtle-cool-drawing.jpg" alt="a child's oil-pastel turtle in a red hat and sunglasses" loading="lazy" decoding="async">
+          <img src="assets/pairs/turtle-cool-hero.jpg" alt="Turtle Cool as a 3D model, hat, sunglasses and hair intact" loading="lazy" decoding="async">
+        </div>
+        <b>Turtle Cool</b><span>red hat, sunglasses, all that hair</span>
       </li>
       <li>
-        <img src="assets/Gingerella.thumb.webp" alt="Gingerella, cape, boots, attitude, rendered from the VRM file"
-             width="512" height="512" loading="lazy" decoding="async">
-        <b>Gingerella</b><span>cape, boots, attitude</span>
+        <div class="pair">
+          <img src="assets/pairs/super-sevivon-drawing.jpg" alt="a child's drawing of a dreidel with a face, in a blue shirt" loading="lazy" decoding="async">
+          <img src="assets/pairs/super-sevivon-hero.jpg" alt="Super Sevivon as a 3D model, the same dreidel head and blue shirt" loading="lazy" decoding="async">
+        </div>
+        <b>Super Sevivon</b><span>a spinning top with a face</span>
       </li>
       <li>
-        <img src="assets/Skelly.thumb.webp" alt="Skelly, skeleton in a green hat, rendered from the VRM file"
-             width="512" height="512" loading="lazy" decoding="async">
-        <b>Skelly</b><span>skeleton in a green hat</span>
+        <div class="pair">
+          <img src="assets/pairs/lady-milana-drawing.jpg" alt="a child's felt-tip drawing of a girl in a red dress with bunches" loading="lazy" decoding="async">
+          <img src="assets/pairs/lady-milana-hero.jpg" alt="Lady Milana as a 3D model, the same bunches, dress and red shoes" loading="lazy" decoding="async">
+        </div>
+        <b>Lady Milana</b><span>bunches, red dress, red shoes</span>
       </li>
       <li>
-        <img src="assets/Cloudy.thumb.webp" alt="Cloudy, a cloud that wears shoes, rendered from the VRM file"
-             width="512" height="512" loading="lazy" decoding="async">
-        <b>Cloudy</b><span>a cloud that wears shoes</span>
+        <div class="pair">
+          <img src="assets/pairs/dooby-dam-dam-drawing.jpg" alt="a child's drawing of a baby wearing a cape" loading="lazy" decoding="async">
+          <img src="assets/pairs/dooby-dam-dam-hero.jpg" alt="Dooby Dam Dam as a 3D model, red hair and red cape" loading="lazy" decoding="async">
+        </div>
+        <b>Dooby Dam Dam</b><span>a baby in a cape</span>
       </li>
       <li>
-        <img src="assets/Crayon_Kid.thumb.webp" alt="Crayon Kid, masked, in blue, rendered from the VRM file"
-             width="512" height="512" loading="lazy" decoding="async">
-        <b>Crayon Kid</b><span>masked, in blue</span>
+        <div class="pair">
+          <img src="assets/pairs/crayon-kid-drawing.jpg" alt="a child's crayon drawing of a masked hero with a yellow S" loading="lazy" decoding="async">
+          <img src="assets/pairs/crayon-kid-hero.jpg" alt="Crayon Kid as a 3D model, the same mask, S and orange cape" loading="lazy" decoding="async">
+        </div>
+        <b>Crayon Kid</b><span>the one dancing above</span>
       </li>
     </ul>
 </section>
