@@ -187,6 +187,16 @@ class SecrecyTests(unittest.TestCase):
             "${{shared.OPENAI_API_KEY}}",
         )
 
+    def test_a_credential_in_the_value_counts_even_with_an_innocent_key(self):
+        url = "postgresql://postgres:hunter2@host:5432/db"
+        self.assertTrue(tool.is_secret("DATABASE_URL"))
+        self.assertTrue(tool.is_secret("SOMETHING_BLAND", url))
+        self.assertNotIn("hunter2", tool.display("SOMETHING_BLAND", url))
+        # A URL without userinfo is ordinary config, not a credential.
+        self.assertFalse(
+            tool.is_secret("SERVICE_URL", "http://vrm-converter.railway.internal:8000")
+        )
+
     def test_no_tracked_layer_file_holds_a_literal_secret(self):
         for path in tool.ENV_DIR.glob("*.env"):
             if path.name.startswith("secrets"):
@@ -235,6 +245,24 @@ class CheckTests(unittest.TestCase):
                 tool.ENV_DIR = old_dir
 
 
+class ProjectRegistryTests(unittest.TestCase):
+    def test_a_malformed_entry_reports_an_error_not_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old_file = tool.PROJECT_FILE
+            tool.PROJECT_FILE = Path(tmp) / "project.json"
+            try:
+                tool.PROJECT_FILE.write_text(
+                    json.dumps({
+                        "services": {"backend": None},
+                        "environments": {"production": {"id": "x"}},
+                    })
+                )
+                with self.assertRaises(tool.ToolError):
+                    tool.load_project()
+            finally:
+                tool.PROJECT_FILE = old_file
+
+
 class SyncTests(unittest.TestCase):
     def test_sync_batches_one_call_per_service(self):
         with StubbedRailway() as stub:
@@ -267,12 +295,53 @@ class SyncTests(unittest.TestCase):
             self.assertIn("already up to date", output)
             self.assertEqual(stub.applied(), [])
 
-    def test_dry_run_changes_nothing_and_hides_secrets(self):
+    def test_dry_run_changes_nothing_and_prints_the_real_command(self):
         with StubbedRailway() as stub:
             code, output = run(["sync", "-e", "production", "-n"])
             self.assertEqual(code, 0, output)
             self.assertEqual(stub.applied(), [])
             self.assertIn("would run", output)
+            # The printed command must be the one that runs: IDs, not names.
+            project = tool.load_project()
+            self.assertIn(project["services"]["backend"]["id"], output)
+            self.assertIn(project["environments"]["production"]["id"], output)
+            self.assertIn("--set DEBUG=false", output)
+
+    def test_sync_without_a_tty_refuses_to_push_unconfirmed(self):
+        # stdin is not a terminal here, which is how CI and cron would call it.
+        with StubbedRailway() as stub:
+            code, output = run(["sync", "-e", "production"])
+            self.assertEqual(code, 1, output)
+            self.assertIn("not a terminal", output)
+            self.assertEqual(stub.applied(), [], "nothing may reach production")
+
+    def test_legacy_entrypoint_also_refuses_without_confirmation(self):
+        script = tool.REPO_ROOT / "devops" / "scripts" / "sync-railway-env.sh"
+        with StubbedRailway() as stub:
+            result = subprocess.run(
+                [str(script)], stdin=subprocess.DEVNULL,
+                capture_output=True, text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(stub.applied(), [])
+
+    def test_sync_pushes_a_reference_railway_reports_resolved(self):
+        # Railway hands back ${{shared.X}} already resolved, so an edited
+        # reference must never be mistaken for "already up to date".
+        variables, _ = tool.resolve("backend", "production")
+        remote = dict(variables)
+        remote["JWT_SECRET_KEY"] = "some-resolved-secret"
+        key = ("3970a673-db5b-4b2d-9456-93acf1da09bf",
+               "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1")
+        with StubbedRailway({key: remote}) as stub:
+            code, output = run(["sync", "-e", "production", "-s", "backend", "-y"])
+            self.assertEqual(code, 0, output)
+            self.assertNotIn("already up to date", output)
+            self.assertEqual(len(stub.applied()), 1)
+            self.assertIn(
+                "JWT_SECRET_KEY=${{shared.JWT_SECRET_KEY}}",
+                stub.applied()[0]["sets"],
+            )
 
 
 class DiffTests(unittest.TestCase):
@@ -288,17 +357,45 @@ class DiffTests(unittest.TestCase):
             self.assertIn("+ OPENAI_API_KEY", output)
             self.assertNotIn("PORT", output, "Railway's own variables must be ignored")
 
-    def test_diff_treats_a_resolved_reference_as_matching(self):
+    def test_diff_flags_a_reference_it_cannot_verify(self):
+        # Railway reports references resolved, so a mismatch is genuinely
+        # ambiguous. Reporting it as "already correct" would hide an edited
+        # reference that never shipped.
         variables, _ = tool.resolve("backend", "production")
         remote = dict(variables)
         remote["OPENAI_API_KEY"] = "sk-resolved-by-railway"
         with StubbedRailway({(self.BACKEND, self.PROD): remote}):
             code, output = run(["diff", "-e", "production", "-s", "backend", "--exit-code"])
+            self.assertEqual(code, 1, output)
+            self.assertIn("could not be verified", output)
+            self.assertNotIn("Railway matches", output)
+
+    def test_diff_verifies_a_reference_railway_echoes_back_verbatim(self):
+        # If Railway does store the reference raw, nothing is ambiguous and no
+        # push is needed.
+        variables, _ = tool.resolve("backend", "production")
+        with StubbedRailway({(self.BACKEND, self.PROD): dict(variables)}):
+            code, output = run(["diff", "-e", "production", "-s", "backend", "--exit-code"])
             self.assertEqual(code, 0, output)
             self.assertIn("Railway matches", output)
 
+    def test_diff_says_how_to_remove_a_variable_only_railway_has(self):
+        variables, _ = tool.resolve("backend", "production")
+        remote = dict(variables)
+        remote["LEFTOVER"] = "stale"
+        with StubbedRailway({(self.BACKEND, self.PROD): remote}):
+            _code, output = run(["diff", "-e", "production", "-s", "backend"])
+            self.assertIn("LEFTOVER", output)
+            self.assertIn("sync never removes it", output)
+
 
 class FactorTests(unittest.TestCase):
+    BACKEND = "3970a673-db5b-4b2d-9456-93acf1da09bf"
+    FRONTEND = "a71bc2c6-c912-475c-ab16-a5dbf0ba074e"
+    VRM = "e7afe8a4-ce76-4093-9122-72c498b4874f"
+    STAGING = "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1"
+    PROD = "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"
+
     def test_factor_collapses_identical_values_and_shields_secrets(self):
         ids = {
             ("3970a673-db5b-4b2d-9456-93acf1da09bf", "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1"): {
@@ -344,6 +441,103 @@ class FactorTests(unittest.TestCase):
 
                 # Railway's own variables are not ours to manage
                 self.assertNotIn("RAILWAY_PROJECT_ID", shared)
+            finally:
+                tool.ENV_DIR = old_dir
+
+    def test_factor_never_writes_a_connection_string_and_check_catches_one(self):
+        # A Postgres URL carries its password in the value, not the key name.
+        url = "postgresql://postgres:hunter2@pg.railway.internal:5432/railway"
+        ids = {
+            (self.BACKEND, self.STAGING): {"DATABASE_URL": url, "DEBUG": "false"},
+            (self.BACKEND, self.PROD): {"DATABASE_URL": url, "DEBUG": "false"},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            old_dir = tool.ENV_DIR
+            tool.ENV_DIR = Path(tmp)
+            try:
+                with StubbedRailway(ids):
+                    code, output = run(["factor", "-s", "backend", "--write"])
+                self.assertEqual(code, 0, output)
+                for path in tool.ENV_DIR.glob("*.env"):
+                    self.assertNotIn("hunter2", path.read_text(), path.name)
+                self.assertNotIn("hunter2", output)
+
+                # And if one is ever pasted in by hand, check must fail on it.
+                (tool.ENV_DIR / "backend.env").write_text(f"DATABASE_URL={url}\n")
+                code, output = run(["check"])
+                self.assertEqual(code, 1, output)
+                self.assertIn("connection string", output)
+                self.assertNotIn("hunter2", output)
+            finally:
+                tool.ENV_DIR = old_dir
+
+    def test_factor_keeps_a_reference_the_layer_file_already_declares(self):
+        # Railway reports ${{Postgres.DATABASE_URL}} resolved; writing that
+        # back would both leak it and undo the design.
+        url = "postgresql://postgres:hunter2@pg.railway.internal:5432/railway"
+        ids = {
+            (self.BACKEND, self.STAGING): {"DATABASE_URL": url},
+            (self.BACKEND, self.PROD): {"DATABASE_URL": url},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            old_dir = tool.ENV_DIR
+            tool.ENV_DIR = Path(tmp)
+            try:
+                (tool.ENV_DIR / "backend.env").write_text(
+                    "DATABASE_URL=${{Postgres.DATABASE_URL}}\n"
+                )
+                with StubbedRailway(ids):
+                    code, output = run(["factor", "-s", "backend", "--write"])
+                self.assertEqual(code, 0, output)
+                after = dict(tool.parse_env_file(tool.ENV_DIR / "backend.env"))
+                self.assertEqual(after["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")
+            finally:
+                tool.ENV_DIR = old_dir
+
+    def test_factor_limited_to_one_service_leaves_common_env_alone(self):
+        # A -s run has not seen the other services, so it cannot know what
+        # belongs in common.env — and must not truncate it to find out.
+        with tempfile.TemporaryDirectory() as tmp:
+            old_dir = tool.ENV_DIR
+            tool.ENV_DIR = Path(tmp)
+            try:
+                common = tool.ENV_DIR / "common.env"
+                common.write_text("# shared\nDEBUG=false\n")
+                before = common.read_text()
+                ids = {
+                    (self.BACKEND, self.STAGING): {"DEBUG": "false", "X": "1"},
+                    (self.BACKEND, self.PROD): {"DEBUG": "false", "X": "1"},
+                }
+                with StubbedRailway(ids):
+                    code, output = run(["factor", "-s", "backend", "--write"])
+                self.assertEqual(code, 0, output)
+                self.assertEqual(common.read_text(), before, "common.env was rewritten")
+                self.assertIn("untouched", output)
+                # ...and the service file must not restate what common provides.
+                backend = dict(tool.parse_env_file(tool.ENV_DIR / "backend.env"))
+                self.assertNotIn("DEBUG", backend)
+                self.assertEqual(backend["X"], "1")
+            finally:
+                tool.ENV_DIR = old_dir
+
+    def test_factor_across_every_service_still_writes_common_env(self):
+        shared = {"DEBUG": "false"}
+        ids = {}
+        for service_id in (self.BACKEND, self.FRONTEND, self.VRM):
+            for environment in (self.STAGING, self.PROD):
+                ids[(service_id, environment)] = dict(shared)
+        with tempfile.TemporaryDirectory() as tmp:
+            old_dir = tool.ENV_DIR
+            tool.ENV_DIR = Path(tmp)
+            try:
+                with StubbedRailway(ids):
+                    code, output = run(["factor", "--write"])
+                self.assertEqual(code, 0, output)
+                common = dict(tool.parse_env_file(tool.ENV_DIR / "common.env"))
+                self.assertEqual(common["DEBUG"], "false")
+                for service in ("backend", "frontend", "vrm-converter"):
+                    single = dict(tool.parse_env_file(tool.ENV_DIR / f"{service}.env"))
+                    self.assertNotIn("DEBUG", single, "should live in common.env only")
             finally:
                 tool.ENV_DIR = old_dir
 

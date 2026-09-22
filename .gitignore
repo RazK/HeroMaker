@@ -34,10 +34,11 @@ dist-ssr
 reference/
 
 # Python virtual environment
-# Anchored to the repo root: an unanchored `env/` also matched
-# devops/railway/env/, which is tracked.
-/.venv/
-/venv/
+# `env/` is anchored to the repo root because unanchored it also matched
+# devops/railway/env/, which is tracked. The other two stay unanchored so a
+# venv nested in a service directory is still ignored.
+.venv/
+venv/
 /env/
 
 # Cursor IDE files

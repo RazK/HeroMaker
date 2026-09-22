@@ -25,8 +25,10 @@ secrets.env                   gitignored, never committed
 secrets.<environment>.env     gitignored, never committed
 ```
 
-`KEY=` with an empty value **removes** a key inherited from a lower layer
-(Railway rejects empty values anyway).
+`KEY=` with an empty value stops a key inherited from a lower layer being
+pushed (Railway rejects empty values anyway). It does **not** delete a variable
+Railway already holds — `diff` reports those as `! KEY set on Railway but in no
+layer file`, and they have to be unset in the dashboard.
 
 ## Railway references do the per-environment work
 
@@ -55,8 +57,10 @@ No secret value is ever committed. Two supported homes:
 2. **`secrets.env` / `secrets.<environment>.env`** — gitignored, local only,
    for when you need to push a value from your machine.
 
-`railway-env.sh check` fails if a secret-looking key ever lands in a tracked
-file with a literal value, and runs in CI on every pull request.
+`railway-env.sh check` fails if a tracked file ever holds a literal credential
+— either a secret-looking key name, or any value carrying an embedded password
+such as `postgresql://user:pass@host/db` — and runs in CI on every pull
+request.
 
 ## Commands
 
@@ -88,7 +92,13 @@ git diff                                          # review before committing
 `factor` reads staging and production, puts everything identical into the
 shared layer, leaves only real differences in the per-environment files, and
 turns every secret into a `${{shared.KEY}}` reference without ever writing its
-value to a tracked file. It prints the list of shared variables to create.
+value to a tracked file. A key a layer file already declares as a reference
+keeps that reference, so `${{Postgres.DATABASE_URL}}` is not overwritten with
+the connection string Railway resolved it to.
+
+Run it for the **whole project**. With `-s` it has only seen one service, so it
+leaves `common.env` untouched rather than rewriting it from partial
+information.
 
 Then check the result against reality before touching anything:
 
