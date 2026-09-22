@@ -264,6 +264,15 @@
     --lc-tile-bg:var(--white);
     --lc-tile-border:var(--border);
     --lc-tile-media:#FFF0BE;
+    --lc-move-border:2px solid var(--ink);
+    --lc-move-radius:999px;
+    --lc-move-bg:var(--white);
+    --lc-move-bg-hover:#FFF0BE;
+    --lc-move-ink:var(--ink);
+    --lc-move-on-bg:var(--red);
+    --lc-move-on-ink:#FFFFFF;
+    --lc-move-on-border:var(--ink);
+    --lc-move-focus:var(--ink);
   }
   .heroes li{box-shadow:var(--pop-sm);}
 
@@ -334,6 +343,42 @@
     .livecard-media{aspect-ratio:4/5}
     .livecard-cap b{font-size:12.5px}
     .livecard-cap i{font-size:12px}
+  }
+
+
+  /* ---------- the three moves ----------
+     Real buttons, so they are keyboard-reachable and announce their state.
+     hero-card.js unhides them only when WebGL is there and removes them if the
+     avatar never arrives - a control that cannot do anything is worse than
+     none. Clip ids are the game's own, which is how Performer.airborne knows
+     to pull the camera back for Fly and Backflip. */
+  .livecard-moves{
+    grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;
+    gap:var(--lc-move-gap,8px);margin-top:12px;
+  }
+  .livecard-moves[hidden]{display:none}
+  .livecard-moves button{
+    font:inherit;font-size:13px;font-weight:600;line-height:1;cursor:pointer;
+    padding:9px 13px;border-radius:var(--lc-move-radius,999px);
+    border:var(--lc-move-border);background:var(--lc-move-bg);
+    color:var(--lc-move-ink);
+  }
+  .livecard-moves button:hover{background:var(--lc-move-bg-hover,var(--lc-move-bg))}
+  .livecard-moves button.is-on{
+    background:var(--lc-move-on-bg);color:var(--lc-move-on-ink);
+    border-color:var(--lc-move-on-border,transparent);
+  }
+  .livecard-moves button:focus-visible{outline:2px solid var(--lc-move-focus);outline-offset:2px}
+  /* Secondary on purpose: the primary call to action is the one that sells. */
+  .moves-link{
+    margin-left:auto;font-size:12.5px;font-weight:500;text-decoration:underline;
+    text-underline-offset:3px;color:var(--lc-sub-ink);white-space:nowrap;
+  }
+  .moves-link:hover{color:var(--lc-cap-ink)}
+  @media(max-width:560px){
+    .livecard-moves{gap:6px;margin-top:10px}
+    .livecard-moves button{padding:8px 10px;font-size:12.5px}
+    .moves-link{margin-left:0;flex:1 0 100%;font-size:12px}
   }
 
   /* ---------- true pairs ----------
@@ -417,7 +462,7 @@
         <div class="livecard-half">
           <div class="livecard-media herocard" data-hero-card
                data-vrm="assets/Crayon_Kid.opt.vrm"
-               data-clip="assets/Dance_Charleston.glb"
+               data-clips="assets/anim/"
                data-rim="#C41F72" data-key="#FFF6E6" data-ambient="0.8"
                data-shadow="0.26" data-shadow-color="#14100E"
                data-zoom="1.45" data-outline="0">
@@ -426,9 +471,15 @@
                  alt="Crayon Kid: the same masked hero, rebuilt as a 3D model">
           </div>
           <p class="livecard-cap">
-            <span class="lc-live"><b>The hero it became</b><i>Crayon Kid &mdash; the real VRM, dancing.</i></span>
+            <span class="lc-live"><b>The hero it became</b><i>Crayon Kid <i>Crayon Kid &mdash; the real VRM, dancing.</i>mdash; the real VRM, moving.</i></span>
             <span class="lc-still"><b>The hero it became</b><i>Crayon Kid &mdash; the real VRM file.</i></span>
           </p>
+        </div>
+        <div class="livecard-moves" data-hero-moves hidden>
+          <button type="button" data-move="fly" data-default aria-pressed="true">Fly</button>
+          <button type="button" data-move="dance" aria-pressed="false">Dance</button>
+          <button type="button" data-move="backflip" aria-pressed="false">Backflip</button>
+          <a class="moves-link" href="https://razk.github.io/HeroMaker/hero-moves/" target="_blank" rel="noopener">Dance as your hero &rarr;</a>
         </div>
       </figure>
       <div class="fold-act">

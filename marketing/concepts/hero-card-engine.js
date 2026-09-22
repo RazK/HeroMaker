@@ -1,11 +1,11 @@
 /* GENERATED — do not edit.
- * Built from games/hero-moves/src/{avatar/loader,anim/clips,anim/retarget}.ts
+ * Built from games/hero-moves/src/{avatar/loader,anim/{clips,performer,retarget}}.ts
  * by marketing/concepts/build-engine.mjs. Re-run that script to refresh it.
  * three and @pixiv/three-vrm come from the CDN via the page import map.
  */
 
 // games/hero-moves/engine.ts
-import * as THREE3 from "three";
+import * as THREE4 from "three";
 
 // games/hero-moves/src/avatar/loader.ts
 import * as THREE from "three";
@@ -300,9 +300,116 @@ async function loadRetargeted(url, vrm, rig = UE_RIG) {
   if (!gltf.animations.length) throw new Error(`${url} carries no animation`);
   return { clip: retargetToVRM(gltf.animations[0], gltf.scene, vrm, rig), format: "gltf" };
 }
+
+// games/hero-moves/src/anim/performer.ts
+import * as THREE3 from "three";
+var CLIPS = [
+  { id: "dance", url: "Dance_Charleston.glb", kind: "gltf", credit: "Quaternius UAL (CC0)" },
+  { id: "bodyroll", url: "Dance_Body_Roll.glb", kind: "gltf", credit: "Quaternius UAL (CC0)" },
+  { id: "backflip", url: "Backflip.glb", kind: "gltf", credit: "Quaternius UAL (CC0)" },
+  { id: "punch", url: "Punch_Cross.glb", kind: "gltf", credit: "Quaternius UAL (CC0)" },
+  { id: "jump", url: "Jump.vrma", kind: "vrma", credit: "tk256ailab/vrm-viewer (MIT)" },
+  { id: "land", url: "Land_Three_Point.glb", kind: "gltf", credit: "Quaternius UAL (CC0)" },
+  { id: "fly", url: "Flying_Forward_Super.glb", kind: "gltf", credit: "Quaternius UAL (CC0)" },
+  { id: "victory", url: "Victory_Fist_Pump.glb", kind: "gltf", credit: "Quaternius UAL (CC0)" }
+];
+var AIRBORNE = /* @__PURE__ */ new Set(["backflip", "jump", "fly"]);
+var Performer = class {
+  constructor(hero) {
+    this.hero = hero;
+    this.mixer = null;
+    this.actions = /* @__PURE__ */ new Map();
+    this.current = null;
+    this.currentId = null;
+    /** Set for a one-shot; cleared when it finishes and the rig is handed back. */
+    this.oneShotEnds = 0;
+    this.mixer = new THREE3.AnimationMixer(hero.vrm.scene);
+  }
+  /** True while a clip owns the rig. The caller must not pose the hero then. */
+  get active() {
+    return this.current !== null;
+  }
+  /**
+   * True only for clips that actually leave the ground.
+   *
+   * The camera eases back while one plays, and a looping idle dance is not one
+   * — treating every clip as airborne pulled the whole stage 30% further away
+   * for the entire menu, where the heroes are always dancing.
+   */
+  get airborne() {
+    return this.currentId !== null && AIRBORNE.has(this.currentId);
+  }
+  get playing() {
+    return this.currentId;
+  }
+  get ready() {
+    return this.actions.size > 0;
+  }
+  has(id) {
+    return this.actions.has(id);
+  }
+  /**
+   * Load one clip. Failures are swallowed to a warning on purpose: a missing
+   * animation should cost the hero a flourish, not cost the player the game.
+   */
+  async load(spec, resolve) {
+    if (!this.mixer) return false;
+    try {
+      const url = resolve(spec.url);
+      const loaded = spec.kind === "vrma" ? await loadVrma(url, this.hero.vrm) : await loadRetargeted(url, this.hero.vrm);
+      const action = this.mixer.clipAction(loaded.clip);
+      this.actions.set(spec.id, action);
+      return true;
+    } catch (err) {
+      console.warn(`clip ${spec.id} unavailable:`, err.message);
+      return false;
+    }
+  }
+  /**
+   * Start a clip. `loop` keeps it running until something else is played or
+   * `stop` is called; otherwise it plays once and hands the rig back.
+   */
+  play(id, { loop = false, fade = 0.25 } = {}) {
+    const next = this.actions.get(id);
+    if (!next || next === this.current) return;
+    next.reset();
+    next.setLoop(loop ? THREE3.LoopRepeat : THREE3.LoopOnce, loop ? Infinity : 1);
+    next.clampWhenFinished = !loop;
+    next.enabled = true;
+    next.setEffectiveWeight(1);
+    if (this.current) next.crossFadeFrom(this.current, fade, false);
+    next.play();
+    this.current = next;
+    this.currentId = id;
+    this.oneShotEnds = loop ? 0 : next.getClip().duration;
+  }
+  /** Hand the rig back to the procedural poser. */
+  stop(fade = 0.2) {
+    if (!this.current) return;
+    this.current.fadeOut(fade);
+    this.current = null;
+    this.currentId = null;
+    this.oneShotEnds = 0;
+  }
+  update(dt) {
+    if (!this.mixer) return;
+    this.mixer.update(dt);
+    if (this.current && this.oneShotEnds > 0 && this.current.time >= this.oneShotEnds - 0.02) {
+      this.stop();
+    }
+  }
+  dispose() {
+    this.mixer?.stopAllAction();
+    this.actions.clear();
+    this.mixer = null;
+    this.current = null;
+  }
+};
 export {
+  CLIPS,
   MIXAMO_RIG,
-  THREE3 as THREE,
+  Performer,
+  THREE4 as THREE,
   UE_RIG,
   loadHero,
   loadRetargeted,

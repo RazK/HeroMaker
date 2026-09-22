@@ -38,11 +38,12 @@ const ENTRY = `
 export * as THREE from 'three'
 export { loadHero } from './src/avatar/loader'
 export { loadVrma, loadRetargeted } from './src/anim/clips'
+export { Performer, CLIPS } from './src/anim/performer'
 export { UE_RIG, MIXAMO_RIG } from './src/anim/retarget'
 `
 
 const banner = (what) => `/* GENERATED — do not edit.
- * Built from games/hero-moves/src/{avatar/loader,anim/clips,anim/retarget}.ts
+ * Built from games/hero-moves/src/{avatar/loader,anim/{clips,performer,retarget}}.ts
  * by marketing/concepts/build-engine.mjs. Re-run that script to refresh it.
  * ${what}
  */`
