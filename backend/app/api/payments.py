@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.config import packs as packs_config
 from app.database import get_db
-from app.models import User
+from app.models import Payment, User
 from app.services import ledger, lemonsqueezy
 from app.services.auth import get_current_user_required
 
@@ -249,6 +249,16 @@ async def lemonsqueezy_webhook(
         )
         return {"status": "ignored", "reason": "unknown user"}
 
+    # The money side. The ledger row above says how many CREDITS moved; this
+    # row says how many DOLLARS did, and it is what the margin report reads for
+    # revenue - without it a real sale shows up as $0 of income.
+    #
+    # provider_ref is UNIQUE, the same replay defence the ledger uses, so a
+    # redelivery that found an existing ledger row must not try to insert here
+    # either. `tx.delta` tells us which case we are in: a replay returns the
+    # original row, and `_payment_exists` is the cheap, explicit check.
+    _record_payment(db, event, pack, user_id)
+
     logger.info(
         "Credited %s credits to user %s for order %s (balance now %s)",
         pack["credits"], user_id, event["order_id"], tx.balance_after,
@@ -296,3 +306,53 @@ def list_receipts(
             created_at=tx.created_at.isoformat(),
         ))
     return out
+
+
+def _record_payment(db: Session, event: dict, pack: dict, user_id: str) -> None:
+    """
+    Write the dollars beside the credits.
+
+    Idempotent by the same key as the ledger: `provider_ref` is UNIQUE, so a
+    redelivered webhook finds the existing row and returns. Never raises - a
+    failure here must not cost the customer their credits, which are already
+    granted and are the thing they actually paid for. It logs loudly instead,
+    and the reconciliation endpoint will show the gap.
+    """
+    ref = f"lemonsqueezy:order:{event['order_id']}"
+    existing = db.query(Payment).filter(Payment.provider_ref == ref).first()
+    if existing is not None:
+        return
+
+    gross = event["total_usd_micros"]
+    fee = packs_config.processor_fee_usd_micros(gross) if gross else 0
+    try:
+        db.add(Payment(
+            user_id=user_id,
+            provider="lemonsqueezy",
+            provider_ref=ref,
+            gross_usd_micros=gross,
+            fee_usd_micros=fee,
+            net_usd_micros=gross - fee,
+            # "succeeded" is what reporting.REVENUE_STATUSES counts as money in.
+            status="succeeded",
+            metadata_json={
+                "pack": pack["slug"],
+                "credits": pack["credits"],
+                "order_number": event["order_number"],
+                "currency": event["currency"],
+                "test_mode": event["test_mode"],
+                # The fee is OUR estimate from the published rate, not the
+                # figure Lemon Squeezy actually took. Their payout report is
+                # the truth; this is close enough to steer by and is marked so
+                # nobody mistakes it for a settled number.
+                "fee_is_estimated": True,
+            },
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception(
+            "Credits were granted for order %s but the payment row failed to "
+            "write; revenue will under-report until this is reconciled",
+            event["order_id"],
+        )

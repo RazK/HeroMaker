@@ -74,3 +74,6 @@ frontend/dev-dist/
 
 # Worktrees created by Claude Code subagents for isolated runs.
 .claude/worktrees/
+
+# Raw marketing photo downloads live in the scratchpad, never the repo.
+marketing/photos/*.jpg.orig
