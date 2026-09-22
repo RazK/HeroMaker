@@ -403,11 +403,13 @@
   .cta-row{ margin-top:0; }
   .hero-note{ margin-top:12px; max-width:54ch; }
   @media (max-width:560px){
-    .hero{ padding-top:14px; padding-bottom:14px; }
-    .hero h1{ font-size:25px; line-height:1.14; }
-    .hero .lede{ font-size:14.5px; line-height:1.5; margin-top:9px; }
-    .fold-grid{ gap:12px; }
-    .livecard{ --lc-pad:11px; }
+    .hero{ padding-top:10px; padding-bottom:12px; }
+    .hero h1{ font-size:24px; line-height:1.14; }
+    .hero .lede{ font-size:14.5px; line-height:1.5; margin-top:8px; }
+    .hero .eyebrow{ margin-bottom:8px; }
+    .fold-grid{ gap:10px; }
+    .livecard{ --lc-pad:10px; }
+    .site-head{ padding-top:12px; padding-bottom:10px; }
     .hero .eyebrow{ margin-bottom:10px; }
     .hero .hero-note{ margin-top:10px; font-size:13px; }
   }
@@ -461,7 +463,7 @@
   }
   .livecard-half{display:flex;flex-direction:column;min-width:0}
   .livecard-media{
-    position:relative;overflow:hidden;aspect-ratio:3/4;
+    position:relative;overflow:hidden;aspect-ratio:1;
     border-radius:var(--lc-media-radius,10px);
     background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
   }
@@ -501,7 +503,6 @@
 
   @media(max-width:560px){
     .fold-grid{gap:14px}
-    .livecard-media{aspect-ratio:4/5}
     .livecard-cap b{font-size:12.5px}
     .livecard-cap i{font-size:12px}
   }
@@ -604,9 +605,9 @@
 <section class="hero wrap" id="top" aria-labelledby="hero-h">
   <div class="fold-grid">
     <div class="fold-copy">
-      <p class="eyebrow"><span class="mark">&mdash;</span>&nbsp;&nbsp;Drawing to 3D, in about six minutes</p>
-      <h1 id="hero-h">Your child's drawing, rebuilt as a hero that stands up and moves.</h1>
-      <p class="lede">Photograph the thing they drew this morning. We build it in three dimensions and rig it with a skeleton. On the right: one child's drawing, and the hero it actually became.</p>
+      <p class="eyebrow"><span class="mark">&mdash;</span>&nbsp;&nbsp;Drawing to 3D</p>
+      <h1 id="hero-h">Your child's drawing, rebuilt as a hero.</h1>
+      <p class="lede">Photograph it, and six minutes later it is a rigged 3D character.</p>
     </div>
       <figure class="livecard" data-hero-shot>
         <div class="livecard-half">
@@ -615,7 +616,7 @@
                  width="1100" height="1100" fetchpriority="high" decoding="async"
                  alt="A child's crayon drawing of a masked hero in a blue suit with a yellow S, an orange cape and red boots">
           </div>
-          <p class="livecard-cap"><b>What one child drew</b><i>Crayon on paper, at an event.</i></p>
+          <p class="livecard-cap"><b>The drawing</b></p>
         </div>
         <div class="livecard-half">
           <div class="livecard-media herocard" data-hero-card
@@ -623,20 +624,20 @@
                data-clips="assets/anim/"
                data-rim="#7A2E86" data-key="#FFFFFF" data-ambient="0.85"
                data-shadow="0.22" data-shadow-color="#2B2722"
-               data-zoom="1.45" data-outline="0">
+               data-zoom="1.12" data-outline="0">
             <img class="herocard-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
                  width="900" height="900" decoding="async"
                  alt="Crayon Kid: the same masked hero, rebuilt as a 3D model">
           </div>
           <p class="livecard-cap">
-            <span class="lc-live"><b>The hero it became</b><i>Crayon Kid <i>Crayon Kid &mdash; the real VRM, dancing.</i>mdash; the real VRM, moving.</i></span>
-            <span class="lc-still"><b>The hero it became</b><i>Crayon Kid &mdash; the real VRM file.</i></span>
+            <span class="lc-live"><b>The hero it became</b><i>Real VRM, moving.</i></span>
+            <span class="lc-still"><b>The hero it became</b><i>Real VRM file.</i></span>
           </p>
         </div>
         <div class="livecard-moves" data-hero-moves hidden>
-          <button type="button" data-move="fly" data-default aria-pressed="true">Fly</button>
+          <button type="button" data-move="fly" data-air="1.3" data-yaw="1.25" data-default aria-pressed="true">Fly</button>
           <button type="button" data-move="dance" aria-pressed="false">Dance</button>
-          <button type="button" data-move="backflip" aria-pressed="false">Backflip</button>
+          <button type="button" data-move="backflip" data-air="1.75" aria-pressed="false">Backflip</button>
           <a class="moves-link" href="https://razk.github.io/HeroMaker/hero-moves/" target="_blank" rel="noopener">Dance as your hero &rarr;</a>
         </div>
       </figure>
@@ -645,7 +646,7 @@
         <a class="btn" data-primary-cta href="#doors">Turn a drawing into a hero</a>
         <a class="textlink" href="#how">See how it works</a>
       </div>
-      <p class="hero-note">One child's drawing and the exact hero it became, made at a HeroMaker event. The 3D half is the real VRM file, playing motion capture here.</p>
+      
     </div>
   </div>
 </section>
@@ -654,49 +655,49 @@
 <section class="wrap rule-top" aria-labelledby="tr-h">
   <p class="eyebrow">The roster</p>
   <h2 id="tr-h" style="margin-top:20px;max-width:20ch;">This drawing. This hero. Every time.</h2>
-  <p class="lede" style="margin-top:20px;">Six more, each one a drawing and the hero it became. The proportions your child chose &mdash; the enormous head, the four fingers, the cape that is wider than the body &mdash; survive into the model.</p>
+  <p class="lede" style="margin-top:20px;">Six more, each a drawing and the hero it became.</p>
     <ul class="pairs">
       <li>
         <div class="pair">
           <img src="assets/pairs/cookie-man-drawing.jpg" alt="a child's oil-pastel gingerbread man" loading="lazy" decoding="async">
           <img src="assets/pairs/cookie-man-hero.jpg" alt="Cookie Man as a 3D model, with the same blue eyes, red smile and three buttons" loading="lazy" decoding="async">
         </div>
-        <b>Cookie Man</b><span>blue eyes, red smile, three buttons</span>
+        <b>Cookie Man</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/turtle-cool-drawing.jpg" alt="a child's oil-pastel turtle in a red hat and sunglasses" loading="lazy" decoding="async">
           <img src="assets/pairs/turtle-cool-hero.jpg" alt="Turtle Cool as a 3D model, hat, sunglasses and hair intact" loading="lazy" decoding="async">
         </div>
-        <b>Turtle Cool</b><span>red hat, sunglasses, all that hair</span>
+        <b>Turtle Cool</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/super-sevivon-drawing.jpg" alt="a child's drawing of a dreidel with a face, in a blue shirt" loading="lazy" decoding="async">
           <img src="assets/pairs/super-sevivon-hero.jpg" alt="Super Sevivon as a 3D model, the same dreidel head and blue shirt" loading="lazy" decoding="async">
         </div>
-        <b>Super Sevivon</b><span>a spinning top with a face</span>
+        <b>Super Sevivon</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/lady-milana-drawing.jpg" alt="a child's felt-tip drawing of a girl in a red dress with bunches" loading="lazy" decoding="async">
           <img src="assets/pairs/lady-milana-hero.jpg" alt="Lady Milana as a 3D model, the same bunches, dress and red shoes" loading="lazy" decoding="async">
         </div>
-        <b>Lady Milana</b><span>bunches, red dress, red shoes</span>
+        <b>Lady Milana</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/dooby-dam-dam-drawing.jpg" alt="a child's drawing of a baby wearing a cape" loading="lazy" decoding="async">
           <img src="assets/pairs/dooby-dam-dam-hero.jpg" alt="Dooby Dam Dam as a 3D model, red hair and red cape" loading="lazy" decoding="async">
         </div>
-        <b>Dooby Dam Dam</b><span>a baby in a cape</span>
+        <b>Dooby Dam Dam</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/crayon-kid-drawing.jpg" alt="a child's crayon drawing of a masked hero with a yellow S" loading="lazy" decoding="async">
           <img src="assets/pairs/crayon-kid-hero.jpg" alt="Crayon Kid as a 3D model, the same mask, S and orange cape" loading="lazy" decoding="async">
         </div>
-        <b>Crayon Kid</b><span>the one dancing above</span>
+        <b>Crayon Kid</b>
       </li>
     </ul>
 </section>
@@ -710,19 +711,19 @@
     <article class="door">
       <p class="num">I.</p>
       <h3>Studio</h3>
-      <p>Photograph a drawing and watch it become a hero. One upload, about six minutes, no settings to understand.</p>
+      <p>A photo in, a rigged hero out.</p>
       <a class="textlink" href="#pricing">Make a hero</a>
     </article>
     <article class="door">
       <p class="num">II.</p>
       <h3>My Heroes</h3>
-      <p>Every hero your child has made, kept together on one shelf. Download any of them, or delete them for good.</p>
+      <p>Every hero you have made, on one shelf.</p>
       <a class="textlink" href="#pricing">Open the shelf</a>
     </article>
     <article class="door">
       <p class="num">III.</p>
       <h3>Playground</h3>
-      <p>The dance game. The webcam reads your child's pose, and their hero moves with them on screen.</p>
+      <p>Webcam on, and the hero copies your child.</p>
       <a class="textlink" href="#pricing">Start dancing</a>
     </article>
   </div>
@@ -737,22 +738,22 @@
     <div class="step">
       <p class="n">01</p>
       <h3>Snap the drawing</h3>
-      <p>Lay the page flat, take a photo with your phone, and upload it — crayon, pencil, marker or paint all work.</p>
+      <p>One phone photo of the paper.</p>
     </div>
     <div class="step">
       <p class="n">02</p>
       <h3>We render it</h3>
-      <p>The drawing is interpreted into a clean full-body character that keeps your child's shapes and colours.</p>
+      <p>A clean, full-colour version of that character.</p>
     </div>
     <div class="step">
       <p class="n">03</p>
       <h3>We build it in 3D</h3>
-      <p>That character becomes a real 3D model and is rigged with a humanoid skeleton so it can be animated.</p>
+      <p>A 22-bone skeleton goes in.</p>
     </div>
     <div class="step">
       <p class="n">04</p>
       <h3>They play as it</h3>
-      <p>It appears in the Playground, ready for the webcam — and it is yours to download and keep.</p>
+      <p>Webcam on, and they dance as it.</p>
     </div>
   </div>
 
@@ -785,7 +786,7 @@
     </div>
     <figcaption class="platecap">
       <p class="caption"><strong>Photo — placeholder</strong></p>
-      <p class="caption">A child mid-jump in a living room, laptop on the floor, their hero copying the pose on screen.</p>
+      
     </figcaption>
   </figure>
 </section>
@@ -794,7 +795,7 @@
 <section class="wrap rule-top" id="pricing" aria-labelledby="price-h">
   <p class="eyebrow">Packs</p>
   <h2 id="price-h" style="margin-top:20px;max-width:16ch;">Buy credits once. Use them whenever.</h2>
-  <p class="lede" style="margin-top:24px;">One hero costs 10 credits. Credits never expire, and there is no subscription to remember to cancel.</p>
+  <p class="lede" style="margin-top:24px;">10 credits a hero.</p>
 
   <div class="prices">
     <article class="price">
@@ -803,7 +804,7 @@
       <ul>
         <li>30 credits</li>
         <li>3 heroes</li>
-        <li>A first drawing, tested properly</li>
+        
       </ul>
       <a class="btn btn-quiet" href="#">Choose Starter</a>
     </article>
@@ -813,7 +814,7 @@
       <ul>
         <li>100 credits</li>
         <li>10 heroes</li>
-        <li>Enough for a whole cast of characters</li>
+        
       </ul>
       <a class="btn" href="#">Choose Maker</a>
     </article>
@@ -823,42 +824,14 @@
       <ul>
         <li>300 credits</li>
         <li>30 heroes</li>
-        <li>For siblings, classrooms and clubs</li>
+        
       </ul>
       <a class="btn btn-quiet" href="#">Choose Studio</a>
     </article>
   </div>
-  <p class="price-note">Ten credits per hero, at every pack size. Nothing renews, nothing lapses, and unused credits are still there next summer.</p>
+  
 </section>
 
-<!-- 6. FOR PARENTS -->
-<section class="parents" aria-labelledby="par-h">
-  <div class="wrap">
-    <p class="eyebrow">For parents</p>
-    <h2 id="par-h" style="margin-top:20px;max-width:18ch;">The plain terms, in four lines.</h2>
-
-    <div class="promises">
-      <div class="promise">
-        <h3>No advertising</h3>
-        <p>There are no ads in HeroMaker and nothing is sold to your child inside the game.</p>
-      </div>
-      <div class="promise">
-        <h3>You own what they make</h3>
-        <p>Every hero is yours. Download the file, keep it, use it elsewhere — it is a standard VRM.</p>
-      </div>
-      <div class="promise">
-        <h3>Drawings train nothing</h3>
-        <p>Your child's artwork is used to build their hero and for nothing else. We do not train models on it.</p>
-      </div>
-      <div class="promise">
-        <h3>Delete it all, any time</h3>
-        <p>One button removes the drawings, the heroes and the account, from our servers and our backups.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 7. FOOTER -->
 <footer class="wrap site-foot">
   <a class="wordmark" href="#top"><img src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async"><span>HeroMaker</span></a>
   <nav class="foot-links" aria-label="Footer">
@@ -869,7 +842,7 @@
     <a href="#">Privacy</a>
     <a href="#">Contact</a>
   </nav>
-  <p class="copyright">&copy; 2026 HeroMaker. Made for the drawings on your fridge.</p>
+  <p class="copyright">&copy; 2026 HeroMaker</p>
 </footer>
 
 </body>

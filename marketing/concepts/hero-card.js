@@ -161,16 +161,24 @@ async function start(card, firstMove) {
   const FOV = 26
   const base = Math.max(hero.height, hero.width * 1.05) * num('zoom', 1.45)
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 60)
-  const yaw = num('yaw', 0.18)
+  const yaw0 = num('yaw', 0.18)
+  let yaw = yaw0
   // Backflip and Fly leave the floor. The game already knows which clips do -
   // `Performer.airborne` - and this is the pull-back that keeps them inside the
   // card instead of sending the hero out through the top of it.
-  const AIR = num('airZoom', 1.8)
+  // How much room each airborne clip needs. `Performer.airborne` says *whether*
+  // a clip leaves the floor; `data-air` on its button says how far, because a
+  // level forward glide and a full backflip do not want the same frame.
+  const AIR = num('airZoom', 1.75)
+  const airFor = new Map()
+  // A forward glide is a body lying along its own flight line: seen from the
+  // front it is a blob, so the camera swings round to read it lengthways.
+  const yawFor = new Map()
   let widen = 1
 
   const placeCamera = () => {
     const dist = (base * widen / 2) / Math.tan((FOV * Math.PI / 180) / 2)
-    const lift = (widen - 1) * 0.5
+    const lift = (widen - 1) * 0.48
     camera.position.set(
       Math.sin(yaw) * dist,
       hero.height * (num('eye', 0.54) + lift),
@@ -221,6 +229,8 @@ async function start(card, firstMove) {
   }
 
   for (const b of buttons) {
+    if (b.dataset.air) airFor.set(b.dataset.move, parseFloat(b.dataset.air))
+    if (b.dataset.yaw) yawFor.set(b.dataset.move, parseFloat(b.dataset.yaw))
     b.addEventListener('click', () => playMove(b.dataset.move))
   }
 
@@ -245,9 +255,12 @@ async function start(card, firstMove) {
     raf = requestAnimationFrame(tick)
     const dt = Math.min(clock.getDelta(), 0.1)
     performer.update(dt)
-    const want = performer.airborne ? AIR : 1
-    if (Math.abs(want - widen) > 0.001) {
-      widen += (want - widen) * Math.min(1, dt * 3.5)
+    const want = performer.airborne ? (airFor.get(performer.playing) ?? AIR) : 1
+    const wantYaw = yawFor.get(performer.playing) ?? yaw0
+    if (Math.abs(want - widen) > 0.001 || Math.abs(wantYaw - yaw) > 0.002) {
+      const k = Math.min(1, dt * 3.5)
+      widen += (want - widen) * k
+      yaw += (wantYaw - yaw) * k
       placeCamera()
     }
     hero.vrm.update(dt)

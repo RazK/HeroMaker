@@ -294,7 +294,7 @@
   }
   .livecard-half{display:flex;flex-direction:column;min-width:0}
   .livecard-media{
-    position:relative;overflow:hidden;aspect-ratio:3/4;
+    position:relative;overflow:hidden;aspect-ratio:1;
     border-radius:var(--lc-media-radius,10px);
     background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
   }
@@ -334,7 +334,6 @@
 
   @media(max-width:560px){
     .fold-grid{gap:14px}
-    .livecard-media{aspect-ratio:4/5}
     .livecard-cap b{font-size:12.5px}
     .livecard-cap i{font-size:12px}
   }
@@ -470,9 +469,9 @@
   <section class="hero">
     <div class="wrap fold-grid">
       <div class="fold-copy">
-        <p class="eyebrow">Drawing in · hero out · six minutes</p>
+        <p class="eyebrow">Drawing in, hero out</p>
         <h1>Your child draws a hero. We stand it up in 3D.</h1>
-        <p class="lede">Photograph the drawing on the kitchen table. About six minutes later it is a real, rigged 3D character. On the right: one child's drawing, and the hero it actually became, dancing in this page.</p>
+        <p class="lede">Photograph it, and six minutes later it is a rigged 3D character.</p>
       </div>
       <figure class="livecard" data-hero-shot>
         <div class="livecard-half">
@@ -481,7 +480,7 @@
                  width="1100" height="1100" fetchpriority="high" decoding="async"
                  alt="A child's crayon drawing of a masked hero in a blue suit with a yellow S, an orange cape and red boots">
           </div>
-          <p class="livecard-cap"><b>What one child drew</b><i>Crayon on paper, at an event.</i></p>
+          <p class="livecard-cap"><b>The drawing</b></p>
         </div>
         <div class="livecard-half">
           <div class="livecard-media herocard" data-hero-card
@@ -489,20 +488,20 @@
                data-clips="assets/anim/"
                data-rim="#B01E6B" data-key="#FFF6E6" data-ambient="0.72"
                data-shadow="0.3" data-shadow-color="#4A3A2A"
-               data-zoom="1.45" data-outline="0">
+               data-zoom="1.12" data-outline="0">
             <img class="herocard-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
                  width="900" height="900" decoding="async"
                  alt="Crayon Kid: the same masked hero, rebuilt as a 3D model">
           </div>
           <p class="livecard-cap">
-            <span class="lc-live"><b>The hero it became</b><i>Crayon Kid <i>Crayon Kid &mdash; the real VRM, dancing.</i>mdash; the real VRM, moving.</i></span>
-            <span class="lc-still"><b>The hero it became</b><i>Crayon Kid &mdash; the real VRM file.</i></span>
+            <span class="lc-live"><b>The hero it became</b><i>Real VRM, moving.</i></span>
+            <span class="lc-still"><b>The hero it became</b><i>Real VRM file.</i></span>
           </p>
         </div>
         <div class="livecard-moves" data-hero-moves hidden>
-          <button type="button" data-move="fly" data-default aria-pressed="true">Fly</button>
+          <button type="button" data-move="fly" data-air="1.3" data-yaw="1.25" data-default aria-pressed="true">Fly</button>
           <button type="button" data-move="dance" aria-pressed="false">Dance</button>
-          <button type="button" data-move="backflip" aria-pressed="false">Backflip</button>
+          <button type="button" data-move="backflip" data-air="1.75" aria-pressed="false">Backflip</button>
           <a class="moves-link" href="https://razk.github.io/HeroMaker/hero-moves/" target="_blank" rel="noopener">Dance as your hero &rarr;</a>
         </div>
       </figure>
@@ -511,7 +510,7 @@
           <a class="btn btn-primary" data-primary-cta href="#doors">Make your first hero</a>
           <a class="btn btn-ghost" href="#how">See how it works</a>
         </div>
-        <p class="hero-note">One child's drawing and the exact hero it became, made at a HeroMaker event. The 3D half is the real VRM file, dancing in this page.</p>
+        
       </div>
     </div>
   </section>
@@ -521,7 +520,7 @@
     <div class="wrap">
       <div class="band-head">
         <h2 id="tr-h">This drawing. This hero. Every time.</h2>
-        <p class="lede">Six more, each one a drawing and the hero it became. Nothing is redrawn by an adult and nothing is swapped for a stock model. What your child put on the paper is what stands up.</p>
+        <p class="lede">Six more, each a drawing and the hero it became.</p>
       </div>
     <ul class="pairs">
       <li>
@@ -529,42 +528,42 @@
           <img src="assets/pairs/cookie-man-drawing.jpg" alt="a child's oil-pastel gingerbread man" loading="lazy" decoding="async">
           <img src="assets/pairs/cookie-man-hero.jpg" alt="Cookie Man as a 3D model, with the same blue eyes, red smile and three buttons" loading="lazy" decoding="async">
         </div>
-        <b>Cookie Man</b><span>blue eyes, red smile, three buttons</span>
+        <b>Cookie Man</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/turtle-cool-drawing.jpg" alt="a child's oil-pastel turtle in a red hat and sunglasses" loading="lazy" decoding="async">
           <img src="assets/pairs/turtle-cool-hero.jpg" alt="Turtle Cool as a 3D model, hat, sunglasses and hair intact" loading="lazy" decoding="async">
         </div>
-        <b>Turtle Cool</b><span>red hat, sunglasses, all that hair</span>
+        <b>Turtle Cool</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/super-sevivon-drawing.jpg" alt="a child's drawing of a dreidel with a face, in a blue shirt" loading="lazy" decoding="async">
           <img src="assets/pairs/super-sevivon-hero.jpg" alt="Super Sevivon as a 3D model, the same dreidel head and blue shirt" loading="lazy" decoding="async">
         </div>
-        <b>Super Sevivon</b><span>a spinning top with a face</span>
+        <b>Super Sevivon</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/lady-milana-drawing.jpg" alt="a child's felt-tip drawing of a girl in a red dress with bunches" loading="lazy" decoding="async">
           <img src="assets/pairs/lady-milana-hero.jpg" alt="Lady Milana as a 3D model, the same bunches, dress and red shoes" loading="lazy" decoding="async">
         </div>
-        <b>Lady Milana</b><span>bunches, red dress, red shoes</span>
+        <b>Lady Milana</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/dooby-dam-dam-drawing.jpg" alt="a child's drawing of a baby wearing a cape" loading="lazy" decoding="async">
           <img src="assets/pairs/dooby-dam-dam-hero.jpg" alt="Dooby Dam Dam as a 3D model, red hair and red cape" loading="lazy" decoding="async">
         </div>
-        <b>Dooby Dam Dam</b><span>a baby in a cape</span>
+        <b>Dooby Dam Dam</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/crayon-kid-drawing.jpg" alt="a child's crayon drawing of a masked hero with a yellow S" loading="lazy" decoding="async">
           <img src="assets/pairs/crayon-kid-hero.jpg" alt="Crayon Kid as a 3D model, the same mask, S and orange cape" loading="lazy" decoding="async">
         </div>
-        <b>Crayon Kid</b><span>the one dancing above</span>
+        <b>Crayon Kid</b>
       </li>
     </ul>
     </div>
@@ -574,7 +573,7 @@
   <section class="doors" id="doors" aria-labelledby="doors-h">
     <div class="wrap">
       <h2 id="doors-h">Three doors in</h2>
-      <p class="lede">Make something new, visit what you already made, or go and play with it.</p>
+      <p class="lede">Make one, revisit one, or go and play.</p>
       <div class="door-grid">
 
         <a class="door" href="#">
@@ -584,7 +583,7 @@
             <circle cx="39" cy="18" r="3.4" fill="#AF5CB9"/>
           </svg>
           <h3>Studio</h3>
-          <p>Photograph a drawing, answer two questions, and watch it become a hero. Ten credits, about six minutes.</p>
+          <p>A photo in, a rigged hero out.</p>
           <span class="go">Make a hero →</span>
         </a>
 
@@ -596,7 +595,7 @@
             <circle cx="15" cy="23" r="3" fill="#AF5CB9"/><circle cx="41" cy="23" r="3" fill="#AF5CB9"/>
           </svg>
           <h3>My Heroes</h3>
-          <p>Every hero your family has made, kept in one shelf. Spin them, replay them, download them, delete them.</p>
+          <p>Every hero you have made, on one shelf.</p>
           <span class="go">Open the shelf →</span>
         </a>
 
@@ -607,7 +606,7 @@
             <path d="M46 8 q6 6 0 12 M8 10 q-6 6 0 12" fill="none" stroke="#B01E6B" stroke-width="3" stroke-linecap="round" filter="url(#crayon2)"/>
           </svg>
           <h3>Playground</h3>
-          <p>Stand in front of the webcam and your hero copies you, move for move. No controller, no download.</p>
+          <p>Webcam on, and the hero copies your child.</p>
           <span class="go">Start dancing →</span>
         </a>
 
@@ -619,27 +618,27 @@
   <section class="how" id="how" aria-labelledby="how-h">
     <div class="wrap">
       <h2 id="how-h">How it works</h2>
-      <p class="lede">Four steps. Your child does the first and the last one.</p>
+      <p class="lede">Four steps, and your child does the first and the last.</p>
       <div class="steps">
         <div class="step">
           <div class="n">1</div>
           <h3>Snap the drawing</h3>
-          <p>A phone photo of the paper is enough — crayon, felt tip, biro, on a table or the fridge door.</p>
+          <p>One phone photo of the paper.</p>
         </div>
         <div class="step">
           <div class="n">2</div>
           <h3>We build it in 3D</h3>
-          <p>The character is redrawn cleanly, given volume, and turned into a real mesh that holds its own shape.</p>
+          <p>The drawing becomes real geometry.</p>
         </div>
         <div class="step">
           <div class="n">3</div>
           <h3>We rig it to move</h3>
-          <p>A 22-bone humanoid skeleton goes in, so any dance we have ever recorded plays on it correctly.</p>
+          <p>A 22-bone skeleton goes in.</p>
         </div>
         <div class="step">
           <div class="n">4</div>
           <h3>Play as it</h3>
-          <p>Open the Playground and your hero mirrors your child through the webcam, live, in the browser.</p>
+          <p>Webcam on, and they dance as it.</p>
         </div>
       </div>
 
@@ -660,20 +659,14 @@
   <!-- 5 ── PRICING ──────────────────────────────────────────── -->
   <section class="pricing" id="pricing" aria-labelledby="pr-h">
     <div class="wrap">
-      <h2 id="pr-h">Buy credits, not a subscription</h2>
-      <p class="lede">One hero costs 10 credits. Credits never expire — buy a pack in April and finish it at Christmas.</p>
+      <h2 id="pr-h">Buy credits</h2>
+      <p class="lede">10 credits a hero.</p>
 
       <div class="price-grid">
         <div class="tier">
           <p class="name">Starter</p>
           <p class="amt">$5</p>
           <p class="per">30 credits · 3 heroes</p>
-          <ul>
-            <li>The easiest way to try it once</li>
-            <li>Nothing to cancel, nothing renews</li>
-            <li>Full Playground access</li>
-            <li>Download every hero you make</li>
-          </ul>
           <a class="btn btn-ghost" href="#">Get Starter</a>
         </div>
 
@@ -682,12 +675,6 @@
           <p class="name">Maker</p>
           <p class="amt">$15</p>
           <p class="per">100 credits · 10 heroes</p>
-          <ul>
-            <li>Enough for a whole rainy half-term</li>
-            <li>Works out at $1.50 a hero</li>
-            <li>Full Playground access</li>
-            <li>Download every hero you make</li>
-          </ul>
           <a class="btn btn-primary" href="#">Get Maker</a>
         </div>
 
@@ -695,55 +682,15 @@
           <p class="name">Studio</p>
           <p class="amt">$40</p>
           <p class="per">300 credits · 30 heroes</p>
-          <ul>
-            <li>For siblings, classes and clubs</li>
-            <li>Works out at $1.33 a hero</li>
-            <li>Full Playground access</li>
-            <li>Download every hero you make</li>
-          </ul>
           <a class="btn btn-ghost" href="#">Get Studio</a>
         </div>
       </div>
 
-      <p class="credit-note">Every hero costs 10 credits. Credits never expire and there is nothing to cancel.</p>
+      
     </div>
   </section>
 
-  <!-- 6 ── FOR PARENTS ──────────────────────────────────────── -->
-  <section class="parents" aria-labelledby="pa-h">
-    <div class="wrap">
-      <div class="slab">
-        <h2 id="pa-h">For the grown-up paying</h2>
-        <p class="lede">Four things we think you should know before your child's drawing goes anywhere.</p>
-        <div class="assure">
-          <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <h3>No ads, ever</h3>
-            <p>Nothing is sold to your child, and nothing is sold about them. You pay for credits; that is the whole business.</p>
-          </div>
-          <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <h3>You own what your child makes</h3>
-            <p>The drawing is theirs and so is the hero. Download the 3D file whenever you like and keep it.</p>
-          </div>
-          <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <h3>Drawings never train anything</h3>
-            <p>Your child's artwork is used to build your child's hero. It is not added to any training set, ours or anyone else's.</p>
-          </div>
-          <div>
-            <svg class="mk" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M2 9.5 L7 14 L16 3" fill="none" stroke="#FDD119" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <h3>Delete it all in one click</h3>
-            <p>Remove a single hero or wipe the whole account. Webcam video stays in the browser and is never uploaded.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<!-- 7 ── FOOTER ─────────────────────────────────────────────── -->
+  <!-- 7 ── FOOTER ─────────────────────────────────────────────── -->
 <footer class="site">
   <div class="wrap">
     <div class="foot-row">
@@ -761,7 +708,7 @@
         <a href="#">Contact</a>
       </nav>
     </div>
-    <p class="foot-note">Made for the drawings that were going to end up in a drawer.</p>
+    
   </div>
 </footer>
 

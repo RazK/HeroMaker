@@ -248,7 +248,7 @@
   }
   .livecard-half{display:flex;flex-direction:column;min-width:0}
   .livecard-media{
-    position:relative;overflow:hidden;aspect-ratio:3/4;
+    position:relative;overflow:hidden;aspect-ratio:1;
     border-radius:var(--lc-media-radius,10px);
     background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
   }
@@ -288,7 +288,6 @@
 
   @media(max-width:560px){
     .fold-grid{gap:14px}
-    .livecard-media{aspect-ratio:4/5}
     .livecard-cap b{font-size:12.5px}
     .livecard-cap i{font-size:12px}
   }
@@ -387,7 +386,6 @@
       <a href="#how">How it works</a>
       <a href="#doors">Studio</a>
       <a href="#pricing">Pricing</a>
-      <a href="#parents">For parents</a>
     </nav>
     <a class="btn btn-primary btn-sm nav-cta" href="#pricing">Make a hero</a>
   </div>
@@ -399,7 +397,7 @@
     <div class="fold-copy">
       <p class="eyebrow">Drawing to rigged 3D character</p>
       <h1>Your child's drawing, standing up.</h1>
-      <p class="lede">Photograph the sketch on the fridge. About six minutes later it is a fully rigged 3D character. On the right: one child's drawing, and the hero it actually became, moving in this page.</p>
+      <p class="lede">Photograph it, and six minutes later it is a rigged 3D character.</p>
     </div>
       <figure class="livecard" data-hero-shot>
         <div class="livecard-half">
@@ -408,7 +406,7 @@
                  width="1100" height="1100" fetchpriority="high" decoding="async"
                  alt="A child's crayon drawing of a masked hero in a blue suit with a yellow S, an orange cape and red boots">
           </div>
-          <p class="livecard-cap"><b>What one child drew</b><i>Crayon on paper, at an event.</i></p>
+          <p class="livecard-cap"><b>The drawing</b></p>
         </div>
         <div class="livecard-half">
           <div class="livecard-media herocard" data-hero-card
@@ -416,20 +414,20 @@
                data-clips="assets/anim/"
                data-rim="#FA5197" data-key="#FFF4E4" data-ambient="0.5"
                data-shadow="0.5" data-shadow-color="#000000"
-               data-zoom="1.45" data-outline="0">
+               data-zoom="1.12" data-outline="0">
             <img class="herocard-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
                  width="900" height="900" decoding="async"
                  alt="Crayon Kid: the same masked hero, rebuilt as a 3D model">
           </div>
           <p class="livecard-cap">
-            <span class="lc-live"><b>The hero it became</b><i>Crayon Kid <i>Crayon Kid &mdash; the real VRM, dancing.</i>mdash; the real VRM, moving.</i></span>
-            <span class="lc-still"><b>The hero it became</b><i>Crayon Kid &mdash; the real VRM file.</i></span>
+            <span class="lc-live"><b>The hero it became</b><i>Real VRM, moving.</i></span>
+            <span class="lc-still"><b>The hero it became</b><i>Real VRM file.</i></span>
           </p>
         </div>
         <div class="livecard-moves" data-hero-moves hidden>
-          <button type="button" data-move="fly" data-default aria-pressed="true">Fly</button>
+          <button type="button" data-move="fly" data-air="1.3" data-yaw="1.25" data-default aria-pressed="true">Fly</button>
           <button type="button" data-move="dance" aria-pressed="false">Dance</button>
-          <button type="button" data-move="backflip" aria-pressed="false">Backflip</button>
+          <button type="button" data-move="backflip" data-air="1.75" aria-pressed="false">Backflip</button>
           <a class="moves-link" href="https://razk.github.io/HeroMaker/hero-moves/" target="_blank" rel="noopener">Dance as your hero &rarr;</a>
         </div>
       </figure>
@@ -438,7 +436,6 @@
         <a class="btn btn-primary" data-primary-cta href="#doors">Make your first hero</a>
         <a class="btn btn-ghost" href="#how">See how it works</a>
       </div>
-      <p class="microline">One child's drawing and the exact hero it became &mdash; made at a HeroMaker event and on the live site today. The 3D half is the real VRM file, playing motion capture in this page.</p>
     </div>
   </div>
 </section>
@@ -448,7 +445,7 @@
   <div class="wrap">
     <div class="section-head center">
       <h2>This drawing. This hero. Every time.</h2>
-      <p class="lede">Six more, each one a drawing on the left and the hero it became on the right. Nothing is traced over or filtered: the drawing is rebuilt as geometry, given a 22-bone skeleton, and handed back as a standard VRM that moves like any professional game character.</p>
+      <p class="lede">Six more, each a drawing and the hero it became.</p>
     </div>
     <ul class="pairs">
       <li>
@@ -456,42 +453,42 @@
           <img src="assets/pairs/cookie-man-drawing.jpg" alt="a child's oil-pastel gingerbread man" loading="lazy" decoding="async">
           <img src="assets/pairs/cookie-man-hero.jpg" alt="Cookie Man as a 3D model, with the same blue eyes, red smile and three buttons" loading="lazy" decoding="async">
         </div>
-        <b>Cookie Man</b><span>blue eyes, red smile, three buttons</span>
+        <b>Cookie Man</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/turtle-cool-drawing.jpg" alt="a child's oil-pastel turtle in a red hat and sunglasses" loading="lazy" decoding="async">
           <img src="assets/pairs/turtle-cool-hero.jpg" alt="Turtle Cool as a 3D model, hat, sunglasses and hair intact" loading="lazy" decoding="async">
         </div>
-        <b>Turtle Cool</b><span>red hat, sunglasses, all that hair</span>
+        <b>Turtle Cool</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/super-sevivon-drawing.jpg" alt="a child's drawing of a dreidel with a face, in a blue shirt" loading="lazy" decoding="async">
           <img src="assets/pairs/super-sevivon-hero.jpg" alt="Super Sevivon as a 3D model, the same dreidel head and blue shirt" loading="lazy" decoding="async">
         </div>
-        <b>Super Sevivon</b><span>a spinning top with a face</span>
+        <b>Super Sevivon</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/lady-milana-drawing.jpg" alt="a child's felt-tip drawing of a girl in a red dress with bunches" loading="lazy" decoding="async">
           <img src="assets/pairs/lady-milana-hero.jpg" alt="Lady Milana as a 3D model, the same bunches, dress and red shoes" loading="lazy" decoding="async">
         </div>
-        <b>Lady Milana</b><span>bunches, red dress, red shoes</span>
+        <b>Lady Milana</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/dooby-dam-dam-drawing.jpg" alt="a child's drawing of a baby wearing a cape" loading="lazy" decoding="async">
           <img src="assets/pairs/dooby-dam-dam-hero.jpg" alt="Dooby Dam Dam as a 3D model, red hair and red cape" loading="lazy" decoding="async">
         </div>
-        <b>Dooby Dam Dam</b><span>a baby in a cape</span>
+        <b>Dooby Dam Dam</b>
       </li>
       <li>
         <div class="pair">
           <img src="assets/pairs/crayon-kid-drawing.jpg" alt="a child's crayon drawing of a masked hero with a yellow S" loading="lazy" decoding="async">
           <img src="assets/pairs/crayon-kid-hero.jpg" alt="Crayon Kid as a 3D model, the same mask, S and orange cape" loading="lazy" decoding="async">
         </div>
-        <b>Crayon Kid</b><span>the one dancing above</span>
+        <b>Crayon Kid</b>
       </li>
     </ul>
   </div>
@@ -502,7 +499,7 @@
   <div class="wrap">
     <div class="section-head">
       <h2>Three ways in.</h2>
-      <p class="lede">Most visits are one of these. Pick the one you came for.</p>
+      <p class="lede">Pick the one you came for.</p>
     </div>
     <div class="grid3">
       <div class="door">
@@ -514,7 +511,7 @@
           </svg>
         </div>
         <h3>Studio</h3>
-        <p>Photograph a drawing and watch it become a rigged 3D character. Six minutes, start to finish, nothing to install.</p>
+        <p>A photo in, a rigged hero out.</p>
         <a class="doorlink" href="#pricing">Create a hero
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
@@ -529,7 +526,7 @@
           </svg>
         </div>
         <h3>My Heroes</h3>
-        <p>Every character your family has made, in one gallery. Spin them around, replay their animations, download the files.</p>
+        <p>Every hero you have made, on one shelf.</p>
         <a class="doorlink" href="#pricing">Open the gallery
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
@@ -542,7 +539,7 @@
           </svg>
         </div>
         <h3>Playground</h3>
-        <p>Turn on the webcam and your child's hero copies their moves in real time. Eight poses, a scoring round, and a shareable reel.</p>
+        <p>Webcam on, and the hero copies your child.</p>
         <a class="doorlink" href="#pricing">Start the dance game
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
@@ -556,28 +553,28 @@
   <div class="wrap">
     <div class="section-head">
       <h2>How it works.</h2>
-      <p class="lede">Four steps. Your child does the first one and the last one.</p>
+      <p class="lede">Four steps, and your child does the first and the last.</p>
     </div>
     <div class="steps">
       <div class="step">
         <div class="stepnum">01</div>
         <h3>Snap the drawing</h3>
-        <p>Take a photo of any drawing with a phone or upload one you already have.</p>
+        <p>One phone photo of the paper.</p>
       </div>
       <div class="step">
         <div class="stepnum">02</div>
         <h3>We build it in 3D</h3>
-        <p>The character is rendered, turned into real geometry and textured to match the original.</p>
+        <p>The drawing becomes real geometry.</p>
       </div>
       <div class="step">
         <div class="stepnum">03</div>
         <h3>We rig it to move</h3>
-        <p>A 22-bone humanoid skeleton is fitted so the hero can walk, wave, jump and dance.</p>
+        <p>A 22-bone skeleton goes in.</p>
       </div>
       <div class="step">
         <div class="stepnum">04</div>
         <h3>Play as it</h3>
-        <p>Open the Playground, turn on the webcam, and your kid drives their own creation.</p>
+        <p>Webcam on, and they dance as it.</p>
       </div>
     </div>
 
@@ -596,8 +593,8 @@
 <section class="section" id="pricing" style="padding-top:0">
   <div class="wrap">
     <div class="section-head center">
-      <h2>Buy credits, not a subscription.</h2>
-      <p class="lede">One hero costs 10 credits. Credits never expire — buy a pack once and use it over a year of rainy afternoons.</p>
+      <h2>Buy credits.</h2>
+      <p class="lede">10 credits a hero.</p>
     </div>
     <div class="prices">
       <div class="price">
@@ -606,11 +603,6 @@
         <div class="amount">$5<span>one-off</span></div>
         <div class="credits">30 credits</div>
         <div class="heroes">3 heroes</div>
-        <ul class="pricelist">
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Try it with one drawing</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Download every VRM file</span></li>
-        </ul>
         <a class="btn btn-ghost" href="#">Choose Starter</a>
       </div>
 
@@ -620,11 +612,6 @@
         <div class="amount">$15<span>one-off</span></div>
         <div class="credits">100 credits</div>
         <div class="heroes">10 heroes</div>
-        <ul class="pricelist">
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Enough for a whole sketchbook</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share heroes between siblings</span></li>
-        </ul>
         <a class="btn btn-primary" href="#">Choose Maker</a>
       </div>
 
@@ -634,57 +621,10 @@
         <div class="amount">$40<span>one-off</span></div>
         <div class="credits">300 credits</div>
         <div class="heroes">30 heroes</div>
-        <ul class="pricelist">
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>For classrooms and big families</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Full Playground access</span></li>
-          <li><svg class="tick" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M1.8 6.8 4.9 9.9 11.2 3.3" stroke="#FF8FC4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Priority processing</span></li>
-        </ul>
         <a class="btn btn-ghost" href="#">Choose Studio</a>
       </div>
     </div>
-    <p class="pricenote">10 credits = 1 hero. Credits never expire. No subscription, no auto-renewal.</p>
-  </div>
-</section>
-
-<!-- 6. FOR PARENTS -->
-<section class="section" id="parents" style="padding-top:0">
-  <div class="wrap">
-    <div class="parents">
-      <div class="section-head">
-        <h2>Made for the parent paying for it.</h2>
-        <p class="lede">Screen time that leaves something behind. Here is exactly where you and your child stand.</p>
-      </div>
-      <div class="plist">
-        <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div>
-            <h3>No ads, ever</h3>
-            <p>Nothing is sold to your child inside the app. You buy a credit pack and that is the whole business model.</p>
-          </div>
-        </div>
-        <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div>
-            <h3>You own what your child makes</h3>
-            <p>Every hero downloads as a standard VRM file. It is yours to keep, print, animate or take to another app.</p>
-          </div>
-        </div>
-        <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div>
-            <h3>Drawings never train a model</h3>
-            <p>Uploads are used to build your character and nothing else. They are not sold, shared or used as training data.</p>
-          </div>
-        </div>
-        <div class="pitem">
-          <svg class="tick" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="8.1" stroke="rgba(250,81,151,0.45)"/><path d="M5.3 9.2 7.8 11.7 12.7 6.3" stroke="#FF8FC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div>
-            <h3>Delete everything in one click</h3>
-            <p>Remove a single hero or wipe the whole account. Webcam video is processed on your device and never uploaded.</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    
   </div>
 </section>
 
@@ -696,7 +636,6 @@
     </div>
     <div class="foot-links">
       <a href="#pricing">Pricing</a>
-      <a href="#parents">Privacy</a>
       <a href="#how">How it works</a>
       <a href="#">Contact</a>
     </div>
