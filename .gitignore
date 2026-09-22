@@ -87,20 +87,14 @@ marketing/photos/needs-consent/*.jpg
 # risk but does not establish permission, so these stay out of git too.
 marketing/photos/anonymised/*.jpg
 
-# Concept mockup assets are COPIES of files already tracked elsewhere:
-# the avatars and clips live in games/hero-moves/assets/, and the drawing crop
-# in marketing/photos/. audit.mjs serves them from their real homes, so the
-# copies are a local convenience, not a second source of truth.
-marketing/concepts/assets/
+# The concepts' assets ARE committed - the mockups have to open and run from a
+# fresh checkout without a build step. Only the generated base64 bundle is not:
+# it is produced from those same files by build-models.mjs, and exists solely
+# because a published artifact preview cannot serve .vrm or .glb.
+marketing/concepts/assets/models.data.js
 
-# Drawing/hero pairs are re-fetchable from the live site with
-# `.venv/bin/python marketing/fetch_pairs.py --all`, so only the handful the
-# concepts actually reference are committed. The rest would be megabytes of
-# duplicate marketing assets with a second source of truth.
-marketing/photos/pairs/*.jpg
-!marketing/photos/pairs/cookie-man-*.jpg
-!marketing/photos/pairs/crayon-kid-*.jpg
-!marketing/photos/pairs/turtle-cool-*.jpg
-!marketing/photos/pairs/super-sevivon-*.jpg
-!marketing/photos/pairs/lady-milana-*.jpg
-!marketing/photos/pairs/dooby-dam-dam-*.jpg
+# marketing/photos/pairs/ is where fetch_pairs.py lands its downloads. The
+# copies the pages actually use live in marketing/concepts/assets/pairs/ and
+# ARE committed, so this staging directory is not - it would be the same
+# images twice, with two places to change them.
+marketing/photos/pairs/

@@ -96,6 +96,18 @@ const loadEngine = () => (enginePromise ??= import('./hero-card-engine.js').catc
   return import('./hero-card-engine.bundle.js')
 }))
 
+/**
+ * Where an asset actually comes from.
+ *
+ * Normally the file itself. But a published artifact preview serves neither
+ * .vrm nor .glb, and a preview of these pages that cannot show a hero moving
+ * is not a preview of anything. When assets/models.data.js is present it holds
+ * those same files as data URLs, keyed by the path the page asks for, and this
+ * returns those instead. Absent, every lookup falls through to the real file
+ * and nothing changes.
+ */
+const assetURL = (path) => (window.__HM_MODELS && window.__HM_MODELS[path]) || path
+
 const whenIdle = (fn) =>
   (window.requestIdleCallback || ((f) => setTimeout(f, 900)))(fn, { timeout: 4000 })
 
@@ -110,7 +122,7 @@ async function start(card, firstMove) {
     return Number.isFinite(v) ? v : fallback
   }
 
-  const hero = await engine.loadHero(card.dataset.vrm, {
+  const hero = await engine.loadHero(assetURL(card.dataset.vrm), {
     outline: card.dataset.outline === '1',
   })
 
@@ -203,7 +215,7 @@ async function start(card, firstMove) {
   // `data-move` is the game's own clip id, so CLIPS supplies the filename and
   // the CC0 credit, and nothing here keeps a second copy of that table.
   const dir = card.dataset.clips || 'assets/anim/'
-  const resolve = (file) => dir + file
+  const resolve = (file) => assetURL(dir + file)
   const performer = new engine.Performer(hero)
   const specs = new Map(engine.CLIPS.map((c) => [c.id, c]))
   const wanted = buttons.map((b) => b.dataset.move).filter((id) => specs.has(id))
