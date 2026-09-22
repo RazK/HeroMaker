@@ -77,3 +77,7 @@ frontend/dev-dist/
 
 # Raw marketing photo downloads live in the scratchpad, never the repo.
 marketing/photos/*.jpg.orig
+
+# Photos of identifiable people, held back until consent is confirmed.
+# This repository publishes to GitHub Pages; committing these would publish them.
+marketing/photos/needs-consent/*.jpg
