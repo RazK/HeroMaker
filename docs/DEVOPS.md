@@ -114,6 +114,27 @@ Merge strategy: commit → push → rebase on GitHub.
 
 ## Production (Railway)
 
+### Environments
+
+One Railway project, two environments:
+
+| Environment | ID |
+|---|---|
+| staging | `e0d14c8f-54d8-4eb9-a510-b43bf81f57d1` |
+| production | `fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1` |
+
+Both run the same three services. Their environment variables are **not**
+maintained separately — they come from the layered files in
+`devops/railway/env/`, where each variable is declared once and the few genuine
+differences are Railway references that resolve per environment. See
+[`devops/railway/env/README.md`](../devops/railway/env/README.md).
+
+```bash
+./devops/scripts/railway-env.sh check                 # lint the layers
+./devops/scripts/railway-env.sh diff -e staging       # layers vs. Railway
+./devops/scripts/railway-env.sh sync -e production    # push
+```
+
 ### Architecture
 
 Three separate Railway services in one Railway project:
@@ -137,7 +158,7 @@ Internet
 | Files | Local filesystem (`./data/files/`) | Railway S3 Storage Bucket |
 | Frontend | Vite dev server (hot reload) | nginx serving pre-built static bundle |
 | Backend port | `8000` (fixed) | `$PORT` env var (Railway assigns, often 8080) |
-| Secrets | `.env` file | Railway dashboard environment variables |
+| Secrets | `.env` file | Railway shared variables, referenced as `${{shared.KEY}}` |
 | Container orchestration | Docker Compose | Railway (each service = separate container) |
 
 ### Service → Service Communication (prod)
@@ -160,6 +181,11 @@ Each service directory has a `railway.toml`:
 - `backend/railway.toml` — build from `backend/Dockerfile`, healthcheck `/health`
 - `frontend/railway.toml` — build from `frontend/Dockerfile`, healthcheck `/health`
 - `vrm-converter-service/railway.toml` — build from its `Dockerfile`, healthcheck `/health` (60s timeout for Blender)
+
+Project-level config lives under `devops/railway/`:
+- `project.json` — service and environment IDs, registered once instead of
+  copy-pasted into every script
+- `env/` — the layered environment variables (see the README there)
 
 ### Checking Production Health
 

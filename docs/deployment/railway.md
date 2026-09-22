@@ -128,6 +128,11 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 Use a different key for each environment (dev, staging, production). Keep it secret and never commit it to git.
 
+> The variable lists above show what each service needs. Do **not** type them
+> into the dashboard twice — set them once in `devops/railway/env/` (secrets as
+> Railway shared variables) and run `./devops/scripts/railway-env.sh sync`.
+> See [Environment Variable Management](#environment-variable-management).
+
 **Note**: 
 - Replace `your-frontend-url.railway.app` with your actual frontend Railway URL after deployment.
 - Replace `Postgres` with your actual PostgreSQL service name if different.
@@ -636,12 +641,44 @@ These files define:
 
 ### Environment Variable Management
 
-Environment variables are managed via:
-- Railway dashboard (manual)
-- Railway CLI (via `devops/scripts/sync-railway-env.sh`)
-- `devops/railway/env/*.example` files (templates)
+Environment variables live in layered files under `devops/railway/env/`, where
+each variable is declared **once** instead of being pasted into the staging and
+production environments separately. See
+[`devops/railway/env/README.md`](../../devops/railway/env/README.md) for the
+full rules; the short version:
 
-**Note:** The actual `devops/railway/env/*` files (with real API keys) are gitignored. Copy the `.example` files and fill in your actual values.
+| If the value is… | It goes in |
+|---|---|
+| the same for every service, both environments | `common.env` |
+| the same in both environments, one service | `<service>.env` |
+| a secret | a Railway **shared variable**, referenced as `${{shared.KEY}}` |
+| derived from another service | a Railway reference, e.g. `${{Postgres.DATABASE_URL}}` |
+| genuinely different per environment | `<service>.<environment>.env` (last resort) |
+
+Layer order, later wins:
+
+```
+common.env -> common.<env>.env -> <service>.env -> <service>.<env>.env
+  -> secrets.env -> secrets.<env>.env      (the last two are gitignored)
+```
+
+Railway resolves `${{...}}` references inside whichever environment is
+deploying, so one committed line covers both environments:
+
+```bash
+DATABASE_URL=${{Postgres.DATABASE_URL}}                       # this env's database
+ALLOWED_ORIGINS=https://${{frontend.RAILWAY_PUBLIC_DOMAIN}}   # this env's frontend
+JWT_SECRET_KEY=${{shared.JWT_SECRET_KEY}}                     # this env's shared variable
+```
+
+**No secret value is ever committed.** Secrets live in Railway shared variables
+(Project → Settings → Shared Variables, per environment) or in a gitignored
+`secrets.env`. CI fails the build if a secret-looking key lands in a tracked
+file with a literal value.
+
+Service and environment IDs are registered once in
+`devops/railway/project.json` — the tooling targets IDs, not names, so renaming
+a service in the dashboard cannot silently retarget a sync.
 
 ### Syncing Environment Variables
 
@@ -650,12 +687,36 @@ Environment variables are managed via:
 npm i -g @railway/cli
 railway login
 
-# Sync all services
-./devops/scripts/sync-railway-env.sh
-
-# Or sync a specific service
-./devops/scripts/sync-railway-env.sh backend
+./devops/scripts/railway-env.sh check                  # lint the layers
+./devops/scripts/railway-env.sh resolve -e staging     # what a service would get
+./devops/scripts/railway-env.sh diff    -e production  # layers vs. Railway
+./devops/scripts/railway-env.sh sync    -e staging     # push to staging
+./devops/scripts/railway-env.sh sync    -e production -s backend   # one service
 ```
+
+`sync` reads the current state first and pushes only what actually differs, as
+a single `railway variables` call per service — one redeploy per service
+instead of one per variable. Add `-n` for a dry run, `--skip-deploys` to stage
+without redeploying.
+
+`./devops/scripts/sync-railway-env.sh` still works and still takes a service
+name; it defaults to the production environment.
+
+### Migrating existing environments
+
+To reconcile the layer files with what the two Railway environments already
+hold:
+
+```bash
+./devops/scripts/railway-env.sh factor          # report only, writes nothing
+./devops/scripts/railway-env.sh factor --write  # rewrite layers from live values
+git diff                                        # review, then commit
+```
+
+`factor` reads staging and production, collapses everything identical into the
+shared layer, leaves only the real differences per environment, and converts
+every secret into a `${{shared.KEY}}` reference without writing its value
+anywhere tracked.
 
 ### Benefits
 

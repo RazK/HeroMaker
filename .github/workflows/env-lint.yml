@@ -1,0 +1,36 @@
+name: Railway env layers
+
+# The layered files under devops/railway/env/ are committed, so the guard that
+# they hold no secrets — and that nothing drifts back into per-environment
+# copies — has to run on every change to them.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'devops/railway/**'
+      - 'devops/scripts/railway*'
+      - '.github/workflows/env-lint.yml'
+  pull_request:
+    paths:
+      - 'devops/railway/**'
+      - 'devops/scripts/railway*'
+      - '.github/workflows/env-lint.yml'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # No Railway credentials needed: check and the tests only read the
+      # tracked files and a stubbed CLI.
+      - name: Lint the env layers
+        run: ./devops/scripts/railway-env.sh check
+
+      - name: Test the env tooling
+        run: python3 devops/scripts/test_railway_env.py

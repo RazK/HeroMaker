@@ -40,6 +40,25 @@ dead-thumbnail finding is a pipeline bug worth fixing at the source
 (`vrm-converter-service/`), which would shrink every avatar for every consumer
 at once.
 
+### `devops/scripts/railway-env.sh` — one home for every Railway variable
+
+Railway env vars are **never** typed into the dashboard twice. They live in
+layered files under `devops/railway/env/`: `common.env` (all services, both
+environments), `<service>.env` (one service, both environments), and
+`<service>.<environment>.env` only for things that genuinely differ. Secrets
+are Railway shared variables, referenced as `${{shared.KEY}}` — no secret value
+is ever committed.
+
+```bash
+./devops/scripts/railway-env.sh check                 # lint (also runs in CI)
+./devops/scripts/railway-env.sh diff -e staging       # layers vs. Railway
+./devops/scripts/railway-env.sh sync -e production    # push, batched per service
+./devops/scripts/railway-env.sh factor                # import live vars, dedupe them
+```
+
+Service and environment IDs come from `devops/railway/project.json`. Tests:
+`.venv/bin/python devops/scripts/test_railway_env.py`.
+
 ## Games
 
 `games/` holds playable experiences built on the pipeline's output. Read

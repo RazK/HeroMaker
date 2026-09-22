@@ -1,97 +1,44 @@
-#!/bin/bash
-# Sync Railway environment variables from railway.env files
-# Usage: ./devops/scripts/sync-railway-env.sh [service-name]
-# Example: ./devops/scripts/sync-railway-env.sh backend
+#!/usr/bin/env bash
+# Push environment variables to Railway.
+#
+# Thin wrapper kept for muscle memory and for the docs that reference it.
+# The variables themselves live in devops/railway/env/ — see the README there.
+#
+#   ./devops/scripts/sync-railway-env.sh                      # production, all services
+#   ./devops/scripts/sync-railway-env.sh -e staging           # staging, all services
+#   ./devops/scripts/sync-railway-env.sh backend              # production, one service
+#   ./devops/scripts/sync-railway-env.sh -e staging backend   # both
+#
+# Anything railway-env.sh accepts (-n/--dry-run, -y, --skip-deploys) works here.
 
-set -e
+set -euo pipefail
 
-SERVICE=${1:-"all"}
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-if ! command -v railway &> /dev/null; then
-    echo "❌ Railway CLI not found. Install it:"
-    echo "   npm i -g @railway/cli"
-    echo "   railway login"
-    exit 1
-fi
-
-sync_service() {
-    local service=$1
-    local service_dir=$2
-    local script_dir=$(dirname "$(readlink -f "$0")")
-    local project_root=$(dirname "$(dirname "$script_dir")")
-    local env_file="${project_root}/devops/railway/env/${service}"
-    
-    if [ ! -f "$env_file" ]; then
-        echo "⚠️  $env_file not found, skipping $service"
-        return
+args=()
+expects_value=false
+for arg in "$@"; do
+    if [ "$expects_value" = true ]; then
+        args+=("$arg")
+        expects_value=false
+        continue
     fi
-    
-    if [ ! -d "$service_dir" ]; then
-        echo "⚠️  $service_dir directory not found, skipping $service"
-        return
-    fi
-    
-    echo "📦 Syncing environment variables for $service..."
-    
-    # Change to service directory (Railway CLI is linked at service level)
-    cd "$service_dir"
-    
-    # Verify we're linked to the right service
-    if ! railway status &>/dev/null; then
-        echo "  ❌ Not linked to $service. Run: cd $service_dir && railway link"
-        cd ..
-        return 1
-    fi
-    
-    # Read env file and set variables (from service directory)
-    while IFS='=' read -r key value || [ -n "$key" ]; do
-        # Skip comments and empty lines
-        [[ "$key" =~ ^#.*$ ]] && continue
-        [[ -z "$key" ]] && continue
-        
-        # Remove quotes from value
-        value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//')
-        
-        # Skip empty values (Railway CLI doesn't accept empty values)
-        if [ -z "$value" ]; then
-            echo "  ⏭️  Skipping $key (empty value)"
-            continue
-        fi
-        
-        echo "  Setting $key"
-        # Railway CLI uses --set flag (not 'set' subcommand)
-        railway variables --set "$key=$value" 2>&1 | grep -v "already exists" || true
-    done < "$env_file"
-    
-    cd "$project_root"
-    echo "✅ $service synced"
-}
-
-if [ "$SERVICE" = "all" ]; then
-    echo "🔄 Syncing all services..."
-    sync_service "backend" "backend"
-    sync_service "frontend" "frontend"
-    sync_service "vrm-converter" "vrm-converter-service"
-else
-    # Map service name to directory
-    case "$SERVICE" in
-        backend)
-            sync_service "backend" "backend"
+    case "$arg" in
+        -s|--service|-e|--environment)
+            args+=("$arg")
+            expects_value=true
             ;;
-        frontend)
-            sync_service "frontend" "frontend"
+        # Legacy positional form: `sync-railway-env.sh backend`
+        backend|frontend|vrm-converter)
+            args+=(--service "$arg")
             ;;
-        vrm-converter)
-            sync_service "vrm-converter" "vrm-converter-service"
+        # Legacy `all` meant every service, which is already the default.
+        all)
             ;;
         *)
-            echo "❌ Unknown service: $SERVICE"
-            echo "   Use: backend, frontend, or vrm-converter"
-            exit 1
+            args+=("$arg")
             ;;
     esac
-fi
+done
 
-echo ""
-echo "✅ Done!"
-
+exec "${script_dir}/railway-env.sh" sync ${args[@]+"${args[@]}"}
