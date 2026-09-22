@@ -25,6 +25,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.config import packs as packs_config
 from app.config import pricing
 from app.database import get_db
 from app.models import User
@@ -142,6 +143,49 @@ def margin_report(
 def price_table(admin: User = Depends(require_admin)):
     """The price table the report is using, and when its numbers were checked."""
     return pricing.price_table_snapshot()
+
+
+@router.get("/packs")
+def pack_table(admin: User = Depends(require_admin)):
+    """
+    What we sell, what it costs us, and what each sale keeps.
+
+    `problems` is the important field. Empty means every pack still clears the
+    margin floor at today's provider prices; a non-empty list means the price
+    list has drifted out from under us and needs re-cutting.
+    """
+    return {
+        "credit_cost_usd_micros": packs_config.credit_cost_usd_micros(),
+        "credit_cost_display": pricing.micros_to_usd_str(
+            packs_config.credit_cost_usd_micros()
+        ),
+        "creation_cost_usd_micros": packs_config.creation_cost_usd_micros(),
+        "creation_cost_display": pricing.micros_to_usd_str(
+            packs_config.creation_cost_usd_micros()
+        ),
+        "creation_credit_price": packs_config.creation_credit_price(),
+        "min_gross_margin_bps": packs_config.MIN_GROSS_MARGIN_BPS,
+        "processor": {
+            "percent_bps": packs_config.MOR_PERCENT_BPS,
+            "fixed_usd_micros": packs_config.MOR_FIXED_USD_MICROS,
+            "provenance": packs_config.MOR_PROVENANCE,
+        },
+        "packs": packs_config.get_packs(),
+        "problems": packs_config.check_packs(),
+    }
+
+
+@router.get("/payments-config")
+def payments_config(admin: User = Depends(require_admin)):
+    """
+    Which payment settings are present, WITHOUT revealing any of their values.
+
+    This is the page to open when "buy credits" is not working: it says which
+    environment variable is missing rather than making someone guess.
+    """
+    from app.services import lemonsqueezy
+
+    return lemonsqueezy.config_status()
 
 
 @router.get("/ledger/{user_id}")
