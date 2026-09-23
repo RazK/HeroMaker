@@ -109,6 +109,10 @@ Then check the result against reality before touching anything:
 
 ## Service and environment IDs
 
-`devops/railway/project.json` holds the service and environment IDs. IDs, not
-names, are what the tooling passes to the CLI, so renaming a service in the
-Railway dashboard does not silently retarget a sync.
+`devops/railway/project.json` holds the services and environments.
+
+The tooling passes the **service ID** to `--service`, so renaming a service in
+the dashboard cannot silently retarget a sync. It passes the **environment
+name** to `--environment`, because the Railway CLI resolves environments by
+name only and rejects an ID (`Environment "<id>" not found`). Rename an
+environment in Railway and you must update its `name` in `project.json`.

@@ -109,12 +109,22 @@ def default_environment(project: dict) -> str:
 
 
 def service_ref(project: dict, service: str) -> str:
-    """What to pass to `railway --service`: the ID if we know it, else the name."""
+    """What to pass to `railway --service`: the ID if we know it, else the name.
+
+    Services accept an ID, which survives a rename in the dashboard.
+    Environments do not — see environment_ref.
+    """
     return project["services"][service].get("id") or service
 
 
 def environment_ref(project: dict, environment: str) -> str:
-    return project["environments"][environment].get("id") or environment
+    """What to pass to `railway --environment`.
+
+    The NAME, not the ID. Unlike --service, the Railway CLI resolves
+    --environment by name only; handing it an ID fails with
+    'Environment "<id>" not found'.
+    """
+    return project["environments"][environment].get("name") or environment
 
 
 def service_dir(project: dict, service: str) -> Path:

@@ -305,18 +305,31 @@ class SyncTests(unittest.TestCase):
                 "references must be sent literally, not expanded",
             )
 
-    def test_sync_targets_the_environment_id_from_the_registry(self):
+    def test_sync_targets_the_service_by_id_and_environment_by_name(self):
+        # Asymmetric on purpose: the Railway CLI resolves --service by ID but
+        # --environment by name only, and rejects an environment ID with
+        # 'Environment "<id>" not found'.
         project = tool.load_project()
         with StubbedRailway() as stub:
             run(["sync", "-e", "staging", "-s", "backend", "-y"])
             applied = stub.applied()
             self.assertEqual(
+                applied[0]["service"], project["services"]["backend"]["id"]
+            )
+            self.assertEqual(applied[0]["environment"], "staging")
+            self.assertNotEqual(
                 applied[0]["environment"], project["environments"]["staging"]["id"]
             )
 
+    def test_no_environment_is_ever_addressed_by_id(self):
+        project = tool.load_project()
+        ids = {e["id"] for e in project["environments"].values() if e.get("id")}
+        for name in project["environments"]:
+            self.assertNotIn(tool.environment_ref(project, name), ids)
+
     def test_sync_skips_a_service_that_is_already_up_to_date(self):
         variables, _ = tool.resolve("vrm-converter", "production")
-        with StubbedRailway({("e7afe8a4-ce76-4093-9122-72c498b4874f", "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"): variables}) as stub:
+        with StubbedRailway({("e7afe8a4-ce76-4093-9122-72c498b4874f", "production"): variables}) as stub:
             code, output = run(["sync", "-e", "production", "-s", "vrm-converter", "-y"])
             self.assertEqual(code, 0, output)
             self.assertIn("already up to date", output)
@@ -328,10 +341,10 @@ class SyncTests(unittest.TestCase):
             self.assertEqual(code, 0, output)
             self.assertEqual(stub.applied(), [])
             self.assertIn("would run", output)
-            # The printed command must be the one that runs: IDs, not names.
+            # The printed command must be the one that actually runs.
             project = tool.load_project()
             self.assertIn(project["services"]["backend"]["id"], output)
-            self.assertIn(project["environments"]["production"]["id"], output)
+            self.assertIn("--environment production", output)
             self.assertIn("--set DEBUG=false", output)
 
     def test_sync_without_a_tty_refuses_to_push_unconfirmed(self):
@@ -358,8 +371,7 @@ class SyncTests(unittest.TestCase):
         variables, _ = tool.resolve("backend", "production")
         remote = dict(variables)
         remote["JWT_SECRET_KEY"] = "some-resolved-secret"
-        key = ("3970a673-db5b-4b2d-9456-93acf1da09bf",
-               "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1")
+        key = ("3970a673-db5b-4b2d-9456-93acf1da09bf", "production")
         with StubbedRailway({key: remote}) as stub:
             code, output = run(["sync", "-e", "production", "-s", "backend", "-y"])
             self.assertEqual(code, 0, output)
@@ -373,7 +385,7 @@ class SyncTests(unittest.TestCase):
 
 class DiffTests(unittest.TestCase):
     BACKEND = "3970a673-db5b-4b2d-9456-93acf1da09bf"
-    PROD = "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"
+    PROD = "production"
 
     def test_diff_reports_missing_and_changed_keys(self):
         payload = {(self.BACKEND, self.PROD): {"DEBUG": "true", "PORT": "8080"}}
@@ -420,19 +432,19 @@ class FactorTests(unittest.TestCase):
     BACKEND = "3970a673-db5b-4b2d-9456-93acf1da09bf"
     FRONTEND = "a71bc2c6-c912-475c-ab16-a5dbf0ba074e"
     VRM = "e7afe8a4-ce76-4093-9122-72c498b4874f"
-    STAGING = "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1"
-    PROD = "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"
+    STAGING = "staging"
+    PROD = "production"
 
     def test_factor_collapses_identical_values_and_shields_secrets(self):
         ids = {
-            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1"): {
+            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "staging"): {
                 "DEBUG": "false",
                 "S3_REGION": "auto",
                 "ALLOWED_ORIGINS": "https://staging.example.app",
                 "OPENAI_API_KEY": "sk-staging",
                 "RAILWAY_PROJECT_ID": "ignored",
             },
-            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"): {
+            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "production"): {
                 "DEBUG": "false",
                 "S3_REGION": "auto",
                 "ALLOWED_ORIGINS": "https://prod.example.app",
