@@ -80,3 +80,30 @@ devops/railway/env/vrm-converter
 # Data directory (excluded from git to speed up Railway snapshots)
 data/
 frontend/dev-dist/
+
+# Worktrees created by Claude Code subagents for isolated runs.
+.claude/worktrees/
+
+# Raw marketing photo downloads live in the scratchpad, never the repo.
+marketing/photos/*.jpg.orig
+
+# Photos of identifiable people, held back until consent is confirmed.
+# This repository publishes to GitHub Pages; committing these would publish them.
+marketing/photos/needs-consent/*.jpg
+
+# Anonymised photos: derived from the held-back originals. The product owner
+# decides whether any photo of a person is published; anonymising lowers the
+# risk but does not establish permission, so these stay out of git too.
+marketing/photos/anonymised/*.jpg
+
+# The concepts' assets ARE committed - the mockups have to open and run from a
+# fresh checkout without a build step. Only the generated base64 bundle is not:
+# it is produced from those same files by build-models.mjs, and exists solely
+# because a published artifact preview cannot serve .vrm or .glb.
+marketing/concepts/assets/models.data.js
+
+# marketing/photos/pairs/ is where fetch_pairs.py lands its downloads. The
+# copies the pages actually use live in marketing/concepts/assets/pairs/ and
+# ARE committed, so this staging directory is not - it would be the same
+# images twice, with two places to change them.
+marketing/photos/pairs/

@@ -7,20 +7,31 @@ Uses OpenAI's GPT-Image-1 model to transform child drawings into 3D renders opti
 import base64
 import logging
 from pathlib import Path
+from typing import Optional
 from openai import OpenAI
 from openai import APIError, APIConnectionError, APITimeoutError, RateLimitError
 from app.config.settings import OPENAI_API_KEY
+from app.config import pricing
+from app.services import usage as usage_service
+from app.services.usage import UsageContext
 
 logger = logging.getLogger(__name__)
 
 
-def render_image(input_path: Path, output_path: Path) -> Path:
+def render_image(
+    input_path: Path,
+    output_path: Path,
+    usage: Optional[UsageContext] = None,
+) -> Path:
     """
     Convert scanned drawing to rendered figure using OpenAI's GPT-Image-1.
     
     Args:
         input_path: Path to input scanned image
         output_path: Path where rendered image should be saved
+        usage: Optional cost-attribution context (user/creation/step). When
+            given, every invocation of this function - success, failure, or
+            retry - writes one row to usage_events. See app/services/usage.py.
     
     Returns:
         Path to output file
@@ -62,17 +73,46 @@ Render the character exactly as shown, in a clean 3D style with arms extended ho
         # Use GPT-Image-1's images.edit() for image-to-image transformation
         # GPT-Image-1 supports full image editing without requiring a mask
         # The OpenAI client has built-in retry logic with exponential backoff
-        with open(input_path, "rb") as img_file:
-            response = client.images.edit(
-                model="gpt-image-1",
-                image=img_file,
-                prompt=prompt_text,
-                size="1024x1024",
-                quality="high",
-                n=1,
-                timeout=120.0  # 2 minute timeout per request
-                # Note: GPT-Image-1 always returns base64, no response_format parameter needed
-            )
+        # COST CAPTURE. One usage_event per invocation, whatever the outcome.
+        #
+        # Caveat worth knowing: the OpenAI SDK does its own retries with
+        # exponential backoff INSIDE this single call, and those attempts are
+        # invisible from here - we see one call, the SDK may have made three.
+        # OpenAI does not bill failed attempts, so the money is right; the
+        # attempt COUNT in usage_events is a lower bound. The retries that cost
+        # real money are the ones at our level - a user re-running a step, or
+        # the pipeline re-running openai_render because a later step failed -
+        # and those each come through here and each get their own row.
+        #
+        # The model/size/quality below must stay in step with
+        # pricing.OPENAI_IMAGE_USD_MICROS, which is quoted for exactly
+        # gpt-image-1 @ 1024x1024 @ quality=high.
+        with usage_service.track(
+            usage,
+            pricing.PROVIDER_OPENAI,
+            pricing.OP_OPENAI_IMAGE_EDIT,
+            quantity=1,
+            metadata={
+                "model": "gpt-image-1",
+                "size": "1024x1024",
+                "quality": "high",
+                "n": 1,
+            },
+        ) as call:
+            with open(input_path, "rb") as img_file:
+                response = client.images.edit(
+                    model="gpt-image-1",
+                    image=img_file,
+                    prompt=prompt_text,
+                    size="1024x1024",
+                    quality="high",
+                    n=1,
+                    timeout=120.0  # 2 minute timeout per request
+                    # Note: GPT-Image-1 always returns base64, no response_format parameter needed
+                )
+            # OpenAI's own request id, so a line in our margin report can be
+            # reconciled against a line on their invoice.
+            call.provider_ref = getattr(response, "_request_id", None) or getattr(response, "id", None)
         
         logger.info("OpenAI API call succeeded, processing response")
         

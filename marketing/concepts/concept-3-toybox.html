@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeroMaker — the thing your kid drew, now a real 3D hero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14100E;
+    --display:'Barriecito','Comic Sans MS',system-ui,cursive;
+    --paper:#FFF6E8;
+    --white:#FFFFFF;
+    --blue:#7B3FA0;
+    --red:#C41F72;
+    --yellow:#FDD119;
+    --green:#A55618;
+    --blue-tint:#F0E3F6;
+    --red-tint:#FDE3F0;
+    --yellow-tint:#FFF0BE;
+    --green-tint:#FFF0BE;
+    --border:3px solid var(--ink);
+    --pop:0 7px 0 var(--ink);
+    --pop-sm:0 5px 0 var(--ink);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;overflow-x:clip;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-weight:600;
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4,.display{font-family:'Fredoka','Nunito',system-ui,sans-serif;font-weight:700;line-height:1.02;letter-spacing:-0.02em;margin:0;}
+  p{margin:0;}
+  a{color:inherit;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px;}
+  @media(min-width:800px){.wrap{padding:0 32px;}}
+
+  /* ---------- pressable buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    font-family:'Fredoka',sans-serif;font-weight:600;letter-spacing:-0.01em;
+    text-decoration:none;border:var(--border);border-radius:999px;
+    padding:16px 30px;font-size:20px;line-height:1.1;
+    box-shadow:var(--pop);transition:transform .08s ease, box-shadow .08s ease;
+    cursor:pointer;
+  }
+  .btn:hover{transform:translateY(4px);box-shadow:0 3px 0 var(--ink);}
+  .btn:active{transform:translateY(7px);box-shadow:0 0 0 var(--ink);}
+  .btn-red{background:var(--red);color:#fff;}
+  .btn-blue{background:var(--blue);color:#fff;}
+  .btn-white{background:var(--white);color:var(--ink);}
+  .btn-lg{font-size:22px;padding:18px 34px;}
+
+  .eyebrow{
+    display:inline-block;font-family:'Fredoka',sans-serif;font-weight:600;
+    font-size:14px;letter-spacing:0.12em;text-transform:uppercase;
+    border:var(--border);border-radius:999px;padding:7px 16px;background:var(--white);color:var(--ink);
+  }
+  .sec{padding:64px 0;}
+  @media(min-width:800px){.sec{padding:96px 0;}}
+  .sec-head{max-width:860px;margin:0 0 40px;}
+  .sec-head h2{font-size:clamp(32px,6.4vw,54px);}
+  .sec-head p{margin-top:16px;font-size:18px;max-width:620px;}
+
+  /* ---------- top bar ---------- */
+  .topbar{border-bottom:var(--border);background:var(--yellow);}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:68px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Fredoka',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.01em;text-decoration:none;}
+  .brand-mark{width:34px;height:34px;border:var(--border);border-radius:10px;background:var(--red);flex:none;display:block;}
+  .topnav{display:flex;align-items:center;gap:20px;font-size:16px;font-weight:800;}
+  .topnav a{text-decoration:none;border-bottom:3px solid transparent;padding-bottom:2px;}
+  .topnav a:hover{border-bottom-color:var(--ink);}
+  .topnav .btn{padding:10px 20px;font-size:16px;box-shadow:var(--pop-sm);}
+  @media(max-width:559px){.topnav .nav-link{display:none;}}
+
+  /* ---------- hero ---------- */
+  .hero{border-bottom:var(--border);background:
+     linear-gradient(var(--paper),var(--paper));position:relative;}
+  .hero-grid{display:grid;gap:36px;padding-top:52px;padding-bottom:60px;}
+  @media(min-width:960px){.hero-grid{grid-template-columns:1.12fr .88fr;align-items:center;gap:48px;padding-top:80px;padding-bottom:88px;}}
+  .hero h1{font-size:clamp(40px,7.6vw,72px);}
+  .hero h1{line-height:1.1;}
+  .hero h1 .hl{
+    background:var(--yellow);
+    border-radius:8px;
+    padding:0 8px;margin:0 -2px;
+    -webkit-box-decoration-break:clone;box-decoration-break:clone;
+  }
+  .hero-sub{margin-top:26px;font-size:19px;max-width:520px;}
+  .hero-cta{margin-top:32px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+  @media(max-width:559px){.hero-cta{flex-direction:column;align-items:stretch;}.hero-cta .btn{width:100%;}}
+  .hero-note{margin-top:20px;font-size:15px;font-weight:700;}
+
+  .stat-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px;}
+  .chip{border:var(--border);border-radius:999px;background:var(--white);padding:9px 16px;font-size:14px;font-weight:800;}
+
+  /* ---------- panels / cards ---------- */
+  .panel{border:var(--border);border-radius:26px;background:var(--white);box-shadow:var(--pop);}
+  .tilt-l{transform:rotate(-0.8deg);}
+  .tilt-r{transform:rotate(0.8deg);}
+
+  /* ---------- transformation ---------- */
+  .tf{background:var(--blue-tint);border-top:var(--border);border-bottom:var(--border);}
+  .tf-grid{display:grid;gap:22px;align-items:center;}
+  @media(min-width:900px){.tf-grid{grid-template-columns:1fr 120px 1fr;gap:20px;}}
+  @media(min-width:1100px){.tf-card{padding:26px 26px 30px;}}
+  .tf-card{border:var(--border);border-radius:26px;box-shadow:var(--pop);padding:20px 20px 24px;background:var(--white);}
+  .tf-card .tf-label{
+    display:inline-block;font-family:'Fredoka',sans-serif;font-size:13px;font-weight:600;
+    letter-spacing:0.14em;text-transform:uppercase;border:var(--border);border-radius:999px;
+    padding:6px 14px;margin-bottom:14px;background:var(--yellow);
+  }
+  .tf-card.is-3d .tf-label{background:var(--green-tint);}
+  .tf-art{display:block;width:100%;height:auto;border:var(--border);border-radius:18px;overflow:hidden;background:#FFFDF5;}
+  .tf-cap{margin-top:14px;font-size:16px;font-weight:700;}
+  .tf-arrow{display:flex;justify-content:center;}
+  .tf-arrow-badge{
+    width:88px;height:88px;border:var(--border);border-radius:999px;background:var(--red);
+    display:flex;align-items:center;justify-content:center;box-shadow:var(--pop);flex:none;
+    transform:rotate(90deg);
+  }
+  @media(min-width:900px){.tf-arrow-badge{transform:rotate(0deg);}}
+  .tf-foot{margin-top:26px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+  .tf-foot p{font-size:16px;font-weight:700;}
+
+  /* ---------- doors ---------- */
+  .doors{display:grid;gap:22px;}
+  @media(min-width:860px){.doors{grid-template-columns:repeat(3,1fr);gap:24px;}}
+  .door{
+    border:var(--border);border-radius:28px;box-shadow:var(--pop);
+    padding:22px 22px 26px;display:flex;flex-direction:column;gap:14px;
+    text-decoration:none;transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .door:hover{transform:translateY(4px) rotate(0deg);box-shadow:0 3px 0 var(--ink);}
+  .door-blue{background:var(--blue);color:#fff;}
+  .door-yellow{background:var(--yellow);color:var(--ink);}
+  .door-red{background:var(--red);color:#fff;}
+  .door h3{font-size:30px;}
+  .door p{font-size:16.5px;}
+  .door-art{border:var(--border);border-radius:18px;background:#FFFDF5;display:block;width:100%;height:auto;}
+  .door-go{
+    align-self:flex-start;margin-top:2px;font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;
+    border:var(--border);border-radius:999px;background:var(--white);color:var(--ink);
+    padding:10px 20px;box-shadow:var(--pop-sm);
+  }
+
+  /* ---------- steps ---------- */
+  .steps{display:grid;gap:20px;counter-reset:s;}
+  @media(min-width:760px){.steps{grid-template-columns:repeat(2,1fr);}}
+  @media(min-width:1060px){.steps{grid-template-columns:repeat(4,1fr);gap:20px;}}
+  .step{border:var(--border);border-radius:24px;background:var(--white);box-shadow:var(--pop);padding:22px;display:flex;flex-direction:column;gap:12px;}
+  .step-num{
+    width:56px;height:56px;border:var(--border);border-radius:999px;background:var(--yellow);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fredoka',sans-serif;font-weight:700;font-size:26px;color:var(--ink);flex:none;
+  }
+  .step h3{font-size:22px;}
+  .step p{font-size:16.5px;}
+
+  /* ---------- pricing ---------- */
+  .pricing{background:var(--yellow-tint);border-top:var(--border);border-bottom:var(--border);}
+  .plans{display:grid;gap:22px;align-items:start;}
+  @media(min-width:900px){.plans{grid-template-columns:repeat(3,1fr);gap:24px;}}
+  .plan{border:var(--border);border-radius:28px;background:var(--white);box-shadow:var(--pop);padding:26px 24px 28px;display:flex;flex-direction:column;gap:14px;}
+  .plan-best{background:var(--blue);color:#fff;}
+  .plan-flag{
+    align-self:flex-start;font-family:'Fredoka',sans-serif;font-weight:600;font-size:13px;
+    letter-spacing:0.14em;text-transform:uppercase;background:var(--yellow);color:var(--ink);
+    border:var(--border);border-radius:999px;padding:7px 15px;
+  }
+  .plan h3{font-size:26px;}
+  .plan-price{font-family:'Fredoka',sans-serif;font-weight:700;font-size:56px;line-height:1;letter-spacing:-0.03em;}
+  .plan-meta{font-size:17px;font-weight:800;}
+  .plan ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+  .plan li{font-size:16.5px;font-weight:700;padding-left:36px;position:relative;}
+  .plan li::before{
+    content:"\2713";position:absolute;left:0;top:0;width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    border:3px solid currentColor;border-radius:999px;
+    font-family:'Fredoka',sans-serif;font-size:13px;font-weight:700;line-height:1;
+  }
+  .plan .btn{width:100%;font-size:18px;padding:14px 20px;margin-top:4px;}
+  .credit-note{
+    margin-top:26px;border:var(--border);border-radius:22px;background:var(--white);
+    padding:18px 22px;box-shadow:var(--pop);font-size:16.5px;font-weight:700;
+  }
+
+  /* ---------- parents ---------- */
+  .parents{background:var(--green);color:#fff;border-bottom:var(--border);}
+  .parents-grid{display:grid;gap:28px;}
+  @media(min-width:940px){.parents-grid{grid-template-columns:1fr 1fr;gap:44px;align-items:start;}}
+  .parents h2{font-size:clamp(32px,6.2vw,50px);}
+  .parents .lede{margin-top:16px;font-size:18px;max-width:520px;}
+  .promises{list-style:none;margin:0;padding:0;display:grid;gap:14px;}
+  .promise{background:var(--white);color:var(--ink);border:var(--border);border-radius:20px;padding:16px 18px;box-shadow:var(--pop-sm);display:flex;gap:14px;align-items:flex-start;}
+  .promise svg{flex:none;margin-top:2px;}
+  .promise h3{font-size:19px;margin-bottom:4px;}
+  .promise p{font-size:16px;font-weight:600;}
+
+  /* ---------- photo placeholders ---------- */
+  .photo{
+    border:3px dashed var(--ink);border-radius:22px;
+    background:linear-gradient(135deg,#FFE0B8 0%,#FFC9DA 45%,#CFD9FF 100%);
+    display:flex;align-items:flex-end;padding:16px;min-height:220px;
+  }
+  .photo span{
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:12.5px;letter-spacing:0.12em;text-transform:uppercase;
+    background:var(--white);color:var(--ink);border:var(--border);border-radius:999px;padding:7px 14px;
+  }
+  .photo-tall{min-height:320px;}
+
+  /* ---------- footer ---------- */
+  footer{background:var(--ink);color:var(--paper);}
+  .foot-grid{display:grid;gap:26px;padding-top:48px;padding-bottom:40px;}
+  @media(min-width:800px){.foot-grid{grid-template-columns:1.4fr 1fr 1fr;gap:40px;}}
+  footer h4{font-family:'Fredoka',sans-serif;font-size:15px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;}
+  .foot-links{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px;}
+  .foot-links a{font-size:16px;font-weight:700;text-decoration:underline;text-underline-offset:3px;}
+  .foot-blurb{font-size:16px;font-weight:600;max-width:360px;margin-top:12px;}
+  .foot-bottom{border-top:3px solid #6A605A;padding-top:18px;padding-bottom:34px;margin:0;font-size:14.5px;font-weight:700;}
+
+  h1,h2{font-family:var(--display);font-weight:400;letter-spacing:0;}
+  h1{font-size:clamp(29px,3.3vw,46px);line-height:1.16;}
+  h2{font-size:clamp(24px,2.7vw,34px);line-height:1.2;}
+  .brand{font-family:var(--display);font-weight:400;font-size:24px;letter-spacing:.01em;}
+  .brand-mark{
+    width:36px;height:36px;border-radius:9px;background:#FAF8F5 url('assets/logo-mark.webp') center/contain no-repeat;
+    border:2px solid var(--ink);display:inline-block;
+  }
+  .hero{padding:22px 0 18px;}
+  .hero h1{max-width:15ch;}
+  .hero-sub{margin-top:12px;max-width:46ch;}
+  .hero-cta{margin-top:0;}
+  .hero-note{margin-top:10px;font-size:13.5px;max-width:52ch;}
+  @media(max-width:560px){
+    .hero{padding:16px 0 14px;}
+    .hero h1{font-size:27px;}
+    .hero-sub{font-size:15px;}
+    .hero-cta .btn-lg{padding:12px 20px;font-size:16px;}
+    /* One button above the fold beats two just below it. */
+    .hero-cta .btn-white{display:none;}
+  }
+  .tf{padding-top:36px;padding-bottom:40px;}
+  :root{
+    --lc-card-bg:var(--white);
+    --lc-card-border:var(--border);
+    --lc-shadow:var(--pop);
+    --lc-radius:22px;
+    --lc-pad:14px;
+    --lc-gap:12px;
+    --lc-media-radius:14px;
+    --lc-media-bg:#FFFDF5;
+    --lc-media-border:var(--border);
+    --lc-stage-bg:#F0E3F6;
+    --lc-cap-ink:var(--ink);
+    --lc-sub-ink:#4A403A;
+    --lc-tile-bg:var(--white);
+    --lc-tile-border:var(--border);
+    --lc-tile-media:#FFF0BE;
+    --lc-move-border:2px solid var(--ink);
+    --lc-move-radius:999px;
+    --lc-move-bg:var(--white);
+    --lc-move-bg-hover:#FFF0BE;
+    --lc-move-ink:var(--ink);
+    --lc-move-on-bg:var(--red);
+    --lc-move-on-ink:#FFFFFF;
+    --lc-move-on-border:var(--ink);
+    --lc-move-focus:var(--ink);
+  }
+  .heroes li{box-shadow:var(--pop-sm);}
+
+  /* ---------- the live hero card ----------
+     One card, two halves: a real drawing on the left, a real pipeline VRM on
+     the right, animating. The 3D half is driven by hero-card.js, which
+     compiles the game's own retargeting out of games/hero-moves/src/anim/.
+     Every --lc-* token below is set per concept so the card belongs to its
+     page; the geometry is the same everywhere so the fold budget is too. */
+  .fold-grid{display:grid;gap:16px;align-content:start}
+  .fold-copy,.fold-act{min-width:0}
+  @media(min-width:960px){
+    .fold-grid{
+      grid-template-columns:1.02fr .98fr;
+      grid-template-areas:"copy card" "act card";
+      column-gap:clamp(28px,3.6vw,56px);row-gap:20px;align-items:start;
+    }
+    .fold-copy{grid-area:copy}.livecard{grid-area:card}.fold-act{grid-area:act}
+  }
+  .livecard{
+    margin:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--lc-gap,10px);
+    background:var(--lc-card-bg);border:var(--lc-card-border,none);
+    border-radius:var(--lc-radius,16px);padding:var(--lc-pad,12px);
+    box-shadow:var(--lc-shadow,none);
+  }
+  .livecard-half{display:flex;flex-direction:column;min-width:0}
+  .livecard-media{
+    position:relative;overflow:hidden;aspect-ratio:1;
+    border-radius:var(--lc-media-radius,10px);
+    background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
+  }
+  .livecard-drawing{width:100%;height:100%;object-fit:cover}
+  .herocard{background:var(--lc-stage-bg,var(--lc-media-bg,#fff))}
+  .herocard-still{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    padding:7%;transition:opacity .45s ease;
+  }
+  .herocard canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .herocard.is-live .herocard-still{opacity:0}
+  .livecard-cap{margin:9px 1px 1px}
+  .livecard-cap b{
+    display:block;font-size:13px;line-height:1.25;font-weight:700;
+    color:var(--lc-cap-ink);letter-spacing:0;
+  }
+  .livecard-cap i{
+    display:block;margin-top:2px;font-size:12.5px;line-height:1.35;
+    font-style:normal;color:var(--lc-sub-ink);
+  }
+  @media(min-width:1100px){
+    .livecard-cap b{font-size:14.5px}.livecard-cap i{font-size:13.5px}
+  }
+  /* The caption tells the truth about its own half. Until the VRM is up - and
+     for good if WebGL, the network or the reader's motion preference says no -
+     the card is showing a render of the file, and says so. */
+  [data-hero-shot] .lc-live{display:none}
+  [data-hero-shot].is-live .lc-live{display:block}
+  [data-hero-shot].is-live .lc-still{display:none}
+  /* No WebGL, a failed fetch, or a reader who asked for stillness: the card
+     keeps the render of the same avatar rather than going blank. */
+  @media(prefers-reduced-motion:reduce){
+    .herocard canvas{display:none}
+    .herocard.is-live .herocard-still{opacity:1}
+  }
+
+
+  @media(max-width:560px){
+    .fold-grid{gap:14px}
+    .livecard-cap b{font-size:12.5px}
+    .livecard-cap i{font-size:12px}
+  }
+
+
+  /* ---------- the three moves ----------
+     Real buttons, so they are keyboard-reachable and announce their state.
+     hero-card.js unhides them only when WebGL is there and removes them if the
+     avatar never arrives - a control that cannot do anything is worse than
+     none. Clip ids are the game's own, which is how Performer.airborne knows
+     to pull the camera back for Fly and Backflip. */
+  .livecard-moves{
+    grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;
+    gap:var(--lc-move-gap,8px);margin-top:12px;
+  }
+  .livecard-moves[hidden]{display:none}
+  .livecard-moves button{
+    font:inherit;font-size:13px;font-weight:600;line-height:1;cursor:pointer;
+    padding:9px 13px;border-radius:var(--lc-move-radius,999px);
+    border:var(--lc-move-border);background:var(--lc-move-bg);
+    color:var(--lc-move-ink);
+  }
+  .livecard-moves button:hover{background:var(--lc-move-bg-hover,var(--lc-move-bg))}
+  .livecard-moves button.is-on{
+    background:var(--lc-move-on-bg);color:var(--lc-move-on-ink);
+    border-color:var(--lc-move-on-border,transparent);
+  }
+  .livecard-moves button:focus-visible{outline:2px solid var(--lc-move-focus);outline-offset:2px}
+  /* Secondary on purpose: the primary call to action is the one that sells. */
+  .moves-link{
+    margin-left:auto;font-size:12.5px;font-weight:500;text-decoration:underline;
+    text-underline-offset:3px;color:var(--lc-sub-ink);white-space:nowrap;
+  }
+  .moves-link:hover{color:var(--lc-cap-ink)}
+  @media(max-width:560px){
+    .livecard-moves{gap:6px;margin-top:10px}
+    .livecard-moves button{padding:8px 10px;font-size:12.5px}
+    .moves-link{margin-left:0;flex:1 0 100%;font-size:12px}
+  }
+
+  /* ---------- true pairs ----------
+     Each tile is one child's drawing and the exact hero it became, both
+     straight off the live product. Nothing here is an illustration. */
+  .pairs{
+    list-style:none;margin:26px 0 0;padding:0;
+    display:grid;grid-template-columns:1fr;gap:14px;
+  }
+  @media(min-width:620px){.pairs{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:1000px){.pairs{grid-template-columns:repeat(3,1fr);gap:18px}}
+  .pairs li{
+    margin:0;padding:10px 10px 12px;min-width:0;
+    background:var(--lc-tile-bg,transparent);border:var(--lc-tile-border,none);
+    border-radius:var(--lc-radius,16px);
+  }
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .pair img{
+    width:100%;height:auto;aspect-ratio:3/4;object-fit:cover;object-position:center;
+    background:var(--lc-tile-media,transparent);
+    border-radius:calc(var(--lc-radius,16px) - 7px);
+  }
+  .pairs b{display:block;margin-top:9px;font-size:14px;line-height:1.25;color:var(--lc-cap-ink)}
+  .pairs span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
+<style>
+/* The same Barriecito file Google Fonts serves for `family=Barriecito`, kept
+   beside the page so the brand face is there when fonts.googleapis.com is not
+   (offline, or behind a proxy that re-terminates TLS). SIL Open Font License. */
+@font-face{
+  font-family:'Barriecito';font-style:normal;font-weight:400;font-display:swap;
+  src:url('assets/barriecito-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/": "https://cdn.jsdelivr.net/npm/three@0.185.1/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js",
+    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.min.js"
+  }
+}
+</script>
+<!-- Optional. When present it carries the avatar and the clips as data
+     URLs, for hosts that will not serve .vrm or .glb; hero-card.js
+     falls through to the real files when it is absent. Generated by
+     build-models.mjs. -->
+<script src="assets/models.data.js" onerror="this.remove()"></script>
+<script type="module" src="hero-card.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>HeroMaker</a>
+    <nav class="topnav" aria-label="Main">
+      <a class="nav-link" href="#how">How it works</a>
+      <a class="nav-link" href="#pricing">Pricing</a>
+      <a class="btn btn-red" href="#studio">Start a hero</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- 1. HERO -->
+  <section class="hero">
+    <div class="wrap fold-grid">
+      <div class="fold-copy">
+        <span class="eyebrow">Live today &middot; about 6 minutes</span>
+        <h1 style="margin-top:14px">What they drew, now a <span class="hl">real 3D hero</span>.</h1>
+        <p class="hero-sub">Photograph it, and six minutes later it is a rigged 3D character.</p>
+      </div>
+      <figure class="livecard" data-hero-shot>
+        <div class="livecard-half">
+          <div class="livecard-media">
+            <img class="livecard-drawing" src="assets/pairs/crayon-kid-drawing.jpg"
+                 width="1100" height="1100" fetchpriority="high" decoding="async"
+                 alt="A child's crayon drawing of a masked hero in a blue suit with a yellow S, an orange cape and red boots">
+          </div>
+          <p class="livecard-cap"><b>The drawing</b></p>
+        </div>
+        <div class="livecard-half">
+          <div class="livecard-media herocard" data-hero-card
+               data-vrm="assets/Crayon_Kid.opt.vrm"
+               data-clips="assets/anim/"
+               data-rim="#C41F72" data-key="#FFF6E6" data-ambient="0.8"
+               data-shadow="0.26" data-shadow-color="#14100E"
+               data-zoom="1.12" data-outline="0">
+            <img class="herocard-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
+                 width="900" height="900" decoding="async"
+                 alt="Crayon Kid: the same masked hero, rebuilt as a 3D model">
+          </div>
+          <p class="livecard-cap">
+            <span class="lc-live"><b>The hero it became</b><i>Real VRM, moving.</i></span>
+            <span class="lc-still"><b>The hero it became</b><i>Real VRM file.</i></span>
+          </p>
+        </div>
+        <div class="livecard-moves" data-hero-moves hidden>
+          <button type="button" data-move="fly" data-air="1.3" data-yaw="1.25" data-default aria-pressed="true">Fly</button>
+          <button type="button" data-move="dance" aria-pressed="false">Dance</button>
+          <button type="button" data-move="backflip" data-air="1.75" aria-pressed="false">Backflip</button>
+          <a class="moves-link" href="https://razk.github.io/HeroMaker/hero-moves/" target="_blank" rel="noopener">Dance as your hero &rarr;</a>
+        </div>
+      </figure>
+      <div class="fold-act">
+        <div class="hero-cta">
+          <a class="btn btn-red btn-lg" data-primary-cta href="#studio">Make your first hero</a>
+          <a class="btn btn-white btn-lg" href="#how">See how it works</a>
+        </div>
+        
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. THE REAL HEROES -->
+  <section class="tf sec" id="transformation">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">The whole point</span>
+        <h2 style="margin-top:16px">This drawing. This hero. Every time.</h2>
+        <p>Six more, each a drawing and the hero it became.</p>
+      </div>
+    <ul class="pairs">
+      <li>
+        <div class="pair">
+          <img src="assets/pairs/cookie-man-drawing.jpg" alt="a child's oil-pastel gingerbread man" loading="lazy" decoding="async">
+          <img src="assets/pairs/cookie-man-hero.jpg" alt="Cookie Man as a 3D model, with the same blue eyes, red smile and three buttons" loading="lazy" decoding="async">
+        </div>
+        <b>Cookie Man</b>
+      </li>
+      <li>
+        <div class="pair">
+          <img src="assets/pairs/turtle-cool-drawing.jpg" alt="a child's oil-pastel turtle in a red hat and sunglasses" loading="lazy" decoding="async">
+          <img src="assets/pairs/turtle-cool-hero.jpg" alt="Turtle Cool as a 3D model, hat, sunglasses and hair intact" loading="lazy" decoding="async">
+        </div>
+        <b>Turtle Cool</b>
+      </li>
+      <li>
+        <div class="pair">
+          <img src="assets/pairs/super-sevivon-drawing.jpg" alt="a child's drawing of a dreidel with a face, in a blue shirt" loading="lazy" decoding="async">
+          <img src="assets/pairs/super-sevivon-hero.jpg" alt="Super Sevivon as a 3D model, the same dreidel head and blue shirt" loading="lazy" decoding="async">
+        </div>
+        <b>Super Sevivon</b>
+      </li>
+      <li>
+        <div class="pair">
+          <img src="assets/pairs/lady-milana-drawing.jpg" alt="a child's felt-tip drawing of a girl in a red dress with bunches" loading="lazy" decoding="async">
+          <img src="assets/pairs/lady-milana-hero.jpg" alt="Lady Milana as a 3D model, the same bunches, dress and red shoes" loading="lazy" decoding="async">
+        </div>
+        <b>Lady Milana</b>
+      </li>
+      <li>
+        <div class="pair">
+          <img src="assets/pairs/dooby-dam-dam-drawing.jpg" alt="a child's drawing of a baby wearing a cape" loading="lazy" decoding="async">
+          <img src="assets/pairs/dooby-dam-dam-hero.jpg" alt="Dooby Dam Dam as a 3D model, red hair and red cape" loading="lazy" decoding="async">
+        </div>
+        <b>Dooby Dam Dam</b>
+      </li>
+      <li>
+        <div class="pair">
+          <img src="assets/pairs/crayon-kid-drawing.jpg" alt="a child's crayon drawing of a masked hero with a yellow S" loading="lazy" decoding="async">
+          <img src="assets/pairs/crayon-kid-hero.jpg" alt="Crayon Kid as a 3D model, the same mask, S and orange cape" loading="lazy" decoding="async">
+        </div>
+        <b>Crayon Kid</b>
+      </li>
+    </ul>
+    </div>
+  </section>
+
+  <!-- 3. THREE DOORS -->
+  <section class="sec" id="studio">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Three doors</span>
+        <h2 style="margin-top:18px">Pick the one you came for.</h2>
+        <p>Make one, revisit one, or dance with it.</p>
+      </div>
+      <div class="doors">
+        <a class="door door-blue tilt-l" href="#studio">
+          <svg class="door-art" viewBox="0 0 320 170" role="img" aria-label="Illustration of a phone photographing a drawing">
+            <rect width="320" height="170" fill="#FFFDF5"/>
+            <rect x="30" y="34" width="150" height="112" rx="10" fill="#FFF2D6" stroke="#14100E" stroke-width="5"/>
+            <path d="M74 118 L104 72 L134 118 Z" fill="#C41F72" stroke="#14100E" stroke-width="5"/>
+            <circle cx="70" cy="66" r="14" fill="#FDD119" stroke="#14100E" stroke-width="5"/>
+            <rect x="206" y="22" width="84" height="132" rx="16" fill="#7B3FA0" stroke="#14100E" stroke-width="5"/>
+            <rect x="218" y="42" width="60" height="86" rx="7" fill="#F0E3F6" stroke="#14100E" stroke-width="4"/>
+            <circle cx="248" cy="142" r="6" fill="#FFFFFF"/>
+          </svg>
+          <h3>Studio</h3>
+          <p>A photo in, a rigged hero out.</p>
+          <span class="door-go">Make a hero &rarr;</span>
+        </a>
+        <a class="door door-yellow tilt-r" href="#studio">
+          <svg class="door-art" viewBox="0 0 320 170" role="img" aria-label="Illustration of a shelf of finished hero characters">
+            <rect width="320" height="170" fill="#FFFDF5"/>
+            <rect x="24" y="126" width="272" height="14" rx="6" fill="#14100E"/>
+            <g stroke="#14100E" stroke-width="5">
+              <circle cx="80" cy="66" r="26" fill="#C41F72"/><rect x="60" y="92" width="40" height="34" rx="10" fill="#FDD119"/>
+              <circle cx="160" cy="58" r="30" fill="#7B3FA0"/><rect x="136" y="88" width="48" height="38" rx="10" fill="#F0E3F6"/>
+              <circle cx="242" cy="70" r="22" fill="#A55618"/><rect x="222" y="92" width="40" height="34" rx="10" fill="#FFF0BE"/>
+            </g>
+            <g fill="#FFFFFF"><circle cx="72" cy="62" r="4"/><circle cx="90" cy="62" r="4"/><circle cx="151" cy="54" r="5"/><circle cx="171" cy="54" r="5"/><circle cx="235" cy="66" r="4"/><circle cx="250" cy="66" r="4"/></g>
+          </svg>
+          <h3>My Heroes</h3>
+          <p>Every hero you have made, on one shelf.</p>
+          <span class="door-go">Open the shelf &rarr;</span>
+        </a>
+        <a class="door door-red tilt-l" href="#studio">
+          <svg class="door-art" viewBox="0 0 320 170" role="img" aria-label="Illustration of a webcam view with a dancing character and a score">
+            <rect width="320" height="170" fill="#FFFDF5"/>
+            <rect x="20" y="20" width="176" height="130" rx="12" fill="#F0E3F6" stroke="#14100E" stroke-width="5"/>
+            <g stroke="#14100E" stroke-width="7" stroke-linecap="round" fill="none">
+              <circle cx="108" cy="58" r="17" fill="#FDD119"/>
+              <path d="M108 76 L108 110"/><path d="M108 84 L80 66"/><path d="M108 84 L138 68"/>
+              <path d="M108 110 L88 138"/><path d="M108 110 L130 138"/>
+            </g>
+            <rect x="212" y="46" width="86" height="78" rx="14" fill="#FDD119" stroke="#14100E" stroke-width="5"/>
+            <path d="M232 86 l12 14 24 -30" stroke="#14100E" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3>Playground</h3>
+          <p>Webcam on, and the hero copies your child.</p>
+          <span class="door-go">Start dancing &rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. HOW IT WORKS -->
+  <section class="sec" id="how" style="background:var(--red-tint);border-top:var(--border);border-bottom:var(--border)">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">How it works</span>
+        <h2 style="margin-top:18px">Four steps. You do one of them.</h2>
+        <p>Four steps, and your child does the first and the last.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Snap the drawing</h3>
+          <p>One phone photo of the paper.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>We render the character</h3>
+          <p>A clean, full-colour version of that character.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>We build and rig it in 3D</h3>
+          <p>A 22-bone skeleton goes in.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h3>They play as it</h3>
+          <p>Webcam on, and they dance as it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. PRICING -->
+  <section class="pricing sec" id="pricing">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Pricing</span>
+        <h2 style="margin-top:18px">Buy credits. Spend them when a good drawing turns up.</h2>
+        <p>10 credits a hero.</p>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <h3>Starter</h3>
+          <div class="plan-price">$5</div>
+          <p class="plan-meta">30 credits &middot; 3 heroes</p>
+          <a class="btn btn-blue" href="#studio">Get Starter</a>
+        </div>
+        <div class="plan plan-best tilt-r">
+          <span class="plan-flag">Best value</span>
+          <h3>Maker</h3>
+          <div class="plan-price">$15</div>
+          <p class="plan-meta">100 credits &middot; 10 heroes</p>
+          <a class="btn btn-white" href="#studio">Get Maker</a>
+        </div>
+        <div class="plan">
+          <h3>Studio</h3>
+          <div class="plan-price">$40</div>
+          <p class="plan-meta">300 credits &middot; 30 heroes</p>
+          <a class="btn btn-blue" href="#studio">Get Studio</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+  <div class="wrap foot-grid">
+    <div>
+      <h4>HeroMaker</h4>
+      
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul class="foot-links">
+        <li><a href="#studio">Studio</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#how">How it works</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul class="foot-links">
+        <li><a href="mailto:hello@heromaker.example">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap"><p class="foot-bottom">&copy; 2026 HeroMaker</p></div>
+</footer>
+
+</body>
+</html>

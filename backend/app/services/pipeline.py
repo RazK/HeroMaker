@@ -34,6 +34,9 @@ from app.services import meshy
 from app.services import vrm_conversion
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits
+from app.config import pricing
+from app.services import usage as usage_service
+from app.services.usage import UsageContext
 
 
 # ============================================================================
@@ -223,16 +226,37 @@ def _poll_meshy_task_with_progress(
         
         # Check if complete
         if current_status == "SUCCEEDED" and progress >= 100:
+            # COST CAPTURE: the usage_event written when this task was submitted
+            # is still "submitted". Now we know it succeeded, so close it. If
+            # this never happens - a crash, a restart - the event stays
+            # "submitted" with the cost booked, which is the safe direction to
+            # be wrong in: money spent, outcome unknown, visible in the report.
+            usage_service.finalize_usage_by_provider_ref(
+                pricing.PROVIDER_MESHY, task_id, "succeeded",
+                metadata={"meshy_status": current_status},
+            )
             return get_download_url(status)
         
         # Check for failure
         if current_status == "FAILED":
             error_msg = status.get("error", {}).get("message", "Unknown error")
+            usage_service.finalize_usage_by_provider_ref(
+                pricing.PROVIDER_MESHY, task_id, "failed",
+                metadata={"meshy_status": current_status, "meshy_error": str(error_msg)[:500]},
+            )
             raise MeshyAPIError(f"Meshy task {task_id} failed: {error_msg}")
         
         # Check timeout
         elapsed = time.time() - start_time
         if elapsed > max_wait:
+            # A timed-out task is NOT a free task: Meshy may well still finish
+            # it and bill us. Marked "submitted" with the cost left booked,
+            # and the timeout recorded, rather than silently written off.
+            usage_service.finalize_usage_by_provider_ref(
+                pricing.PROVIDER_MESHY, task_id, "submitted",
+                metadata={"client_timeout_seconds": max_wait},
+                cost_usd_micros=None,
+            )
             raise MeshyAPIError(f"Meshy task {task_id} timed out after {max_wait} seconds")
         
         time.sleep(poll_interval)
@@ -264,12 +288,13 @@ def execute_meshy_rig_sync(
     output_path: Path,
     step: CreationStep,
     db: Session,
-    client: MeshyClient
+    client: MeshyClient,
+    usage: Optional[UsageContext] = None
 ) -> None:
     """Create rigging task, poll until complete, download file, and download animations if available."""
     # Create task
     logger.info(f"[{step.creation_id}] Creating rigging task with input_task_id: {input_task_id}")
-    task_id = client.create_rigging_task(input_task_id)
+    task_id = client.create_rigging_task(input_task_id, usage=usage)
     logger.info(f"[{step.creation_id}] Rigging task created: {task_id}")
     
     # Store rig_task_id in metadata
@@ -358,7 +383,11 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
         with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "w") as output_path:
             await loop.run_in_executor(
                 None,
-                lambda: openai_service.render_image(input_path, output_path)
+                lambda: openai_service.render_image(
+                    input_path,
+                    output_path,
+                    usage=UsageContext.for_step(creation_id, user_id, "openai_render"),
+                )
             )
 
 
@@ -372,7 +401,11 @@ async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
         # Create task (sync call)
         task_id = await loop.run_in_executor(
             None,
-            lambda: client.create_image_to_3d_task(input_path, pose_mode="t-pose")
+            lambda: client.create_image_to_3d_task(
+                input_path,
+                pose_mode="t-pose",
+                usage=UsageContext.for_step(creation_id, user_id, "meshy_3d"),
+            )
         )
         
         logger.info(f"[{creation_id}] Meshy 3D task created: {task_id}")
@@ -416,7 +449,10 @@ async def step_meshy_rig(creation_id: str, user_id: str, db: Session) -> None:
     with _get_file_path_for_processing(creation_id, user_id, "rigged.glb", "w") as output_path:
         await loop.run_in_executor(
             None,
-            lambda: execute_meshy_rig_sync(input_task_id, output_path, step, db, client)
+            lambda: execute_meshy_rig_sync(
+                input_task_id, output_path, step, db, client,
+                usage=UsageContext.for_step(creation_id, user_id, "meshy_rig"),
+            )
         )
 
 
@@ -424,21 +460,27 @@ async def step_convert_vrm(creation_id: str, user_id: str, db: Session) -> None:
     """Convert GLB to VRM: rigged.glb → avatar.vrm"""
     storage = get_storage()
     loop = asyncio.get_event_loop()
+    # Recorded at zero cost (our own compute, not per-call attributable) so the
+    # conversion volume is in the same table as everything else. See
+    # pricing.VRM_CONVERSION_USD_MICROS.
+    vrm_usage = UsageContext.for_step(creation_id, user_id, "convert_vrm")
     
     with _get_file_path_for_processing(creation_id, user_id, "rigged.glb", "r") as input_path:
         with _get_file_path_for_processing(creation_id, user_id, "avatar.vrm", "w") as output_path:
             # Try to find rendered.png as thumbnail
+            def _convert(thumbnail_path):
+                with usage_service.track(
+                    vrm_usage, pricing.PROVIDER_INTERNAL, pricing.OP_VRM_CONVERT
+                ):
+                    return vrm_conversion.convert_glb_to_vrm(
+                        input_path, output_path, thumbnail_path=thumbnail_path
+                    )
+
             if storage.file_exists(user_id, creation_id, "rendered.png"):
                 with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as thumbnail_path:
-                    await loop.run_in_executor(
-                        None,
-                        lambda: vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=thumbnail_path)
-                    )
+                    await loop.run_in_executor(None, lambda: _convert(thumbnail_path))
             else:
-                await loop.run_in_executor(
-                    None,
-                    lambda: vrm_conversion.convert_glb_to_vrm(input_path, output_path, thumbnail_path=None)
-                )
+                await loop.run_in_executor(None, lambda: _convert(None))
 
 
 # Step coroutine registry
@@ -533,7 +575,13 @@ async def execute_step(
             step.error_message = f"Insufficient credits. Need {step_cost}, have {balance}"
             db.commit()
             raise ValueError(f"Insufficient credits. Need {step_cost}, have {balance}")
-        deduct_credits(user_id, step_cost, db, reason=f"step:{step_name}")
+        # creation_id on the ledger row is what lets the margin report join
+        # credits spent against dollars spent, per hero.
+        deduct_credits(
+            user_id, step_cost, db,
+            reason=f"step:{step_name}",
+            creation_id=creation_id,
+        )
         logger.info(f"[{creation_id}] Deducted {step_cost} credits for step {step_name}")
     
     # Mark as processing (only if not already set by API endpoint)

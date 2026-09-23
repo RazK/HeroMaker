@@ -1,0 +1,1052 @@
+import * as THREE from 'three'
+import './ui/style.css'
+import './ui/party.css'
+import { Stage } from './stage/stage'
+import { BACKDROPS } from './stage/backdrops'
+import { PlayCamera } from './stage/camera'
+import { loadHero, type Hero } from './avatar/loader'
+import { PoseTracker } from './pose/tracker'
+import { PoseSolver } from './pose/solver'
+import {
+  PartyGame, LENGTHS, makeRoutine, roundSeconds, lengthBlurb,
+  type PartyPhase, type LengthId, type Player,
+} from './game/party'
+import { Performer, loadAllClips } from './anim/performer'
+import { PartyHud } from './ui/partyhud'
+import { Audio } from './core/audio'
+import { el } from './ui/dom'
+import { clamp, damp } from './core/math'
+import { bodyConfidence, type Skeleton } from './pose/keypoints'
+import { classify } from './pose/vocab'
+
+/**
+ * Hero Moves — one to three players, one lane each.
+ *
+ * There is no coach and no demonstrator. The strip says what is coming and
+ * when; each hero mirrors its own player and nothing else. That is the whole
+ * fix for the confusion the two-character version had — with only one role on
+ * stage there is nothing to mistake it for.
+ */
+
+const STREAMED = import.meta.env.MODE === 'artifact'
+
+const avatarFiles = (STREAMED ? {} : import.meta.glob('../assets/avatars/*.opt.vrm', {
+  eager: true, query: '?url', import: 'default',
+})) as Record<string, string>
+const thumbFiles = import.meta.glob('../assets/avatars/*.thumb.webp', {
+  eager: true, query: '?url', import: 'default',
+}) as Record<string, string>
+const animFiles = import.meta.glob('../assets/animations/*', {
+  eager: true, query: '?url', import: 'default',
+}) as Record<string, string>
+
+const animUrl = (file: string): string => {
+  const stem = file.replace(/\.[^.]+$/, '')
+  return Object.entries(animFiles).find(([k]) => k.includes(`/${stem}`))?.[1] ?? file
+}
+
+const ALL_HEROES = [
+  { id: 'Crayon_Kid', name: 'Crayon Kid' },
+  { id: 'Yummy_Bear', name: 'Yummy Bear' },
+  { id: 'Superstar', name: 'Superstar' },
+  { id: 'Gingerella', name: 'Gingerella' },
+  { id: 'Skelly', name: 'Skelly' },
+  { id: 'Cloudy', name: 'Cloudy' },
+]
+
+function heroSource(id: string): string | null {
+  const block = document.getElementById(`hm-avatar-${id}`)
+  if (block?.textContent) return `data:application/octet-stream;base64,${block.textContent.trim()}`
+  return Object.entries(avatarFiles).find(([k]) => k.includes(`${id}.opt`))?.[1] ?? null
+}
+
+const ROSTER = ALL_HEROES.filter((h) => heroSource(h.id) !== null)
+
+let announceFirstHero: (() => void) | null = null
+const firstHeroReady = ROSTER.length
+  ? Promise.resolve()
+  : new Promise<void>((resolve) => { announceFirstHero = resolve })
+
+;(window as unknown as Record<string, unknown>).__hmAvatar = (id: string) => {
+  const entry = ALL_HEROES.find((h) => h.id === id)
+  if (!entry || ROSTER.some((r) => r.id === id)) return
+  ROSTER.push(entry)
+  renderMenu()
+  announceFirstHero?.()
+  announceFirstHero = null
+}
+
+const boot = {
+  step: (label: string) => (window as { __hdStep?: (l: string) => void }).__hdStep?.(label),
+  done: () => (window as { __hdDone?: () => void }).__hdDone?.(),
+  fail: (m: string) => (window as { __hdFail?: (m: string) => void }).__hdFail?.(m),
+}
+
+const app = document.getElementById('app')!
+/**
+ * Quality, and giving it up gracefully.
+ *
+ * This is a rhythm game: when a device cannot keep up, the thing that must not
+ * be spent is the beat. Frames that take longer than a beat make the routine
+ * run slow and the scoring windows drift, which is a broken game — while
+ * dropping shadows is a slightly flatter one. So the renderer watches its own
+ * frame times and gives up the expensive things before it gives up the tempo.
+ *
+ * `?lite=1` starts there, for the recording harnesses and for anyone who wants
+ * it: antialiasing can only be chosen at construction, so it is the one thing
+ * the automatic path cannot drop later.
+ */
+const LITE = new URLSearchParams(location.search).get('lite') === '1'
+const renderer = new THREE.WebGLRenderer({ antialias: !LITE, powerPreference: 'high-performance' })
+renderer.setPixelRatio(LITE ? 1 : Math.min(devicePixelRatio, 2))
+renderer.shadowMap.enabled = !LITE
+renderer.shadowMap.type = THREE.PCFShadowMap
+renderer.outputColorSpace = THREE.SRGBColorSpace
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.05
+// The scene is what every panel in the game is painted over, so it is the first
+// entry in tools/screenaudit.mjs's overlap allowlist rather than 40,000 findings.
+renderer.domElement.dataset.overlay = 'scene'
+app.appendChild(renderer.domElement)
+
+const scene = new THREE.Scene()
+const stage = new Stage(undefined, LITE ? 'lite' : 'full')
+scene.add(stage.group)
+const play = new PlayCamera()
+const tracker = new PoseTracker()
+const game = new PartyGame()
+const hud = new PartyHud()
+const audio = new Audio()
+
+/** One lane on stage: a hero, its solver, and its clip player. */
+interface Lane {
+  hero: Hero | null
+  solver: PoseSolver | null
+  anim: Performer | null
+  heroIndex: number
+  root: THREE.Group
+  loading: number
+  /** Sideways weight shift, damped from the player's own hips. */
+  sway: number
+}
+const MAX_PLAYERS = 3
+const lanes: Lane[] = Array.from({ length: MAX_PLAYERS }, () => ({
+  hero: null, solver: null, anim: null, heroIndex: 0,
+  root: new THREE.Group(), loading: 0, sway: 0,
+}))
+for (const l of lanes) scene.add(l.root)
+
+/** Menu selection. */
+let playerCount = 1
+let lengthId: LengthId = 'normal'
+const picks = [0, 1, 2]
+/** Which player the gallery is currently choosing for. */
+let activeLane = 0
+/** Which set the heroes dance on. Applied live, so the menu is the preview. */
+let backdropId = BACKDROPS[0].id
+/** Arms-only mode, for playing from a chair. Guessed from the camera, overridable. */
+let seated = false
+/** True once somebody has set the stance by hand; the guess stops arguing then. */
+let stanceIsMine = false
+
+// ---------------------------------------------------------------- screens
+const menuLayer = el('div', { class: 'layer sheet', id: 'title' })
+const pauseLayer = el('div', { class: 'layer sheet', id: 'pause', hidden: true })
+const resultsLayer = el('div', { class: 'layer sheet', id: 'results', hidden: true })
+app.append(hud.hud, hud.platesLayer, hud.countdownLayer, menuLayer, pauseLayer, resultsLayer)
+
+// ---- menu ------------------------------------------------------------------
+const countRow = el('div', { class: 'segmented' })
+const stanceRow = el('div', { class: 'segmented' })
+const stageRow = el('div', { class: 'stage-row' })
+const whoRow = el('div', { class: 'pick-who' })
+/**
+ * The hero gallery: the one scrolling list in the lobby.
+ *
+ * `data-scroll` is the single entry in tools/screenaudit.mjs's rule-1
+ * allowlist. Everything else in the card has to be on screen at all times; the
+ * gallery is a list of six characters with the next row peeking out under the
+ * fold, which is an affordance a player reads. Nothing else gets that licence,
+ * which is why the stage picker could not stay where it was.
+ */
+const gallery = el('div', { class: 'gallery' })
+gallery.dataset.scroll = 'hero-gallery'
+const lengthRow = el('div', { class: 'segmented' })
+const menuCam = el('canvas', { width: 480, height: 270, class: 'menu-cam' }) as HTMLCanvasElement
+const camHint = el('p', { class: 'hint' }, '')
+const startBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'START DANCING')
+/**
+ * The camera comes on in the lobby, not at the whistle.
+ *
+ * Everything the lobby is for — is it seeing me, are all three lanes filled,
+ * am I standing or sitting — needs the camera on to answer, and finding out
+ * after the music has started is finding out too late.
+ */
+const camBtn = el('button', { class: 'cam-btn', onclick: () => void ensureCamera() },
+  'Turn the camera on')
+/**
+ * Standing or sitting rides on the camera preview rather than in the settings
+ * row, because that is where the evidence for it is: the game guesses from
+ * what it can see of you, and the place to disagree with a guess is next to
+ * the thing that made it.
+ */
+const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, stanceRow, camBtn, camHint)
+// The stance switch, the camera button and the hint all sit *on* the preview
+// picture on purpose — that is where the evidence for the guess is.
+stanceRow.dataset.overlay = 'preview-chip'
+camBtn.dataset.overlay = 'preview-chip'
+camHint.dataset.overlay = 'preview-chip'
+
+/**
+ * The foot of the lobby card: pick a set, then start.
+ *
+ * One fixed block holding everything a round cannot start without, outside the
+ * only part of the card that scrolls. It needs no overlap licence because it
+ * never covers anything — which is the point of the card no longer scrolling.
+ */
+const menuFoot = el('div', { class: 'menu-foot' },
+  el('div', { class: 'reel-label' }, 'Stage'),
+  stageRow,
+  el('div', { class: 'actions' }, startBtn))
+
+menuLayer.append(
+  el('div', { class: 'card' },
+    el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves'),
+    camWrap,
+    // Two settings, one row. Both are three-way switches, and stacking them
+    // pushed the hero gallery off the bottom of the card.
+    el('div', { class: 'setting-pair' },
+      el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Players'), countRow),
+      el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
+    whoRow,
+    gallery,
+    // The set picker and the start button are the foot of the card together.
+    //
+    // The picker used to sit loose between the gallery and a sticky footer, in
+    // the part of the card that scrolled. Measured at 385x560, that put it 103
+    // pixels past the bottom of the card — and, scrolled all the way down, in
+    // the sliver behind START DANCING. It is technically draggable into view;
+    // nothing on screen suggests there is anything below the button that starts
+    // the game, which is why six stages went unfound on a real phone. Anything
+    // a round cannot start without belongs where the card cannot hide it.
+    menuFoot,
+  ),
+)
+
+function renderMenu() {
+  countRow.replaceChildren(...[1, 2, 3].map((n) =>
+    el('button', {
+      class: `seg${n === playerCount ? ' on' : ''}`,
+      onclick: () => { playerCount = n; audio.uiClick(); applyCount(); renderMenu() },
+      // Short labels: the row is half a card wide now, and the heading over it
+      // already says these are players.
+    }, `${n}P`)))
+
+  // Standing or sitting. Guessed from what the camera can see of you, because
+  // nobody reads a settings row before they dance, but always overridable —
+  // the guess is about a desk edge, and a desk edge is not always where the
+  // player wants the line drawn.
+  stanceRow.className = `segmented stance${tracker.state === 'ready' ? '' : ' hide'}`
+  stanceRow.replaceChildren(...([[false, 'Standing'], [true, 'Sitting']] as const).map(([v, label]) =>
+    el('button', {
+      class: `seg${v === seated ? ' on' : ''}`,
+      onclick: () => { seated = v; stanceIsMine = true; audio.uiClick(); renderMenu() },
+      title: v ? 'Arms only — no calls that need your legs' : 'Whole body',
+    }, label)))
+
+  // The switch says how long the round is, in seconds, because "Short" is not
+  // an answer to the only question anyone asks of it. The number is solved
+  // from the real generator (see roundSeconds) rather than written down, and
+  // it moves with the stance, since a seated routine draws from a smaller pool.
+  lengthRow.replaceChildren(...LENGTHS.map((l) =>
+    el('button', {
+      class: `seg${l.id === lengthId ? ' on' : ''}`,
+      onclick: () => { lengthId = l.id; audio.uiClick(); renderMenu() },
+      // The same rounded number the chip shows, or the tooltip and the label
+      // disagree about the same round by two seconds.
+      title: `${l.moves} calls, about ${lengthBlurb(l.id, seated)}`,
+    },
+      el('span', { class: 'seg-name' }, l.label),
+      el('span', { class: 'seg-sub num' }, lengthBlurb(l.id, seated)))))
+
+  // One big gallery for everybody, and a row saying who is choosing.
+  //
+  // A grid per player meant six heroes each in a scroller, at forty-four
+  // pixels — small enough that you could not tell the bear from the star, on
+  // the one screen whose whole job is choosing between them. Sharing the
+  // gallery buys back two thirds of the space and spends it on the artwork.
+  activeLane = Math.min(activeLane, playerCount - 1)
+  // Three chips across the card leave about 40px for a name, which renders
+  // "Crayon Kid" as "Cra…" — the thumbnail already says who it is and the
+  // gallery underneath spells it out. Two chips have room, so they keep it.
+  whoRow.className = `pick-who n${playerCount}`
+  whoRow.hidden = playerCount < 2
+  whoRow.replaceChildren(...Array.from({ length: playerCount }, (_, i) => {
+    const hero = ROSTER[picks[i]]
+    const b = el('button', {
+      class: `who lane-${i}${i === activeLane ? ' on' : ''}`,
+      onclick: () => { activeLane = i; audio.uiClick(); renderMenu() },
+    }, el('span', { class: 'who-tag' }, `P${i + 1}`))
+    const thumb = thumbFor(hero?.id)
+    if (thumb) b.append(el('img', { src: thumb, alt: hero?.name ?? '' }))
+    b.append(el('span', { class: 'who-name' }, hero?.name ?? ''))
+    return b
+  }))
+
+  // The set changes behind the card as you tap, so the menu is its own preview.
+  stageRow.replaceChildren(...BACKDROPS.map((b) =>
+    el('button', {
+      class: `stage-pick${b.id === backdropId ? ' on' : ''}`,
+      title: `${b.name} — ${b.blurb}`,
+      onclick: () => {
+        backdropId = b.id
+        audio.uiClick()
+        stage.setBackdrop(b.id)
+        renderMenu()
+      },
+    }, b.short)))
+
+  gallery.className = `gallery lane-${activeLane}`
+  gallery.replaceChildren(...ROSTER.map((r, k) => {
+    const mine = picks[activeLane] === k
+    const others = picks.slice(0, playerCount)
+      .map((p, j) => (p === k && j !== activeLane ? j : -1)).filter((j) => j >= 0)
+    const b = el('button', {
+      class: `gtile${mine ? ' on' : ''}${others.length ? ' taken' : ''}`,
+      onclick: () => {
+        picks[activeLane] = k
+        audio.uiClick()
+        void loadLane(activeLane, k)
+        renderMenu()
+      },
+    })
+    const thumb = thumbFor(r.id)
+    if (thumb) b.append(el('img', { src: thumb, alt: r.name, loading: 'lazy' }))
+    b.append(el('span', { class: 'gname' }, r.name))
+    // Whoever else already has this hero, said out loud rather than by a
+    // colour a player would have to learn.
+    for (const j of others) {
+      const badge = el('span', { class: `gbadge lane-${j}` }, `P${j + 1}`)
+      badge.dataset.overlay = 'tile-badge'
+      b.append(badge)
+    }
+    return b
+  }))
+}
+
+const thumbFor = (id?: string) =>
+  (id ? Object.entries(thumbFiles).find(([t]) => t.includes(`${id}.thumb`))?.[1] : undefined)
+
+/** Show and load exactly `playerCount` heroes, and lay the stage out for them. */
+function applyCount() {
+  for (let i = 0; i < MAX_PLAYERS; i++) {
+    lanes[i].root.visible = i < playerCount
+    if (i < playerCount && !lanes[i].hero) void loadLane(i, picks[i])
+  }
+  hud.sizeCamera(playerCount, tracker.laneAspect)
+  layoutStage()
+  resize()
+}
+
+// ---- pause -----------------------------------------------------------------
+pauseLayer.append(
+  el('div', { class: 'card' },
+    el('h1', {}, 'PAUSED'),
+    el('div', { class: 'actions' },
+      el('button', { class: 'btn', onclick: () => game.resume(clock) }, 'RESUME'),
+      el('button', { class: 'btn secondary', onclick: () => game.finish() }, 'END & SEE SCORES'),
+      el('button', { class: 'btn secondary', onclick: () => showMenu() }, 'QUIT TO MENU'),
+    ),
+  ),
+)
+
+// ---- results ---------------------------------------------------------------
+const resultTitle = el('h1', {}, 'NICE MOVES!')
+const podium = el('div', { class: 'podium' })
+/**
+ * The results card keeps its sticky footer: a podium of three plus two buttons
+ * is short enough that the card scrolling is harmless, and the two buttons ride
+ * the bottom of it. That is the one deliberate overlay left in a card, so it
+ * carries the mark tools/screenaudit.mjs checks against its allowlist.
+ */
+const resultActions = el('div', { class: 'actions' },
+  el('button', { class: 'btn', onclick: () => beginRun() }, 'DANCE AGAIN'),
+  el('button', { class: 'btn secondary', onclick: () => showMenu() }, 'CHANGE HEROES'))
+resultActions.dataset.overlay = 'sticky-footer'
+resultsLayer.append(el('div', { class: 'card' }, resultTitle, podium, resultActions))
+
+function showResults() {
+  const ranked = game.ranking
+  const solo = ranked.length === 1
+  resultTitle.textContent = solo
+    ? (game.accuracy(ranked[0]) >= 0.75 ? 'SUPERSTAR!' : 'NICE MOVES!')
+    : `${ROSTER[ranked[0].heroIndex]?.name ?? 'P1'} WINS!`
+  podium.replaceChildren(...ranked.map((p, place) => {
+    const hero = ROSTER[p.heroIndex]
+    const thumb = thumbFor(hero?.id)
+    const row = el('div', { class: `podium-row${place === 0 && !solo ? ' win' : ''}` })
+    row.append(el('div', { class: `place lane-${p.lane}` }, solo ? '' : `${place + 1}`))
+    if (thumb) row.append(el('img', { src: thumb, alt: hero?.name ?? '', width: 46, height: 46 }))
+    row.append(
+      el('div', { class: 'podium-who' },
+        el('b', {}, hero?.name ?? `Player ${p.lane + 1}`),
+        el('span', { class: 'muted' }, `P${p.lane + 1}`)),
+      el('div', { class: 'podium-nums' },
+        el('b', { class: 'num' }, Math.round(p.score).toLocaleString('en-US')),
+        el('span', { class: 'num' }, `${Math.round(game.accuracy(p) * 100)}% · ×${p.bestCombo}`)),
+    )
+    return row
+  }))
+}
+
+// ---- phase wiring ----------------------------------------------------------
+function showMenu() {
+  game.quit()
+}
+
+game.onPhase = (p: PartyPhase) => {
+  menuLayer.hidden = p !== 'menu'
+  pauseLayer.hidden = p !== 'paused'
+  resultsLayer.hidden = p !== 'results'
+  hud.hud.hidden = p === 'menu' || p === 'results'
+  hud.platesLayer.hidden = p === 'menu' || p === 'results'
+  hud.countdownLayer.hidden = p !== 'countdown'
+  // The pause card covers the HUD, so the pause button under it is a control
+  // nobody can press — a tap in the middle of it lands on the scrim. RESUME on
+  // the card is the same command, said where it can be reached.
+  hud.pauseBtn.hidden = p === 'paused'
+  if (p === 'results') { showResults(); audio.setMusic(false); celebrate() }
+  if (p === 'menu') { hud.resetStrip(); audio.setMusic(false); idleDance() }
+  if (p === 'dancing') audio.setMusic(true)
+  if (p === 'paused') audio.setMusic(false)
+  // Pause deliberately does not re-frame: the card is centred and the stage
+  // behind it should be exactly where the player left it. Zooming out and
+  // sliding the whole line sideways for a four-second interruption reads as
+  // the game losing its place.
+  if (p !== 'paused') {
+    play.setPresentation(p === 'menu' || p === 'results')
+    reframe()
+  }
+}
+game.onGrade = (p: Player, r) => {
+  hud.popGrade(p.lane, r.grade)
+  if (p.lane === 0) audio.grade(r.grade)
+  if (r.grade === 'PERFECT') lanes[p.lane].anim?.play('victory')
+}
+hud.pauseBtn.onclick = () => togglePause()
+function togglePause() {
+  if (game.state.phase === 'paused') game.resume(clock)
+  else game.pause(clock)
+}
+// A rhythm game played standing three feet from a laptop needs a stop that is
+// not a small button in a corner. Escape is the one key everyone already knows.
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' && e.key !== ' ') return
+  const phase = game.state.phase
+  if (phase === 'dancing' || phase === 'countdown' || phase === 'paused') {
+    e.preventDefault()
+    togglePause()
+  }
+})
+
+/** The winner takes a bow and everyone else keeps dancing. */
+function celebrate() {
+  const winner = game.ranking[0]
+  for (let i = 0; i < playerCount; i++) {
+    lanes[i].anim?.play(winner && i === winner.lane ? 'victory' : 'dance', { loop: true })
+  }
+}
+
+/**
+ * Everyone loose-dances on the menu, so the stage is never a row of statues.
+ *
+ * Which clip each hero gets is drawn at random every time the menu comes back,
+ * because three heroes doing the same dance in unison reads as one animation
+ * played three times rather than as three characters.
+ */
+const LOOPS = ['dance', 'bodyroll']
+function idleDance() {
+  for (let i = 0; i < playerCount; i++) {
+    lanes[i].anim?.play(LOOPS[Math.floor(Math.random() * LOOPS.length)], { loop: true })
+  }
+}
+
+async function loadLane(i: number, heroIndex: number) {
+  const lane = lanes[i]
+  lane.heroIndex = heroIndex
+  const entry = ROSTER[heroIndex]
+  if (!entry) return
+  const url = heroSource(entry.id)
+  if (!url) return
+  const token = ++lane.loading
+  const hero = await loadHero(url)
+  // A tap-happy player can change hero three times while one is downloading.
+  if (token !== lane.loading) { hero.dispose(); return }
+  if (lane.hero) { lane.root.remove(lane.hero.root); lane.hero.dispose() }
+  lane.anim?.dispose()
+  lane.hero = hero
+  lane.root.add(hero.root)
+  lane.solver = new PoseSolver(hero.rig, 0.4)
+  const anim = new Performer(hero)
+  lane.anim = anim
+  layoutStage()
+  resize()
+  void loadAllClips(anim, animUrl).then(() => {
+    if (token !== lane.loading) { anim.dispose(); return }
+    if (game.state.phase === 'menu') idleDance()
+  })
+}
+
+/**
+ * Clear air between two neighbouring heroes' own bounding boxes, in metres.
+ *
+ * It has to cover the sideways weight shift as well as the gap you can see:
+ * each hero slides up to SWAY_LIMIT with its player's hips, and two neighbours
+ * can lean toward each other at once, so the clearance is more than twice that.
+ */
+const LANE_CLEARANCE = 0.22
+/** How far a hero may drift sideways with its player. See LANE_CLEARANCE. */
+const SWAY_LIMIT = 0.08
+/**
+ * A slight stagger in depth, alternating lane by lane.
+ *
+ * Spacing solved from the widths alone already keeps the boxes apart, but the
+ * roster is not a row of the same body: a five-pointed star's points and a
+ * cloud's shoulder sit at heights nothing else on stage occupies, and a posed
+ * arm swings past the measured rest box. Half a pace of depth means the worst
+ * case is one hero passing behind another rather than through them.
+ */
+const LANE_DEPTH = 0.3
+/** Stand-in width for a lane whose hero has not downloaded yet. */
+const TYPICAL_WIDTH = 1.7
+
+/** Where each visible lane stands, solved from the heroes actually on stage. */
+function laneSpots(): Array<{ x: number; z: number }> {
+  const widths = lanes.slice(0, playerCount).map((l) => l.hero?.width ?? TYPICAL_WIDTH)
+  const xs: number[] = []
+  let x = 0
+  for (let i = 0; i < playerCount; i++) {
+    // Each neighbour pair is pushed apart by its own two half-widths, so a
+    // cloud beside a skeleton gets the room the cloud needs and no more.
+    if (i > 0) x += (widths[i - 1] + widths[i]) / 2 + LANE_CLEARANCE
+    xs.push(x)
+  }
+  const mid = (xs[0] + xs[playerCount - 1]) / 2
+  return xs.map((v, i) => ({ x: v - mid, z: playerCount > 1 ? (i % 2) * LANE_DEPTH : 0 }))
+}
+
+/**
+ * Lay the visible heroes out across the stage, facing front.
+ *
+ * The gap used to be a constant — 0.55 m in portrait — against heroes the
+ * loader measures at 1.5-1.7 m across. Two of them shared the same cubic metre
+ * of stage, which on a phone is not "close together", it is one body growing
+ * out of another, and it was reported as exactly that. The spacing is now the
+ * heroes' own measured widths plus clearance, and tools/screenaudit.mjs reads
+ * the world boxes back out of the scene and fails the build if they ever touch.
+ */
+function layoutStage() {
+  const spots = laneSpots()
+  for (let i = 0; i < MAX_PLAYERS; i++) {
+    const spot = spots[i] ?? { x: 0, z: 0 }
+    lanes[i].root.position.set(spot.x, 0, spot.z)
+    // A touch of inward turn so three heroes read as a group on a stage. Capped
+    // rather than proportional: the line is twice as wide as it used to be, and
+    // the same factor would have the outer two facing each other.
+    lanes[i].root.rotation.y = playerCount > 1 ? -clamp(spot.x / 1.4, -1, 1) * 0.1 : 0
+  }
+}
+
+/**
+ * Get the camera going and say so in the menu if it will not.
+ *
+ * Separate from starting a round because the menu preview needs it *before*
+ * anyone presses start: a lane game where you find out a lane is empty once the
+ * music is running has already wasted the song.
+ */
+/**
+ * Has this site already been granted the camera?
+ *
+ * Only Chromium-family browsers answer for 'camera'; everywhere else this
+ * throws or returns nothing and the lobby shows its button instead, which is
+ * the right fallback — asking for a camera nobody pressed anything for is how
+ * you get denied permanently.
+ */
+async function cameraAlreadyAllowed(): Promise<boolean> {
+  try {
+    const perms = navigator.permissions as unknown as
+      { query?: (d: { name: string }) => Promise<{ state: string }> } | undefined
+    const p = await perms?.query?.({ name: 'camera' })
+    return p?.state === 'granted'
+  } catch { return false }
+}
+
+async function ensureCamera(): Promise<boolean> {
+  if (tracker.state === 'ready') return true
+  camWrap.classList.add('busy')
+  camHint.textContent = 'Getting the camera ready…'
+  await startLoadingTracker()
+  const state = await tracker.start()
+  const embedded = window.self !== window.top
+  camWrap.classList.remove('busy')
+  camHint.textContent =
+    state === 'ready' ? ''
+    : state === 'denied' && embedded
+      ? 'This preview cannot reach the camera. Open the downloaded file to play.'
+    : state === 'denied' ? `${tracker.error} — allow it and try again.`
+    : 'No camera available on this device.'
+  if (state !== 'ready') camWrap.classList.add('off')
+  // The stance switch only exists once there is a picture to judge, so the
+  // menu has to be redrawn the moment there is one.
+  renderMenu()
+  return state === 'ready'
+}
+
+async function beginRun(seed?: number) {
+  audio.resume()
+  if (!(await ensureCamera())) return
+  for (let i = 0; i < playerCount; i++) lanes[i].anim?.stop()
+  hud.resetStrip()
+  hud.sizeCamera(playerCount, tracker.laneAspect)
+  lastBeat = Number.NEGATIVE_INFINITY
+  game.start(clock, picks.slice(0, playerCount), lengthId, seed, seated)
+}
+
+function resize() {
+  const w = app.clientWidth, h = app.clientHeight
+  renderer.setSize(w, h, false)
+  const heroes = lanes.slice(0, playerCount).map((l) => l.hero).filter(Boolean) as Hero[]
+  if (!heroes.length) return
+  layoutStage()
+  const card = document.querySelector('.layer.sheet:not([hidden]) .card')
+  const headroom = card ? card.getBoundingClientRect().top : h * 0.45
+  const widest = Math.max(...heroes.map((x) => x.width))
+  const zs = lanes.slice(0, playerCount).map((l) => l.root.position.z)
+  const spread = playerCount > 1
+    ? Math.abs(lanes[playerCount - 1].root.position.x - lanes[0].root.position.x)
+    : 0
+  // Portrait counts only part of the widest hero's arm span. A T-pose is
+  // wider than a phone can show three of, and framing for every fingertip
+  // renders three thumbnails in the middle of an empty screen — so the
+  // outermost hands are allowed off the edge instead.
+  const portrait = h > w
+  play.frame({
+    heroHeight: Math.max(...heroes.map((x) => x.height)),
+    spanX: spread + widest * (portrait && playerCount > 1 ? 0.6 : 1),
+    // What may never be cropped, however small that leaves everyone. Lanes are
+    // now spaced by the heroes' own widths, so the line is wide enough that
+    // the portrait cap — which exists to let fingertips go — would happily cut
+    // an outer hero's *body* off the side of a phone. Fingertips are expendable
+    // and bodies are not, so the floor is the line plus a torso's worth of each
+    // end hero.
+    spanXMin: spread + widest * 0.34,
+    spanZ: widest * 0.5 + (Math.max(...zs) - Math.min(...zs)),
+    aspect: w / h, portrait, headroom, viewportH: h, viewportW: w,
+  })
+}
+addEventListener('resize', resize)
+function reframe() { requestAnimationFrame(() => requestAnimationFrame(resize)) }
+
+/** Project a hero's head to screen space so its score plate can sit over it. */
+const plateAt = new THREE.Vector3()
+function placePlates() {
+  const w = app.clientWidth, h = app.clientHeight
+  for (let i = 0; i < MAX_PLAYERS; i++) {
+    const lane = lanes[i]
+    if (i >= playerCount || !lane.hero) { hud.place(i, 0, 0, false); continue }
+    plateAt.set(0, lane.hero.height * 1.08, 0)
+      .applyMatrix4(lane.root.matrixWorld).project(play.camera)
+    hud.place(i, (plateAt.x * 0.5 + 0.5) * w, (-plateAt.y * 0.5 + 0.5) * h, plateAt.z <= 1)
+  }
+}
+
+// ---------------------------------------------------------------- loop
+let last = performance.now()
+let bob = 0
+let timeScale = 1
+let clock = 0
+/**
+ * Longest frame the game clock still counts in full.
+ *
+ * Past this a frame is treated as a stall — a backgrounded tab, a device
+ * asleep — and the routine waits rather than jumping. Two seconds is right for
+ * a player; a recording rendering three avatars in software can legitimately
+ * take longer than that per frame and needs the clock to keep counting, or it
+ * drifts away from the camera feed it is dancing with.
+ */
+let stallClamp = 2
+let lastBeat = Number.NEGATIVE_INFINITY
+let liveLanes: Array<Skeleton | null> = [null, null, null]
+
+/** Rolling frame cost, and whether the expensive things have been given up. */
+let slowFrames = 0
+let degraded = LITE
+function watchFrameCost(elapsed: number) {
+  if (degraded) return
+  // A frame slower than a third of a beat is one the routine can feel.
+  slowFrames = elapsed > 0.2 ? slowFrames + 1 : Math.max(0, slowFrames - 1)
+  if (slowFrames < 20) return
+  degraded = true
+  renderer.shadowMap.enabled = false
+  renderer.setPixelRatio(1)
+  stage.setQuality('lite')
+  scene.traverse((o) => { (o as THREE.Mesh).castShadow = false })
+  resize()
+}
+
+renderer.setAnimationLoop(() => {
+  const now = performance.now()
+  const elapsed = (now - last) / 1000
+  last = now
+  watchFrameCost(elapsed)
+  // Two clocks on purpose. Animation dt is clamped hard so a stalled frame
+  // cannot fling the rig; the game clock decides *when*, so it tracks wall time
+  // and is only clamped against a genuine stall like a backgrounded tab. The
+  // old half-second clamp quietly ran the routine slow on any device whose
+  // frames took longer than that — which is every device once the music, the
+  // three heroes and three lanes of pose tracking are all running.
+  const dt = Math.min(0.1, elapsed) * timeScale
+  clock += Math.min(stallClamp, elapsed) * timeScale
+
+  const s = game.state
+  const running = s.phase === 'dancing' || s.phase === 'countdown'
+  if (running || s.phase === 'menu') {
+    void tracker.updateLanes(now, playerCount)
+    liveLanes = tracker.state === 'ready'
+      ? tracker.lanes.slice(0, playerCount)
+      : [null, null, null]
+  }
+  game.update(clock, liveLanes)
+
+  const beat = running ? s.beatPhase : (clock / game.beatSeconds) % 1
+
+  for (let i = 0; i < MAX_PLAYERS; i++) {
+    const lane = lanes[i]
+    if (!lane.hero) continue
+    lane.anim?.update(dt)
+    // Each hero mirrors its own player and nothing else. A clip owns the rig
+    // while it runs, so the two never fight over the same bones.
+    const sk = i < playerCount ? liveLanes[i] : null
+    if (sk && lane.solver && !lane.anim?.active && s.phase !== 'menu') {
+      lane.solver.apply(sk, dt)
+    }
+    // A little of the player's own weight shift, the way Kalidoface moves its
+    // hips: a rig whose arms move and whose body never does reads as a puppet.
+    // Small on purpose — the hero has to stay in its own lane.
+    if (sk && !lane.anim?.active) {
+      // Clamped, because the lanes are only spaced far enough apart to stay
+      // clear of each other by LANE_CLEARANCE, and an enthusiastic lean must
+      // not be able to spend it.
+      const hip = (sk.leftHip.x + sk.rightHip.x) / 2
+      lane.sway = damp(lane.sway, clamp((hip - 0.5) * 0.5, -SWAY_LIMIT, SWAY_LIMIT), 4, dt)
+    } else {
+      lane.sway = damp(lane.sway, 0, 4, dt)
+    }
+    lane.hero.root.position.x = lane.sway
+    lane.hero.root.position.y = lane.anim?.active ? 0 : bob
+    lane.hero.vrm.update(dt)
+  }
+  bob = damp(bob, Math.abs(Math.sin(beat * Math.PI)) * 0.03, 10, dt)
+
+  if (running) {
+    const whole = Math.floor(s.beat)
+    if (whole !== lastBeat) {
+      lastBeat = whole
+      if (s.phase === 'dancing') audio.danceBeat(whole)
+      else audio.countIn(Math.max(0, -whole))
+    }
+  }
+  if (s.phase === 'countdown') hud.setCountdown(Math.ceil(-s.songTime / game.beatSeconds))
+
+  play.setAirborne(lanes.some((l) => l.anim?.airborne))
+  hud.update(s)
+  if (s.phase !== 'menu' && s.phase !== 'results') {
+    hud.drawCamera(tracker.video, liveLanes, playerCount, tracker.laneAspect)
+  } else if (s.phase === 'menu' && tracker.state === 'ready') {
+    drawMenuCamera()
+    senseStance()
+  }
+
+  stage.update(dt, beat)
+  play.update(dt, beat)
+  renderer.render(scene, play.camera)
+  if (!hud.platesLayer.hidden) placePlates()
+  ;(window as { __frames?: number }).__frames = ((window as { __frames?: number }).__frames ?? 0) + 1
+})
+
+/**
+ * The menu preview. Its whole job is to answer "does it see all of us yet",
+ * which is the question a lane game gets asked before every single round.
+ */
+/**
+ * Give the preview the camera's own shape.
+ *
+ * It used to be a fixed 300x84 canvas with whatever the webcam produced drawn
+ * into it corner to corner, which stretched every face sideways. A preview
+ * whose whole job is "does this look right to the tracker" cannot be the one
+ * thing on screen that lies about the picture, so the box is measured from the
+ * stream instead — capped, so it cannot take over the card.
+ */
+const CAM_MAX_H = 190
+let camAspect = 0
+function fitPreview() {
+  const vw = tracker.video.videoWidth, vh = tracker.video.videoHeight
+  if (!vw || !vh) return
+  const aspect = vw / vh
+  const width = camWrap.clientWidth
+  if (aspect === camAspect && menuCam.width === Math.round(width)) return
+  camAspect = aspect
+  // Portrait has far less to spare, and the preview must not push the hero
+  // gallery — the reason anyone is on this screen — below the fold.
+  const cap = Math.min(CAM_MAX_H, innerHeight * (innerHeight > innerWidth ? 0.17 : 0.28))
+  const h = Math.max(64, Math.min(cap, Math.round(width / aspect)))
+  camWrap.style.height = `${h}px`
+  menuCam.width = Math.round(h * aspect)
+  menuCam.height = h
+}
+
+/**
+ * Standing or sitting, read off the camera.
+ *
+ * A player at a desk gives a webcam a torso and two arms; their knees are under
+ * the table, and a pose model does not report them missing, it reports a guess
+ * at the bottom edge of the frame. So the tell is not "are the legs bent" but
+ * "does this body have legs the camera believes in at all", counted over a
+ * couple of seconds rather than off one frame.
+ *
+ * Votes are cast per *inference*, not per rendered frame, so the answer takes
+ * the same couple of seconds however fast the device happens to be.
+ */
+let stanceVotes = 0
+let stanceSeenAt = 0
+function senseStance() {
+  if (stanceIsMine || tracker.laneAt[0] === stanceSeenAt) return
+  stanceSeenAt = tracker.laneAt[0]
+  const sk = liveLanes[0]
+  if (!sk) return
+  const torso = Math.min(sk.leftShoulder.score, sk.rightShoulder.score,
+    sk.leftHip.score, sk.rightHip.score)
+  if (torso < 0.35) return
+  const legs = Math.max(sk.leftKnee.score, sk.rightKnee.score,
+    sk.leftAnkle.score, sk.rightAnkle.score)
+  stanceVotes = Math.max(-8, Math.min(8, stanceVotes + (legs < 0.3 ? 1 : -1)))
+  const guess = stanceVotes >= 4
+  if (guess !== seated) { seated = guess; renderMenu() }
+}
+
+/** Wall-clock ms each lane was last confidently occupied; see below. */
+const menuSeenAt = [0, 0, 0]
+function drawMenuCamera() {
+  const g = menuCam.getContext('2d')
+  if (!g || tracker.video.readyState < 2) return
+  const now = performance.now()
+  fitPreview()
+  const w = menuCam.width, h = menuCam.height
+  const n = playerCount
+  g.save(); g.translate(w, 0); g.scale(-1, 1)
+  g.drawImage(tracker.video, 0, 0, w, h)
+  g.restore()
+  for (let i = 0; i < n; i++) {
+    const x0 = (i / n) * w, lw = w / n
+    const sk = liveLanes[i]
+    // One lane is inferred per frame, so at three players a lane's answer is a
+    // second old by the time the next one arrives. Without a grace period the
+    // three boxes take turns flashing red, which reads as the game losing
+    // people it can see perfectly well.
+    if (sk && sk.leftShoulder.score > 0.3 && sk.rightHip.score > 0.3) menuSeenAt[i] = now
+    const ok = now - menuSeenAt[i] < 2000
+    g.strokeStyle = ok ? '#3ddc97' : 'rgba(255,77,141,.9)'
+    g.lineWidth = 3
+    g.strokeRect(x0 + 2, 2, lw - 4, h - 4)
+    // The label sits on whatever the room happens to look like, so it carries
+    // its own dark ground rather than hoping for one.
+    const label = ok ? `P${i + 1} ✓` : `P${i + 1} — step in`
+    g.font = 'bold 12px system-ui'
+    g.textAlign = 'center'
+    const tw = g.measureText(label).width
+    g.fillStyle = 'rgba(18,12,32,.78)'
+    g.beginPath()
+    g.roundRect(x0 + lw / 2 - tw / 2 - 7, h - 22, tw + 14, 18, 9)
+    g.fill()
+    g.fillStyle = ok ? '#5ff0b3' : '#ff85b3'
+    g.fillText(label, x0 + lw / 2, h - 9)
+  }
+  camHint.textContent = ''
+  camWrap.classList.remove('off')
+}
+
+// ---------------------------------------------------------------- model
+let announceModelBlock: (() => void) | null = null
+const modelBlockReady = new Promise<void>((resolve) => { announceModelBlock = resolve })
+;(window as unknown as Record<string, unknown>).__hmPoseModel = () => {
+  announceModelBlock?.(); announceModelBlock = null
+}
+
+async function loadPoseModelSpec() {
+  if (STREAMED) await modelBlockReady
+  const node = document.getElementById('pose-model')
+  if (node?.textContent) {
+    const spec = JSON.parse(node.textContent)
+    node.remove()
+    return spec
+  }
+  const res = await fetch(new URL('pose-model.json', location.href))
+  if (!res.ok) throw new Error(`pose model unavailable (${res.status})`)
+  return res.json()
+}
+
+let trackerReady: Promise<void> | null = null
+function startLoadingTracker() {
+  trackerReady ??= loadPoseModelSpec().then((spec) => tracker.loadModel(spec))
+  return trackerReady
+}
+
+// ---------------------------------------------------------------- boot
+;(async () => {
+  try {
+    boot.step('Waking up the stage…')
+    await firstHeroReady
+    picks[0] = 0
+    picks[1] = Math.min(1, ROSTER.length - 1)
+    picks[2] = Math.min(2, ROSTER.length - 1)
+    await loadLane(0, picks[0])
+    renderMenu()
+    applyCount()
+    startLoadingTracker()
+      .then(async () => { if (await cameraAlreadyAllowed()) await ensureCamera() })
+      .catch((err) => boot.fail((err as Error).message))
+    play.setPresentation(true)
+    resize()
+    reframe()
+    idleDance()
+    boot.done()
+    ;(window as { __ready?: unknown }).__ready = true
+  } catch (err) {
+    const message = (err as Error).message
+    boot.fail(message)
+    ;(window as { __ready?: unknown }).__ready = `error:${message}`
+  }
+})()
+
+;(window as unknown as Record<string, unknown>).__api = {
+  start: (seed?: number) => beginRun(seed),
+  setPlayers: (n: number) => { playerCount = n; applyCount(); renderMenu() },
+  setLength: (id: LengthId) => { lengthId = id; renderMenu() },
+  /** The round lengths and how long each one really is, for the menu gate. */
+  lengths: () => LENGTHS.map((l) => ({
+    id: l.id, label: l.label, moves: l.moves,
+    seconds: +roundSeconds(l.id, seated).toFixed(2), shown: lengthBlurb(l.id, seated),
+  })),
+  /** Every set the picker offers, so a harness can walk all six. */
+  backdrops: () => BACKDROPS.map((b) => b.id),
+  pick: (lane: number, hero: number) => { picks[lane] = hero; void loadLane(lane, hero); renderMenu() },
+  pause: () => game.pause(clock),
+  resume: () => game.resume(clock),
+  finish: () => game.finish(),
+  menu: () => showMenu(),
+  state: () => game.state,
+  phase: () => game.state.phase,
+  players: () => game.state.players.map((p) => ({ lane: p.lane, score: p.score, seen: p.seen })),
+  setClamp: (s: number) => { stallClamp = s },
+  setSmoothing: (on: boolean) => tracker.setSmoothing(on),
+  seated: () => seated,
+  setSeated: (v: boolean) => { seated = v; stanceIsMine = true; renderMenu() },
+  setTimeScale: (n: number) => {
+    timeScale = n
+    document.documentElement.style.setProperty('--time-scale', String(n))
+  },
+  tracker: () => ({ state: tracker.state, fps: tracker.fps, ms: tracker.lastInferenceMs }),
+  quality: () => ({ degraded, lite: LITE, backdrop: stage.backdropId }),
+  setBackdrop: (id: string) => { backdropId = id; stage.setBackdrop(id); renderMenu() },
+  /** The exact 192x192 picture a lane is judged from, for the crop harness. */
+  laneCrop: (lane: number) => tracker.laneCrop(lane, playerCount),
+  /** That picture plus the skeleton read out of it, so the two can be compared. */
+  laneDebug: (lane: number) => ({
+    at: tracker.laneAt[lane],
+    crop: tracker.laneCrop(lane, playerCount),
+    aspect: tracker.laneAspect,
+    label: classify(tracker.lanes[lane]).pose?.id ?? null,
+    distance: +classify(tracker.lanes[lane]).distance.toFixed(3),
+    points: Object.entries(tracker.lanes[lane]).map(([name, k]) =>
+      ({ name, x: +k.x.toFixed(3), y: +k.y.toFixed(3), s: +k.score.toFixed(2) })),
+  }),
+  /** The routine a given length and seed produces, for the lane gate. */
+  routine: (length: LengthId, seed: number) => {
+    const song = makeRoutine(LENGTHS.find((l) => l.id === length)?.moves ?? 16, seed)
+    return {
+      bpm: song.bpm, leadInBeats: song.leadInBeats, totalBeats: song.totalBeats,
+      slots: song.slots.map((s) => ({ id: s.move.id, startBeat: s.startBeat, beats: s.beats })),
+    }
+  },
+  /**
+   * Every visible hero's world-space bounding box, for the overlap gate.
+   *
+   * Two heroes sharing the same cubic metre of stage was a shipped bug and a
+   * bad one — three-year-olds' characters growing out of each other — so it is
+   * read straight out of the live scene rather than recomputed from the numbers
+   * that put them there. tools/screenaudit.mjs rule 3 asserts these boxes are
+   * clear of each other on X at every player count, stance, length and stage.
+   */
+  heroBoxes: () => lanes.slice(0, playerCount).map((l, i) => {
+    if (!l.hero) return null
+    l.root.updateMatrixWorld(true)
+    const b = new THREE.Box3().setFromObject(l.root)
+    const round = (v: THREE.Vector3) => [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]
+    return { lane: i, min: round(b.min), max: round(b.max), width: +l.hero.width.toFixed(3) }
+  }),
+  /** Hero measurements and the solved camera, for the framing harnesses. */
+  debugFraming: () => ({
+    heroes: lanes.slice(0, playerCount).map((l) => l.hero && {
+      h: +l.hero.height.toFixed(2), w: +l.hero.width.toFixed(2),
+    }),
+    camera: { z: +play.camera.position.z.toFixed(2), fov: play.camera.fov },
+  }),
+  /**
+   * What each lane is currently doing, as a vocabulary label. A recording uses
+   * it to line the game's clock up with a pre-rendered camera feed: the feed
+   * opens on a marker pose, and the round is started the frame it appears.
+   */
+  laneLabels: () => liveLanes.map((sk, i) => {
+    const c = sk ? classify(sk) : null
+    return {
+      pose: c?.pose?.id ?? null,
+      distance: c ? +c.distance.toFixed(3) : null,
+      margin: c ? +c.margin.toFixed(3) : null,
+      runnerUp: c?.runnerUp?.id ?? null,
+      conf: sk ? +bodyConfidence(sk).toFixed(2) : null,
+      wrists: sk ? [+sk.leftWrist.score.toFixed(2), +sk.rightWrist.score.toFixed(2)] : null,
+      at: tracker.laneAt[i],
+    }
+  }),
+  ready: () => tracker.state,
+  wake: () => ensureCamera(),
+  /** Milliseconds of camera playback, for lining a recording up with a feed. */
+  camClock: () => performance.now() - tracker.streamStartedAt,
+  /** Have the clips finished loading on every visible lane? */
+  clipsReady: () => lanes.slice(0, playerCount).every((l) => !!l.anim?.has('backflip')),
+  /** Play one clip on one lane, for the clip-framing gate. */
+  perform: (clip: string, lane = 0) => lanes[lane]?.anim?.play(clip),
+  /**
+   * Harness hook: put a screen up without a camera.
+   *
+   * The contrast and fit checks care about what the DOM looks like, not about
+   * whether anyone is dancing, and making them each stand up a fake webcam
+   * would mean the screens nobody can reach without one never get audited.
+   */
+  stage: (phase: PartyPhase) => {
+    for (let i = 0; i < playerCount; i++) lanes[i].anim?.stop()
+    hud.resetStrip(); hud.sizeCamera(playerCount, tracker.laneAspect)
+    lastBeat = Number.NEGATIVE_INFINITY
+    game.start(clock, picks.slice(0, playerCount), lengthId, 4242, seated)
+    if (phase === 'paused') game.pause(clock)
+    if (phase === 'results') game.finish()
+  },
+  summary: () => game.ranking.map((p) => ({
+    lane: p.lane + 1,
+    hero: ROSTER[p.heroIndex]?.name ?? '?',
+    score: Math.round(p.score),
+    accuracy: +(game.accuracy(p) * 100).toFixed(1),
+    bestCombo: p.bestCombo,
+    grades: p.results.map((r) => r.grade),
+  })),
+}

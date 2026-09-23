@@ -1,0 +1,408 @@
+/*
+ * Hero Moves — stage-light interface.
+ *
+ * The set is a dark theatre so the brightly-drawn hero pops off it, which means
+ * the UI is light-on-dark and has to stay out of the middle of the frame: the
+ * centre belongs to the avatar's face. Everything is pushed to the edges, and
+ * anything that needs attention arrives as a card that leaves again.
+ *
+ * One spacing scale, one type scale, one accent. Numbers are tabular so a score
+ * ticking upward does not jitter.
+ */
+
+:root {
+  --ink: #17101f;
+  --paper: #fdf7ec;
+  --stage: #241b3d;
+  --stage-deep: #150f26;
+  --gold: #ffd23f;
+  --pop: #ff4d8d;
+  --mint: #3ddc97;
+  --sky: #56b8ff;
+  --grape: #9b6bd6;
+  /* Accents come in two weights: the bright one for dark stage backgrounds,
+     the deep one for text sitting on paper. Never use the bright one on paper —
+     #9b6bd6 on #fdf7ec is 3.4:1, which reads as a smudge on a phone. */
+  --grape-ink: #6a3ba8;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 14px;
+  --space-4: 22px;
+  --space-5: 34px;
+
+  --radius: 18px;
+  /*
+   * UI animation is timed against the game clock, not wall-clock, so a run
+   * captured in slow motion and sped back up shows the same beat a player
+   * sees. Without it a grade pop lasts a quarter of a second in the finished
+   * footage and nobody ever sees their score land.
+   */
+  --time-scale: 1;
+  --ui: clamp(14px, 1.7vmin, 18px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--stage-deep); color: var(--paper);
+  font-family: "Baloo 2", ui-rounded, "Segoe UI Rounded", "Nunito", system-ui, sans-serif;
+  font-size: var(--ui);
+  touch-action: none; user-select: none; overscroll-behavior: none;
+}
+
+#app { position: fixed; inset: 0; }
+canvas { display: block; width: 100%; height: 100%; }
+
+.layer {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+  padding: var(--space-4);
+}
+.layer.sheet {
+  pointer-events: auto;
+  background: radial-gradient(120% 90% at 50% 55%, rgba(21,15,38,.35), rgba(21,15,38,.88));
+}
+
+/* ---------------------------------------------------------------- type */
+h1 {
+  margin: 0; line-height: .9; font-weight: 800;
+  font-size: clamp(34px, 7vmin, 68px);
+  letter-spacing: -.015em;
+  color: var(--paper);
+  text-wrap: balance;
+}
+/* Cards are paper, so type inside them flips to ink. */
+.card h1 { color: var(--ink); }
+.card h1 em { color: var(--grape-ink); }
+h1 em {
+  font-style: normal; display: block; color: var(--gold);
+  font-size: .52em; letter-spacing: .18em; margin-bottom: .35em;
+}
+h2 { margin: 0; font-size: clamp(19px, 3vmin, 28px); font-weight: 800; }
+.tag { margin: 0; font-weight: 600; opacity: .78; font-size: clamp(13px, 1.9vmin, 16px); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- chrome */
+.card {
+  /* Opaque. At 97% the sticky footer behind the buttons, which paints the same
+     colour again, stacked to a paler rectangle that read as a bug. */
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  width: min(500px, 92vw);
+  max-height: 92vh;
+  overflow: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08);
+  display: flex; flex-direction: column; gap: var(--space-3);
+  text-align: center;
+}
+
+.btn {
+  pointer-events: auto; cursor: pointer;
+  font: inherit; font-weight: 800;
+  font-size: clamp(16px, 2.3vmin, 21px);
+  padding: .62em 1.5em; width: 100%;
+  color: var(--ink); background: var(--gold);
+  border: 0; border-radius: 999px;
+  transition: transform .08s ease, filter .15s ease;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:active { transform: translateY(2px); }
+.btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+.btn.secondary { background: rgba(23,16,31,.08); color: var(--ink); }
+.actions { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Which of the two heroes a tap in the grid applies to. */
+.segmented { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(23,16,31,.09); }
+.seg {
+  /* min-width: 0 or the longest label sets the floor and the row overflows its
+     card: measured at 320x480, "Long / 1:15" pushed 2px past the right edge and
+     was clipped. A segmented control divides the space it has. */
+  pointer-events: auto; cursor: pointer; flex: 1 1 0; min-width: 0; overflow: hidden;
+  font: inherit; font-weight: 800; font-size: clamp(12px, 1.8vmin, 15px);
+  padding: .45em .6em; border: 0; border-radius: 999px;
+  background: transparent; color: rgba(23,16,31,.62);
+}
+.seg.on { background: var(--paper); color: var(--ink); box-shadow: 0 2px 8px rgba(23,16,31,.18); }
+.seg:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+.picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.pick {
+  pointer-events: auto; cursor: pointer;
+  font: inherit; font-weight: 700; font-size: clamp(10px, 1.5vmin, 12px);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 4px; border: 0; border-radius: 14px;
+  background: rgba(23,16,31,.07); color: var(--ink);
+}
+.pick img { border-radius: 10px; }
+.pick.on { outline: 3px solid var(--pop); background: rgba(255,77,141,.1); }
+/* Already cast in the other role — still choosable, just marked. */
+.pick.taken { opacity: .45; }
+.pick:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+.scorelist { display: flex; flex-direction: column; gap: 2px; }
+
+/* ---------------------------------------------------------------- hud */
+#hud { justify-content: flex-start; }
+/* Readouts live over the dark curtain, but a pale hero can drift under them. */
+#hud::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 22%;
+  background: linear-gradient(rgba(18,12,32,.62), transparent);
+  pointer-events: none;
+}
+.hud-top {
+  width: 100%; display: flex; align-items: flex-start;
+  justify-content: space-between; gap: var(--space-3);
+}
+
+.readout { display: flex; flex-direction: column; gap: 2px; }
+.readout .label {
+  font-size: clamp(9px, 1.3vmin, 11px); font-weight: 800;
+  letter-spacing: .16em; text-transform: uppercase; opacity: .78;
+}
+.readout .value {
+  font-size: clamp(26px, 4.4vmin, 46px); font-weight: 800; line-height: 1;
+  text-shadow: 0 2px 12px rgba(0,0,0,.5);
+}
+.readout.right { align-items: flex-end; }
+.readout .value.small { font-size: clamp(17px, 2.6vmin, 26px); }
+
+/*
+ * The move strip.
+ *
+ * Stick figures slide right to left toward a marker; the one sitting on the
+ * marker is the move being scored right now. This is what lets the routine run
+ * continuously instead of stopping to tell you what is coming — Just Dance's
+ * pictogram row, and the same reason it exists there.
+ */
+#strip {
+  position: absolute; left: 0; right: 0; bottom: clamp(14px, 3.4vh, 34px);
+  height: clamp(66px, 13vh, 104px);
+  pointer-events: none;
+  /* One beat of travel. Everything on the strip is positioned in multiples of
+     this, so the spacing on screen is the spacing in the music. */
+  --beat: clamp(26px, 4.6vh, 46px);
+}
+/* The strip crosses the stage floor, which is cream. Give it a ground. */
+#strip::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -18%; bottom: -60%;
+  background: linear-gradient(rgba(18,12,32,0), rgba(18,12,32,.82) 28%, rgba(18,12,32,.92));
+}
+#stripInner { position: absolute; inset: 0; }
+
+/*
+ * The now line.
+ *
+ * A line, not a box. A box has width, so two tiles could sit inside it at once
+ * and neither one meant "do it now". A line is crossed at an instant, which is
+ * exactly the information the player needs.
+ */
+#stripLine {
+  position: absolute; left: 26%; top: -10%; bottom: -10%; width: 4px;
+  transform: translateX(-50%);
+  background: linear-gradient(rgba(255,210,63,.35), var(--gold) 22%, var(--gold) 78%, rgba(255,210,63,.35));
+  box-shadow: 0 0 18px 3px rgba(255,210,63,.5);
+  border-radius: 3px;
+}
+#stripLine::before, #stripLine::after {
+  content: ''; position: absolute; left: 50%; width: 0; height: 0;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+}
+#stripLine::before { top: -1px; border-top: 8px solid var(--gold); }
+#stripLine::after { bottom: -1px; border-bottom: 8px solid var(--gold); }
+
+.tile {
+  position: absolute; left: 26%; top: 50%;
+  width: clamp(50px, 9.5vh, 80px); height: clamp(50px, 9.5vh, 80px);
+  display: grid; place-items: center;
+}
+.tile .shape {
+  width: 100%; height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.75));
+}
+/* One-shot as the tile crosses the line: the moment that means "now". */
+.tile.hit .shape { animation: tileHit calc(.42s / var(--time-scale)) ease-out; }
+@keyframes tileHit {
+  0% { transform: scale(1); filter: drop-shadow(0 2px 6px rgba(0,0,0,.75)); }
+  22% { transform: scale(1.32); filter: drop-shadow(0 0 16px rgba(255,210,63,.95)); }
+  100% { transform: scale(1); filter: drop-shadow(0 2px 6px rgba(0,0,0,.75)); }
+}
+#moveName {
+  position: absolute; left: 26%; bottom: -1.5em; transform: translateX(-50%);
+  font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  font-size: clamp(10px, 1.5vmin, 13px); color: var(--gold);
+  text-shadow: 0 2px 10px rgba(0,0,0,.8); white-space: nowrap;
+}
+
+/*
+ * Nameplates. The whole fix for "who is imitating whom" is that the two
+ * performers never swap jobs — these just say so out loud on the first run.
+ */
+.nameplate {
+  position: absolute; left: 0; top: 0;
+  padding: .28em .7em; border-radius: 999px;
+  font-size: clamp(9px, 1.4vmin, 12px); font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase;
+  white-space: nowrap; transition: opacity .2s;
+  box-shadow: 0 4px 14px rgba(0,0,0,.5);
+}
+.nameplate::before { opacity: .8; }
+.nameplate.leader { background: rgba(18,12,32,.86); color: var(--gold); }
+.nameplate.leader::before { content: 'follow · '; }
+.nameplate.player { background: var(--gold); color: var(--ink); }
+.nameplate.player::before { content: 'you · '; }
+
+
+/* Grade pop. */
+/*
+ * The grade pop is the one piece of text with nowhere safe to live: it lands
+ * wherever the hero and the stage floor happen to be, and the floor is cream.
+ * So it carries its own dark ground as a stroke rather than relying on one.
+ */
+#grade {
+  position: absolute; left: 50%; bottom: 17%; transform: translateX(-50%);
+  font-weight: 800; font-size: clamp(30px, 6vmin, 64px);
+  letter-spacing: .02em; opacity: 0; white-space: nowrap;
+  -webkit-text-stroke: 7px rgba(16,10,28,.92);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 28px rgba(0,0,0,.75);
+}
+#grade.show { animation: gradePop calc(1s / var(--time-scale)) ease-out; }
+@keyframes gradePop {
+  0% { opacity: 0; transform: translateX(-50%) scale(.7); }
+  18% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+  70% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-28px) scale(1); }
+}
+
+/*
+ * The count-in lands in the middle of the frame, which by then is full of
+ * heroes — gold on a bear is gold on a bear. Like the grade pop, it carries its
+ * own ground as a stroke instead of hoping for one.
+ */
+#countdownLayer { justify-content: flex-start; padding-top: 12vh; }
+#countdown {
+  font-weight: 800; font-size: clamp(72px, 17vmin, 170px);
+  color: var(--gold);
+  -webkit-text-stroke: 10px rgba(16,10,28,.92);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 40px rgba(0,0,0,.75);
+}
+/* Each number only has one beat on screen, so it is fully opaque a quarter of
+   the way in and spends the rest of its life settling. Fading across the whole
+   beat left it half-transparent for most of the time anyone was looking. */
+#countdown span { display: block; animation: cd calc(.5s / var(--time-scale)) ease-out; }
+@keyframes cd {
+  0% { transform: scale(1.8); opacity: 0; }
+  26% { opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ---------------------------------------------------------------- camera */
+#camPanel {
+  position: absolute; right: var(--space-4); bottom: clamp(20px, 4.2vh, 40px);
+  border-radius: 12px; overflow: hidden;
+  width: clamp(176px, 26vmin, 300px); aspect-ratio: 4 / 3;
+  background: rgba(0,0,0,.45);
+  box-shadow: 0 0 0 2px rgba(253,247,236,.22), 0 8px 24px rgba(0,0,0,.5);
+}
+#camPanel canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#camBadge {
+  position: absolute; left: 0; right: 0; bottom: 0; white-space: nowrap;
+  padding: 6px 8px; font-size: clamp(9px, 1.2vmin, 11px); font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  background: linear-gradient(transparent, rgba(0,0,0,.85));
+  display: flex; justify-content: space-between; gap: 4px;
+}
+#camPanel.lost { box-shadow: 0 0 0 2px var(--pop), 0 8px 24px rgba(0,0,0,.5); }
+
+/* ---------------------------------------------------------------- results */
+.scoreline {
+  display: grid; grid-template-columns: 1fr auto auto auto;
+  gap: var(--space-2); align-items: center;
+  padding: .34em .6em; border-radius: 10px;
+  font-weight: 700; font-size: clamp(12px, 1.8vmin, 15px);
+}
+.scoreline:nth-child(odd) { background: rgba(23,16,31,.06); }
+.scoreline .g { font-weight: 800; }
+.scoreline .beat { font-size: .82em; opacity: .7; letter-spacing: .04em; }
+.g-PERFECT { color: #d81b60; }
+.g-GREAT { color: #0f9d58; }
+.g-GOOD { color: #1a73e8; }
+.g-OK { color: #b26a00; }
+.g-MISS { color: #6b6b6b; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.stat {
+  background: rgba(23,16,31,.06); border-radius: 12px; padding: .5em .3em;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.stat b { font-size: clamp(18px, 3vmin, 28px); font-variant-numeric: tabular-nums; }
+.stat span {
+  font-size: clamp(9px, 1.3vmin, 11px); opacity: .8;
+  font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+}
+
+.hint { margin: 0; font-size: clamp(11px, 1.6vmin, 13px); opacity: .78; font-weight: 600; line-height: 1.5; }
+
+/* ---------------------------------------------------------------- boot */
+#boot {
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(90% 70% at 50% 40%, #3a2a5e, var(--stage-deep));
+  transition: opacity .45s ease;
+}
+#boot.gone { opacity: 0; pointer-events: none; }
+.boot-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); width: min(360px, 82vw); }
+.boot-title { font-weight: 800; font-size: clamp(28px, 6vmin, 46px); letter-spacing: -.01em; }
+.boot-title em { font-style: normal; color: var(--gold); }
+.boot-dots { display: flex; gap: 9px; height: 16px; align-items: flex-end; }
+.boot-dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--grape); animation: hop .7s infinite ease-in-out; }
+.boot-dots i:nth-child(2) { animation-delay: .11s; background: var(--sky); }
+.boot-dots i:nth-child(3) { animation-delay: .22s; background: var(--gold); }
+@keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-10px); } }
+.boot-bar { width: 100%; height: 8px; border-radius: 999px; background: rgba(253,247,236,.16); overflow: hidden; }
+#bootFill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--pop)); transition: width .35s ease; }
+#bootFill.indeterminate { width: 34%; animation: drift 1.4s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translateX(-60%); } to { transform: translateX(180%); } }
+#bootWhat { font-size: clamp(11px, 1.6vmin, 13px); opacity: .85; font-weight: 700; min-height: 1.3em; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-dots i, #bootFill, #grade.show, #countdown span { animation: none; }
+}
+
+/* ---------------------------------------------------------------- responsive */
+/* Landscape: the card takes the left, the hero performs on the right. */
+@media (orientation: landscape) {
+  #title, #results { align-items: flex-start; padding-left: clamp(20px, 6vw, 96px); }
+  .card { width: min(430px, 44vw); }
+}
+@media (orientation: portrait) {
+  #title, #results { justify-content: flex-end; padding-bottom: clamp(12px, 3vh, 28px); }
+  .card { width: min(460px, 92vw); max-height: 72vh; }
+  /* A phone has one column, and the hero owns it. The move plate takes the
+     foot of the screen; the camera goes up into the top corner against the
+     curtain, where it covers backdrop rather than the performer. */
+  #camPanel {
+    position: absolute; right: var(--space-3); top: clamp(64px, 11vh, 96px);
+    width: clamp(88px, 27vw, 132px);
+  }
+  /* No room for the throughput readout next to the state; the state wins. */
+  #camBadge { padding: 3px 5px; font-size: 8px; letter-spacing: .06em; }
+  #camBadge .num { display: none; }
+  #grade { bottom: 28%; }
+}
+@media (max-height: 620px) {
+  .card { padding: var(--space-3) var(--space-4); gap: var(--space-2); }
+  h1 { font-size: clamp(26px, 5.4vmin, 40px); }
+  .btn { font-size: clamp(14px, 2vmin, 18px); padding: .5em 1.2em; }
+  .stat b { font-size: clamp(15px, 2.4vmin, 21px); }
+  .hint { display: none; }
+}

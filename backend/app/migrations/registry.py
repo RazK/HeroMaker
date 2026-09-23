@@ -7,6 +7,7 @@ from app.migrations import m004_coupon_max_uses
 from app.migrations import m005_user_name_dob
 from app.migrations import m006_tokens_to_credits
 from app.migrations import m007_coupon_multiple_per_user
+from app.migrations import m008_financial_spine
 
 
 # Register all migrations in order
@@ -19,6 +20,7 @@ MIGRATIONS = [
     ("005_user_name_dob", m005_user_name_dob.migrate),
     ("006_tokens_to_credits", m006_tokens_to_credits.migrate),
     ("007_coupon_multiple_per_user", m007_coupon_multiple_per_user.migrate),
+    ("008_financial_spine", m008_financial_spine.migrate),
 ]
 
 

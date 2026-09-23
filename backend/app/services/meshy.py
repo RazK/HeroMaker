@@ -10,6 +10,9 @@ import base64
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 from app.config.settings import MESHY_API_KEY
+from app.config import pricing
+from app.services import usage as usage_service
+from app.services.usage import UsageContext
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +123,8 @@ class MeshyClient:
         pose_mode: Optional[str] = None,
         texture_prompt: Optional[str] = None,
         texture_image_url: Optional[str] = None,
-        moderation: bool = False
+        moderation: bool = False,
+        usage: Optional[UsageContext] = None
     ) -> str:
         """
         Create an image-to-3D model generation task.
@@ -173,8 +177,34 @@ class MeshyClient:
         if moderation:
             data["moderation"] = moderation
         
-        response = self._request("POST", "/openapi/v1/image-to-3d", json=data)
-        return response.get("result")
+        # COST CAPTURE. This is the expensive one: 20 Meshy credits, ~$0.40 at
+        # the Pro rate, roughly 70% of the cost of a hero. The cost is incurred
+        # the moment Meshy accepts the task, so the row is written here - not
+        # when the model finally downloads, which may be five minutes and one
+        # server restart later.
+        #
+        # finalize_on_success=False: acceptance is not success. The event stays
+        # "submitted" with the full price booked until the pipeline's poller
+        # learns whether the task SUCCEEDED or FAILED and calls
+        # usage_service.finalize_usage_by_provider_ref().
+        with usage_service.track(
+            usage,
+            pricing.PROVIDER_MESHY,
+            pricing.OP_MESHY_IMAGE_TO_3D,
+            quantity=1,
+            metadata={
+                "should_texture": should_texture,
+                "should_remesh": should_remesh,
+                "enable_pbr": enable_pbr,
+                "ai_model": ai_model,
+                "pose_mode": pose_mode,
+            },
+            finalize_on_success=False,
+        ) as call:
+            response = self._request("POST", "/openapi/v1/image-to-3d", json=data)
+            task_id = response.get("result")
+            call.provider_ref = task_id
+        return task_id
     
     def get_image_to_3d_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of image-to-3D task."""
@@ -194,7 +224,8 @@ class MeshyClient:
         topology: Optional[str] = None,
         target_polycount: Optional[int] = None,
         resize_height: Optional[float] = None,
-        origin_at: Optional[str] = None
+        origin_at: Optional[str] = None,
+        usage: Optional[UsageContext] = None
     ) -> str:
         """
         Create a remesh task.
@@ -223,8 +254,18 @@ class MeshyClient:
         if origin_at:
             data["origin_at"] = origin_at
         
-        response = self._request("POST", "/openapi/v1/remesh", json=data)
-        return response.get("result")
+        # Recorded at zero cost: the pipeline remeshes inside the image-to-3d
+        # task (should_remesh=True), so this endpoint is not on the hot path.
+        # The row exists so that the day someone starts calling it, the volume
+        # shows up in the report instead of vanishing.
+        with usage_service.track(
+            usage, pricing.PROVIDER_MESHY, pricing.OP_MESHY_REMESH,
+            finalize_on_success=False,
+        ) as call:
+            response = self._request("POST", "/openapi/v1/remesh", json=data)
+            task_id = response.get("result")
+            call.provider_ref = task_id
+        return task_id
     
     def get_remesh_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of remesh task."""
@@ -239,7 +280,8 @@ class MeshyClient:
         image_style_url: Optional[str] = None,
         ai_model: Optional[str] = None,
         enable_original_uv: bool = False,
-        enable_pbr: bool = False
+        enable_pbr: bool = False,
+        usage: Optional[UsageContext] = None
     ) -> str:
         """
         Create a retexture task.
@@ -274,8 +316,15 @@ class MeshyClient:
         if enable_pbr:
             data["enable_pbr"] = enable_pbr
         
-        response = self._request("POST", "/openapi/v1/retexture", json=data)
-        return response.get("result")
+        # See create_remesh_task: recorded at zero, off the hot path today.
+        with usage_service.track(
+            usage, pricing.PROVIDER_MESHY, pricing.OP_MESHY_RETEXTURE,
+            finalize_on_success=False,
+        ) as call:
+            response = self._request("POST", "/openapi/v1/retexture", json=data)
+            task_id = response.get("result")
+            call.provider_ref = task_id
+        return task_id
     
     def get_retexture_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of retexture task."""
@@ -283,19 +332,35 @@ class MeshyClient:
     
     # Rigging Methods
     
-    def create_rigging_task(self, input_task_id: str) -> str:
+    def create_rigging_task(
+        self,
+        input_task_id: str,
+        usage: Optional[UsageContext] = None
+    ) -> str:
         """
         Create a rigging task.
         
         Args:
             input_task_id: Task ID from previous step
+            usage: Optional cost-attribution context.
         
         Returns:
             Task ID (this is a rig_task_id, different from regular task_id)
         """
         data = {"input_task_id": input_task_id}
-        response = self._request("POST", "/openapi/v1/rigging", json=data)
-        return response.get("result")
+        # Auto-rigging is free today (pricing.MESHY_RIG_CREDITS == 0). It is
+        # recorded anyway, at zero, because free is a price and prices change:
+        # the day Meshy starts charging for rigging, this becomes a one-line
+        # edit in pricing.py and every historical call is already counted.
+        with usage_service.track(
+            usage, pricing.PROVIDER_MESHY, pricing.OP_MESHY_RIGGING,
+            metadata={"input_task_id": input_task_id},
+            finalize_on_success=False,
+        ) as call:
+            response = self._request("POST", "/openapi/v1/rigging", json=data)
+            task_id = response.get("result")
+            call.provider_ref = task_id
+        return task_id
     
     def get_rigging_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of rigging task."""
@@ -303,7 +368,12 @@ class MeshyClient:
     
     # Animation Methods
     
-    def create_animation_task(self, rig_task_id: str, action_id: str = "idle") -> str:
+    def create_animation_task(
+        self,
+        rig_task_id: str,
+        action_id: str = "idle",
+        usage: Optional[UsageContext] = None
+    ) -> str:
         """
         Create an animation task.
         
@@ -318,8 +388,15 @@ class MeshyClient:
             "rig_task_id": rig_task_id,
             "action_id": action_id
         }
-        response = self._request("POST", "/openapi/v1/animations", json=data)
-        return response.get("result")
+        with usage_service.track(
+            usage, pricing.PROVIDER_MESHY, pricing.OP_MESHY_ANIMATION,
+            metadata={"action_id": action_id},
+            finalize_on_success=False,
+        ) as call:
+            response = self._request("POST", "/openapi/v1/animations", json=data)
+            task_id = response.get("result")
+            call.provider_ref = task_id
+        return task_id
     
     def get_animation_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of animation task."""
@@ -403,30 +480,44 @@ class MeshyClient:
 
 # Convenience functions for pipeline tasks
 
-def create_image_to_3d_task(image_path: Path, pose_mode: str = "t-pose") -> str:
+def create_image_to_3d_task(
+    image_path: Path,
+    pose_mode: str = "t-pose",
+    usage: Optional[UsageContext] = None
+) -> str:
     """Wrapper for creating image-to-3D task."""
     client = MeshyClient()
-    return client.create_image_to_3d_task(image_path, pose_mode=pose_mode)
+    return client.create_image_to_3d_task(image_path, pose_mode=pose_mode, usage=usage)
 
-def create_remesh_task(input_task_id: str) -> str:
+def create_remesh_task(input_task_id: str, usage: Optional[UsageContext] = None) -> str:
     """Wrapper for creating remesh task."""
     client = MeshyClient()
-    return client.create_remesh_task(input_task_id)
+    return client.create_remesh_task(input_task_id, usage=usage)
 
-def create_retexture_task(input_task_id: str, text_style_prompt: Optional[str] = None) -> str:
+def create_retexture_task(
+    input_task_id: str,
+    text_style_prompt: Optional[str] = None,
+    usage: Optional[UsageContext] = None
+) -> str:
     """Wrapper for creating retexture task."""
     client = MeshyClient()
-    return client.create_retexture_task(input_task_id, text_style_prompt=text_style_prompt)
+    return client.create_retexture_task(
+        input_task_id, text_style_prompt=text_style_prompt, usage=usage
+    )
 
-def create_rigging_task(input_task_id: str) -> str:
+def create_rigging_task(input_task_id: str, usage: Optional[UsageContext] = None) -> str:
     """Wrapper for creating rigging task."""
     client = MeshyClient()
-    return client.create_rigging_task(input_task_id)
+    return client.create_rigging_task(input_task_id, usage=usage)
 
-def create_animation_task(rig_task_id: str, action_id: str = "idle") -> str:
+def create_animation_task(
+    rig_task_id: str,
+    action_id: str = "idle",
+    usage: Optional[UsageContext] = None
+) -> str:
     """Wrapper for creating animation task."""
     client = MeshyClient()
-    return client.create_animation_task(rig_task_id, action_id)
+    return client.create_animation_task(rig_task_id, action_id, usage=usage)
 
 def poll_and_download_task(task_id: str, output_path: Path, status_func, poll_interval: int = 10) -> Path:
     """
