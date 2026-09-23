@@ -75,6 +75,29 @@ is ever committed.
 Service and environment IDs come from `devops/railway/project.json`. Tests:
 `.venv/bin/python devops/scripts/test_railway_env.py`.
 
+## Railway: where the IDs live
+
+**`devops/railway/project.json` is the only place any Railway ID is written.**
+Project, services, environments — all of it. Read it; never copy a value out of
+it into another file, a doc, a workflow or a test. Both environment IDs in it
+were wrong for weeks precisely because copies drift and nothing notices.
+
+The workflows resolve IDs through `railway-config.yml`, and
+`devops/scripts/test_railway_env.py` derives them with `tool.load_project()`.
+Keep it that way: a hard-coded ID in a test asserts the registry back at itself
+and cannot fail.
+
+A deploy that dies one second in with
+
+```
+Environment "<id>" not found.
+```
+
+means that ID is wrong, and nothing else. **Do not ask a human and do not
+guess**: open the project URL in `project.json`, switch the environment
+dropdown, and read `environmentId=` out of the address bar. Service IDs appear
+in the URL the same way. Then fix `project.json` — only `project.json`.
+
 ## Deployments
 
 **A merge to `main` goes to staging. Production needs a human to approve it.**

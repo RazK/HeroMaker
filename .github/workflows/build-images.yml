@@ -207,6 +207,10 @@ jobs:
       # why two attempts at --environment failed before this was understood.
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
       TARGET_ENVIRONMENT: ${{ needs.config.outputs.staging }}
+      # Booleans, never the values: GitHub cannot list its own secrets back, so
+      # this is how a run reports which of the two are actually configured.
+      STAGING_TOKEN_SET: ${{ secrets.RAILWAY_STAGING_TOKEN != '' }}
+      PRODUCTION_TOKEN_SET: ${{ secrets.RAILWAY_TOKEN != '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -226,6 +230,10 @@ jobs:
       # and in `|| true` because the diagnosis must not replace the real error.
       - name: Preflight — what can this token reach?
         run: |
+          echo "Secrets configured on this repository:"
+          echo "  RAILWAY_STAGING_TOKEN (staging):    ${STAGING_TOKEN_SET}"
+          echo "  RAILWAY_TOKEN (production):         ${PRODUCTION_TOKEN_SET}"
+          echo ""
           echo "::group::railway whoami"
           timeout 30 railway whoami 2>&1 || true
           echo "::endgroup::"

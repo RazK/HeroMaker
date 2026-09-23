@@ -59,17 +59,21 @@ const common = {
 }
 
 const builds = [
-  // The one the pages ask for first: three and @pixiv/three-vrm stay external
-  // and the import map in each concept resolves them from cdn.jsdelivr.net.
+  // The readable one: three and @pixiv/three-vrm stay external, so this is
+  // what you read to see what the engine is. The pages no longer load it -
+  // it needs an import map pointing at a CDN, and a page whose claim is "it
+  // really moves" must not depend on one.
   {
     ...common,
     external: ['three', 'three/*', '@pixiv/three-vrm', '@pixiv/three-vrm-animation'],
     banner: { js: banner('three and @pixiv/three-vrm come from the CDN via the page import map.') },
     outfile: join(HERE, 'hero-card-engine.js'),
   },
-  // The one it falls back to when the CDN is unreachable — behind a corporate
-  // proxy, on a plane, or in CI. Same source, dependencies bundled in, so the
-  // mockups animate from a folder with no network at all.
+  // The one every concept actually loads. Same source, dependencies bundled
+  // in, so the pages animate from a folder with no network at all. It used to
+  // be the fallback; on a real Android phone the fallback did not fire and the
+  // cards sat on their stills, so it is now the only path. anim-check.mjs
+  // re-proves that with cdn.jsdelivr.net blocked.
   {
     ...common,
     minify: true,

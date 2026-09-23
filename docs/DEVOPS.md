@@ -116,12 +116,11 @@ Merge strategy: commit → push → rebase on GitHub.
 
 ### Environments
 
-One Railway project, two environments:
-
-| Environment | ID |
-|---|---|
-| staging | `e0d14c8f-54d8-4eb9-a510-b43bf81f57d1` |
-| production | `fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1` |
+One Railway project, two environments: `staging` and `production`.
+Their IDs, the project's and the services' live in
+[`devops/railway/project.json`](../devops/railway/project.json), which is
+the only place they are written down — deliberately, because this file used
+to carry a second copy and both IDs in it were wrong.
 
 Both run the same three services. Their environment variables are **not**
 maintained separately — they come from the layered files in

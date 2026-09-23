@@ -131,7 +131,7 @@ while `railway status` reports
 ```
 Project:         hero-maker
 Environment:     production
-Environment ID:  4e1101f9-bd77-4292-bd74-f1c6b9ec5522
+Environment ID:  <production's ID, as recorded in project.json>
 ```
 
 A token scoped to one environment cannot deploy to another **under any name**,
@@ -161,15 +161,17 @@ Production is unaffected throughout: it uses the token it always used.
 
 ### The environment IDs in `project.json` were wrong
 
-The IDs originally recorded for both environments appear nowhere in the
-`hero-maker` project — the run above found production's real ID to be
-`4e1101f9-…`, not what was recorded. Production's is now the verified value.
-Staging's is `null` and marked `id_unverified`, because a production-scoped
-token cannot see it.
+Neither ID originally recorded for the two environments appears anywhere in
+the `hero-maker` project — the preflight above read production's real one
+straight out of `railway status`, and it was not the recorded value. Both have
+since been re-derived from the dashboard.
 
-This costs nothing operationally: the CLI addresses environments by **name**,
-so the IDs are documentation. But do not trust them as identifiers until a
-staging-scoped token can confirm them.
+They are not repeated here, or anywhere else in the tree: `railway-env.sh
+check` fails on a second copy of any Railway ID, because a copy cannot
+disagree with the original and so can never catch an error — which is exactly
+how both IDs stayed wrong for weeks with every copy agreeing with them.
+`devops/railway/project.json` is the one place to read and the one place to
+fix.
 
 Environment variables are separate and documented in
 [`devops/railway/env/README.md`](../../devops/railway/env/README.md). They are

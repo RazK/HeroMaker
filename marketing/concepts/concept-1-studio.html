@@ -3,650 +3,225 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HeroMaker — Your child's drawing, rebuilt as a real 3D hero</title>
+<title>HeroMaker — Your child's drawing, standing up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="chapters.css">
 <style>
-  :root{
-    --bg:#08080A;
-    --panel:#101014;
-    --panel-2:#15151B;
-    --panel-3:#1B1B22;
-    --line:rgba(255,255,255,0.09);
-    --line-strong:rgba(255,255,255,0.16);
-    --ink:#F2F2F5;
-    --ink-2:#A9A9B6;
-    --accent:#FA5197;
-    --accent-2:#FDD119;
-    --display:'Barriecito','Comic Sans MS',system-ui,cursive;
-    --accent-soft:#FF8FC4;
-    --radius:16px;
-    --maxw:1180px;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);}
-  body{
-    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
-    color:var(--ink);
-    -webkit-font-smoothing:antialiased;
-    font-size:16px;
-    line-height:1.55;
-    overflow-x:hidden;
-  }
-  img,svg{max-width:100%;display:block}
-  a{color:inherit}
-  .wrap{width:100%;max-width:var(--maxw);margin:0 auto;padding-left:16px;padding-right:16px}
-  .eyebrow{
-    font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;
-    color:var(--accent-soft);margin:0 0 18px;
-  }
-  h1,h2,h3{margin:0;font-weight:600;letter-spacing:-0.025em;color:var(--ink)}
-  h1,h2{font-family:var(--display);font-weight:400;letter-spacing:0}
-  h1{font-size:clamp(29px,3.2vw,44px);line-height:1.18}
-  h2{font-size:clamp(24px,2.9vw,34px);line-height:1.2}
-  h3{font-size:19px;line-height:1.3;letter-spacing:-0.015em}
-  p{margin:0}
-  .lede{color:var(--ink-2);font-size:clamp(16px,1.35vw,18.5px);line-height:1.62}
-
-  /* ---------- nav ---------- */
-  header.nav{border-bottom:1px solid var(--line);background:var(--bg)}
-  .nav-in{display:flex;align-items:center;gap:16px;height:68px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-0.02em;font-size:16px}
-  .brandword{font-family:var(--display);font-weight:400;font-size:22px;letter-spacing:.01em}
-  .mark{width:34px;height:34px;flex:none;border-radius:8px;background:#FAF8F5}
-  .nav-links{display:none;margin-left:auto;gap:28px;align-items:center}
-  .nav-links a{color:var(--ink-2);text-decoration:none;font-size:14px;font-weight:500}
-  .nav-links a:hover{color:var(--ink)}
-  .nav-cta{margin-left:auto}
-  @media(min-width:880px){
-    .nav-links{display:flex}
-    .nav-cta{margin-left:0}
-  }
-
-  /* ---------- buttons ---------- */
-  .btn{
-    display:inline-flex;align-items:center;justify-content:center;gap:9px;
-    font-family:inherit;font-size:15px;font-weight:600;letter-spacing:-0.01em;
-    padding:13px 22px;border-radius:10px;text-decoration:none;border:1px solid transparent;
-    white-space:nowrap;
-  }
-  .btn-primary{background:var(--accent);color:#0A0A0B;box-shadow:0 8px 24px rgba(250,81,151,0.18)}
-  .btn-primary:hover{background:var(--accent-soft)}
-  .btn-ghost{background:var(--bg);color:var(--ink);border-color:var(--line-strong)}
-  .btn-ghost:hover{border-color:rgba(255,255,255,0.3)}
-  .btn-sm{padding:9px 16px;font-size:14px}
-
-  /* ---------- hero ---------- */
-  .hero{padding:26px 0 18px}
-  .hero h1{max-width:18ch}
-  .hero .lede{max-width:46ch;margin:14px 0 0}
-  .hero .eyebrow{margin-bottom:12px}
-  .hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:0}
-  .microline{margin-top:12px;font-size:13px;color:var(--ink-2);max-width:52ch}
-  @media(max-width:519px){.hero-cta{flex-direction:column}.hero-cta .btn{width:100%}}
-
-  /* ---------- transformation ---------- */
-  .section{padding:84px 0}
-  .section-head{max-width:660px}
-  .section-head.center{margin:0 auto;text-align:center}
-  .section-head .lede{margin-top:16px;max-width:56ch}
-
-  .transform{
-    margin-top:44px;
-    display:grid;grid-template-columns:1fr;gap:18px;align-items:stretch;
-  }
-  @media(min-width:900px){
-    .transform{grid-template-columns:1fr auto 1fr;gap:26px;align-items:stretch}
-  }
-  .tpanel{
-    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    padding:20px;box-shadow:0 20px 50px rgba(0,0,0,0.5);min-width:0;display:flex;flex-direction:column;
-  }
-  .tpanel .stage{border-radius:10px;overflow:hidden}
-  .stage-paper{background:#EFE8DA}
-  .stage-dark{background:#0D0D11;border:1px solid var(--line)}
-  .tmeta{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;margin-top:auto;padding-top:16px;flex-wrap:wrap}
-  .tlabel{font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:600;color:var(--ink-2)}
-  .tlabel.on{color:var(--accent-soft)}
-  .tname{font-size:15px;font-weight:500;color:var(--ink)}
-  .tsub{font-size:13.5px;color:var(--ink-2);margin-top:6px;line-height:1.55}
-
-  .arrowcol{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:12px}
-  @media(min-width:900px){.arrowcol{flex-direction:column;gap:12px}}
-  .arrowbox{
-    width:52px;height:52px;border-radius:50%;border:1px solid var(--line-strong);
-    background:var(--panel-2);display:flex;align-items:center;justify-content:center;flex:none;
-  }
-  .arrowbox svg{transform:rotate(90deg)}
-  @media(min-width:900px){.arrowbox svg{transform:none}}
-  .arrowtime{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--ink-2);white-space:nowrap}
-
-  /* ---------- doors ---------- */
-  .grid3{display:grid;grid-template-columns:1fr;gap:16px;margin-top:40px}
-  @media(min-width:760px){.grid3{grid-template-columns:repeat(3,1fr);gap:18px}}
-  .door{
-    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    padding:26px 24px 24px;display:flex;flex-direction:column;min-width:0;
-  }
-  .door:hover{border-color:var(--line-strong)}
-  .dooricon{width:44px;height:44px;border-radius:11px;background:var(--panel-3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:20px}
-  .door h3{margin-bottom:9px}
-  .door p{color:var(--ink-2);font-size:14.5px;line-height:1.6}
-  .doorlink{margin-top:22px;font-size:14px;font-weight:600;color:var(--accent-soft);text-decoration:none;display:inline-flex;align-items:center;gap:7px}
-
-  /* ---------- steps ---------- */
-  .steps{display:grid;grid-template-columns:1fr;gap:1px;margin-top:40px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  @media(min-width:860px){.steps{grid-template-columns:repeat(4,1fr)}}
-  .step{background:var(--panel);padding:26px 22px 28px;min-width:0}
-  .stepnum{font-size:12px;font-weight:600;letter-spacing:.14em;color:var(--accent-soft);margin-bottom:14px}
-  .step h3{font-size:17px;margin-bottom:8px}
-  .step p{color:var(--ink-2);font-size:14.5px;line-height:1.6}
-
-  /* ---------- photo band ---------- */
-  .band{
-    margin-top:36px;border-radius:var(--radius);border:1px dashed rgba(255,255,255,0.17);
-    background:linear-gradient(135deg,#1C1720 0%,#12131A 45%,#1A1411 100%);
-    min-height:190px;display:flex;align-items:center;justify-content:center;padding:28px 16px;position:relative;overflow:hidden;
-  }
-  @media(min-width:760px){.band{min-height:250px}}
-  .crop{position:absolute;inset:14px;pointer-events:none}
-  .pill{
-    position:relative;background:#0A0A0B;border:1px solid var(--line-strong);border-radius:12px;
-    padding:11px 18px;font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;font-weight:600;color:var(--ink-2);
-    text-align:center;line-height:1.6;max-width:42ch;
-  }
-
-  /* ---------- pricing ---------- */
-  .prices{display:grid;grid-template-columns:1fr;gap:16px;margin-top:40px}
-  @media(min-width:860px){.prices{grid-template-columns:repeat(3,1fr);gap:18px;align-items:start}}
-  .price{
-    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    padding:26px 24px 28px;display:flex;flex-direction:column;min-width:0;
-  }
-  .price.best{background:var(--panel-2);border-color:rgba(250,81,151,0.42);box-shadow:0 20px 60px rgba(0,0,0,0.55)}
-  .badge{
-    align-self:flex-start;background:var(--accent);color:#0A0A0B;border-radius:999px;
-    padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;
-  }
-  .badge.ghost{display:none}
-  @media(min-width:860px){.badge.ghost{background:transparent;border:0;padding:0;height:27px;display:block}}
-  .price h3{font-size:16px;font-weight:600;letter-spacing:.02em;color:var(--ink-2)}
-  .amount{font-size:44px;font-weight:600;letter-spacing:-0.04em;line-height:1.05;margin-top:10px;color:var(--ink)}
-  .amount span{font-size:15px;font-weight:500;letter-spacing:0;color:var(--ink-2);margin-left:4px}
-  .credits{margin-top:8px;font-size:15px;color:var(--ink)}
-  .heroes{margin-top:4px;font-size:14.5px;color:var(--ink-2)}
-  .pricelist{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-direction:column;gap:11px}
-  .pricelist li{display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink-2);line-height:1.5}
-  .tick{flex:none;margin-top:4px}
-  .price .btn{margin-top:26px;width:100%}
-  .pricenote{margin-top:24px;font-size:14px;color:var(--ink-2);text-align:center}
-
-  /* ---------- parents ---------- */
-  .parents{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:32px 24px}
-  @media(min-width:760px){.parents{padding:44px 40px}}
-  .plist{display:grid;grid-template-columns:1fr;gap:22px;margin-top:30px}
-  @media(min-width:760px){.plist{grid-template-columns:1fr 1fr;gap:26px 40px}}
-  .pitem{display:flex;gap:14px;align-items:flex-start;min-width:0}
-  .pitem h3{font-size:15.5px;margin-bottom:5px}
-  .pitem>svg{margin-top:2px}
-  .pitem p{color:var(--ink-2);font-size:14.5px;line-height:1.6}
-
-  /* ---------- footer ---------- */
-  footer{border-top:1px solid var(--line);margin-top:20px;padding:36px 0 52px}
-  .foot-in{display:flex;flex-direction:column;gap:22px}
-  @media(min-width:760px){.foot-in{flex-direction:row;align-items:center;justify-content:space-between}}
-  .foot-links{display:flex;flex-wrap:wrap;gap:24px}
-  .foot-links a{color:var(--ink-2);font-size:14px;text-decoration:none}
-  .foot-links a:hover{color:var(--ink)}
-  .copy{font-size:13.5px;color:var(--ink-2)}
-
-  :root{
-    --lc-card-bg:var(--panel);
-    --lc-card-border:1px solid var(--line);
-    --lc-shadow:0 20px 50px rgba(0,0,0,.5);
-    --lc-radius:16px;
-    --lc-pad:14px;
-    --lc-media-bg:#0D0D11;
-    --lc-media-border:1px solid var(--line);
-    --lc-stage-bg:radial-gradient(62% 58% at 50% 44%, rgba(250,81,151,.16), rgba(13,13,17,0) 72%), #0D0D11;
-    --lc-cap-ink:var(--ink);
-    --lc-sub-ink:var(--ink-2);
-    --lc-tile-bg:var(--panel);
-    --lc-tile-border:1px solid var(--line);
-    --lc-tile-media:#0D0D11;
-    --lc-move-border:1px solid var(--line-strong);
-    --lc-move-bg:var(--panel-3);
-    --lc-move-bg-hover:#23232C;
-    --lc-move-ink:var(--ink);
-    --lc-move-on-bg:var(--accent);
-    --lc-move-on-ink:#14060D;
-    --lc-move-focus:var(--accent-soft);
-  }
-
-  /* ---------- the live hero card ----------
-     One card, two halves: a real drawing on the left, a real pipeline VRM on
-     the right, animating. The 3D half is driven by hero-card.js, which
-     compiles the game's own retargeting out of games/hero-moves/src/anim/.
-     Every --lc-* token below is set per concept so the card belongs to its
-     page; the geometry is the same everywhere so the fold budget is too. */
-  .fold-grid{display:grid;gap:16px;align-content:start}
-  .fold-copy,.fold-act{min-width:0}
-  @media(min-width:960px){
-    .fold-grid{
-      grid-template-columns:1.02fr .98fr;
-      grid-template-areas:"copy card" "act card";
-      column-gap:clamp(28px,3.6vw,56px);row-gap:20px;align-items:start;
-    }
-    .fold-copy{grid-area:copy}.livecard{grid-area:card}.fold-act{grid-area:act}
-  }
-  .livecard{
-    margin:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--lc-gap,10px);
-    background:var(--lc-card-bg);border:var(--lc-card-border,none);
-    border-radius:var(--lc-radius,16px);padding:var(--lc-pad,12px);
-    box-shadow:var(--lc-shadow,none);
-  }
-  .livecard-half{display:flex;flex-direction:column;min-width:0}
-  .livecard-media{
-    position:relative;overflow:hidden;aspect-ratio:1;
-    border-radius:var(--lc-media-radius,10px);
-    background:var(--lc-media-bg,#fff);border:var(--lc-media-border,none);
-  }
-  .livecard-drawing{width:100%;height:100%;object-fit:cover}
-  .herocard{background:var(--lc-stage-bg,var(--lc-media-bg,#fff))}
-  .herocard-still{
-    position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
-    padding:7%;transition:opacity .45s ease;
-  }
-  .herocard canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-  .herocard.is-live .herocard-still{opacity:0}
-  .livecard-cap{margin:9px 1px 1px}
-  .livecard-cap b{
-    display:block;font-size:13px;line-height:1.25;font-weight:700;
-    color:var(--lc-cap-ink);letter-spacing:0;
-  }
-  .livecard-cap i{
-    display:block;margin-top:2px;font-size:12.5px;line-height:1.35;
-    font-style:normal;color:var(--lc-sub-ink);
-  }
-  @media(min-width:1100px){
-    .livecard-cap b{font-size:14.5px}.livecard-cap i{font-size:13.5px}
-  }
-  /* The caption tells the truth about its own half. Until the VRM is up - and
-     for good if WebGL, the network or the reader's motion preference says no -
-     the card is showing a render of the file, and says so. */
-  [data-hero-shot] .lc-live{display:none}
-  [data-hero-shot].is-live .lc-live{display:block}
-  [data-hero-shot].is-live .lc-still{display:none}
-  /* No WebGL, a failed fetch, or a reader who asked for stillness: the card
-     keeps the render of the same avatar rather than going blank. */
-  @media(prefers-reduced-motion:reduce){
-    .herocard canvas{display:none}
-    .herocard.is-live .herocard-still{opacity:1}
-  }
-
-
-  @media(max-width:560px){
-    .fold-grid{gap:14px}
-    .livecard-cap b{font-size:12.5px}
-    .livecard-cap i{font-size:12px}
-  }
-
-
-  /* ---------- the three moves ----------
-     Real buttons, so they are keyboard-reachable and announce their state.
-     hero-card.js unhides them only when WebGL is there and removes them if the
-     avatar never arrives - a control that cannot do anything is worse than
-     none. Clip ids are the game's own, which is how Performer.airborne knows
-     to pull the camera back for Fly and Backflip. */
-  .livecard-moves{
-    grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;
-    gap:var(--lc-move-gap,8px);margin-top:12px;
-  }
-  .livecard-moves[hidden]{display:none}
-  .livecard-moves button{
-    font:inherit;font-size:13px;font-weight:600;line-height:1;cursor:pointer;
-    padding:9px 13px;border-radius:var(--lc-move-radius,999px);
-    border:var(--lc-move-border);background:var(--lc-move-bg);
-    color:var(--lc-move-ink);
-  }
-  .livecard-moves button:hover{background:var(--lc-move-bg-hover,var(--lc-move-bg))}
-  .livecard-moves button.is-on{
-    background:var(--lc-move-on-bg);color:var(--lc-move-on-ink);
-    border-color:var(--lc-move-on-border,transparent);
-  }
-  .livecard-moves button:focus-visible{outline:2px solid var(--lc-move-focus);outline-offset:2px}
-  /* Secondary on purpose: the primary call to action is the one that sells. */
-  .moves-link{
-    margin-left:auto;font-size:12.5px;font-weight:500;text-decoration:underline;
-    text-underline-offset:3px;color:var(--lc-sub-ink);white-space:nowrap;
-  }
-  .moves-link:hover{color:var(--lc-cap-ink)}
-  @media(max-width:560px){
-    .livecard-moves{gap:6px;margin-top:10px}
-    .livecard-moves button{padding:8px 10px;font-size:12.5px}
-    .moves-link{margin-left:0;flex:1 0 100%;font-size:12px}
-  }
-
-  /* ---------- true pairs ----------
-     Each tile is one child's drawing and the exact hero it became, both
-     straight off the live product. Nothing here is an illustration. */
-  .pairs{
-    list-style:none;margin:26px 0 0;padding:0;
-    display:grid;grid-template-columns:1fr;gap:14px;
-  }
-  @media(min-width:620px){.pairs{grid-template-columns:repeat(2,1fr)}}
-  @media(min-width:1000px){.pairs{grid-template-columns:repeat(3,1fr);gap:18px}}
-  .pairs li{
-    margin:0;padding:10px 10px 12px;min-width:0;
-    background:var(--lc-tile-bg,transparent);border:var(--lc-tile-border,none);
-    border-radius:var(--lc-radius,16px);
-  }
-  .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .pair img{
-    width:100%;height:auto;aspect-ratio:3/4;object-fit:cover;object-position:center;
-    background:var(--lc-tile-media,transparent);
-    border-radius:calc(var(--lc-radius,16px) - 7px);
-  }
-  .pairs b{display:block;margin-top:9px;font-size:14px;line-height:1.25;color:var(--lc-cap-ink)}
-  .pairs span{display:block;margin-top:2px;font-size:12.5px;line-height:1.35;color:var(--lc-sub-ink)}
-</style>
-<link href="https://fonts.googleapis.com/css2?family=Barriecito&display=swap" rel="stylesheet">
-<style>
-/* The same Barriecito file Google Fonts serves for `family=Barriecito`, kept
-   beside the page so the brand face is there when fonts.googleapis.com is not
-   (offline, or behind a proxy that re-terminates TLS). SIL Open Font License. */
+/* The Barriecito file Google Fonts serves, kept beside the page so the brand
+   face is there when fonts.googleapis.com is not. SIL Open Font License. */
 @font-face{
   font-family:'Barriecito';font-style:normal;font-weight:400;font-display:swap;
   src:url('assets/barriecito-latin.woff2') format('woff2');
   unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
-</style>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
-    "three/": "https://cdn.jsdelivr.net/npm/three@0.185.1/",
-    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js",
-    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.min.js"
-  }
+/* ---------- concept 1: the studio ----------
+   Near-black, one pink light, everything on a panel. The hero is lit like a
+   product shot and the page gets out of its way. */
+:root{
+  --hm-bg:#08080A;
+  --hm-ink:#F2F2F5;
+  --hm-ink-2:#A9A9B6;
+  --hm-panel:#141419;
+  --hm-line:rgba(255,255,255,.13);
+  --hm-accent:#FA5197;
+  --hm-accent-ink:#14060D;
+  --hm-stage:radial-gradient(62% 58% at 50% 44%, rgba(250,81,151,.20), rgba(13,13,17,0) 72%), #0D0D11;
+  --hm-display:'Barriecito','Comic Sans MS',system-ui,cursive;
+  --hm-radius:16px;
+  --hm-shadow:0 20px 50px rgba(0,0,0,.5);
+  --hm-head-bg:rgba(8,8,10,.94);
+  --hm-from-border:2px solid #23232C;
 }
-</script>
-<!-- Optional. When present it carries the avatar and the clips as data
-     URLs, for hosts that will not serve .vrm or .glb; hero-card.js
-     falls through to the real files when it is absent. Generated by
-     build-models.mjs. -->
+html,body{margin:0;padding:0;background:var(--hm-bg);overflow-x:clip  /* clip, not hidden: see chapters.css */}
+body{
+  color:var(--hm-ink);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+}
+img{display:block;max-width:100%}
+a{color:inherit}
+.hm-head{backdrop-filter:blur(10px)}
+.hm-moves button{background:#1B1B22}
+</style>
+<!-- Optional. When present it carries the avatar and the clips as data URLs,
+     for hosts that will not serve .vrm or .glb; hero-card.js falls through to
+     the real files when it is absent. Generated by build-models.mjs. -->
 <script src="assets/models.data.js" onerror="this.remove()"></script>
 <script type="module" src="hero-card.js"></script>
+<script type="module" src="hero-gallery.js"></script>
 </head>
 <body>
 
-<header class="nav">
-  <div class="wrap nav-in">
-    <div class="brand brandword">
-      <img class="mark" src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async">
+<header class="hm-head">
+  <div class="hm-head-in">
+    <a class="hm-logo" href="#hero">
+      <img src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async">
       <span>HeroMaker</span>
-    </div>
-    <nav class="nav-links">
-      <a href="#how">How it works</a>
-      <a href="#doors">Studio</a>
-      <a href="#pricing">Pricing</a>
+    </a>
+    <nav class="hm-nav">
+      <a href="#gallery">Gallery</a>
+      <a href="#playground">Playground</a>
+      <a class="hm-buy" href="#pricing">Buy credits</a>
     </nav>
-    <a class="btn btn-primary btn-sm nav-cta" href="#pricing">Make a hero</a>
   </div>
 </header>
 
-<!-- 1. HERO -->
-<section class="hero" id="top">
-  <div class="wrap fold-grid">
-    <div class="fold-copy">
-      <p class="eyebrow">Drawing to rigged 3D character</p>
+<!-- CHAPTER 1 - the hero, moving -->
+<section class="hm-chapter" data-chapter="hero" id="hero">
+  <div class="hm-hero">
+    <div class="hm-hero-copy">
       <h1>Your child's drawing, standing up.</h1>
-      <p class="lede">Photograph it, and six minutes later it is a rigged 3D character.</p>
+    <ul class="hm-figs">
+      <li><b>6 min</b><span>paper to hero</span></li>
+      <li><b>22</b><span>bones, rigged</span></li>
+      <li><b>10</b><span>credits a hero</span></li>
+    </ul>
+      <a class="hm-cta" data-primary-cta href="#pricing">Get credits &darr;</a>
     </div>
-      <figure class="livecard" data-hero-shot>
-        <div class="livecard-half">
-          <div class="livecard-media">
-            <img class="livecard-drawing" src="assets/pairs/crayon-kid-drawing.jpg"
-                 width="1100" height="1100" fetchpriority="high" decoding="async"
-                 alt="A child's crayon drawing of a masked hero in a blue suit with a yellow S, an orange cape and red boots">
-          </div>
-          <p class="livecard-cap"><b>The drawing</b></p>
-        </div>
-        <div class="livecard-half">
-          <div class="livecard-media herocard" data-hero-card
-               data-vrm="assets/Crayon_Kid.opt.vrm"
-               data-clips="assets/anim/"
-               data-rim="#FA5197" data-key="#FFF4E4" data-ambient="0.5"
-               data-shadow="0.5" data-shadow-color="#000000"
-               data-zoom="1.12" data-outline="0">
-            <img class="herocard-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
-                 width="900" height="900" decoding="async"
-                 alt="Crayon Kid: the same masked hero, rebuilt as a 3D model">
-          </div>
-          <p class="livecard-cap">
-            <span class="lc-live"><b>The hero it became</b><i>Real VRM, moving.</i></span>
-            <span class="lc-still"><b>The hero it became</b><i>Real VRM file.</i></span>
-          </p>
-        </div>
-        <div class="livecard-moves" data-hero-moves hidden>
-          <button type="button" data-move="fly" data-air="1.3" data-yaw="1.25" data-default aria-pressed="true">Fly</button>
-          <button type="button" data-move="dance" aria-pressed="false">Dance</button>
-          <button type="button" data-move="backflip" data-air="1.75" aria-pressed="false">Backflip</button>
-          <a class="moves-link" href="https://razk.github.io/HeroMaker/hero-moves/" target="_blank" rel="noopener">Dance as your hero &rarr;</a>
-        </div>
-      </figure>
-    <div class="fold-act">
-      <div class="hero-cta">
-        <a class="btn btn-primary" data-primary-cta href="#doors">Make your first hero</a>
-        <a class="btn btn-ghost" href="#how">See how it works</a>
+    <figure class="hm-shot" data-hero-shot>
+      <div class="hm-stage" data-hero-card
+           data-vrm="assets/Crayon_Kid.opt.vrm" data-clips="assets/anim/"
+           data-rim="#FA5197" data-key="#FFF4E4" data-ambient="0.5"
+           data-shadow="0.5" data-shadow-color="#000000"
+           data-zoom="1.1" data-outline="0">
+        <img class="hm-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
+             width="900" height="900" fetchpriority="high" decoding="async"
+             alt="Crayon Kid: the masked hero from the drawing, rebuilt as a 3D model">
+        <img class="hm-from" src="assets/pairs/crayon-kid-drawing.jpg"
+             width="600" height="600" fetchpriority="high" decoding="async"
+             alt="the crayon drawing Crayon Kid was made from">
       </div>
-    </div>
+      <div class="hm-moves" data-hero-moves hidden>
+        <button type="button" data-move="fly" data-air="1.3" data-yaw="1.25" data-default aria-pressed="true">Fly</button>
+        <button type="button" data-move="dance" aria-pressed="false">Dance</button>
+        <button type="button" data-move="backflip" data-air="1.75" aria-pressed="false">Backflip</button>
+      </div>
+      <figcaption class="hm-cap"><b>Crayon Kid</b> &mdash; paper, then rigged VRM.</figcaption>
+    </figure>
   </div>
 </section>
 
-<!-- 2. THE REAL HEROES -->
-<section class="section" id="transformation" style="padding-top:56px">
-  <div class="wrap">
-    <div class="section-head center">
-      <h2>This drawing. This hero. Every time.</h2>
-      <p class="lede">Six more, each a drawing and the hero it became.</p>
-    </div>
-    <ul class="pairs">
+<!-- CHAPTER 2 - the real gallery, live -->
+<section class="hm-chapter" data-chapter="gallery" id="gallery">
+  <div class="hm-head-block">
+    <h2>Real drawings. Real heroes.</h2>
+    <p class="hm-line">Live from the gallery.</p>
+  </div>
+  <ul class="hm-row" data-gallery-row>
       <li>
-        <div class="pair">
+        <div class="hm-pair">
           <img src="assets/pairs/cookie-man-drawing.jpg" alt="a child's oil-pastel gingerbread man" loading="lazy" decoding="async">
-          <img src="assets/pairs/cookie-man-hero.jpg" alt="Cookie Man as a 3D model, with the same blue eyes, red smile and three buttons" loading="lazy" decoding="async">
+          <img src="assets/pairs/cookie-man-hero.jpg" alt="Cookie Man as a 3D model, the same blue eyes, red smile and three buttons" loading="lazy" decoding="async">
         </div>
         <b>Cookie Man</b>
       </li>
       <li>
-        <div class="pair">
+        <div class="hm-pair">
+          <img src="assets/pairs/crayon-kid-drawing.jpg" alt="a child's crayon drawing of a masked hero with a yellow S" loading="lazy" decoding="async">
+          <img src="assets/pairs/crayon-kid-hero.jpg" alt="Crayon Kid as a 3D model, the same mask, S and orange cape" loading="lazy" decoding="async">
+        </div>
+        <b>Crayon Kid</b>
+      </li>
+      <li>
+        <div class="hm-pair">
           <img src="assets/pairs/turtle-cool-drawing.jpg" alt="a child's oil-pastel turtle in a red hat and sunglasses" loading="lazy" decoding="async">
           <img src="assets/pairs/turtle-cool-hero.jpg" alt="Turtle Cool as a 3D model, hat, sunglasses and hair intact" loading="lazy" decoding="async">
         </div>
         <b>Turtle Cool</b>
       </li>
       <li>
-        <div class="pair">
+        <div class="hm-pair">
           <img src="assets/pairs/super-sevivon-drawing.jpg" alt="a child's drawing of a dreidel with a face, in a blue shirt" loading="lazy" decoding="async">
           <img src="assets/pairs/super-sevivon-hero.jpg" alt="Super Sevivon as a 3D model, the same dreidel head and blue shirt" loading="lazy" decoding="async">
         </div>
         <b>Super Sevivon</b>
       </li>
       <li>
-        <div class="pair">
+        <div class="hm-pair">
           <img src="assets/pairs/lady-milana-drawing.jpg" alt="a child's felt-tip drawing of a girl in a red dress with bunches" loading="lazy" decoding="async">
           <img src="assets/pairs/lady-milana-hero.jpg" alt="Lady Milana as a 3D model, the same bunches, dress and red shoes" loading="lazy" decoding="async">
         </div>
         <b>Lady Milana</b>
       </li>
       <li>
-        <div class="pair">
+        <div class="hm-pair">
           <img src="assets/pairs/dooby-dam-dam-drawing.jpg" alt="a child's drawing of a baby wearing a cape" loading="lazy" decoding="async">
           <img src="assets/pairs/dooby-dam-dam-hero.jpg" alt="Dooby Dam Dam as a 3D model, red hair and red cape" loading="lazy" decoding="async">
         </div>
         <b>Dooby Dam Dam</b>
       </li>
+  </ul>
+    <ul class="hm-figs">
+      <li><b data-gallery-count>82</b><span>heroes made</span></li>
+      <li><b>6 min</b><span>each</span></li>
+    </ul>
+    <a class="hm-cta" href="#pricing">Get credits &darr;</a>
+</section>
+
+<!-- CHAPTER 3 - the playground -->
+<section class="hm-chapter" data-chapter="playground" id="playground">
+  <div class="hm-head-block">
+    <h2>Then they play as it.</h2>
+    <p class="hm-line">Webcam on. It copies them.</p>
+  </div>
+  <figure class="hm-shot">
+    <div class="hm-stage" data-hero-card data-first="dance"
+         data-vrm="assets/Crayon_Kid.opt.vrm" data-clips="assets/anim/"
+         data-rim="#FA5197" data-key="#FFF4E4" data-ambient="0.5"
+         data-shadow="0.5" data-shadow-color="#000000"
+         data-zoom="1.1" data-outline="0">
+      <img class="hm-still" src="assets/pairs/crayon-kid-hero-cutout.webp"
+           width="900" height="900" loading="lazy" decoding="async"
+           alt="Crayon Kid, the 3D hero, mid-dance">
+    </div>
+    <figcaption class="hm-cap"><b>Crayon Kid</b>, danced by a child.
+      <a href="https://razk.github.io/HeroMaker/hero-moves/" target="_blank" rel="noopener">Hero Moves &rarr;</a>
+    </figcaption>
+  </figure>
+    <a class="hm-cta" href="#pricing">Get credits &darr;</a>
+</section>
+
+<!-- CHAPTER 4 - how it works -->
+<section class="hm-chapter" data-chapter="how" id="how">
+  <div class="hm-head-block"><h2>How it works.</h2></div>
+    <ul class="hm-steps">
+      <li><b>1</b><span>Photo it</span></li>
+      <li><b>2</b><span>Built in 3D</span></li>
+      <li><b>3</b><span>Rigged</span></li>
+      <li><b>4</b><span>Play</span></li>
+    </ul>
+    <a class="hm-cta" href="#pricing">Get credits &darr;</a>
+</section>
+
+<!-- CHAPTER 5 - pricing, three packs in one row -->
+<section class="hm-chapter" data-chapter="pricing" id="pricing">
+  <div class="hm-head-block">
+    <h2>Buy credits.</h2>
+    <p class="hm-line">10 credits a hero.</p>
+  </div>
+    <ul class="hm-packs">
       <li>
-        <div class="pair">
-          <img src="assets/pairs/crayon-kid-drawing.jpg" alt="a child's crayon drawing of a masked hero with a yellow S" loading="lazy" decoding="async">
-          <img src="assets/pairs/crayon-kid-hero.jpg" alt="Crayon Kid as a 3D model, the same mask, S and orange cape" loading="lazy" decoding="async">
-        </div>
-        <b>Crayon Kid</b>
+        <span class="hm-pack-name">Starter</span>
+        <div class="hm-price">$5</div>
+        <p class="hm-pack-meta"><b>30 credits</b>3 heroes</p>
+        <a class="hm-buy-btn" href="#">Buy</a>
+      </li>
+      <li class="is-best">
+        <span class="hm-pack-name">Maker</span>
+        <div class="hm-price">$15</div>
+        <p class="hm-pack-meta"><b>100 credits</b>10 heroes</p>
+        <a class="hm-buy-btn" href="#">Buy</a>
+      </li>
+      <li>
+        <span class="hm-pack-name">Studio</span>
+        <div class="hm-price">$40</div>
+        <p class="hm-pack-meta"><b>300 credits</b>30 heroes</p>
+        <a class="hm-buy-btn" href="#">Buy</a>
       </li>
     </ul>
-  </div>
+  <p class="hm-foot">&copy; 2026 HeroMaker</p>
 </section>
-
-<!-- 3. THREE DOORS -->
-<section class="section" id="doors" style="padding-top:0">
-  <div class="wrap">
-    <div class="section-head">
-      <h2>Three ways in.</h2>
-      <p class="lede">Pick the one you came for.</p>
-    </div>
-    <div class="grid3">
-      <div class="door">
-        <div class="dooricon">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-            <rect x="2.2" y="4.6" width="17.6" height="13.2" rx="3" stroke="#FA5197" stroke-width="1.7"/>
-            <circle cx="11" cy="11.2" r="3.4" stroke="#FA5197" stroke-width="1.7"/>
-            <path d="M7.6 4.6 8.9 2.2h4.2l1.3 2.4" stroke="#FA5197" stroke-width="1.7" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <h3>Studio</h3>
-        <p>A photo in, a rigged hero out.</p>
-        <a class="doorlink" href="#pricing">Create a hero
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-      </div>
-      <div class="door">
-        <div class="dooricon">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-            <rect x="2.4" y="3.2" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
-            <rect x="12.2" y="3.2" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
-            <rect x="2.4" y="12.6" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
-            <rect x="12.2" y="12.6" width="7.4" height="7.4" rx="2" stroke="#FA5197" stroke-width="1.7"/>
-          </svg>
-        </div>
-        <h3>My Heroes</h3>
-        <p>Every hero you have made, on one shelf.</p>
-        <a class="doorlink" href="#pricing">Open the gallery
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-      </div>
-      <div class="door">
-        <div class="dooricon">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-            <circle cx="11" cy="4.6" r="2.6" stroke="#FA5197" stroke-width="1.7"/>
-            <path d="M11 8v6M11 14l-4 5.6M11 14l4 5.6M4.6 10.2 11 8.4l6.4 1.8" stroke="#FA5197" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <h3>Playground</h3>
-        <p>Webcam on, and the hero copies your child.</p>
-        <a class="doorlink" href="#pricing">Start the dance game
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7h9.5M8 3.4 11.8 7 8 10.6" stroke="#FF8FC4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 4. HOW IT WORKS -->
-<section class="section" id="how" style="padding-top:0">
-  <div class="wrap">
-    <div class="section-head">
-      <h2>How it works.</h2>
-      <p class="lede">Four steps, and your child does the first and the last.</p>
-    </div>
-    <div class="steps">
-      <div class="step">
-        <div class="stepnum">01</div>
-        <h3>Snap the drawing</h3>
-        <p>One phone photo of the paper.</p>
-      </div>
-      <div class="step">
-        <div class="stepnum">02</div>
-        <h3>We build it in 3D</h3>
-        <p>The drawing becomes real geometry.</p>
-      </div>
-      <div class="step">
-        <div class="stepnum">03</div>
-        <h3>We rig it to move</h3>
-        <p>A 22-bone skeleton goes in.</p>
-      </div>
-      <div class="step">
-        <div class="stepnum">04</div>
-        <h3>Play as it</h3>
-        <p>Webcam on, and they dance as it.</p>
-      </div>
-    </div>
-
-    <div class="band">
-      <svg class="crop" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <g stroke="rgba(255,255,255,0.20)" stroke-width="0.6" fill="none" vector-effect="non-scaling-stroke">
-          <path d="M0.6 6 V0.6 H6"/><path d="M94 0.6 H99.4 V6"/><path d="M99.4 94 V99.4 H94"/><path d="M6 99.4 H0.6 V94"/>
-        </g>
-      </svg>
-      <div class="pill">Photo &mdash; a child dancing, their hero mirroring on screen</div>
-    </div>
-  </div>
-</section>
-
-<!-- 5. PRICING -->
-<section class="section" id="pricing" style="padding-top:0">
-  <div class="wrap">
-    <div class="section-head center">
-      <h2>Buy credits.</h2>
-      <p class="lede">10 credits a hero.</p>
-    </div>
-    <div class="prices">
-      <div class="price">
-        <span class="badge ghost" aria-hidden="true"></span>
-        <h3>Starter</h3>
-        <div class="amount">$5<span>one-off</span></div>
-        <div class="credits">30 credits</div>
-        <div class="heroes">3 heroes</div>
-        <a class="btn btn-ghost" href="#">Choose Starter</a>
-      </div>
-
-      <div class="price best">
-        <span class="badge">Best value</span>
-        <h3>Maker</h3>
-        <div class="amount">$15<span>one-off</span></div>
-        <div class="credits">100 credits</div>
-        <div class="heroes">10 heroes</div>
-        <a class="btn btn-primary" href="#">Choose Maker</a>
-      </div>
-
-      <div class="price">
-        <span class="badge ghost" aria-hidden="true"></span>
-        <h3>Studio</h3>
-        <div class="amount">$40<span>one-off</span></div>
-        <div class="credits">300 credits</div>
-        <div class="heroes">30 heroes</div>
-        <a class="btn btn-ghost" href="#">Choose Studio</a>
-      </div>
-    </div>
-    
-  </div>
-</section>
-
-<footer>
-  <div class="wrap foot-in">
-    <div class="brand brandword">
-      <img class="mark" src="assets/logo-mark.webp" alt="" width="64" height="64" decoding="async">
-      <span>HeroMaker</span>
-    </div>
-    <div class="foot-links">
-      <a href="#pricing">Pricing</a>
-      <a href="#how">How it works</a>
-      <a href="#">Contact</a>
-    </div>
-    <p class="copy">&copy; 2026 HeroMaker</p>
-  </div>
-</footer>
 
 </body>
 </html>
