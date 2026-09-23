@@ -17,10 +17,10 @@ on:
         description: Railway service ID for the VRM converter
         value: ${{ jobs.ids.outputs.vrm_converter }}
       staging:
-        description: Railway environment ID for staging
+        description: Railway environment NAME for staging (the CLI wants a name)
         value: ${{ jobs.ids.outputs.staging }}
       production:
-        description: Railway environment ID for production
+        description: Railway environment NAME for production
         value: ${{ jobs.ids.outputs.production }}
 
 jobs:
@@ -40,14 +40,18 @@ jobs:
         run: |
           set -euo pipefail
           file=devops/railway/project.json
-          # -e makes jq exit non-zero on null, so a missing ID fails the run
+          # -e makes jq exit non-zero on null, so a missing entry fails the run
           # here rather than silently deploying to the wrong place.
+          #
+          # Services are addressed by ID (stable across a dashboard rename).
+          # Environments are addressed by NAME: the Railway CLI resolves
+          # --environment by name only, and rejects an ID outright.
           {
             echo "backend=$(jq -er '.services["backend"].id' "$file")"
             echo "frontend=$(jq -er '.services["frontend"].id' "$file")"
             echo "vrm_converter=$(jq -er '.services["vrm-converter"].id' "$file")"
-            echo "staging=$(jq -er '.environments["staging"].id' "$file")"
-            echo "production=$(jq -er '.environments["production"].id' "$file")"
+            echo "staging=$(jq -er '.environments["staging"].name' "$file")"
+            echo "production=$(jq -er '.environments["production"].name' "$file")"
           } >> "$GITHUB_OUTPUT"
 
       - name: Show what was resolved
@@ -61,7 +65,7 @@ jobs:
             echo "| frontend | \`${{ steps.read.outputs.frontend }}\` |"
             echo "| vrm-converter | \`${{ steps.read.outputs.vrm_converter }}\` |"
             echo ""
-            echo "| Environment | ID |"
+            echo "| Environment | Name |"
             echo "|---|---|"
             echo "| staging | \`${{ steps.read.outputs.staging }}\` |"
             echo "| production | \`${{ steps.read.outputs.production }}\` |"

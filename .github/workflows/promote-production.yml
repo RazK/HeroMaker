@@ -97,7 +97,6 @@ jobs:
       name: production
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_ENVIRONMENT_ID: ${{ needs.config.outputs.production }}
     steps:
       - name: Checkout the approved commit
         uses: actions/checkout@v4

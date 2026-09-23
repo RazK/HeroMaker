@@ -77,10 +77,28 @@ git log --oneline main      # find the commit that was fine
 
 ## Where the IDs live
 
-`devops/railway/project.json` holds the three service IDs and the two
-environment IDs. `.github/workflows/railway-config.yml` is a reusable workflow
+`devops/railway/project.json` holds the three services and the two
+environments. `.github/workflows/railway-config.yml` is a reusable workflow
 that reads them and hands them to whatever needs them — they are not pasted
 into individual workflows any more.
+
+**Services are addressed by ID, environments by name.** That asymmetry is not a
+style choice: the Railway CLI resolves `--service` by ID, but resolves
+`--environment` by name only and rejects an ID outright —
+
+```
+Environment "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1" not found.
+Run `railway environment` to connect to an environment.
+```
+
+So a service can be renamed in the dashboard without breaking CI, but an
+environment cannot: rename one and you must update its `name` in
+`project.json`. The environment IDs are kept there for reference only. Confirm
+the exact names with:
+
+```bash
+railway environment
+```
 
 Environment variables are separate and documented in
 [`devops/railway/env/README.md`](../../devops/railway/env/README.md). They are

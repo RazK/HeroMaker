@@ -200,7 +200,6 @@ jobs:
       name: staging
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_ENVIRONMENT_ID: ${{ needs.config.outputs.staging }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

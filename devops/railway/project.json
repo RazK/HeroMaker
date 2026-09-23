@@ -2,8 +2,13 @@
   "$comment": [
     "Registry of the Railway project's services and environments.",
     "Single source of truth for the IDs that used to be copy-pasted into",
-    "every script and workflow. Service/environment names are what Railway",
-    "shows in the dashboard; IDs are stable even if a name is changed."
+    "every script and workflow.",
+    "",
+    "Services are addressed by ID: stable across a rename in the dashboard.",
+    "Environments are addressed by NAME, because the Railway CLI resolves",
+    "--environment by name only \u2014 passing an ID fails with",
+    "'Environment \"<id>\" not found'. The IDs are kept here for reference.",
+    "If an environment is renamed in Railway, change its 'name' here."
   ],
   "services": {
     "backend": {
@@ -21,11 +26,13 @@
   },
   "environments": {
     "staging": {
-      "id": "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1"
+      "id": "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1",
+      "name": "staging"
     },
     "production": {
       "id": "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1",
-      "default": true
+      "default": true,
+      "name": "production"
     }
   }
 }
