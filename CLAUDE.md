@@ -87,16 +87,25 @@ The workflows resolve IDs through `railway-config.yml`, and
 Keep it that way: a hard-coded ID in a test asserts the registry back at itself
 and cannot fail.
 
-A deploy that dies one second in with
+`Environment "<x>" not found.` does **not** mean the ID is wrong.
 
-```
-Environment "<id>" not found.
-```
+It is what Railway says when the **token cannot see that environment**, and it
+says it identically whether you pass an ID or a name. This cost days: the ID
+was corrected, then the name was used, then the corrected ID was used, and all
+three failed with the same line.
 
-means that ID is wrong, and nothing else. **Do not ask a human and do not
-guess**: open the project URL in `project.json`, switch the environment
-dropdown, and read `environmentId=` out of the address bar. Service IDs appear
-in the URL the same way. Then fix `project.json` — only `project.json`.
+A Railway **project token is scoped to one environment**. `RAILWAY_TOKEN`
+reaches production, so it cannot deploy to staging under any name or ID. The
+staging job uses `RAILWAY_TOKEN_STAGING`, a second project token created
+against staging; its preflight step says which token it got and what to do if
+the secret is missing.
+
+So when a deploy fails that way, check the token's scope first —
+`railway whoami` and `railway status` in the job say what it can reach — and
+only then the ID. If an ID really is wrong, re-derive it rather than guessing:
+open the project URL in `project.json`, switch the environment dropdown, and
+read `environmentId=` out of the address bar. Service IDs appear in the URL the
+same way. Then fix `project.json` — only `project.json`.
 
 ## Deployments
 
