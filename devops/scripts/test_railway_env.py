@@ -420,12 +420,12 @@ class FactorTests(unittest.TestCase):
     BACKEND = "3970a673-db5b-4b2d-9456-93acf1da09bf"
     FRONTEND = "a71bc2c6-c912-475c-ab16-a5dbf0ba074e"
     VRM = "e7afe8a4-ce76-4093-9122-72c498b4874f"
-    STAGING = "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1"
+    STAGING = "406e2fde-28f2-4f00-a254-cde5393db6db"
     PROD = "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"
 
     def test_factor_collapses_identical_values_and_shields_secrets(self):
         ids = {
-            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1"): {
+            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "406e2fde-28f2-4f00-a254-cde5393db6db"): {
                 "DEBUG": "false",
                 "S3_REGION": "auto",
                 "ALLOWED_ORIGINS": "https://staging.example.app",
