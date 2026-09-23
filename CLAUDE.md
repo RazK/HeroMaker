@@ -95,3 +95,41 @@ from `staging` by `.github/workflows/pages.yml`.
 - **`start-dev.sh`** is the single command to start everything locally.
 - **`docker-compose.yml`** is for production-like full-stack testing only — not used for daily dev.
 - Railway deploys from `backend/Dockerfile`, `frontend/Dockerfile`, `vrm-converter-service/Dockerfile`.
+
+## Payments: what is proven, and the trap that hid a bug
+
+**Verified end to end on 2026-09-22** against the real Lemon Squeezy store, in
+test mode, on the staging backend: `checkout -> card -> order #4757371 (paid,
+$15.00) -> webhook -> 0 to 100 credits -> receipt`. The webhook security model
+holds under real HTTP (forged, unsigned and mid-flight-tampered bodies are all
+rejected 401; the same order delivered five times credits once). The money path
+works.
+
+**The trap:** `backend/scripts/demo_purchase.py` does NOT run the pipeline.
+`make_hero` re-implements step execution and performs its own refund, so its
+transcript can assert behaviour the product does not have. That is exactly how
+"the failed step's credits refunded" passed review while no production code
+path had ever called `ledger.refund_credits`. Real cost: a genuine Meshy
+failure took 5 credits from a paying user and kept them.
+
+So: **a proof script or test must drive the real code path.** If you are
+asserting something about the pipeline, call `pipeline.execute_step`. See
+`backend/tests/test_step_refunds.py`, which does, and which goes red if you
+revert either refund call site.
+
+**Credits are charged before the provider is called**, so every way a step can
+end badly needs a compensating refund. There are two such paths, and the second
+is easy to miss:
+- the provider error caught by `execute_step`'s `except Exception`
+- a timeout, where `task_manager` cancels the task and `CancelledError`
+  inherits from `BaseException` — it never reaches that handler
+
+Both call `credits.refund_last_step_charge()`, which is keyed on the spend row
+(`refund:tx:<id>`), not on `creation+step`. Spends are deliberately not
+idempotent, so a retried step really does cost again; keying on creation+step
+would refund the first failure and silently swallow every later one. A user
+cancellation deliberately keeps its charge.
+
+**Known blocker, unrelated to any of the above:** the Meshy account is on the
+free plan, which Meshy has discontinued (`NoMorePendingTasks`). No hero can
+complete on any environment until that is upgraded.
