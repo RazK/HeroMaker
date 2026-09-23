@@ -1,14 +1,19 @@
 {
   "$comment": [
     "Registry of the Railway project's services and environments.",
-    "Single source of truth for the IDs that used to be copy-pasted into",
-    "every script and workflow.",
+    "Project: hero-maker (95711b3f-db5c-4521-99a7-c5caeb8005fc),",
+    "workspace 'Raz Karl's Projects'.",
     "",
     "Services are addressed by ID: stable across a rename in the dashboard.",
     "Environments are addressed by NAME, because the Railway CLI resolves",
     "--environment by name only \u2014 passing an ID fails with",
-    "'Environment \"<id>\" not found'. The IDs are kept here for reference.",
-    "If an environment is renamed in Railway, change its 'name' here."
+    "'Environment \"<id>\" not found'. If an environment is renamed in",
+    "Railway, change its 'name' here.",
+    "",
+    "The IDs below are reference only. Production's was read back from",
+    "`railway status` in CI and is verified. Staging's could not be:",
+    "RAILWAY_TOKEN is a project token scoped to production, so it cannot",
+    "see any other environment. See docs/deployment/cicd.md."
   ],
   "services": {
     "backend": {
@@ -26,13 +31,16 @@
   },
   "environments": {
     "staging": {
-      "id": "e0d14c8f-54d8-4eb9-a510-b43bf81f57d1",
-      "name": "staging"
+      "name": "staging",
+      "id": null,
+      "id_unverified": true,
+      "token_secret": "RAILWAY_STAGING_TOKEN"
     },
     "production": {
-      "id": "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1",
+      "name": "production",
+      "id": "4e1101f9-bd77-4292-bd74-f1c6b9ec5522",
       "default": true,
-      "name": "production"
+      "token_secret": "RAILWAY_TOKEN"
     }
   }
 }

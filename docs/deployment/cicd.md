@@ -116,27 +116,60 @@ the exact names with:
 railway environment
 ```
 
-### Known issue: the staging deploy cannot reach its environment
+### One token per environment
 
-`deploy-staging` currently fails with `Environment "staging" not found`, and
-did the same when given the environment ID. The deploy job prints a preflight
-(`railway whoami` / `railway status`) so each run records what the token can
-actually reach.
+`RAILWAY_TOKEN` is a Railway **project token scoped to production**. CI proved
+it: in the same run, `railway whoami` returns
 
-The likely cause is that `RAILWAY_TOKEN` is a Railway **project token**, which
-Railway scopes to one environment. A project token issued for production
-cannot see staging under any name, which fits the evidence: the old workflows
-deployed fine for months *without* `--environment`, because the token already
-implied production.
+```
+Unauthorized. Please check that your RAILWAY_TOKEN is valid…
+```
 
-If that is it, the fix is a second token:
+(project tokens have no user, so `whoami` fails while project calls succeed)
+while `railway status` reports
 
-1. Railway → project → Settings → Tokens → create a token scoped to **staging**
-2. GitHub → Settings → Secrets → add it as `RAILWAY_STAGING_TOKEN`
-3. Point `deploy-staging` at that secret; `promote-production` keeps using
-   `RAILWAY_TOKEN`
+```
+Project:         hero-maker
+Environment:     production
+Environment ID:  4e1101f9-bd77-4292-bd74-f1c6b9ec5522
+```
 
-Production deploys are unaffected throughout — they use the existing token.
+A token scoped to one environment cannot deploy to another **under any name**,
+which is why two attempts at `--environment` — first the ID, then the name —
+both failed with "not found". The value was never the problem. It also explains
+why the old workflows deployed happily for months without `--environment` at
+all: the token already implied production.
+
+So each environment needs its own token:
+
+| Environment | Secret | Used by |
+|---|---|---|
+| production | `RAILWAY_TOKEN` | `promote-production.yml`, `backup.yml` |
+| staging | `RAILWAY_STAGING_TOKEN` | `deploy-staging` in `build-images.yml` |
+
+**Staging deploys stay red until `RAILWAY_STAGING_TOKEN` exists.** To create it:
+
+1. Railway → `hero-maker` → Settings → Tokens → new token scoped to the
+   **staging** environment
+2. GitHub → repo Settings → Secrets and variables → Actions → add
+   `RAILWAY_STAGING_TOKEN`
+
+The job fails with that instruction rather than Railway's "Environment not
+found", so nobody has to rediscover this.
+
+Production is unaffected throughout: it uses the token it always used.
+
+### The environment IDs in `project.json` were wrong
+
+The IDs originally recorded for both environments appear nowhere in the
+`hero-maker` project — the run above found production's real ID to be
+`4e1101f9-…`, not what was recorded. Production's is now the verified value.
+Staging's is `null` and marked `id_unverified`, because a production-scoped
+token cannot see it.
+
+This costs nothing operationally: the CLI addresses environments by **name**,
+so the IDs are documentation. But do not trust them as identifiers until a
+staging-scoped token can confirm them.
 
 Environment variables are separate and documented in
 [`devops/railway/env/README.md`](../../devops/railway/env/README.md). They are
