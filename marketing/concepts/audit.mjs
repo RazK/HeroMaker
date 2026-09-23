@@ -5,9 +5,10 @@
  * re-measures all of them the same way, so "concept 2 passed" and "concept 4
  * passed" mean the same thing.
  *
- * Four rules. The first three are the faults that have been reported from a
- * real phone on this project before; the fourth is the one the product owner
- * reported from the top of the page.
+ * Five rules. The first three are the faults that have been reported from a
+ * real phone on this project before; the fourth and fifth are the ones the
+ * product owner reported, from the top of the page and then from the rest of
+ * it.
  *
  *   1. CONTRAST   every run of text reaches 4.5:1 against what is actually
  *                 behind it (3:1 at 24px+, or 19px+ bold). Backgrounds are
@@ -20,6 +21,17 @@
  *      FOLD       are both wholly inside the first screen, with no scrolling,
  *                 and pricing is not. Measured from the element boxes with the
  *                 page scrolled to the top - not eyeballed from a screenshot.
+ *   5. ONE SCREEN  "every one of these chapters needs to have one single screen
+ *      A CHAPTER   occupation, it should not require you to scroll down."
+ *                 Every [data-chapter] - Hero, Gallery, Playground, How it
+ *                 works, Pricing - has scrollHeight no greater than the
+ *                 viewport, at 390x844 AND 1440x900, with the sticky header
+ *                 in place and paid for. The visitor scrolls BETWEEN chapters,
+ *                 never INSIDE one. And the header really is on every chapter:
+ *                 each one is scrolled to and the header's top must still be
+ *                 0. `overflow-x:hidden` anywhere above it quietly turns the
+ *                 body into a scroll container and sticky stops sticking -
+ *                 four of the five shipped that way once.
  *
  * Text is measured as glyphs via Range.getClientRects(), not as element boxes -
  * an element box is mostly empty space and overlapping boxes are normal.
@@ -36,7 +48,9 @@
  *
  * Screenshots written next to each concept: `-desktop.png` / `-phone.png` are
  * the whole page, `-desktop-fold.png` / `-phone-fold.png` are only the first
- * screen, so rule 4 can be judged on its own.
+ * screen, so rule 4 can be judged on its own, and one
+ * `<concept>-<chapter>-<viewport>.png` per chapter per size, which is how a
+ * person checks rule 5 with their own eyes.
  *
  * Exit code is the number of concepts with findings.
  */
@@ -48,12 +62,16 @@ import { join, basename, extname, normalize } from 'node:path'
 // Playwright is a devDependency of the game, not of this folder - there is no
 // package.json here and there should not be one for five static mockups. Resolve
 // it from where it actually lives rather than symlinking node_modules around.
-const PLAYWRIGHT_HOST = '/home/user/HeroMaker/games/hero-moves/package.json'
+const PLAYWRIGHT_HOSTS = [
+  '/home/user/HeroMaker/games/hero-moves/package.json',
+  '/opt/node22/lib/node_modules/playwright/package.json',
+]
 let chromium
-try {
-  ({ chromium } = createRequire(PLAYWRIGHT_HOST)('playwright'))
-} catch (err) {
-  console.error(`Could not load playwright from ${PLAYWRIGHT_HOST}`)
+for (const host of PLAYWRIGHT_HOSTS) {
+  try { ({ chromium } = createRequire(host)('playwright')); break } catch {}
+}
+if (!chromium) {
+  console.error(`Could not load playwright from any of:\n  ${PLAYWRIGHT_HOSTS.join('\n  ')}`)
   console.error('Run `npm install` in games/hero-moves first.')
   process.exit(1)
 }
@@ -169,13 +187,33 @@ const AUDIT = () => {
   }
 
   // ---- rule 2: fits -------------------------------------------------------
+  // The gallery row is a deliberate sideways scroller: its later tiles are laid
+  // out past the right edge of the window and that is what swiping is for. So a
+  // run inside one is judged against THAT box's scrollable width, not the
+  // page's - text genuinely spilling out of the row is still caught.
+  const xScroller = (el) => {
+    let n = el
+    while (n && n !== document.body) {
+      const cs = getComputedStyle(n)
+      if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && n.scrollWidth > n.clientWidth + 1) return n
+      n = n.parentElement
+    }
+    return null
+  }
   const docW = document.documentElement.scrollWidth
   const winW = window.innerWidth
   const clipped = []
   for (const run of runs) {
+    const sc = xScroller(run.el)
+    const box = sc ? sc.getBoundingClientRect() : null
+    const lo = sc ? box.left - sc.scrollLeft : 0
+    const hi = sc ? lo + sc.scrollWidth : docW
     for (const r of run.rects) {
-      if (r.left < -1 || r.right > docW + 1) {
-        clipped.push({ text: run.text, left: Math.round(r.left), right: Math.round(r.right), docW })
+      if (r.left < lo - 1 || r.right > hi + 1) {
+        clipped.push({
+          text: run.text, left: Math.round(r.left), right: Math.round(r.right),
+          docW: Math.round(hi), where: sc ? 'inside a sideways scroller' : 'on the page',
+        })
         break
       }
     }
@@ -224,12 +262,25 @@ const AUDIT = () => {
     pricing: seen('#pricing'),
   }
 
+  // ---- rule 5: one chapter, one screen ------------------------------------
+  // scrollHeight, not getBoundingClientRect: a chapter whose contents overflow
+  // it looks the right height from the outside and still makes the visitor
+  // scroll. The sticky header is part of the viewport this is measured against,
+  // so it is charged to every chapter.
+  const chapters = [...document.querySelectorAll('[data-chapter]')].map((el) => ({
+    name: el.getAttribute('data-chapter') || el.id || el.tagName.toLowerCase(),
+    scrollHeight: el.scrollHeight,
+    clientHeight: Math.round(el.getBoundingClientRect().height),
+  }))
+
   return {
     runCount: runs.length,
     contrast,
     clipped,
     overlaps: overlaps.slice(0, 20),
     fold,
+    chapters,
+    winH,
     horizontalScroll: docW > winW + 1 ? { docW, winW } : null,
   }
 }
@@ -302,7 +353,7 @@ for (const file of files) {
       findings.push(`[${vp.name}] page scrolls sideways: content ${r.horizontalScroll.docW}px in a ${r.horizontalScroll.winW}px window`)
     }
     for (const c of r.clipped) {
-      findings.push(`[${vp.name}] text cut off at the edge: "${c.text}" (${c.left}..${c.right} of ${c.docW})`)
+      findings.push(`[${vp.name}] text cut off at the edge ${c.where}: "${c.text}" (${c.left}..${c.right} of ${c.docW})`)
     }
     for (const o of r.overlaps) {
       findings.push(`[${vp.name}] text on top of text: "${o.a}" over "${o.b}"`)
@@ -345,9 +396,49 @@ for (const file of files) {
           `[${vp.name}] pricing starts in the first screen at ${f.pricing.top}px of ${f.winH}px - it belongs well below`)
       }
 
+      // rule 5 - one chapter, one screen, at both of the sizes the brief names.
+      if (r.chapters.length === 0) {
+        findings.push(`[${vp.name}] no chapters on the page ([data-chapter])`)
+      }
+      for (const ch of r.chapters) {
+        if (ch.scrollHeight > r.winH + 1) {
+          findings.push(
+            `[${vp.name}] the "${ch.name}" chapter needs scrolling: ` +
+            `${ch.scrollHeight}px of content in a ${r.winH}px screen`)
+        }
+      }
+
       const stem = join(DIR, `${basename(file, '.html')}-${vp.name}`)
       await page.screenshot({ path: `${stem}-fold.png` })
       await page.screenshot({ path: `${stem}.png`, fullPage: true })
+
+      // One screenshot per chapter per size, so rule 5 can also be judged by
+      // eye and not only by the number - and, while we are down there, the
+      // header had better still be at the top of the screen.
+      for (const ch of r.chapters) {
+        const head = await page.evaluate((name) => {
+          const el = document.querySelector(`[data-chapter="${name}"]`)
+          if (el) el.scrollIntoView({ block: 'start', behavior: 'instant' })
+          const h = document.querySelector('.hm-head')
+          return h ? Math.round(h.getBoundingClientRect().top) : null
+        }, ch.name)
+        await page.waitForTimeout(350)
+        const top = await page.evaluate(() => {
+          const h = document.querySelector('.hm-head')
+          return h ? Math.round(h.getBoundingClientRect().top) : null
+        })
+        if (head === null || top === null) {
+          findings.push(`[${vp.name}] no sticky header (.hm-head) on the "${ch.name}" chapter`)
+        } else if (top > 1) {
+          findings.push(
+            `[${vp.name}] the header is not sticky on the "${ch.name}" chapter: ` +
+            `it sits at ${top}px instead of 0 (an ancestor with overflow-x:hidden?)`)
+        }
+        await page.screenshot({
+          path: join(DIR, `${basename(file, '.html')}-${ch.name}-${vp.name}.png`),
+        })
+      }
+      await page.evaluate(() => window.scrollTo(0, 0))
     }
     await page.close()
   }

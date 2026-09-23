@@ -81,20 +81,22 @@ function shadowTexture(THREE) {
 }
 
 /**
- * The engine, however it can be had.
+ * The engine, off the disk.
  *
- * `hero-card-engine.js` leaves three and @pixiv/three-vrm to the page's import
- * map, which points at cdn.jsdelivr.net. Where that CDN is unreachable — a
- * corporate proxy, no network, CI — the import rejects and the same code,
- * bundled with its dependencies, comes off the disk instead. Either way the
- * animation is the game's, and `THREE` comes back from the engine so the stage
- * and the clips are built against one copy of three.
+ * `hero-card-engine.bundle.js` is the same code as `hero-card-engine.js` with
+ * three and @pixiv/three-vrm compiled into it, produced by `build-engine.mjs`.
+ * It is what loads, always, and there is no second path.
+ *
+ * It used to be the other way round: the unbundled module was tried first and
+ * resolved three through an import map pointing at cdn.jsdelivr.net, with the
+ * bundle as a rescue. On a real Android phone that rescue did not fire and
+ * every card sat on its still image. A page whose entire claim is "it really
+ * moves" cannot stake that on a third-party CDN, so the 958 KB that is known
+ * to work is now the only thing asked for. `hero-card-engine.js` stays in the
+ * folder as the readable source of what the bundle contains.
  */
 let enginePromise = null
-const loadEngine = () => (enginePromise ??= import('./hero-card-engine.js').catch((err) => {
-  console.warn('hero-card: CDN modules unavailable, using the bundled engine —', err && err.message)
-  return import('./hero-card-engine.bundle.js')
-}))
+const loadEngine = () => (enginePromise ??= import('./hero-card-engine.bundle.js'))
 
 /**
  * Where an asset actually comes from.
@@ -219,6 +221,9 @@ async function start(card, firstMove) {
   const performer = new engine.Performer(hero)
   const specs = new Map(engine.CLIPS.map((c) => [c.id, c]))
   const wanted = buttons.map((b) => b.dataset.move).filter((id) => specs.has(id))
+  // A card with no buttons - the playground preview - names its clip on the
+  // card itself, so it still has something to play.
+  if (firstMove && specs.has(firstMove) && !wanted.includes(firstMove)) wanted.push(firstMove)
 
   const mark = (id) => {
     for (const b of buttons) {
@@ -336,7 +341,7 @@ function init() {
     const moves = shot && shot.querySelector('[data-hero-moves]')
     if (moves) moves.hidden = false
     const pick = moves && (moves.querySelector('button[data-default]') || moves.querySelector('button[data-move]'))
-    const first = pick && pick.dataset.move
+    const first = card.dataset.first || (pick && pick.dataset.move)
 
     // Asked for stillness: nothing is fetched and nothing moves on its own,
     // but the buttons stay live so a visitor can still choose to see it.
