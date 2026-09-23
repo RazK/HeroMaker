@@ -1,17 +1,24 @@
 {
   "$comment": [
-    "Registry of the Railway project's services and environments.",
-    "Single source of truth for the IDs that used to be copy-pasted into",
-    "every script and workflow. Service/environment names are what Railway",
-    "shows in the dashboard; IDs are stable even if a name is changed.",
+    "Registry of the Railway project, its services and its environments.",
+    "THE ONLY PLACE IN THIS REPOSITORY WHERE A RAILWAY ID IS WRITTEN DOWN.",
+    "`railway-env.sh check` scans the whole tree and fails on a second copy,",
+    "because copies cannot disagree with the original and so never catch an",
+    "error - they only make it harder to correct. Read from here; the",
+    "workflows go through railway-config.yml, Python through load_project().",
     "",
-    "TO RE-DERIVE ANY ID YOURSELF, ask nobody: open the project URL below,",
-    "switch the environment dropdown, and read environmentId= out of the",
-    "address bar. A service id is in the URL the same way once you open it.",
+    "Services are addressed by ID: stable across a rename in the dashboard.",
+    "Environments are addressed by NAME, because the Railway CLI resolves",
+    "--environment by name only - passing an ID fails with",
+    "'Environment \"<id>\" not found'. If an environment is renamed in Railway,",
+    "change its 'name' here.",
     "",
-    "Both environment ids here were wrong until 2026-09-23 and every deploy",
-    "failed with 'Environment \"<id>\" not found.' - which is exactly what a",
-    "wrong id looks like. If you see that error, re-derive rather than guess."
+    "The IDs below are for reference and for `railway-env.sh`, which addresses",
+    "environments by ID over the API. Both were WRONG until 2026-09-23 and",
+    "nothing caught it, so they are re-derived from the dashboard, not copied:",
+    "open the project URL, switch the environment dropdown, and read",
+    "environmentId= out of the address bar. A service ID appears in the URL",
+    "the same way once the service is open."
   ],
   "project": {
     "id": "95711b3f-db5c-4521-99a7-c5caeb8005fc",
@@ -33,11 +40,13 @@
   },
   "environments": {
     "staging": {
-      "id": "406e2fde-28f2-4f00-a254-cde5393db6db"
+      "id": "406e2fde-28f2-4f00-a254-cde5393db6db",
+      "name": "staging"
     },
     "production": {
       "id": "4e1101f9-bd77-4292-bd74-f1c6b9ec5522",
-      "default": true
+      "default": true,
+      "name": "production"
     }
   }
 }

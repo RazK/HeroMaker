@@ -32,8 +32,13 @@ import railway_env as tool  # noqa: E402
 # ---------------------------------------------------------------------------
 
 _PROJECT = tool.load_project()
+# Services are addressed by ID, environments by NAME - the Railway CLI
+# resolves --environment by name only. environment_ref() is the same call
+# the tool makes, so a stub keyed with it stays keyed correctly if that
+# ever changes.
 SERVICE = {name: spec["id"] for name, spec in _PROJECT["services"].items()}
-ENVIRONMENT = {name: spec["id"] for name, spec in _PROJECT["environments"].items()}
+ENVIRONMENT = {name: tool.environment_ref(_PROJECT, name)
+               for name in _PROJECT["environments"]}
 
 
 STUB = r'''#!/usr/bin/env python3
@@ -321,14 +326,27 @@ class SyncTests(unittest.TestCase):
                 "references must be sent literally, not expanded",
             )
 
-    def test_sync_targets_the_environment_id_from_the_registry(self):
+    def test_sync_targets_the_service_by_id_and_environment_by_name(self):
+        # Asymmetric on purpose: the Railway CLI resolves --service by ID but
+        # --environment by name only, and rejects an environment ID with
+        # 'Environment "<id>" not found'.
         project = tool.load_project()
         with StubbedRailway() as stub:
             run(["sync", "-e", "staging", "-s", "backend", "-y"])
             applied = stub.applied()
             self.assertEqual(
+                applied[0]["service"], project["services"]["backend"]["id"]
+            )
+            self.assertEqual(applied[0]["environment"], "staging")
+            self.assertNotEqual(
                 applied[0]["environment"], project["environments"]["staging"]["id"]
             )
+
+    def test_no_environment_is_ever_addressed_by_id(self):
+        project = tool.load_project()
+        ids = {e["id"] for e in project["environments"].values() if e.get("id")}
+        for name in project["environments"]:
+            self.assertNotIn(tool.environment_ref(project, name), ids)
 
     def test_sync_skips_a_service_that_is_already_up_to_date(self):
         variables, _ = tool.resolve("vrm-converter", "production")
@@ -344,10 +362,10 @@ class SyncTests(unittest.TestCase):
             self.assertEqual(code, 0, output)
             self.assertEqual(stub.applied(), [])
             self.assertIn("would run", output)
-            # The printed command must be the one that runs: IDs, not names.
+            # The printed command must be the one that actually runs.
             project = tool.load_project()
             self.assertIn(project["services"]["backend"]["id"], output)
-            self.assertIn(project["environments"]["production"]["id"], output)
+            self.assertIn("--environment production", output)
             self.assertIn("--set DEBUG=false", output)
 
     def test_sync_without_a_tty_refuses_to_push_unconfirmed(self):
