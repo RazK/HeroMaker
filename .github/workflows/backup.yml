@@ -1,16 +1,21 @@
 name: Database Backup
 
+# Backs up PRODUCTION. With two Railway environments the target has to be
+# explicit — a backup that silently ran against staging would look healthy and
+# be worthless.
+
 on:
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
-env:
-  BACKEND_SERVICE_ID: 3970a673-db5b-4b2d-9456-93acf1da09bf
-
 jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
   backup:
+    needs: config
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     env:
@@ -21,9 +26,14 @@ jobs:
 
       - name: Run Database Backup
         run: |
-          railway run --service=${{ env.BACKEND_SERVICE_ID }} python scripts/backup_database.py
+          railway run \
+            --service=${{ needs.config.outputs.backend }} \
+            --environment=${{ needs.config.outputs.production }} \
+            python scripts/backup_database.py
 
       - name: Backup Summary
         run: |
-          echo "✅ Database backup completed" >> $GITHUB_STEP_SUMMARY
-          echo "📅 Backup time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "✅ Production database backup completed"
+            echo "📅 Backup time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          } >> $GITHUB_STEP_SUMMARY

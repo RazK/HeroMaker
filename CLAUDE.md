@@ -59,6 +59,22 @@ is ever committed.
 Service and environment IDs come from `devops/railway/project.json`. Tests:
 `.venv/bin/python devops/scripts/test_railway_env.py`.
 
+## Deployments
+
+**A merge to `main` goes to staging. Production needs a human to approve it.**
+
+| | |
+|---|---|
+| PR | builds and lints, deploys nothing |
+| merge to `main` | auto-deploys all three services to **staging** |
+| production | *Actions → Promote to production*, approved by a reviewer |
+| rollback | same workflow, earlier SHA |
+
+Never add a workflow that deploys to production on push. Railway service and
+environment IDs come from `devops/railway/project.json` via the
+`railway-config.yml` reusable workflow — `railway-env.sh check` fails a
+workflow that hard-codes one. See `docs/deployment/cicd.md`.
+
 ## Games
 
 `games/` holds playable experiences built on the pipeline's output. Read

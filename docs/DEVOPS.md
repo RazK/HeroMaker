@@ -168,12 +168,17 @@ Internet
 
 ### Deploy Flow
 
-1. Push to `main` branch on GitHub
-2. GitHub Actions (`.github/workflows/build-images.yml`) builds 3 Docker images and pushes to GHCR:
-   - `ghcr.io/razkarl/heromaker/backend:latest`
-   - `ghcr.io/razkarl/heromaker/frontend:latest`
-   - `ghcr.io/razkarl/heromaker/vrm-converter:latest`
-3. Railway auto-redeploys (or manual redeploy in dashboard)
+**Merging to `main` deploys to staging, not production.** Production is reached
+only by running the *Promote to production* workflow and approving it. Full
+protocol: [`docs/deployment/cicd.md`](deployment/cicd.md).
+
+1. Merge a PR to `main`
+2. `.github/workflows/build-images.yml` builds the 3 images, pushes to GHCR,
+   and deploys all three services to the **staging** environment
+3. Try it in staging
+4. **Actions → Promote to production → Run workflow**, then approve. The same
+   commit deploys to **production**
+5. Rollback is the same workflow with an earlier SHA
 
 ### Railway Config Files
 

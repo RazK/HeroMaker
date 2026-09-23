@@ -170,40 +170,64 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Deploy to Railway after builds complete (only on main branch, not PRs)
-  deploy:
-    needs: [build-backend, build-frontend, build-vrm-converter]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+  # Railway service and environment IDs, read from devops/railway/project.json
+  config:
+    needs: changes
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/railway-config.yml
+
+  # Merging to main deploys to STAGING, never production. Production is reached
+  # only through .github/workflows/promote-production.yml, which waits for a
+  # human to approve it. That is the whole point: main is what staging runs, and
+  # what production may become.
+  #
+  # All three services deploy on every merge, even one that changed no service
+  # code, so staging is always exactly main rather than "main, plus whichever
+  # services happened to change since someone last looked".
+  deploy-staging:
+    needs: [changes, config, build-backend, build-frontend, build-vrm-converter]
+    # always() so a skipped build (no changes in that service) does not skip the
+    # deploy, but config must actually have succeeded — a skipped config job
+    # would leave every ID empty and deploy to whatever Railway defaults to.
+    if: |
+      always() && !cancelled() && !failure()
+      && github.event_name != 'pull_request'
+      && github.ref == 'refs/heads/main'
+      && needs.config.result == 'success'
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
+    environment:
+      name: staging
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      BACKEND_SERVICE_ID: 3970a673-db5b-4b2d-9456-93acf1da09bf
-      FRONTEND_SERVICE_ID: a71bc2c6-c912-475c-ab16-a5dbf0ba074e
-      VRM_CONVERTER_SERVICE_ID: e7afe8a4-ce76-4093-9122-72c498b4874f
+      RAILWAY_ENVIRONMENT_ID: ${{ needs.config.outputs.staging }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Deploy Backend
-        run: railway up --service=${{ env.BACKEND_SERVICE_ID }} --detach
+        run: railway up --service=${{ needs.config.outputs.backend }} --environment=${{ needs.config.outputs.staging }} --detach
 
       - name: Deploy Frontend
-        run: railway up --service=${{ env.FRONTEND_SERVICE_ID }} --detach
+        run: railway up --service=${{ needs.config.outputs.frontend }} --environment=${{ needs.config.outputs.staging }} --detach
 
       - name: Deploy VRM Converter
-        run: railway up --service=${{ env.VRM_CONVERTER_SERVICE_ID }} --detach
+        run: railway up --service=${{ needs.config.outputs.vrm_converter }} --environment=${{ needs.config.outputs.staging }} --detach
 
       - name: Deployment Summary
         run: |
-          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Services deployed to Railway:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Backend" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Frontend" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ VRM Converter" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Railway will run health checks automatically." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## 🚧 Deployed to STAGING"
+            echo ""
+            echo "Commit \`${GITHUB_SHA:0:7}\` is now running in the staging environment."
+            echo ""
+            echo "- ✅ Backend"
+            echo "- ✅ Frontend"
+            echo "- ✅ VRM Converter"
+            echo ""
+            echo "Production is unchanged. Once this looks right in staging, promote it:"
+            echo "**Actions → Promote to production → Run workflow**, with ref \`${GITHUB_SHA}\`."
+          } >> $GITHUB_STEP_SUMMARY
 
   # Summary job that depends on all builds (for PR status checks)
   summary:

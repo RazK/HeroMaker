@@ -2,19 +2,21 @@ name: Railway env layers
 
 # The layered files under devops/railway/env/ are committed, so the guard that
 # they hold no secrets — and that nothing drifts back into per-environment
-# copies — has to run on every change to them.
+# copies — has to run on every change to them. It also refuses a workflow that
+# hard-codes a Railway ID instead of reading devops/railway/project.json, which
+# is why workflow changes trigger it too.
 on:
   push:
     branches: [main]
     paths:
       - 'devops/railway/**'
       - 'devops/scripts/railway*'
-      - '.github/workflows/env-lint.yml'
+      - '.github/workflows/**'
   pull_request:
     paths:
       - 'devops/railway/**'
       - 'devops/scripts/railway*'
-      - '.github/workflows/env-lint.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:

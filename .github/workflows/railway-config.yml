@@ -1,0 +1,68 @@
+name: Railway config
+
+# Reusable job that reads devops/railway/project.json and hands the service and
+# environment IDs to whatever workflow needs them. Before this existed the same
+# three service IDs were pasted into three separate workflows.
+
+on:
+  workflow_call:
+    outputs:
+      backend:
+        description: Railway service ID for the backend
+        value: ${{ jobs.ids.outputs.backend }}
+      frontend:
+        description: Railway service ID for the frontend
+        value: ${{ jobs.ids.outputs.frontend }}
+      vrm_converter:
+        description: Railway service ID for the VRM converter
+        value: ${{ jobs.ids.outputs.vrm_converter }}
+      staging:
+        description: Railway environment ID for staging
+        value: ${{ jobs.ids.outputs.staging }}
+      production:
+        description: Railway environment ID for production
+        value: ${{ jobs.ids.outputs.production }}
+
+jobs:
+  ids:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.read.outputs.backend }}
+      frontend: ${{ steps.read.outputs.frontend }}
+      vrm_converter: ${{ steps.read.outputs.vrm_converter }}
+      staging: ${{ steps.read.outputs.staging }}
+      production: ${{ steps.read.outputs.production }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read devops/railway/project.json
+        id: read
+        run: |
+          set -euo pipefail
+          file=devops/railway/project.json
+          # -e makes jq exit non-zero on null, so a missing ID fails the run
+          # here rather than silently deploying to the wrong place.
+          {
+            echo "backend=$(jq -er '.services["backend"].id' "$file")"
+            echo "frontend=$(jq -er '.services["frontend"].id' "$file")"
+            echo "vrm_converter=$(jq -er '.services["vrm-converter"].id' "$file")"
+            echo "staging=$(jq -er '.environments["staging"].id' "$file")"
+            echo "production=$(jq -er '.environments["production"].id' "$file")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Show what was resolved
+        run: |
+          {
+            echo "### Railway targets"
+            echo ""
+            echo "| Service | ID |"
+            echo "|---|---|"
+            echo "| backend | \`${{ steps.read.outputs.backend }}\` |"
+            echo "| frontend | \`${{ steps.read.outputs.frontend }}\` |"
+            echo "| vrm-converter | \`${{ steps.read.outputs.vrm_converter }}\` |"
+            echo ""
+            echo "| Environment | ID |"
+            echo "|---|---|"
+            echo "| staging | \`${{ steps.read.outputs.staging }}\` |"
+            echo "| production | \`${{ steps.read.outputs.production }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

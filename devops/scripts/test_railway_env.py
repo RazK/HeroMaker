@@ -231,6 +231,33 @@ class CheckTests(unittest.TestCase):
             finally:
                 tool.ENV_DIR = old_dir
 
+    def test_check_flags_a_workflow_that_hard_codes_an_id(self):
+        project = tool.load_project()
+        backend_id = project["services"]["backend"]["id"]
+        with tempfile.TemporaryDirectory() as tmp:
+            old_root, old_dir = tool.REPO_ROOT, tool.ENV_DIR
+            tool.REPO_ROOT = Path(tmp)
+            tool.ENV_DIR = Path(tmp) / "env"
+            tool.ENV_DIR.mkdir()
+            try:
+                (tool.ENV_DIR / "common.env").write_text("A=1\n")
+                workflows = tool.REPO_ROOT / ".github" / "workflows"
+                workflows.mkdir(parents=True)
+                (workflows / "deploy.yml").write_text(
+                    f"run: railway up --service={backend_id}\n"
+                )
+                code, output = run(["check"])
+                self.assertEqual(code, 1, output)
+                self.assertIn("hard-codes the ID of service backend", output)
+                self.assertIn("project.json", output)
+            finally:
+                tool.REPO_ROOT, tool.ENV_DIR = old_root, old_dir
+
+    def test_check_passes_when_workflows_reference_the_registry(self):
+        # The real workflows must stay clean.
+        code, output = run(["check"])
+        self.assertEqual(code, 0, output)
+
     def test_check_flags_a_committed_literal_secret(self):
         with tempfile.TemporaryDirectory() as tmp:
             old_dir = tool.ENV_DIR
