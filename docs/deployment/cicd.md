@@ -20,10 +20,22 @@ One branch. Two environments. Production is never reached by accident.
 promoted, and GitHub records each promotion as a deployment on that commit, so
 "what is in production?" is answerable without asking anyone.
 
-## Why not a `staging` branch
+## Two unrelated things are called "staging"
+
+| "staging" | What it is | Governed by |
+|---|---|---|
+| the Railway **environment** | where `main` deploys before production | this document |
+| the `staging` **git branch** | a publishing branch for the Hero Moves game on GitHub Pages | `.github/workflows/pages.yml` |
+
+They are unrelated. The branch does not feed the Railway environment, and
+nothing in this document deploys from it. The section below is about the
+*branching model for the product deploy* — it is not an argument against the
+branch that exists for Pages.
+
+## Why the product deploy does not use a release branch
 
 A long-lived `staging` branch that merges into `main` was considered and
-rejected:
+rejected **for the Railway deploy**:
 
 - **No selective promotion.** If feature A is in staging and you're unsure
   about it, feature B merged after it cannot reach production without dragging
@@ -36,6 +48,10 @@ rejected:
 
 Staging the *deployment* instead of the *branch* gives the same control with
 none of that.
+
+(The Pages branch is a different shape of problem — it publishes one static
+game to one origin, with no environment to promote between — so none of the
+above applies to it.)
 
 ## One-time setup
 
