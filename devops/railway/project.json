@@ -3,8 +3,20 @@
     "Registry of the Railway project's services and environments.",
     "Single source of truth for the IDs that used to be copy-pasted into",
     "every script and workflow. Service/environment names are what Railway",
-    "shows in the dashboard; IDs are stable even if a name is changed."
+    "shows in the dashboard; IDs are stable even if a name is changed.",
+    "",
+    "TO RE-DERIVE ANY ID YOURSELF, ask nobody: open the project URL below,",
+    "switch the environment dropdown, and read environmentId= out of the",
+    "address bar. A service id is in the URL the same way once you open it.",
+    "",
+    "Both environment ids here were wrong until 2026-09-23 and every deploy",
+    "failed with 'Environment \"<id>\" not found.' - which is exactly what a",
+    "wrong id looks like. If you see that error, re-derive rather than guess."
   ],
+  "project": {
+    "id": "95711b3f-db5c-4521-99a7-c5caeb8005fc",
+    "url": "https://railway.com/project/95711b3f-db5c-4521-99a7-c5caeb8005fc"
+  },
   "services": {
     "backend": {
       "dir": "backend",
@@ -24,7 +36,7 @@
       "id": "406e2fde-28f2-4f00-a254-cde5393db6db"
     },
     "production": {
-      "id": "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1",
+      "id": "4e1101f9-bd77-4292-bd74-f1c6b9ec5522",
       "default": true
     }
   }

@@ -316,7 +316,7 @@ class SyncTests(unittest.TestCase):
 
     def test_sync_skips_a_service_that_is_already_up_to_date(self):
         variables, _ = tool.resolve("vrm-converter", "production")
-        with StubbedRailway({("e7afe8a4-ce76-4093-9122-72c498b4874f", "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"): variables}) as stub:
+        with StubbedRailway({("e7afe8a4-ce76-4093-9122-72c498b4874f", "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"): variables}) as stub:
             code, output = run(["sync", "-e", "production", "-s", "vrm-converter", "-y"])
             self.assertEqual(code, 0, output)
             self.assertIn("already up to date", output)
@@ -359,7 +359,7 @@ class SyncTests(unittest.TestCase):
         remote = dict(variables)
         remote["JWT_SECRET_KEY"] = "some-resolved-secret"
         key = ("3970a673-db5b-4b2d-9456-93acf1da09bf",
-               "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1")
+               "4e1101f9-bd77-4292-bd74-f1c6b9ec5522")
         with StubbedRailway({key: remote}) as stub:
             code, output = run(["sync", "-e", "production", "-s", "backend", "-y"])
             self.assertEqual(code, 0, output)
@@ -373,7 +373,7 @@ class SyncTests(unittest.TestCase):
 
 class DiffTests(unittest.TestCase):
     BACKEND = "3970a673-db5b-4b2d-9456-93acf1da09bf"
-    PROD = "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"
+    PROD = "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"
 
     def test_diff_reports_missing_and_changed_keys(self):
         payload = {(self.BACKEND, self.PROD): {"DEBUG": "true", "PORT": "8080"}}
@@ -421,7 +421,7 @@ class FactorTests(unittest.TestCase):
     FRONTEND = "a71bc2c6-c912-475c-ab16-a5dbf0ba074e"
     VRM = "e7afe8a4-ce76-4093-9122-72c498b4874f"
     STAGING = "406e2fde-28f2-4f00-a254-cde5393db6db"
-    PROD = "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"
+    PROD = "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"
 
     def test_factor_collapses_identical_values_and_shields_secrets(self):
         ids = {
@@ -432,7 +432,7 @@ class FactorTests(unittest.TestCase):
                 "OPENAI_API_KEY": "sk-staging",
                 "RAILWAY_PROJECT_ID": "ignored",
             },
-            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "fb40d65e-7fb9-4a8b-8ecb-e6f457b17ce1"): {
+            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"): {
                 "DEBUG": "false",
                 "S3_REGION": "auto",
                 "ALLOWED_ORIGINS": "https://prod.example.app",

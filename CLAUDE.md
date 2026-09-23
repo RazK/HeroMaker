@@ -75,6 +75,36 @@ is ever committed.
 Service and environment IDs come from `devops/railway/project.json`. Tests:
 `.venv/bin/python devops/scripts/test_railway_env.py`.
 
+## Railway: the project, and where its IDs come from
+
+<https://railway.com/project/95711b3f-db5c-4521-99a7-c5caeb8005fc>
+
+| | |
+|---|---|
+| project | `95711b3f-db5c-4521-99a7-c5caeb8005fc` |
+| staging | `406e2fde-28f2-4f00-a254-cde5393db6db` |
+| production | `4e1101f9-bd77-4292-bd74-f1c6b9ec5522` |
+
+`devops/railway/project.json` is the source of truth and carries the service
+ids too — read it rather than copying from here.
+
+**Both environment ids were wrong until 2026-09-23**, so every deploy since the
+staging step was added had failed one second in with
+
+```
+Environment "<id>" not found.
+```
+
+That message means the id is wrong, nothing else. **Do not ask a human for it
+and do not guess**: open the project URL, switch the environment dropdown, and
+read `environmentId=` out of the address bar. A service id appears in the URL
+the same way once you open the service.
+
+The fixtures in `devops/scripts/test_railway_env.py` hard-code these ids, so
+they assert whatever is in the file back at themselves and cannot catch a wrong
+one. If you change an id, change it there too — `grep` for the old value and
+expect hits in `project.json`, `docs/DEVOPS.md` and that test.
+
 ## Deployments
 
 **A merge to `main` goes to staging. Production needs a human to approve it.**
