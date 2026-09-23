@@ -20,10 +20,22 @@ One branch. Two environments. Production is never reached by accident.
 promoted, and GitHub records each promotion as a deployment on that commit, so
 "what is in production?" is answerable without asking anyone.
 
-## Why not a `staging` branch
+## Two unrelated things are called "staging"
+
+| "staging" | What it is | Governed by |
+|---|---|---|
+| the Railway **environment** | where `main` deploys before production | this document |
+| the `staging` **git branch** | a publishing branch for the Hero Moves game on GitHub Pages | `.github/workflows/pages.yml` |
+
+They are unrelated. The branch does not feed the Railway environment, and
+nothing in this document deploys from it. The section below is about the
+*branching model for the product deploy* — it is not an argument against the
+branch that exists for Pages.
+
+## Why the product deploy does not use a release branch
 
 A long-lived `staging` branch that merges into `main` was considered and
-rejected:
+rejected **for the Railway deploy**:
 
 - **No selective promotion.** If feature A is in staging and you're unsure
   about it, feature B merged after it cannot reach production without dragging
@@ -36,6 +48,10 @@ rejected:
 
 Staging the *deployment* instead of the *branch* gives the same control with
 none of that.
+
+(The Pages branch is a different shape of problem — it publishes one static
+game to one origin, with no environment to promote between — so none of the
+above applies to it.)
 
 ## One-time setup
 
@@ -99,6 +115,28 @@ the exact names with:
 ```bash
 railway environment
 ```
+
+### Known issue: the staging deploy cannot reach its environment
+
+`deploy-staging` currently fails with `Environment "staging" not found`, and
+did the same when given the environment ID. The deploy job prints a preflight
+(`railway whoami` / `railway status`) so each run records what the token can
+actually reach.
+
+The likely cause is that `RAILWAY_TOKEN` is a Railway **project token**, which
+Railway scopes to one environment. A project token issued for production
+cannot see staging under any name, which fits the evidence: the old workflows
+deployed fine for months *without* `--environment`, because the token already
+implied production.
+
+If that is it, the fix is a second token:
+
+1. Railway → project → Settings → Tokens → create a token scoped to **staging**
+2. GitHub → Settings → Secrets → add it as `RAILWAY_STAGING_TOKEN`
+3. Point `deploy-staging` at that secret; `promote-production` keeps using
+   `RAILWAY_TOKEN`
+
+Production deploys are unaffected throughout — they use the existing token.
 
 Environment variables are separate and documented in
 [`devops/railway/env/README.md`](../../devops/railway/env/README.md). They are
