@@ -13,6 +13,8 @@ healthcheckTimeout = 10
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-# Environment variables (set these in Railway dashboard or via CLI)
-# VITE_API_BASE_URL=https://your-backend-url.railway.app
+# Environment variables are NOT listed here — they live in
+# devops/railway/env/ (common.env + frontend.env), declared once for both
+# staging and production, and are pushed with:
+#   ./devops/scripts/railway-env.sh sync -e <environment> -s frontend
 

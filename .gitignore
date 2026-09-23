@@ -34,9 +34,12 @@ dist-ssr
 reference/
 
 # Python virtual environment
+# `env/` is anchored to the repo root because unanchored it also matched
+# devops/railway/env/, which is tracked. The other two stay unanchored so a
+# venv nested in a service directory is still ignored.
 .venv/
 venv/
-env/
+/env/
 
 # Cursor IDE files
 .cursor/
@@ -58,7 +61,13 @@ __pycache__/
 *.sqlite3
 heromaker.db
 
-# Railway environment files with secrets (keep templates, ignore actual keys)
+# Railway environment variables: the layered *.env files under
+# devops/railway/env/ ARE tracked (they hold no secrets — see the README
+# there). Only the secret layers stay local.
+devops/railway/env/secrets.env
+devops/railway/env/secrets.*.env
+
+# Pre-layering env files, ignored so an old checkout cannot commit its keys
 devops/railway/env/backend
 devops/railway/env/frontend
 devops/railway/env/vrm-converter
