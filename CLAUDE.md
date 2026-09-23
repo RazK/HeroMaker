@@ -133,3 +133,38 @@ cancellation deliberately keeps its charge.
 **Known blocker, unrelated to any of the above:** the Meshy account is on the
 free plan, which Meshy has discontinued (`NoMorePendingTasks`). No hero can
 complete on any environment until that is upgraded.
+
+### Buying credits: the API is done, the UI is not (deliberate)
+
+The backend can take money today. The frontend has no way to spend it — PR #25
+changed zero files under `frontend/`. **This is a known, accepted gap, not an
+oversight to re-report.** The UI is planned as separate work.
+
+If you are the agent building it, everything you need already exists and is
+verified against the live store:
+
+```
+GET  /api/payments/packs      what is on sale (no margin data leaks to the customer)
+POST /api/payments/checkout   {"pack": "<slug>"} -> {"checkout_url": ...}; send the user there
+POST /api/payments/webhook    Lemon Squeezy only. Credits are granted HERE, nowhere else.
+GET  /api/payments/receipts   the signed-in user's own purchases
+```
+
+Rules for that UI:
+
+- Send the buyer to `checkout_url` and nothing else. **The browser must never
+  tell the backend a payment happened** — only the signed webhook grants
+  credits, and that is the whole security model. On return from checkout, just
+  re-read the balance; the webhook usually lands within a second or two.
+- Render only the packs `GET /packs` returns. A pack missing its Lemon Squeezy
+  variant is omitted on purpose: a price with no working button is worse than
+  no price.
+- `checkout` answers **503** when the store is unconfigured and **502** when
+  Lemon Squeezy refuses. Both are ours, not the customer's — show "payments are
+  unavailable right now", not a validation error.
+- `price_display` currently renders four decimals (`"$5.0000"`); `packs.py`
+  omits the `places=2` that the receipts endpoint passes. Fix it there, not in
+  the UI.
+- `/packs` lists packs whenever the *variant ids* are set, even if
+  `LEMONSQUEEZY_API_KEY` is missing — so a half-configured deployment can show
+  a Buy button that 503s. Worth tightening in `packs.get_packs` before launch.
