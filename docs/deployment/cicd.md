@@ -100,6 +100,28 @@ the exact names with:
 railway environment
 ```
 
+### Known issue: the staging deploy cannot reach its environment
+
+`deploy-staging` currently fails with `Environment "staging" not found`, and
+did the same when given the environment ID. The deploy job prints a preflight
+(`railway whoami` / `railway status`) so each run records what the token can
+actually reach.
+
+The likely cause is that `RAILWAY_TOKEN` is a Railway **project token**, which
+Railway scopes to one environment. A project token issued for production
+cannot see staging under any name, which fits the evidence: the old workflows
+deployed fine for months *without* `--environment`, because the token already
+implied production.
+
+If that is it, the fix is a second token:
+
+1. Railway → project → Settings → Tokens → create a token scoped to **staging**
+2. GitHub → Settings → Secrets → add it as `RAILWAY_STAGING_TOKEN`
+3. Point `deploy-staging` at that secret; `promote-production` keeps using
+   `RAILWAY_TOKEN`
+
+Production deploys are unaffected throughout — they use the existing token.
+
 Environment variables are separate and documented in
 [`devops/railway/env/README.md`](../../devops/railway/env/README.md). They are
 **not** synced by CI: pushing variables stays a deliberate, manual act.
