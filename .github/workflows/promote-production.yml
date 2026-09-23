@@ -1,0 +1,129 @@
+name: Promote to production
+
+# The ONLY path to production.
+#
+# Merging to main deploys to staging automatically. Reaching production takes a
+# deliberate act: someone runs this workflow and someone approves it. The
+# approval is enforced by the `production` GitHub Environment — see
+# docs/deployment/cicd.md for the one-time setup of its required reviewers.
+#
+# Nothing can be promoted that is not already on main, so production is always
+# a commit that has been through CI and through staging.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit SHA or branch to promote (must be on main)'
+        required: false
+        default: 'main'
+      reason:
+        description: 'Why now? (recorded in the run summary)'
+        required: false
+        default: ''
+
+concurrency:
+  # Two overlapping promotions would race each other's deploys.
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      short: ${{ steps.resolve.outputs.short }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the ref and prove it is on main
+        id: resolve
+        env:
+          # Via env, never inline ${{ }}: a workflow_dispatch input is free text
+          # and would otherwise be interpolated straight into this shell.
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          ref="${REF:-main}"
+          if ! sha=$(git rev-parse --verify "origin/${ref}^{commit}" 2>/dev/null); then
+            if ! sha=$(git rev-parse --verify "${ref}^{commit}" 2>/dev/null); then
+              echo "::error::'${ref}' is not a commit or branch in this repository"
+              exit 1
+            fi
+          fi
+
+          # Refuse to promote anything that has not landed on main. Without
+          # this, workflow_dispatch would happily ship an unmerged branch
+          # straight to production.
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$sha is not an ancestor of main. Merge it first — production only ever runs commits that went through main and staging."
+            exit 1
+          fi
+
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize what is up for approval
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+          ACTOR: ${{ github.actor }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          set -euo pipefail
+          subject=$(git log -1 --pretty=format:%s "$SHA")
+          {
+            echo "## Awaiting approval: promote to production"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${SHA}\` |"
+            echo "| Subject | ${subject} |"
+            echo "| Requested by | @${ACTOR} |"
+            echo "| Reason | ${REASON:-_none given_} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    needs: [config, verify]
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    # This is the gate. GitHub holds the job here until a required reviewer
+    # approves it, and records the result as a deployment on the commit.
+    environment:
+      name: production
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_ENVIRONMENT_ID: ${{ needs.config.outputs.production }}
+    steps:
+      - name: Checkout the approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+
+      - name: Deploy Backend
+        run: railway up --service=${{ needs.config.outputs.backend }} --environment=${{ needs.config.outputs.production }} --detach
+
+      - name: Deploy Frontend
+        run: railway up --service=${{ needs.config.outputs.frontend }} --environment=${{ needs.config.outputs.production }} --detach
+
+      - name: Deploy VRM Converter
+        run: railway up --service=${{ needs.config.outputs.vrm_converter }} --environment=${{ needs.config.outputs.production }} --detach
+
+      - name: Promotion Summary
+        run: |
+          {
+            echo "## 🚀 Promoted to PRODUCTION"
+            echo ""
+            echo "Commit \`${{ needs.verify.outputs.short }}\` is now deploying to production."
+            echo ""
+            echo "- ✅ Backend"
+            echo "- ✅ Frontend"
+            echo "- ✅ VRM Converter"
+            echo ""
+            echo "Railway runs the health checks. If one fails, roll back by promoting"
+            echo "the previous known-good commit — this workflow takes any SHA on main."
+          } >> $GITHUB_STEP_SUMMARY

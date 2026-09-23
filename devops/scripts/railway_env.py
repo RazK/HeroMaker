@@ -546,7 +546,26 @@ def cmd_check(args, project) -> int:
                         f"inherits — the line can go."
                     )
 
-    # 4. Every service must resolve to something in every environment.
+    # 4. project.json is the only place an ID belongs. Before it existed the
+    #    same service IDs were pasted into three workflows; this stops them
+    #    creeping back.
+    known_ids = {}
+    for section in ("services", "environments"):
+        for name, spec in project[section].items():
+            if spec.get("id"):
+                known_ids[spec["id"]] = f"{section[:-1]} {name}"
+    workflows = REPO_ROOT / ".github" / "workflows"
+    for path in sorted(workflows.glob("*.y*ml")) if workflows.is_dir() else []:
+        text = path.read_text()
+        for value, label in known_ids.items():
+            if value in text:
+                problems.append(
+                    f".github/workflows/{path.name}: hard-codes the ID of "
+                    f"{label}. Read it from devops/railway/project.json via "
+                    f"the railway-config.yml reusable workflow instead."
+                )
+
+    # 5. Every service must resolve to something in every environment.
     for service in service_names(project):
         for environment in environments:
             variables, _ = resolve(service, environment, include_secrets=False)
