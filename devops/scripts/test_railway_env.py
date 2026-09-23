@@ -20,6 +20,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import railway_env as tool  # noqa: E402
 
 
+# ---------------------------------------------------------------------------
+# Ids come from the registry, never from a literal in this file.
+#
+# They used to be typed in here, which meant these tests asserted whatever was
+# in project.json back at themselves. Both environment ids in that file were
+# wrong for weeks and every deploy failed with `Environment "<id>" not found.`,
+# and nothing here could have noticed. Deriving them means a test fails when an
+# id is MISSING or MISNAMED - it still cannot tell you an id is wrong, because
+# only Railway knows that, but it can no longer pretend to check.
+# ---------------------------------------------------------------------------
+
+_PROJECT = tool.load_project()
+SERVICE = {name: spec["id"] for name, spec in _PROJECT["services"].items()}
+ENVIRONMENT = {name: spec["id"] for name, spec in _PROJECT["environments"].items()}
+
+
 STUB = r'''#!/usr/bin/env python3
 import json, os, sys
 args = sys.argv[1:]
@@ -297,7 +313,7 @@ class SyncTests(unittest.TestCase):
             self.assertEqual(code, 0, output)
             applied = stub.applied()
             self.assertEqual(len(applied), 3, "expected one call per service")
-            backend = next(a for a in applied if a["service"].startswith("3970a673"))
+            backend = next(a for a in applied if a["service"] == SERVICE["backend"])
             self.assertTrue(backend["skip_deploys"])
             self.assertIn("DEBUG=false", backend["sets"])
             self.assertIn(
@@ -316,7 +332,7 @@ class SyncTests(unittest.TestCase):
 
     def test_sync_skips_a_service_that_is_already_up_to_date(self):
         variables, _ = tool.resolve("vrm-converter", "production")
-        with StubbedRailway({("e7afe8a4-ce76-4093-9122-72c498b4874f", "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"): variables}) as stub:
+        with StubbedRailway({(SERVICE["vrm-converter"], ENVIRONMENT["production"]): variables}) as stub:
             code, output = run(["sync", "-e", "production", "-s", "vrm-converter", "-y"])
             self.assertEqual(code, 0, output)
             self.assertIn("already up to date", output)
@@ -358,8 +374,8 @@ class SyncTests(unittest.TestCase):
         variables, _ = tool.resolve("backend", "production")
         remote = dict(variables)
         remote["JWT_SECRET_KEY"] = "some-resolved-secret"
-        key = ("3970a673-db5b-4b2d-9456-93acf1da09bf",
-               "4e1101f9-bd77-4292-bd74-f1c6b9ec5522")
+        key = (SERVICE["backend"],
+               ENVIRONMENT["production"])
         with StubbedRailway({key: remote}) as stub:
             code, output = run(["sync", "-e", "production", "-s", "backend", "-y"])
             self.assertEqual(code, 0, output)
@@ -372,8 +388,8 @@ class SyncTests(unittest.TestCase):
 
 
 class DiffTests(unittest.TestCase):
-    BACKEND = "3970a673-db5b-4b2d-9456-93acf1da09bf"
-    PROD = "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"
+    BACKEND = SERVICE["backend"]
+    PROD = ENVIRONMENT["production"]
 
     def test_diff_reports_missing_and_changed_keys(self):
         payload = {(self.BACKEND, self.PROD): {"DEBUG": "true", "PORT": "8080"}}
@@ -417,22 +433,22 @@ class DiffTests(unittest.TestCase):
 
 
 class FactorTests(unittest.TestCase):
-    BACKEND = "3970a673-db5b-4b2d-9456-93acf1da09bf"
-    FRONTEND = "a71bc2c6-c912-475c-ab16-a5dbf0ba074e"
-    VRM = "e7afe8a4-ce76-4093-9122-72c498b4874f"
-    STAGING = "406e2fde-28f2-4f00-a254-cde5393db6db"
-    PROD = "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"
+    BACKEND = SERVICE["backend"]
+    FRONTEND = SERVICE["frontend"]
+    VRM = SERVICE["vrm-converter"]
+    STAGING = ENVIRONMENT["staging"]
+    PROD = ENVIRONMENT["production"]
 
     def test_factor_collapses_identical_values_and_shields_secrets(self):
         ids = {
-            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "406e2fde-28f2-4f00-a254-cde5393db6db"): {
+            (SERVICE["backend"], ENVIRONMENT["staging"]): {
                 "DEBUG": "false",
                 "S3_REGION": "auto",
                 "ALLOWED_ORIGINS": "https://staging.example.app",
                 "OPENAI_API_KEY": "sk-staging",
                 "RAILWAY_PROJECT_ID": "ignored",
             },
-            ("3970a673-db5b-4b2d-9456-93acf1da09bf", "4e1101f9-bd77-4292-bd74-f1c6b9ec5522"): {
+            (SERVICE["backend"], ENVIRONMENT["production"]): {
                 "DEBUG": "false",
                 "S3_REGION": "auto",
                 "ALLOWED_ORIGINS": "https://prod.example.app",
@@ -589,7 +605,7 @@ class WrapperTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             applied = stub.applied()
             self.assertEqual(len(applied), 1)
-            self.assertTrue(applied[0]["service"].startswith("3970a673"))
+            self.assertTrue(applied[0]["service"] == SERVICE["backend"])
 
 
 if __name__ == "__main__":

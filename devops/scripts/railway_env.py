@@ -546,23 +546,47 @@ def cmd_check(args, project) -> int:
                         f"inherits — the line can go."
                     )
 
-    # 4. project.json is the only place an ID belongs. Before it existed the
-    #    same service IDs were pasted into three workflows; this stops them
-    #    creeping back.
+    # 4. project.json is the only place an ID belongs, ANYWHERE in the tree.
+    #
+    #    This started as a check on the three workflows that used to paste the
+    #    service IDs in. It covers the whole repository now, because the same
+    #    IDs had also been copied into docs/DEVOPS.md, CLAUDE.md and the
+    #    fixtures in test_railway_env.py - and both environment IDs in
+    #    project.json were WRONG for weeks while every one of those copies
+    #    agreed with them. A copy cannot disagree with the original, so it can
+    #    never catch an error; it can only make the error harder to correct.
+    #    One place to read, one place to fix.
     known_ids = {}
     for section in ("services", "environments"):
         for name, spec in project[section].items():
             if spec.get("id"):
                 known_ids[spec["id"]] = f"{section[:-1]} {name}"
-    workflows = REPO_ROOT / ".github" / "workflows"
-    for path in sorted(workflows.glob("*.y*ml")) if workflows.is_dir() else []:
-        text = path.read_text()
+    if isinstance(project.get("project"), dict) and project["project"].get("id"):
+        known_ids[project["project"]["id"]] = "the project"
+
+    SKIP_DIRS = {".git", "node_modules", ".venv", "dist", "build", "__pycache__",
+                 ".pytest_cache", "data", "uploads"}
+    TEXT_SUFFIXES = {".py", ".sh", ".yml", ".yaml", ".json", ".md", ".ts", ".tsx",
+                     ".js", ".mjs", ".env", ".example", ".toml", ".cfg", ".txt"}
+
+    for path in sorted(REPO_ROOT.rglob("*")):
+        if not path.is_file() or path.suffix not in TEXT_SUFFIXES:
+            continue
+        if any(part in SKIP_DIRS for part in path.relative_to(REPO_ROOT).parts):
+            continue
+        if path == PROJECT_FILE:
+            continue  # the one file that is allowed to say them
+        try:
+            text = path.read_text(errors="ignore")
+        except OSError:
+            continue
         for value, label in known_ids.items():
             if value in text:
                 problems.append(
-                    f".github/workflows/{path.name}: hard-codes the ID of "
-                    f"{label}. Read it from devops/railway/project.json via "
-                    f"the railway-config.yml reusable workflow instead."
+                    f"{_rel(path)}: hard-codes the ID of {label}. "
+                    f"devops/railway/project.json is the only place an ID is "
+                    f"written; read it from there (the workflows go through "
+                    f"railway-config.yml, Python through load_project())."
                 )
 
     # 5. Every service must resolve to something in every environment.
