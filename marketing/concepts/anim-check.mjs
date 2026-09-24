@@ -325,7 +325,14 @@ for (const file of files) {
       ).then(() => true).catch(() => false)
       if (!woke) findings.push('[reduced motion] pressing Dance did not bring the hero to life')
       else {
-        await page.waitForTimeout(900)
+        // The still fades out over .45s, and this machine renders WebGL on the
+        // CPU, so give the fade room rather than sampling it mid-transition.
+        // A still that is PINNED - which is the bug - never reaches 0 and this
+        // times out into the assertion below.
+        await page.waitForFunction(() => {
+          const el = document.querySelector('[data-hero-card] .hm-still')
+          return !el || parseFloat(getComputedStyle(el).opacity) <= 0.05
+        }, null, { timeout: 6000 }).catch(() => {})
         const state = await page.evaluate(() => {
           const card = document.querySelector('[data-hero-card]')
           const still = card.querySelector('.hm-still')

@@ -23,8 +23,11 @@
  *                 page scrolled to the top - not eyeballed from a screenshot.
  *   5. ONE SCREEN  "every one of these chapters needs to have one single screen
  *      A CHAPTER   occupation, it should not require you to scroll down."
- *                 Every [data-chapter] - Hero, Gallery, Playground, How it
- *                 works, Pricing - has scrollHeight no greater than the
+ *                 A CEILING, not a floor: chapters.css no longer pins a
+ *                 chapter to a full screen, because "the space between parts
+ *                 is too big" was the next note. A short chapter is short.
+ *                 Every [data-chapter] - Hero, Gallery, Playground, Pricing -
+ *                 has scrollHeight no greater than the
  *                 viewport, at 390x844 AND 1440x900, with the sticky header
  *                 in place and paid for. The visitor scrolls BETWEEN chapters,
  *                 never INSIDE one. And the header really is on every chapter:
