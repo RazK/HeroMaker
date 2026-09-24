@@ -6,43 +6,75 @@ This document provides the high-level system view that ties together the detaile
 
 ```mermaid
 graph TB
-    subgraph "Public Internet"
-        User[Users on Mobile/Desktop]
+    subgraph Public["Public Internet"]
+        User["Users on Mobile/Desktop"]
+        Player["A child in front of a webcam"]
     end
-    
-    subgraph "Railway Platform / Local Docker"
-        subgraph "Frontend Service"
-            Frontend[React SPA<br/>Nginx/Vite]
+
+    subgraph Pages["GitHub Pages - separate deploy, no backend"]
+        Moves["Hero Moves<br/>static bundle + committed avatars"]
+    end
+
+    subgraph Platform["Railway - staging and production, same code"]
+        Frontend["Frontend<br/>React SPA, Nginx/Vite"]
+        subgraph BackendSvc["Backend Service - FastAPI/Uvicorn"]
+            Pipeline["/api/creations<br/>pipeline orchestrator"]
+            Payments["/api/payments<br/>checkout + signed webhook"]
+            Finance["/api/admin/finance<br/>margin report, admin only"]
         end
-        
-        subgraph "Backend Service"
-            Backend[FastAPI<br/>Uvicorn]
-        end
-        
-        subgraph "VRM Converter Service"
-            VRMConverter[Blender Service<br/>FastAPI]
-        end
-        
-        subgraph "Storage"
-            Database[(SQLite/PostgreSQL)]
-            Files[File Storage<br/>Local/S3]
+        Converter["VRM Converter<br/>Blender, FastAPI"]
+        subgraph Storage["Storage"]
+            Core[("users, creations, creation_steps<br/>coupons, coupon_redemptions")]
+            Money[("credit_transactions - append-only ledger<br/>payments - gross / fee / net")]
+            Usage[("usage_events - one row per paid provider call")]
+            Files["File Storage<br/>Local volume or S3"]
         end
     end
-    
-    subgraph "External Services"
-        OpenAI[OpenAI API<br/>GPT-Image-1]
-        Meshy[Meshy API<br/>3D Generation]
+
+    subgraph External["External Services"]
+        OpenAI["OpenAI API<br/>GPT-Image-1"]
+        Meshy["Meshy API<br/>3D Generation + rigging"]
+        LemonSqueezy["Lemon Squeezy<br/>merchant of record"]
     end
-    
+
     User -->|HTTPS| Frontend
-    Frontend -->|Direct API Calls<br/>VITE_API_BASE_URL| Backend
-    Backend -->|HTTP| VRMConverter
-    Backend -->|API calls| OpenAI
-    Backend -->|API calls| Meshy
-    VRMConverter -->|Read/Write| Files
-    Backend -->|Read/Write| Files
-    Backend -->|Read/Write| Database
+    Frontend -->|"Direct API calls, VITE_API_BASE_URL"| Pipeline
+    Frontend -->|"buy credits (API exists, no UI yet)"| Payments
+
+    Payments -->|"open a hosted checkout"| LemonSqueezy
+    LemonSqueezy -->|"HMAC-signed webhook - the ONLY grant path"| Payments
+    Payments -->|"credits and dollars, keyed on the order id"| Money
+
+    Pipeline -->|"spend on entry, refund on provider failure"| Money
+    Pipeline -->|"API calls"| OpenAI
+    Pipeline -->|"API calls"| Meshy
+    Pipeline -->|"cost of every call, retries and failures too"| Usage
+    Pipeline -->|HTTP, private network| Converter
+    Pipeline -->|Read/Write| Core
+    Pipeline -->|Read/Write| Files
+    Converter -->|Read/Write| Files
+
+    Finance -->|"revenue vs. provider cost"| Usage
+    Finance --> Money
+
+    Player --> Moves
+    Moves -.->|"avatars this pipeline produced, committed into the repo"| Files
 ```
+
+**What the money path guarantees**
+
+- `credit_transactions` is append-only. A balance is the sum of its rows;
+  `users.credits` is a cache updated in the same transaction. A correction is a
+  compensating row, never an UPDATE.
+- `credit_transactions.external_ref` and `payments.provider_ref` are both
+  UNIQUE, so a webhook Lemon Squeezy delivers twice grants credits once. It
+  will deliver twice.
+- A debit is one conditional UPDATE (`... WHERE credits + :delta >= 0`), so
+  concurrent spends cannot overdraw a balance.
+- `usage_events` rows are written on their own session and committed
+  immediately, independent of the caller's transaction: the money is gone the
+  moment the provider accepts the request, so the record must not roll back
+  with the pipeline.
 
 ## Deployment Architecture
 
@@ -106,6 +138,35 @@ graph TB
 - Backend and VRM converter communicate via Railway's private network
 - Storage uses Railway managed services (PostgreSQL + S3) or volumes
 
+### Two Railway environments
+
+The same three services exist twice, as `staging` and `production`, with
+separate data:
+
+| | |
+|---|---|
+| PR | builds and lints, deploys nothing |
+| merge to `main` | auto-deploys all three services to **staging** |
+| production | *Actions → Promote to production*, approved by a reviewer |
+| rollback | the same workflow, an earlier SHA |
+
+Every Railway project, service and environment ID lives in exactly one file,
+`devops/railway/project.json`, and reaches the workflows through the
+`railway-config.yml` reusable workflow. Environment variables are layered
+files under `devops/railway/env/` pushed by `devops/scripts/railway-env.sh`;
+secrets are Railway shared variables referenced as `${{shared.KEY}}` and are
+never committed. A project token is scoped to ONE environment, which is why
+the staging job uses its own `RAILWAY_STAGING_TOKEN`. See
+[CI/CD](../deployment/cicd.md).
+
+### Hero Moves is not deployed here
+
+`games/hero-moves` is a static Vite bundle published to GitHub Pages by
+`.github/workflows/pages.yml` on a push to `main` or `staging`. It has no
+backend, no API key and no Railway service: it ships avatars the pipeline
+already produced, and pose tracking runs in the browser. It is separate
+because a webcam needs a real https origin.
+
 ## Product Experience at a Glance
 
 HeroMaker exposes three primary states in the frontend experience:
@@ -123,7 +184,11 @@ The frontend treats the backend as the single source of truth and polls for crea
 | Backend API Service | Implements REST endpoints under `/api`, orchestrates step execution, enforces auth/ownership rules | FastAPI + SQLAlchemy + Alembic. Runs under Uvicorn/Gunicorn. | Keeps business logic in app modules (`api/`, `services/`, `config/`, `utils/`). Listens on Railway-assigned port (via `PORT` env var). |
 | Pipeline Engine | Encapsulated inside the API service (no separate worker). Executes sequential steps defined in `steps.md`, spawns Meshy/OpenAI jobs, and writes outputs to disk. | Python modules in `backend/app/services/`. | Step status is tracked in database with timestamps and progress. |
 | VRM Converter Service | Converts GLB files to VRM format using Blender and VRM add-on | FastAPI + Blender. Runs as separate container/service. | Accessible only via private network (Railway) or Docker network (local). |
-| Database | Stores users, creations, creation_steps with status, metadata, audit timestamps | SQLite (dev and production). PostgreSQL supported via `DATABASE_URL` (see `.env.example`). | Core tables: `users`, `creations`, `creation_steps`. File paths are not stored here. |
+| Database | Stores users, creations, creation_steps, the credit ledger, payments and usage events | SQLite (dev and production). PostgreSQL supported via `DATABASE_URL` (see `.env.example`). | Tables: `users`, `creations`, `creation_steps`, `coupons`, `coupon_redemptions`, `credit_transactions`, `payments`, `usage_events`. File paths are not stored here. |
+| Payments | Opens Lemon Squeezy checkouts and receives their signed webhook; the webhook is the only thing that grants credits for money | `backend/app/api/payments.py`, `services/lemonsqueezy.py`. HMAC-SHA256 signature verified first, constant-time. | The credited user comes from `custom_data.user_id` that we put into the checkout, never from the buyer's email. Refunds are logged for an admin, not clawed back automatically. |
+| Credit ledger | Every movement of credits, append-only, replay-safe and impossible to overdraw | `backend/app/services/ledger.py`; `credit_transactions`. | `users.credits` is a cache of this table, written in the same transaction. `services/credits.py` is a thin compatibility wrapper. |
+| Cost capture | One row per paid provider call, including failures and retries | `backend/app/services/usage.py`; `usage_events`, priced from `config/pricing.py`. | Written on its own session and never allowed to raise: bookkeeping must not break the pipeline earning the money. |
+| Finance reporting | Margin per hero and per period, JSON and an HTML page | `backend/app/api/finance.py`, `services/reporting.py`, mounted at `/api/admin/finance`. | Admin only. Margin is computed against NET revenue, because gross margin against gross flatters by roughly the processor's cut. |
 | File Storage | Holds all intermediate and final artifacts (`/data/files/{user_id}/{creation_id}/`) | Local POSIX filesystem (dev) or S3-compatible storage (production). | Directory structure encodes `user_id` and `creation_id`; files are stored directly in creation directory. |
 | External Services | OpenAI for render + naming, Meshy for 3D pipeline | HTTP APIs (OpenAI, Meshy). | API polling intervals and retries defined in `integrations.md`. |
 
@@ -164,6 +229,7 @@ The frontend treats the backend as the single source of truth and polls for crea
 ## Data Model & Storage Strategy
 
 - **Relational Core** – Durable metadata (users, creations, creation_steps with timestamps, status, progress, optional error messages) lives in SQLite (or PostgreSQL via `DATABASE_URL`). See `database.md` for exact DDL.
+- **Money and cost** – `credit_transactions` (append-only, UNIQUE `external_ref`), `payments` (gross / fee / net in USD micros, UNIQUE `provider_ref`) and `usage_events` (provider, step, creation, cost in USD micros) live in the same database. Integers throughout: money is never a float.
 - **Filesystem Storage** – Output artifacts are stored in organized directory structure. Step status is tracked in database, not inferred from files. The backend wraps file operations in helper utilities.
 - **Path Convention** – Every path includes the `user_id` (or `debug-user-uuid` in development) and the immutable `creation_id`, e.g. `/data/files/{user_id}/{creation_id}/rendered.png`. VRM files are named `avatar.vrm` in each creation directory.
 
@@ -211,8 +277,8 @@ Files are stored using the pattern: `{FILES_ROOT}/{user_id}/{creation_id}/{filen
 
 ## Deployment & Environment Strategy
 
-- **Development** – SQLite, debug auth (auto-assigned user), permissive CORS, local `/data` folder. Uvicorn runs hot-reload.
-- **Production** – Currently uses SQLite with debug auth (auto-assigned user). Future: PostgreSQL, OAuth-based auth (JWTs), locked-down CORS origins, proper secret storage, and rate limiting. See `.env.example` for configuration options.
+- **Development** – SQLite, permissive CORS, local `/data` folder. `./start-dev.sh` runs the backend natively out of `.venv` with hot reload, the frontend on Vite, and the VRM converter in Docker.
+- **Staging and production** – Two Railway environments running the same images from the same commit, with separate data. Accounts are real: bcrypt password hashing and JWT bearer tokens (`backend/app/services/auth.py`); the `debug-user-uuid` constant survives only as a migration fallback. Still open: PostgreSQL by default, locked-down CORS origins and rate limiting. See `.env.example`.
 - **Background Processes** – No separate worker today; FastAPI process handles both HTTP requests and polling loops. Webhook support from Meshy would allow offloading polling and is a future enhancement.
 
 ## External Integrations Summary
@@ -223,7 +289,8 @@ Files are stored using the pattern: `{FILES_ROOT}/{user_id}/{creation_id}/{filen
 
 ## Roadmap & Open Questions
 
-- **Auth Hardening** – Move from the debug user to proper OAuth + JWT enforcement across endpoints.
+- **A buy button** – `/api/payments/checkout` works; the React app has no UI for it yet, so buying credits goes through the API.
+- **Auth Hardening** – JWT + bcrypt are in place; what is left is consistent enforcement and rate limiting on every endpoint.
 - **Scaling Step Execution** – Introduce a worker queue (Celery, RQ, or managed alternative) so long-running Meshy conversions do not block API workers.
 - **Webhook Adoption** – Replace Meshy polling with webhook receivers once keys are provisioned, reducing latency and cost.
 - **Cloud Storage** – Migrate `/data/files/` to object storage for durability and CDN-backed downloads.
