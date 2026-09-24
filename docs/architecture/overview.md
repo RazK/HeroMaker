@@ -171,8 +171,9 @@ because a webcam needs a real https origin.
 
 HeroMaker exposes three primary states in the frontend experience:
 
-1. **Create** – A guided workflow that starts by uploading an image (`POST /api/creations/upload`), which creates the creation and then streams progress as backend steps run.
-2. **Show** – Presents an individual character with its VRM file, thumbnails, and step history once the pipeline finishes.
+1. **Browse** – `CreationGallery` lists every finished hero as a square tile that cross-fades between the child's drawing and the render it became.
+2. **Create** – A guided workflow that starts by uploading an image (`POST /api/creations/upload`), which creates the creation and then streams progress as backend steps run.
+3. **Show** – Presents an individual character with its VRM file, thumbnails, and step history once the pipeline finishes.
 
 The frontend treats the backend as the single source of truth and polls for creation/step progress every ~2 seconds while a hero is being built.
 
@@ -231,7 +232,7 @@ The frontend treats the backend as the single source of truth and polls for crea
 - **Relational Core** – Durable metadata (users, creations, creation_steps with timestamps, status, progress, optional error messages) lives in SQLite (or PostgreSQL via `DATABASE_URL`). See `database.md` for exact DDL.
 - **Money and cost** – `credit_transactions` (append-only, UNIQUE `external_ref`), `payments` (gross / fee / net in USD micros, UNIQUE `provider_ref`) and `usage_events` (provider, step, creation, cost in USD micros) live in the same database. Integers throughout: money is never a float.
 - **Filesystem Storage** – Output artifacts are stored in organized directory structure. Step status is tracked in database, not inferred from files. The backend wraps file operations in helper utilities.
-- **Path Convention** – Every path includes the `user_id` (or `debug-user-uuid` in development) and the immutable `creation_id`, e.g. `/data/files/{user_id}/{creation_id}/rendered.png`. VRM files are named `avatar.vrm` in each creation directory.
+- **Path Convention** – Every path includes the `user_id` of the account that owns the creation and the immutable `creation_id`, e.g. `/data/files/{user_id}/{creation_id}/rendered.png`. VRM files are named `avatar.vrm` in each creation directory.
 
 ### Data Directory Structure
 
@@ -278,7 +279,7 @@ Files are stored using the pattern: `{FILES_ROOT}/{user_id}/{creation_id}/{filen
 ## Deployment & Environment Strategy
 
 - **Development** – SQLite, permissive CORS, local `/data` folder. `./start-dev.sh` runs the backend natively out of `.venv` with hot reload, the frontend on Vite, and the VRM converter in Docker.
-- **Staging and production** – Two Railway environments running the same images from the same commit, with separate data. Accounts are real: bcrypt password hashing and JWT bearer tokens (`backend/app/services/auth.py`); the `debug-user-uuid` constant survives only as a migration fallback. Still open: PostgreSQL by default, locked-down CORS origins and rate limiting. See `.env.example`.
+- **Staging and production** – Two Railway environments running the same images from the same commit, with separate data. Accounts are real: bcrypt password hashing and JWT bearer tokens (`backend/app/services/auth.py`); the `debug-user-uuid` constant is defined in `auth.py` and referenced nowhere outside the tests. Still open: PostgreSQL by default, locked-down CORS origins and rate limiting. See `.env.example`.
 - **Background Processes** – No separate worker today; FastAPI process handles both HTTP requests and polling loops. Webhook support from Meshy would allow offloading polling and is a future enhancement.
 
 ## External Integrations Summary
@@ -286,6 +287,7 @@ Files are stored using the pattern: `{FILES_ROOT}/{user_id}/{creation_id}/{filen
 - **OpenAI GPT-Image-1** – Turn cleaned scans into rendered images + suggested names. Requires uploading the `scanned.jpg` as base64 and polling thread runs (`integrations.md`).
 - **Meshy API** – Handles the heavy 3D lift. We either use the consolidated `image-to-3d` flow (preferred) or the discrete steps (remesh, retexture, rig, animate). Task IDs chain together; progress is mirrored back into `creations.metadata`.
 - **Blender VRM Pipeline** – `vrm-converter-service` uses Blender with the VRM add-on to convert the final GLB into a VRM. Bone validation is performed automatically.
+- **Lemon Squeezy** – Merchant of record for credit packs. `services/lemonsqueezy.py` opens hosted checkouts and verifies the webhook signature; it is the only module that talks to them. Test and live stores are the same code with different environment variables.
 
 ## Roadmap & Open Questions
 
