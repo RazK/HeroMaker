@@ -76,10 +76,32 @@ OPENAI_IMAGE_USD_MICROS = 167_000
 # them - so the 1605 credits sitting on the other account are reachable only
 # from the web app, never from this code.
 #
-# When an account IS upgraded, re-check the per-credit price for that tier
-# before trusting any margin figure: at 20 credits per hero this number
-# decides whether the $5 / $15 / $40 packs still clear their 50% floor.
-# `packs.check_packs()` is what says so, and the tests call it.
+# Meshy Pro, checked 2026-09-24, is $20/month for 1000 credits: $0.02 exactly,
+# which is the number below. So the margins hold on Pro and check_packs() is
+# clean. (meshy.ai/pricing)
+#
+# BUT $20/month is a FIXED cost, and this constant treats it as a per-unit one.
+# That is only true at the cap. A hero burns 20 credits, so Pro affords 50
+# heroes a month, and the subscription spreads over however many are actually
+# made:
+#
+#     5 heroes/mo   $4.00 of Meshy per hero
+#    10 heroes/mo   $2.00
+#    17 heroes/mo   $1.18   <- break-even against the Maker pack
+#    25 heroes/mo   $0.80
+#    50 heroes/mo   $0.40   <- the cap, and what this file assumes
+#
+# The Maker pack nets $13.75 for 10 heroes, so each hero contributes $1.21
+# after its OpenAI image. Under ~17 heroes a month the subscription is not
+# covered and the margin report overstates profit; over 50 the credits run out
+# before the month does, and one Studio pack (30 heroes) is 60% of the
+# allowance on its own.
+#
+# So treat this number as correct at volume and optimistic below it. When the
+# plan tier changes, re-check the per-credit price before trusting any margin
+# figure: at 20 credits per hero it decides whether the $5 / $15 / $40 packs
+# still clear their 50% floor. `packs.check_packs()` is what says so, and the
+# tests call it.
 MESHY_USD_MICROS_PER_CREDIT = int(os.getenv("MESHY_USD_MICROS_PER_CREDIT", "20000"))  # $0.02
 
 # Image-to-3D *including* texturing, which is how the pipeline calls it

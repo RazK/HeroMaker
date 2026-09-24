@@ -122,7 +122,15 @@ balance on a second Free account is reachable only from their web app.
 
 The fix is a plan upgrade on one account, and then `MESHY_API_KEY` — a Railway
 *shared* variable referenced by `devops/railway/env/backend.env`, so one value
-serves both environments.
+serves both environments. Pro is $20/month for 1000 credits, which is the
+$0.02/credit this repo already assumes.
+
+Meshy has two kinds of credit, and the difference decides whether a balance is
+worth anything: **monthly** credits (the free 100, or Pro's 1000) reset every
+month and do not roll over, while **permanent** credits (bonus or purchased)
+never expire. They are spent free-monthly first, then subscription-monthly,
+then permanent — so a permanent balance is a reserve reached only after the
+month's allowance is gone, not a discount on it.
 
 When that happens, re-check the per-credit price for the new tier before
 trusting any margin figure. A hero burns 20 Meshy credits, so
