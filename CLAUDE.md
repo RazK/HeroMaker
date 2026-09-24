@@ -107,6 +107,29 @@ open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
 
+## Meshy: the product cannot make a hero right now
+
+`NoMorePendingTasks` from Meshy does not mean "out of credits". **The Free plan
+has no API access at all** — "API access is available on Pro, Premium, Ultra,
+Studio, and Enterprise plans only. The Free plan is limited to the Meshy web
+app."
+([help.meshy.ai](https://help.meshy.ai/en/articles/15696428-what-is-included-on-the-free-plan))
+
+Both known accounts are on Free, so **no hero completes on any environment**,
+and payments working changes nothing about that. Nor can it be solved by
+juggling accounts: Meshy does not support transferring or merging credits, so a
+balance on a second Free account is reachable only from their web app.
+
+The fix is a plan upgrade on one account, and then `MESHY_API_KEY` — a Railway
+*shared* variable referenced by `devops/railway/env/backend.env`, so one value
+serves both environments.
+
+When that happens, re-check the per-credit price for the new tier before
+trusting any margin figure. A hero burns 20 Meshy credits, so
+`MESHY_USD_MICROS_PER_CREDIT` in `app/config/pricing.py` is about 70% of what a
+hero costs us; `packs.check_packs()` is what says whether the packs still clear
+their 50% floor, and the tests call it.
+
 ## Deployments
 
 **A merge to `main` goes to staging. Production needs a human to approve it.**

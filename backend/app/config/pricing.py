@@ -62,6 +62,24 @@ OPENAI_IMAGE_USD_MICROS = 167_000
 #
 # This single number is roughly 70% of the cost of producing one hero. Set
 # MESHY_USD_MICROS_PER_CREDIT in the environment when the plan tier changes.
+#
+# UNVERIFIED FOR THE ACCOUNT ACTUALLY IN USE, as of 2026-09-24. The pipeline
+# currently cannot call Meshy at all: both accounts are on the Free plan, and
+# per Meshy's own documentation the Free plan has no API access -
+# "API access is available on Pro, Premium, Ultra, Studio, and Enterprise
+# plans only. The Free plan is limited to the Meshy web app."
+# (help.meshy.ai/en/articles/15696428-what-is-included-on-the-free-plan)
+#
+# That is what `NoMorePendingTasks` means here, and no hero can complete on
+# any environment until one account is upgraded. Credits cannot be moved
+# between accounts either - Meshy does not support transferring or merging
+# them - so the 1605 credits sitting on the other account are reachable only
+# from the web app, never from this code.
+#
+# When an account IS upgraded, re-check the per-credit price for that tier
+# before trusting any margin figure: at 20 credits per hero this number
+# decides whether the $5 / $15 / $40 packs still clear their 50% floor.
+# `packs.check_packs()` is what says so, and the tests call it.
 MESHY_USD_MICROS_PER_CREDIT = int(os.getenv("MESHY_USD_MICROS_PER_CREDIT", "20000"))  # $0.02
 
 # Image-to-3D *including* texturing, which is how the pipeline calls it
