@@ -101,6 +101,23 @@ class StubbedRailway:
         return [json.loads(line) for line in log.read_text().splitlines()]
 
 
+
+def a_reference(service="backend", environment="production"):
+    """
+    Any key whose value is a Railway reference, taken from the layers.
+
+    These tests used to name OPENAI_API_KEY. When that secret moved out of
+    backend.env - it is set on the service in Railway, not declared here -
+    four tests failed for a reason that had nothing to do with what they test.
+    A test about references should ask the layers for a reference.
+    """
+    variables, _ = tool.resolve(service, environment, include_secrets=False)
+    for key in sorted(variables):
+        if tool.is_reference(variables[key]):
+            return key, variables[key]
+    raise AssertionError("no Railway reference in the layers to test with")
+
+
 def run(argv):
     """Run the tool's main() and capture stdout."""
     import io
@@ -161,7 +178,7 @@ class LayeringTests(unittest.TestCase):
     def test_backend_gets_common_and_service_layers(self):
         variables, origin = tool.resolve("backend", "production", include_secrets=False)
         self.assertEqual(origin["DEBUG"], "common.env")
-        self.assertEqual(origin["OPENAI_API_KEY"], "backend.env")
+        self.assertEqual(origin["OPENAI_IMAGE_MODEL"], "backend.env")
 
     def test_later_layer_overrides_earlier(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -321,8 +338,9 @@ class SyncTests(unittest.TestCase):
             backend = next(a for a in applied if a["service"] == SERVICE["backend"])
             self.assertTrue(backend["skip_deploys"])
             self.assertIn("DEBUG=false", backend["sets"])
+            key, value = a_reference()
             self.assertIn(
-                "OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}", backend["sets"],
+                f"{key}={value}", backend["sets"],
                 "references must be sent literally, not expanded",
             )
 
@@ -391,18 +409,15 @@ class SyncTests(unittest.TestCase):
         # reference must never be mistaken for "already up to date".
         variables, _ = tool.resolve("backend", "production")
         remote = dict(variables)
-        remote["JWT_SECRET_KEY"] = "some-resolved-secret"
-        key = (SERVICE["backend"],
-               ENVIRONMENT["production"])
-        with StubbedRailway({key: remote}) as stub:
+        ref_key, ref_value = a_reference()
+        remote[ref_key] = "resolved-by-railway"
+        stub_key = (SERVICE["backend"], ENVIRONMENT["production"])
+        with StubbedRailway({stub_key: remote}) as stub:
             code, output = run(["sync", "-e", "production", "-s", "backend", "-y"])
             self.assertEqual(code, 0, output)
             self.assertNotIn("already up to date", output)
             self.assertEqual(len(stub.applied()), 1)
-            self.assertIn(
-                "JWT_SECRET_KEY=${{shared.JWT_SECRET_KEY}}",
-                stub.applied()[0]["sets"],
-            )
+            self.assertIn(f"{ref_key}={ref_value}", stub.applied()[0]["sets"])
 
 
 class DiffTests(unittest.TestCase):
@@ -415,7 +430,7 @@ class DiffTests(unittest.TestCase):
             code, output = run(["diff", "-e", "production", "-s", "backend", "--exit-code"])
             self.assertEqual(code, 1)
             self.assertIn("~ DEBUG: true -> false", output)
-            self.assertIn("+ OPENAI_API_KEY", output)
+            self.assertIn(f"+ {a_reference()[0]}", output)
             self.assertNotIn("PORT", output, "Railway's own variables must be ignored")
 
     def test_diff_flags_a_reference_it_cannot_verify(self):
@@ -424,7 +439,7 @@ class DiffTests(unittest.TestCase):
         # reference that never shipped.
         variables, _ = tool.resolve("backend", "production")
         remote = dict(variables)
-        remote["OPENAI_API_KEY"] = "sk-resolved-by-railway"
+        remote[a_reference()[0]] = "resolved-by-railway"
         with StubbedRailway({(self.BACKEND, self.PROD): remote}):
             code, output = run(["diff", "-e", "production", "-s", "backend", "--exit-code"])
             self.assertEqual(code, 1, output)
