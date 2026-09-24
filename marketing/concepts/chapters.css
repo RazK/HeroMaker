@@ -1,11 +1,20 @@
 /* ============================================================================
-   The five chapters, and the geometry every concept shares.
+   The four chapters, and the geometry every concept shares.
 
    The product owner tested these on a real Android phone and asked for one
    thing above all: "every one of these chapters needs to have one single
    screen occupation, it should not require you to scroll down". So the page
-   is five screens — Hero, Gallery, Playground, How it works, Pricing — and
-   the visitor scrolls BETWEEN them, never INSIDE one.
+   is Hero, Gallery, Playground, Pricing, and the visitor scrolls BETWEEN
+   them, never INSIDE one. ("How it works" was the fifth: "who gives a shit
+   about the how it works part... remove it.")
+
+   Then he tested it again: "the space between parts is too big. make it
+   smaller." A chapter used to be pinned to a full screen with min-height and
+   its contents centred in it, so pricing — which needs 297px on a phone —
+   was handed 792px and padded out with 495px of nothing. The one-screen rule
+   was never a one-screen REQUIREMENT: it is a ceiling, not a floor. So the
+   floor is gone and a chapter is now exactly as tall as its contents plus
+   --hm-chapter-pad. The ceiling is still measured by audit.mjs rule 5.
 
    This file owns only the geometry that makes that true, because a budget
    that is re-typed five times is a budget that is wrong in four places.
@@ -23,7 +32,7 @@
      --hm-radius      corner radius       --hm-shadow  card shadow
    Optional: --hm-head-bg, --hm-btn-radius, --hm-tile-bg, --hm-border.
 
-   `audit.mjs` rule 5 re-measures the one-screen promise at 390x844 and
+   `audit.mjs` rule 5 re-measures the one-screen ceiling at 390x844 and
    1440x900 on every build; `anim-check.mjs` re-measures the canvas size.
    ========================================================================= */
 
@@ -32,10 +41,14 @@
   --hm-gut:14px;
   --hm-btn-radius:10px;
   --hm-stage-max:46svh;      /* the hero is the biggest thing on the screen */
-  --hm-tile-h:clamp(148px,25svh,230px);
+  --hm-tile:250px;           /* the gallery tile, the size the product uses */
+  --hm-chapter-pad:20px;     /* ALL the air above and below a chapter */
 }
 @media(min-width:820px){
-  :root{ --hh:60px; --hm-gut:32px; --hm-stage-max:56svh; }
+  :root{ --hh:60px; --hm-gut:32px; --hm-stage-max:56svh; --hm-chapter-pad:30px; }
+}
+@media(min-width:1024px){
+  :root{ --hm-tile:280px; }
 }
 
 *,*::before,*::after{ box-sizing:border-box; }
@@ -95,16 +108,20 @@ html{ scroll-behavior:smooth; }
 @media(min-width:820px){ .hm-nav a.hm-buy{ padding:11px 18px; } }
 .hm-nav a.hm-buy:hover{ color:var(--hm-accent-ink); filter:brightness(1.08); }
 
-/* ---------- one chapter, one screen ----------
-   min-height, not height: the rule is that nothing needs scrolling, and a
-   chapter is free to be shorter than the screen. audit.mjs rule 5 fails the
-   build if scrollHeight ever exceeds the viewport. */
+/* ---------- one chapter, at most one screen ----------
+   A CEILING, NOT A FLOOR. audit.mjs rule 5 still fails the build if any
+   chapter's scrollHeight exceeds the viewport, so nothing ever needs
+   scrolling inside one. But there is deliberately no min-height any more:
+   `min-height:calc(100svh - var(--hh))` plus `justify-content:center` was
+   what produced the dead air the owner complained about — measured on a
+   390x844 phone, every chapter was 792px tall while its contents needed
+   648 / 471 / 527 / 297. The padding is now the only vertical air a chapter
+   has, and it is one token so it cannot drift between concepts. */
 .hm-chapter{
-  min-height:calc(100svh - var(--hh));
   scroll-margin-top:var(--hh);
-  display:flex; flex-direction:column; justify-content:center;
+  display:flex; flex-direction:column;
   gap:10px;
-  padding:12px var(--hm-gut);
+  padding:var(--hm-chapter-pad) var(--hm-gut);
   max-width:1220px; margin:0 auto;
   position:relative; z-index:1;
 }
@@ -204,10 +221,39 @@ html{ scroll-behavior:smooth; }
   padding:6%; transition:opacity .45s ease;
 }
 .hm-stage.is-live .hm-still{ opacity:0; }
-@media(prefers-reduced-motion:reduce){
-  .hm-stage canvas{ display:none; }
-  .hm-stage.is-live .hm-still{ opacity:1; }
+
+/* THERE IS DELIBERATELY NO prefers-reduced-motion RULE HERE ANY MORE.
+   There used to be:
+
+       @media(prefers-reduced-motion:reduce){
+         .hm-stage canvas{ display:none; }
+         .hm-stage.is-live .hm-still{ opacity:1; }
+       }
+
+   The first line was dead - three.js sets style.display='block' inline on the
+   canvas it creates, and an inline style beats this. The second line was the
+   bug the owner hit on his phone: Reduce Motion is on by default on a lot of
+   handsets, and this pinned the still image on top of the live canvas even
+   AFTER the visitor pressed Fly, Dance or Backflip. The avatar downloaded,
+   rigged, and animated underneath a photograph of itself. "the animations
+   dont work for me of the rig etc."
+
+   Stillness under Reduce Motion is now enforced where it belongs, in
+   hero-card.js: nothing autoplays and nothing is fetched until a button is
+   pressed. A press is an explicit request for motion, and it is honoured. */
+
+/* The honest "it is coming" state, while the engine and the 1.2 MB avatar are
+   on their way. hero-card.js adds it on arming and removes it the moment the
+   card either goes live or gives up, so it is never the last word. */
+.hm-loading{
+  position:absolute; left:50%; bottom:7%; transform:translateX(-50%);
+  z-index:2; margin:0; white-space:nowrap; pointer-events:none;
+  font-size:12px; font-weight:600; line-height:1;
+  padding:7px 12px; border-radius:999px;
+  background:var(--hm-panel); color:var(--hm-ink);
+  border:var(--hm-border,1px solid var(--hm-line));
 }
+@media(min-width:820px){ .hm-loading{ font-size:13.5px; padding:9px 15px; } }
 /* The drawing it came from, pinned into the corner of its own hero. No text
    sits on the stage — captions live below, on a solid ground. */
 /* height:auto, because the <img height> attribute would otherwise win over
@@ -241,61 +287,79 @@ html{ scroll-behavior:smooth; }
 @media(min-width:820px){ .hm-cap{ font-size:14.5px; } }
 
 /* ---------- chapter 2: the gallery ----------
-   One row, swiped sideways on a phone rather than stacked into a page the
-   visitor has to scroll. Six committed pairs are in the markup; hero-gallery.js
-   swaps in the live ones from the API when they arrive, and leaves these
-   alone when it cannot reach it. */
+   "the gallery does not look like the gallery of the actual site - i
+   literally need a preview of the gallery in the landing page."
+
+   So a tile here is the product's own tile, copied off
+   frontend/src/components/CreationGallery.css: a SQUARE, 8px radius,
+   object-fit:cover, and the drawing and the hero stacked on top of each
+   other cross-fading on a 10-second loop - `gallery-image-fade` and
+   `gallery-image-fade-reverse`, same timings, same easing. That cross-fade
+   is the signature of the real gallery; this page used to show the two
+   images side by side, which reads as a before/after strip and looks like
+   nothing the product does.
+
+   The one thing NOT copied is the multi-row grid. The real gallery is
+   `repeat(auto-fill,minmax(250px,1fr))` down a scrolling page; this chapter
+   has to fit one screen (rule 5), and two rows of eight 250px tiles is
+   ~600px of grid in a ~590px hole on a 1440x900 desktop. So the tiles keep
+   the grid's own measurements - 250px, 280px from 1024px up, 16px gap - and
+   are laid out in one swipeable row instead of wrapping. A tile is
+   pixel-for-pixel the product's; only the wrapping is the landing page's. */
 .hm-row{
-  display:flex; gap:10px; list-style:none; margin:0; padding:2px 2px 10px;
+  display:flex; gap:16px; list-style:none; margin:0; padding:2px 2px 10px;
   overflow-x:auto; overflow-y:hidden;
   scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
   scrollbar-width:thin;
 }
 .hm-row>li{
   flex:0 0 auto; scroll-snap-align:center;
-  width:min(74vw,290px);
+  width:min(72vw,var(--hm-tile));
+}
+@media(min-width:820px){ .hm-row>li{ width:var(--hm-tile); } }
+
+/* The tile itself. `aspect-ratio:1` and `border-radius:8px` are the
+   product's, not a token, on purpose: this is the one element on the page
+   that is meant to be recognisably the app's and not the concept's. */
+.hm-pair{
+  position:relative; aspect-ratio:1; overflow:hidden;
+  border-radius:8px;
   background:var(--hm-tile-bg,var(--hm-panel));
   border:var(--hm-border,1px solid var(--hm-line));
-  border-radius:var(--hm-radius); padding:8px 8px 9px;
+  transition:transform .2s, box-shadow .2s, border-color .2s;
 }
-@media(min-width:820px){ .hm-row>li{ width:290px; } }
-.hm-pair{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .hm-pair img{
-  width:100%; height:var(--hm-tile-h); object-fit:cover; object-position:center top;
-  border-radius:calc(var(--hm-radius) - 6px); background:var(--hm-stage); display:block;
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  object-fit:cover; display:block;
+}
+.hm-img-drawing{ opacity:1; animation:hm-gallery-fade 10s ease-in-out infinite; }
+.hm-img-hero{ opacity:0; animation:hm-gallery-fade-reverse 10s ease-in-out infinite; }
+
+/* 0-3s the drawing, 3-5s cross-fade, 5-8s the hero, 8-10s back. */
+@keyframes hm-gallery-fade{
+  0%,30%{ opacity:1 } 50%,80%{ opacity:0 } 100%{ opacity:1 }
+}
+@keyframes hm-gallery-fade-reverse{
+  0%,30%{ opacity:0 } 50%,80%{ opacity:1 } 100%{ opacity:0 }
+}
+/* A cross-fade is not motion, but a visitor who has asked for less of it gets
+   the finished hero and no loop at all rather than a tile that never settles. */
+@media(prefers-reduced-motion:reduce){
+  .hm-img-drawing{ animation:none; opacity:0; }
+  .hm-img-hero{ animation:none; opacity:1; }
+}
+/* The product's own hover: lift, shadow, and the border goes accent. */
+.hm-row>li:hover .hm-pair,.hm-row>li:focus-within .hm-pair{
+  transform:translateY(-2px);
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
+  border-color:var(--hm-accent);
 }
 .hm-row b{
-  display:block; margin-top:7px; font-size:13px; line-height:1.25;
-  color:var(--hm-ink); font-weight:700;
+  display:block; margin-top:7px; text-align:center;
+  font-size:13px; line-height:1.25; color:var(--hm-ink); font-weight:700;
 }
 
-/* ---------- chapter 4: how it works ----------
-   2x2 on a phone, four across on a desktop. A numeral and three words. */
-.hm-steps{
-  display:grid; grid-template-columns:1fr 1fr; gap:9px;
-  list-style:none; margin:0; padding:0;
-}
-@media(min-width:820px){ .hm-steps{ grid-template-columns:repeat(4,1fr); gap:16px; } }
-.hm-steps li{
-  background:var(--hm-panel); border:var(--hm-border,1px solid var(--hm-line));
-  border-radius:var(--hm-radius); padding:12px 8px 14px; text-align:center;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-height:clamp(104px,15svh,150px);
-}
-.hm-steps b{
-  display:block; font-family:var(--hm-display); font-weight:400;
-  font-size:clamp(26px,7vw,46px); line-height:1; color:var(--hm-accent-ink-on-bg,var(--hm-ink));
-}
-.hm-steps span{
-  display:block; margin-top:5px; font-size:12px; line-height:1.3; color:var(--hm-ink-2);
-}
-@media(min-width:820px){
-  .hm-steps li{ padding:24px 16px 26px; min-height:clamp(180px,27svh,280px); }
-  .hm-steps b{ font-size:clamp(40px,4.6vw,66px); }
-  .hm-steps span{ font-size:16px; margin-top:14px; }
-}
-
-/* ---------- chapter 5: pricing ----------
+/* ---------- chapter 4: pricing ----------
    All three packs in one row, on the phone too. Name, price, credits,
    heroes, button. Nothing else — "it's way too long" was the whole note. */
 .hm-packs{

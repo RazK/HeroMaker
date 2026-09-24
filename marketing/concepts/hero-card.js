@@ -39,7 +39,29 @@
  *                    buttons still work, so a visitor who wants motion can ask
  *   no WebGL         the still stays and the buttons are removed, rather than
  *                    leaving three controls that do nothing
+ *   context lost     a low-power phone GPU may take the WebGL context away
+ *                    under memory pressure; that is not an error anyone here
+ *                    can recover from, so the card goes back to the still
+ *                    instead of freezing on the last frame it drew
  *   load failure     the same, plus one console warning
+ *
+ * WHY THE HERO LOOKED DEAD ON A REAL PHONE ("the animations dont work for me
+ * of the rig etc."). Not WebGL, not the CDN, not the bundle: Reduce Motion.
+ * Plenty of phones have it on, and chapters.css used to answer it with
+ *
+ *     @media(prefers-reduced-motion:reduce){
+ *       .hm-stage canvas{ display:none; }
+ *       .hm-stage.is-live .hm-still{ opacity:1; }
+ *     }
+ *
+ * The first line never did anything - three.js sets `style.display='block'`
+ * on the canvas it creates, and an inline style beats a stylesheet. The
+ * second line did: it pinned the still image ON TOP of the live canvas at
+ * full opacity and KEPT it there once the card went live, so pressing Fly,
+ * Dance or Backflip loaded a 1.2 MB avatar, started it animating, and showed
+ * the visitor a photograph of it. Both lines are gone. Reduced motion now
+ * means exactly one thing - nothing autoplays and nothing is fetched until
+ * the visitor asks - because pressing a button IS asking.
  *
  * The still is the product's own render of the same hero with its backdrop
  * keyed out, so a card that never goes live still shows the hero — and the
@@ -50,11 +72,22 @@
 
 const CARDS = '[data-hero-card]'
 
-/** Cheap one-off probe. A card with no WebGL must not download 1.2 MB of VRM. */
+/**
+ * Cheap one-off probe. A card with no WebGL must not download 1.2 MB of VRM.
+ *
+ * The probe context is handed back immediately. A browser will only keep a
+ * handful of live WebGL contexts - iOS Safari fewest of all - and this page
+ * wants two of them for real cards; spending one on a question is how the
+ * second card silently gets nothing.
+ */
 function hasWebGL() {
   try {
     const c = document.createElement('canvas')
-    return !!(c.getContext('webgl2') || c.getContext('webgl'))
+    const gl = c.getContext('webgl2') || c.getContext('webgl')
+    if (!gl) return false
+    const lose = gl.getExtension('WEBGL_lose_context')
+    if (lose) lose.loseContext()
+    return true
   } catch {
     return false
   }
@@ -109,6 +142,33 @@ const loadEngine = () => (enginePromise ??= import('./hero-card-engine.bundle.js
  * and nothing changes.
  */
 const assetURL = (path) => (window.__HM_MODELS && window.__HM_MODELS[path]) || path
+
+/**
+ * A quiet, honest "this is coming" while the avatar is on its way.
+ *
+ * The card shows the product's own render of the same hero from the first
+ * byte, which is good - and indistinguishable from a card that is never going
+ * to move. On a phone on mobile data the engine and the avatar are about
+ * 2 MB between them, so that ambiguity can last ten seconds. This says which
+ * of the two it is, and removes itself the moment either question is
+ * answered.
+ */
+function loadingOn(card) {
+  if (card.querySelector('[data-hero-loading]')) return
+  const el = document.createElement('p')
+  el.className = 'hm-loading'
+  el.setAttribute('data-hero-loading', '')
+  el.setAttribute('role', 'status')
+  el.textContent = 'Waking the hero\u2026'
+  card.appendChild(el)
+  card.classList.add('is-loading')
+}
+
+function loadingOff(card) {
+  const el = card.querySelector('[data-hero-loading]')
+  if (el) el.remove()
+  card.classList.remove('is-loading')
+}
 
 const whenIdle = (fn) =>
   (window.requestIdleCallback || ((f) => setTimeout(f, 900)))(fn, { timeout: 4000 })
@@ -260,8 +320,14 @@ async function start(card, firstMove) {
     }
   })
 
+  // A button pressed while the 2 MB was still arriving is not a lost click.
+  const pending = card.dataset.pendingMove
+  if (pending && specs.has(pending) && pending !== performer.playing) await playMove(pending)
+
+  loadingOff(card)
+  card.classList.remove('is-still')
   card.classList.add('is-live')
-  if (shot) shot.classList.add('is-live')
+  if (shot) { shot.classList.remove('is-still'); shot.classList.add('is-live') }
 
   // ---- the loop -----------------------------------------------------------
   const clock = new THREE.Clock()
@@ -287,6 +353,21 @@ async function start(card, firstMove) {
   const play = () => { if (!raf) { clock.getDelta(); raf = requestAnimationFrame(tick) } }
   const pause = () => { if (raf) { cancelAnimationFrame(raf); raf = 0 } }
   const sync = () => (visible && !document.hidden ? play() : pause())
+
+  // A low-power phone GPU under memory pressure can take the context away at
+  // any moment - two cards on one page, a 1.2 MB avatar in each, is exactly
+  // the shape of allocation iOS Safari gives up on. Without this the card
+  // freezes on its last frame for ever, which looks precisely like the bug
+  // that was reported. Going back to the still is honest and is what a card
+  // that never started does too.
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault()
+    pause()
+    visible = false
+    canvas.remove()
+    setStill(card)
+    console.warn('hero-card: the WebGL context was lost - back to the still')
+  })
 
   // Off-screen or in a background tab, a landing page has no business holding
   // the GPU. Render one frame first so the card is never handed over blank.
@@ -320,7 +401,9 @@ function dropMoves(card) {
 function arm(card, firstMove) {
   if (card.dataset.heroCardArmed) return
   card.dataset.heroCardArmed = '1'
+  loadingOn(card)
   start(card, firstMove).catch((err) => {
+    loadingOff(card)
     setStill(card)
     dropMoves(card)
     console.warn('hero-card: falling back to the still —', err && err.message)
@@ -343,15 +426,22 @@ function init() {
     const pick = moves && (moves.querySelector('button[data-default]') || moves.querySelector('button[data-move]'))
     const first = card.dataset.first || (pick && pick.dataset.move)
 
-    // Asked for stillness: nothing is fetched and nothing moves on its own,
-    // but the buttons stay live so a visitor can still choose to see it.
+    // Asked for stillness: nothing is fetched and nothing moves on its own.
+    // But pressing one of the three buttons IS a request for motion, and it
+    // has to work every time, not once - `{ once: true }` used to take the
+    // listener off after the first press, so a visitor who pressed Fly while
+    // the avatar was still downloading and then pressed Dance got Fly. The
+    // move asked for last is remembered on the card and start() plays it as
+    // soon as it has something to play it with.
     if (reduceMotion()) {
       setStill(card)
       if (moves) {
         moves.addEventListener('click', (e) => {
           const btn = e.target.closest('button[data-move]')
-          if (btn) arm(card, btn.dataset.move)
-        }, { once: true })
+          if (!btn) return
+          card.dataset.pendingMove = btn.dataset.move
+          arm(card, btn.dataset.move)
+        })
       }
       continue
     }

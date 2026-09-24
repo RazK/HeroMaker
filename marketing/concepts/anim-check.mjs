@@ -23,6 +23,13 @@
  *              clip's - pressing the button really changed the performance
  *   playground the second card - the dance loop the playground chapter
  *              previews - goes live and moves too
+ *   reduced    the same page loaded with Reduce Motion ON: nothing autoplays,
+ *   motion     and pressing a button still produces a hero that is BOTH live
+ *              and visible. This is the fault the owner actually hit - a
+ *              stylesheet rule kept the still image on top of the running
+ *              canvas at full opacity, so the avatar animated underneath a
+ *              photograph of itself. Plenty of phones ship with Reduce Motion
+ *              on, so it is measured on every build now.
  *
  * Frames come off the page as PNG element screenshots and are decoded here
  * (zlib + the four PNG filters, which is all Playwright ever emits: 8-bit
@@ -287,6 +294,71 @@ for (const file of files) {
     await page.close()
   }
 
+  // ---- Reduce Motion ------------------------------------------------------
+  // Not a variant worth a whole matrix: one phone page, one press, three
+  // questions. Nothing may autoplay; the press must be honoured; and the
+  // still must get out of the way, which is the half that was broken.
+  {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 }, reducedMotion: 'reduce',
+    })
+    await page.route('**://*.jsdelivr.net/**', r => r.abort())
+    await page.goto(`${ORIGIN}/${file}`, { waitUntil: 'load' })
+    await page.waitForTimeout(2500)
+    const idle = await page.evaluate(() => {
+      const card = document.querySelector('[data-hero-card]')
+      return {
+        live: card.classList.contains('is-live'),
+        buttons: document.querySelectorAll('[data-hero-moves] button[data-move]').length,
+      }
+    })
+    if (idle.live) findings.push('[reduced motion] the card autoplayed - Reduce Motion asked it not to')
+    if (idle.buttons < 3) findings.push(`[reduced motion] ${idle.buttons} of 3 move buttons survived`)
+
+    if (idle.buttons > 0) {
+      const card = page.locator('[data-hero-card]').first()
+      const before = decodePNG(await card.screenshot())
+      await page.locator('[data-hero-moves] button[data-move="dance"]').first().click()
+      const woke = await page.waitForFunction(
+        () => document.querySelector('[data-hero-card]').classList.contains('is-live'),
+        null, { timeout: 40000 },
+      ).then(() => true).catch(() => false)
+      if (!woke) findings.push('[reduced motion] pressing Dance did not bring the hero to life')
+      else {
+        await page.waitForTimeout(900)
+        const state = await page.evaluate(() => {
+          const card = document.querySelector('[data-hero-card]')
+          const still = card.querySelector('.hm-still')
+          return {
+            stillOpacity: still ? parseFloat(getComputedStyle(still).opacity) : 0,
+            canvas: !!card.querySelector('canvas'),
+          }
+        })
+        if (!state.canvas) findings.push('[reduced motion] no <canvas> after the press')
+        if (state.stillOpacity > 0.05) {
+          findings.push(
+            `[reduced motion] the still image is still covering the live hero ` +
+            `(opacity ${state.stillOpacity}) - the avatar is animating where nobody can see it`)
+        }
+        const a = decodePNG(await card.screenshot())
+        let moved = 0
+        for (let i = 1; i < SAMPLES; i++) {
+          await page.waitForTimeout(GAP)
+          moved = Math.max(moved, diff(a, decodePNG(await card.screenshot())))
+        }
+        row.clips.reduced = { moving: +(moved * 100).toFixed(2), distinct: null }
+        if (moved < MOVING) {
+          findings.push(`[reduced motion] the hero is frozen after the press: at most ${(moved * 100).toFixed(2)}% changed`)
+        }
+        if (diff(before, a) < MOVING) {
+          findings.push('[reduced motion] the card looks exactly as it did before the press')
+        }
+        await page.screenshot({ path: join(DIR, `${name}-reduced-motion.png`) })
+      }
+    }
+    await page.close()
+  }
+
   report.push(row)
   if (findings.length === 0) console.log(`PASS  ${name}`)
   else {
@@ -299,9 +371,9 @@ for (const file of files) {
 await browser.close()
 await new Promise(r => server.close(r))
 
-console.log(`\n  concept                 canvas (phone)   canvas (desktop)   fly / dance / backflip / playground: most the card changed across ${SAMPLES} frames`)
+console.log(`\n  concept                 canvas (phone)   canvas (desktop)   fly / dance / backflip / playground / reduce-motion: most the card changed across ${SAMPLES} frames`)
 for (const r of report) {
-  const clips = [...CLIPS, 'playground'].map(c => r.clips[c] ? `${r.clips[c].moving}%` : '--').join('  ')
+  const clips = [...CLIPS, 'playground', 'reduced'].map(c => r.clips[c] ? `${r.clips[c].moving}%` : '--').join('  ')
   console.log(`  ${r.name.padEnd(22)}  ${String(r.phone).padEnd(15)}  ${String(r.desktop).padEnd(17)}  ${clips}`)
 }
 console.log()

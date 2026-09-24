@@ -19,6 +19,11 @@
  * Prefixing the filename with `thumb_` gives the thumbnail, which is what a
  * row of tiles wants.
  *
+ * A TILE IS THE PRODUCT'S TILE. Square, 8px radius, `object-fit:cover`, and
+ * the drawing and the hero stacked and cross-fading on a 10s loop - the same
+ * markup shape and the same keyframes as
+ * `frontend/src/components/CreationGallery.{tsx,css}`. See chapters.css.
+ *
  * IT MUST DEGRADE. The six committed pairs in `assets/pairs/` are already in
  * the markup when this file runs, so the chapter is never blank and never
  * waits. Live tiles replace them only once enough of them have actually
@@ -59,17 +64,28 @@ const loads = (img) => new Promise((done) => {
   img.addEventListener('error', () => end(false), { once: true })
 })
 
+/**
+ * One tile, built the way the product's own gallery builds one.
+ *
+ * `CreationGallery.tsx` stacks `thumb_original.jpg` and `thumb_rendered.png`
+ * in one square container and cross-fades between them on a 10s loop
+ * (`creation-gallery-image-original` / `-rendered`). The classes here are the
+ * landing page's equivalents, and chapters.css carries the same keyframes, so
+ * a live tile and a committed one are the same object.
+ */
 function tile(c) {
   const li = document.createElement('li')
   const pair = document.createElement('div')
   pair.className = 'hm-pair'
 
   const drawing = new Image()
+  drawing.className = 'hm-img-drawing'
   drawing.src = file(c, 'thumb_original.jpg')
   drawing.alt = `the drawing ${c.character_name} was made from`
   drawing.decoding = 'async'
 
   const hero = new Image()
+  hero.className = 'hm-img-hero'
   hero.src = file(c, 'thumb_rendered.png')
   hero.alt = `${c.character_name}, the 3D hero it became`
   hero.decoding = 'async'
