@@ -33,7 +33,7 @@ from app.services import openai as openai_service
 from app.services import meshy
 from app.services import vrm_conversion
 from app.services.meshy import MeshyClient, MeshyAPIError
-from app.services.credits import get_balance, deduct_credits
+from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
 from app.config import pricing
 from app.services import usage as usage_service
 from app.services.usage import UsageContext
@@ -667,6 +667,13 @@ async def execute_step(
             step.error_message = str(e)
             db.commit()
             logger.error(f"[{creation_id}] Step {step_name} failed: {str(e)}", exc_info=True)
+            # We charged for this step above, before calling the provider. The
+            # provider did not deliver, so give the credits back. A user cancel
+            # is deliberately excluded - it is the branch we are inside - since
+            # the provider call was already made and already cost us.
+            refund_last_step_charge(
+                db, creation_id, step_name, note=f"{step_name} failed: {e}"
+            )
         raise
 
 

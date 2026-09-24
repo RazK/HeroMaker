@@ -87,16 +87,25 @@ The workflows resolve IDs through `railway-config.yml`, and
 Keep it that way: a hard-coded ID in a test asserts the registry back at itself
 and cannot fail.
 
-A deploy that dies one second in with
+`Environment "<x>" not found.` does **not** mean the ID is wrong.
 
-```
-Environment "<id>" not found.
-```
+It is what Railway says when the **token cannot see that environment**, and it
+says it identically whether you pass an ID or a name. This cost days: the ID
+was corrected, then the name was used, then the corrected ID was used, and all
+three failed with the same line.
 
-means that ID is wrong, and nothing else. **Do not ask a human and do not
-guess**: open the project URL in `project.json`, switch the environment
-dropdown, and read `environmentId=` out of the address bar. Service IDs appear
-in the URL the same way. Then fix `project.json` — only `project.json`.
+A Railway **project token is scoped to one environment**. `RAILWAY_TOKEN`
+reaches production, so it cannot deploy to staging under any name or ID. The
+staging job uses `RAILWAY_STAGING_TOKEN`, a second project token created
+against staging; its preflight step says which token it got and what to do if
+the secret is missing.
+
+So when a deploy fails that way, check the token's scope first —
+`railway whoami` and `railway status` in the job say what it can reach — and
+only then the ID. If an ID really is wrong, re-derive it rather than guessing:
+open the project URL in `project.json`, switch the environment dropdown, and
+read `environmentId=` out of the address bar. Service IDs appear in the URL the
+same way. Then fix `project.json` — only `project.json`.
 
 ## Deployments
 
@@ -153,3 +162,76 @@ from `staging` by `.github/workflows/pages.yml`.
 - **`start-dev.sh`** is the single command to start everything locally.
 - **`docker-compose.yml`** is for production-like full-stack testing only — not used for daily dev.
 - Railway deploys from `backend/Dockerfile`, `frontend/Dockerfile`, `vrm-converter-service/Dockerfile`.
+
+## Payments: what is proven, and the trap that hid a bug
+
+**Verified end to end on 2026-09-22** against the real Lemon Squeezy store, in
+test mode, on the staging backend: `checkout -> card -> order #4757371 (paid,
+$15.00) -> webhook -> 0 to 100 credits -> receipt`. The webhook security model
+holds under real HTTP (forged, unsigned and mid-flight-tampered bodies are all
+rejected 401; the same order delivered five times credits once). The money path
+works.
+
+**The trap:** `backend/scripts/demo_purchase.py` does NOT run the pipeline.
+`make_hero` re-implements step execution and performs its own refund, so its
+transcript can assert behaviour the product does not have. That is exactly how
+"the failed step's credits refunded" passed review while no production code
+path had ever called `ledger.refund_credits`. Real cost: a genuine Meshy
+failure took 5 credits from a paying user and kept them.
+
+So: **a proof script or test must drive the real code path.** If you are
+asserting something about the pipeline, call `pipeline.execute_step`. See
+`backend/tests/test_step_refunds.py`, which does, and which goes red if you
+revert either refund call site.
+
+**Credits are charged before the provider is called**, so every way a step can
+end badly needs a compensating refund. There are two such paths, and the second
+is easy to miss:
+- the provider error caught by `execute_step`'s `except Exception`
+- a timeout, where `task_manager` cancels the task and `CancelledError`
+  inherits from `BaseException` — it never reaches that handler
+
+Both call `credits.refund_last_step_charge()`, which is keyed on the spend row
+(`refund:tx:<id>`), not on `creation+step`. Spends are deliberately not
+idempotent, so a retried step really does cost again; keying on creation+step
+would refund the first failure and silently swallow every later one. A user
+cancellation deliberately keeps its charge.
+
+**Known blocker, unrelated to any of the above:** the Meshy account is on the
+free plan, which Meshy has discontinued (`NoMorePendingTasks`). No hero can
+complete on any environment until that is upgraded.
+
+### Buying credits: the API is done, the UI is not (deliberate)
+
+The backend can take money today. The frontend has no way to spend it — PR #25
+changed zero files under `frontend/`. **This is a known, accepted gap, not an
+oversight to re-report.** The UI is planned as separate work.
+
+If you are the agent building it, everything you need already exists and is
+verified against the live store:
+
+```
+GET  /api/payments/packs      what is on sale (no margin data leaks to the customer)
+POST /api/payments/checkout   {"pack": "<slug>"} -> {"checkout_url": ...}; send the user there
+POST /api/payments/webhook    Lemon Squeezy only. Credits are granted HERE, nowhere else.
+GET  /api/payments/receipts   the signed-in user's own purchases
+```
+
+Rules for that UI:
+
+- Send the buyer to `checkout_url` and nothing else. **The browser must never
+  tell the backend a payment happened** — only the signed webhook grants
+  credits, and that is the whole security model. On return from checkout, just
+  re-read the balance; the webhook usually lands within a second or two.
+- Render only the packs `GET /packs` returns. A pack missing its Lemon Squeezy
+  variant is omitted on purpose: a price with no working button is worse than
+  no price.
+- `checkout` answers **503** when the store is unconfigured and **502** when
+  Lemon Squeezy refuses. Both are ours, not the customer's — show "payments are
+  unavailable right now", not a validation error.
+- `price_display` currently renders four decimals (`"$5.0000"`); `packs.py`
+  omits the `places=2` that the receipts endpoint passes. Fix it there, not in
+  the UI.
+- `/packs` lists packs whenever the *variant ids* are set, even if
+  `LEMONSQUEEZY_API_KEY` is missing — so a half-configured deployment can show
+  a Buy button that 503s. Worth tightening in `packs.get_packs` before launch.

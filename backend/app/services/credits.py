@@ -35,6 +35,7 @@ __all__ = [
     "get_balance",
     "add_credits",
     "deduct_credits",
+    "refund_last_step_charge",
     "get_ledger_balance",
     "verify_user_balance",
     "verify_all_balances",
@@ -154,3 +155,100 @@ def _classify_reason(reason: Optional[str], default: str) -> tuple:
     if lowered.startswith("refund"):
         return "refund", meta
     return default, meta
+
+
+def refund_last_step_charge(
+    db: Session,
+    creation_id: str,
+    step_name: str,
+    note: str,
+) -> Optional["ledger.CreditTransaction"]:
+    """
+    Give back the credits charged for a pipeline step we failed to deliver.
+
+    `app/services/pipeline.py` charges for a step BEFORE calling the provider, so
+    a provider error, or a timeout, leaves the user paying for a hero they never
+    received. This is the compensating entry for exactly that case.
+
+    Idempotent, and keyed on the SPEND ROW rather than on (creation, step):
+    a spend is deliberately not idempotent (ledger.spend_credits takes no
+    external_ref, because a retried step really does cost again, and
+    pipeline._reset_step lets a failed step be retried). Keying the refund on
+    "refund:{creation_id}:{step_name}" would therefore refund the first failure
+    and silently swallow every later one - a user who retries twice would pay
+    twice and be refunded once. One refund per spend row is the correct grain,
+    and `external_ref` being UNIQUE still makes a redelivery a no-op.
+
+    Returns the refund transaction, or None when there is nothing to refund
+    (the step was never charged) or it has already been refunded.
+
+    NEVER RAISES. This runs inside a failure handler; a problem refunding must
+    not mask the provider error that caused it, and must not turn a failed step
+    into a 500. It logs loudly instead - the same discipline as
+    `app/api/payments.py:_record_payment`.
+    """
+    try:
+        # Few rows per creation (one per step, plus retries), so filter the
+        # step out in Python rather than reaching into the JSON column, which
+        # SQLite and Postgres spell differently.
+        spends = (
+            db.query(ledger.CreditTransaction)
+            .filter(
+                ledger.CreditTransaction.creation_id == creation_id,
+                ledger.CreditTransaction.reason == "spend",
+            )
+            .order_by(
+                ledger.CreditTransaction.created_at.desc(),
+                ledger.CreditTransaction.id.desc(),
+            )
+            .all()
+        )
+        spend = next(
+            (
+                tx for tx in spends
+                if (tx.metadata_json or {}).get("step_name") == step_name
+            ),
+            None,
+        )
+        if spend is None:
+            # Never charged: a step that failed before the deduction (missing
+            # input, unmet dependency, insufficient credits) owes nothing back.
+            return None
+
+        external_ref = f"refund:tx:{spend.id}"
+        existing = ledger.find_by_external_ref(external_ref, db)
+        if existing is not None:
+            logger.info(
+                "[%s] Step %s charge %s was already refunded as %s",
+                creation_id, step_name, spend.id, existing.id,
+            )
+            return existing
+
+        tx = ledger.refund_credits(
+            user_id=spend.user_id,
+            amount=abs(spend.delta),
+            db=db,
+            creation_id=creation_id,
+            external_ref=external_ref,
+            metadata={
+                "step_name": step_name,
+                "refunded_tx": spend.id,
+                "note": note,
+            },
+        )
+        logger.info(
+            "[%s] Refunded %s credits for failed step %s (balance now %s)",
+            creation_id, abs(spend.delta), step_name, tx.balance_after,
+        )
+        return tx
+    except Exception:  # pragma: no cover - defensive; see docstring
+        logger.exception(
+            "[%s] Could not refund the charge for failed step %s; the user is "
+            "out of pocket until this is reconciled",
+            creation_id, step_name,
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return None

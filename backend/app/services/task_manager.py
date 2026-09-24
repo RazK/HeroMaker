@@ -9,6 +9,7 @@ from collections.abc import Coroutine
 
 from app.database import SessionLocal
 from app.models import CreationStep
+from app.services.credits import refund_last_step_charge
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,16 @@ class TaskManager:
                             step.error_message = f"Step timed out after {timeout_seconds} seconds"
                             db.commit()
                             logger.info(f"[{creation_id}] Marked step {step_name} as failed (timeout)")
+                            # The step was charged before the provider was
+                            # called. Cancelling the task raises CancelledError,
+                            # which inherits from BaseException and so never
+                            # reaches the `except Exception` refund in
+                            # pipeline.execute_step - this is the only place a
+                            # timed-out step can be made whole.
+                            refund_last_step_charge(
+                                db, creation_id, step_name,
+                                note=f"{step_name} timed out after {timeout_seconds}s",
+                            )
                     except Exception as e:
                         logger.error(f"[{creation_id}] Error marking timed-out step as failed: {e}")
                     finally:
