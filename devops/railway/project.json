@@ -18,7 +18,13 @@
     "nothing caught it, so they are re-derived from the dashboard, not copied:",
     "open the project URL, switch the environment dropdown, and read",
     "environmentId= out of the address bar. A service ID appears in the URL",
-    "the same way once the service is open."
+    "the same way once the service is open.",
+    "",
+    "Each environment needs its OWN Railway token: RAILWAY_TOKEN is a project",
+    "token scoped to production (railway whoami returns Unauthorized while",
+    "railway status reports Environment: production), and a token scoped to",
+    "one environment cannot deploy to another under any name. 'token_secret'",
+    "names the GitHub Actions secret that reaches each one."
   ],
   "project": {
     "id": "95711b3f-db5c-4521-99a7-c5caeb8005fc",
@@ -41,12 +47,14 @@
   "environments": {
     "staging": {
       "id": "406e2fde-28f2-4f00-a254-cde5393db6db",
-      "name": "staging"
+      "name": "staging",
+      "token_secret": "RAILWAY_STAGING_TOKEN"
     },
     "production": {
       "id": "4e1101f9-bd77-4292-bd74-f1c6b9ec5522",
       "default": true,
-      "name": "production"
+      "name": "production",
+      "token_secret": "RAILWAY_TOKEN"
     }
   }
 }

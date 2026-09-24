@@ -200,28 +200,40 @@ jobs:
       name: staging
     timeout-minutes: 15
     env:
-      # A Railway PROJECT token is scoped to ONE environment. The original
-      # RAILWAY_TOKEN reaches production, so it cannot see staging under any
-      # name or ID - which is why every staging deploy failed with
-      # 'Environment "staging" not found.' regardless of what was passed.
-      # RAILWAY_TOKEN_STAGING is a second project token, created against the
-      # staging environment. The fallback keeps the job's behaviour unchanged
-      # while that secret does not exist yet.
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
+      # NOT secrets.RAILWAY_TOKEN. That one is a Railway *project* token scoped
+      # to production — CI proved it: `railway whoami` returns Unauthorized
+      # while `railway status` reports Environment: production. A token scoped
+      # to one environment cannot deploy to another under any name, which is
+      # why two attempts at --environment failed before this was understood.
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
       TARGET_ENVIRONMENT: ${{ needs.config.outputs.staging }}
+      # Booleans, never the values: GitHub cannot list its own secrets back, so
+      # this is how a run reports which of the two are actually configured.
+      STAGING_TOKEN_SET: ${{ secrets.RAILWAY_STAGING_TOKEN != '' }}
+      PRODUCTION_TOKEN_SET: ${{ secrets.RAILWAY_TOKEN != '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Two guesses at --environment have now failed ("<id>" not found, then
-      # "staging" not found), so this prints what the token can actually see
-      # before trying again. Everything is wrapped in `timeout` because a
+      # Fail with the actual remedy rather than Railway's "Environment not
+      # found", which sent this pipeline down the wrong path twice.
+      - name: Require a staging-scoped Railway token
+        run: |
+          if [ -z "${RAILWAY_TOKEN}" ]; then
+            echo "::error title=RAILWAY_STAGING_TOKEN is not set::Staging deploys need their own Railway token. RAILWAY_TOKEN is a project token scoped to production and cannot reach staging. Create a token scoped to the staging environment (Railway -> hero-maker -> Settings -> Tokens) and add it to this repository as the secret RAILWAY_STAGING_TOKEN. See docs/deployment/cicd.md."
+            exit 1
+          fi
+
+      # Kept because it earned its place: this is what identified the token as
+      # environment-scoped. Everything is wrapped in `timeout` because a
       # Railway CLI subcommand that wants a TTY would otherwise hang the job,
       # and in `|| true` because the diagnosis must not replace the real error.
       - name: Preflight — what can this token reach?
-        env:
-          USING_STAGING_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING && 'yes' || '' }}
         run: |
+          echo "Secrets configured on this repository:"
+          echo "  RAILWAY_STAGING_TOKEN (staging):    ${STAGING_TOKEN_SET}"
+          echo "  RAILWAY_TOKEN (production):         ${PRODUCTION_TOKEN_SET}"
+          echo ""
           echo "::group::railway whoami"
           timeout 30 railway whoami 2>&1 || true
           echo "::endgroup::"
@@ -233,21 +245,10 @@ jobs:
           echo "::endgroup::"
           echo ""
           echo "Targeting environment: '${TARGET_ENVIRONMENT}'"
-          if [ -n "${USING_STAGING_TOKEN}" ]; then
-            echo "Using RAILWAY_TOKEN_STAGING."
-          else
-            echo "RAILWAY_TOKEN_STAGING is NOT set, so this is falling back to"
-            echo "RAILWAY_TOKEN - and that will fail."
-            echo ""
-            echo "A Railway PROJECT token is scoped to ONE environment. This one"
-            echo "reaches production, so it cannot see staging under any name or"
-            echo "ID. Confirmed three times: an environment ID, the name, and a"
-            echo "corrected ID all failed identically."
-            echo ""
-            echo "Fix: Railway > project > Settings > Tokens > Create Token,"
-            echo "with Environment set to staging. Store it as the repository"
-            echo "secret RAILWAY_TOKEN_STAGING."
-          fi
+          echo "This job uses RAILWAY_STAGING_TOKEN. If the deploy below still"
+          echo "reports the environment 'not found', then either that token is"
+          echo "not scoped to staging, or the environment is not named"
+          echo "'${TARGET_ENVIRONMENT}' — the status above says which it is."
 
       - name: Deploy Backend
         run: railway up --service=${{ needs.config.outputs.backend }} --environment=${{ needs.config.outputs.staging }} --detach

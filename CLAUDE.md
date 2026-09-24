@@ -96,7 +96,7 @@ three failed with the same line.
 
 A Railway **project token is scoped to one environment**. `RAILWAY_TOKEN`
 reaches production, so it cannot deploy to staging under any name or ID. The
-staging job uses `RAILWAY_TOKEN_STAGING`, a second project token created
+staging job uses `RAILWAY_STAGING_TOKEN`, a second project token created
 against staging; its preflight step says which token it got and what to do if
 the secret is missing.
 
