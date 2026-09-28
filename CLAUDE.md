@@ -107,23 +107,44 @@ open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
 
-## Meshy: the product cannot make a hero right now
+## Meshy and OpenAI: what actually fails, and what does not
 
-`NoMorePendingTasks` from Meshy does not mean "out of credits". **The Free plan
-has no API access at all** — "API access is available on Pro, Premium, Ultra,
-Studio, and Enterprise plans only. The Free plan is limited to the Meshy web
-app."
+**Production is on a paid Meshy plan and heroes have completed there.** An
+earlier note in this file said no hero could complete on any environment
+because both accounts were on the Free plan. That was wrong, and it was written
+as fact from a single `NoMorePendingTasks` string seen once on one key. Check
+the live gallery before repeating any claim of that shape:
+
+```
+https://heromaker-backend.up.railway.app/api/creations/?limit=200
+```
+
+Each creation carries its steps and their `error_message`, which is the fastest
+honest answer to "is the pipeline working".
+
+**The failure actually seen most recently is OpenAI, not Meshy:**
+
+```
+OpenAI API error: Error code: 400 - moderation_blocked at output stage
+```
+
+That is gpt-image-1 refusing the image it just generated, not the prompt being
+rejected. `app/services/openai.py` detects it by name and raises a clear
+message. It is worth taking seriously as a product risk rather than a bug: the
+inputs are children's drawings, and an output-stage block means some of them
+will simply not render, with nothing the child did wrong. The comment at
+`openai.py:56` already keeps the prompt neutral for this reason.
+
+Older failures in the gallery show `Meshy task ... failed: Unknown error` at
+`meshy_rig`, which is a different problem again.
+
+For reference, since it shaped the pricing: Meshy's Free plan genuinely has no
+API access at all — "API access is available on Pro, Premium, Ultra, Studio,
+and Enterprise plans only"
 ([help.meshy.ai](https://help.meshy.ai/en/articles/15696428-what-is-included-on-the-free-plan))
-
-Both known accounts are on Free, so **no hero completes on any environment**,
-and payments working changes nothing about that. Nor can it be solved by
-juggling accounts: Meshy does not support transferring or merging credits, so a
-balance on a second Free account is reachable only from their web app.
-
-The fix is a plan upgrade on one account, and then `MESHY_API_KEY` — a Railway
-*shared* variable referenced by `devops/railway/env/backend.env`, so one value
-serves both environments. Pro is $20/month for 1000 credits, which is the
-$0.02/credit this repo already assumes.
+— and credits cannot be transferred or merged between accounts. Pro is
+$20/month for 1000 credits, the $0.02/credit this repo assumes. `MESHY_API_KEY`
+is set directly on the backend service in Railway, per environment.
 
 Meshy has two kinds of credit, and the difference decides whether a balance is
 worth anything: **monthly** credits (the free 100, or Pro's 1000) reset every
