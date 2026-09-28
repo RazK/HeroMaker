@@ -1,0 +1,58 @@
+name: Staging robot
+
+# Drives the deployed staging site end to end, as a customer would: landing
+# page, gallery, sign up, buy credits (Lemon Squeezy test mode), make a hero
+# through every pipeline stage, find it under My Creations, play a game with
+# it. Screenshots of every step are uploaded as an artifact.
+#
+# It runs here rather than anywhere else because it needs the open internet:
+# Lemon Squeezy's checkout is a third-party page.
+
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: 'Comma-separated subset (landing,gallery,signup,buy,create,profile,game). Empty = all.'
+        required: false
+        default: ''
+
+concurrency:
+  group: staging-robot
+  cancel-in-progress: false
+
+jobs:
+  robot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Resolve the staging URL
+        id: url
+        run: echo "frontend=$(jq -er '.environments.staging.urls.frontend' devops/railway/project.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Run the robot
+        working-directory: e2e
+        env:
+          BASE_URL: ${{ steps.url.outputs.frontend }}
+          STEPS: ${{ inputs.steps }}
+        run: |
+          if [ -z "$STEPS" ]; then unset STEPS; fi
+          node staging-robot.mjs
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-robot
+          path: e2e/out/
