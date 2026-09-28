@@ -1,5 +1,30 @@
 # Claude Instructions for HeroMaker
 
+## How Raz works with you — read first, every session
+
+These came straight from the product owner. They override your defaults.
+
+- **Never ask for approval without a link to a running staging deploy he can
+  click and use** — and staging must already run everything production is
+  meant to have. An approval request with no working link is not a request.
+- **Robot-test staging yourself before sending that link.** Drive the real
+  site in a browser (Playwright; Chromium is pre-installed) through the whole
+  flow: landing page → gallery → sign in → buy credits (Lemon Squeezy test
+  mode) → upload a drawing → image → 3D → rigged and animated → the hero in
+  the profile → play a game with it. Send the link only when that passes, and
+  say what you tested.
+- **Make the important thing unmissable. Keep messages short.** Put the one
+  thing you need from him at the top, on its own line. Put detail after it or
+  leave it out. Long reports bury the ask.
+- **Ask for every credential or permission you need up front**, in one list,
+  so the rest of the work runs without him.
+- **Don't stop mid-task.** If you say you are starting something, start it in
+  the same turn.
+- **Flow:** feature branch → PR → CI green → **you merge it** → `main`
+  auto-deploys to staging → you robot-test staging → he reviews staging →
+  he approves *Promote to production*. Everything except his review is yours
+  to automate.
+
 ## Git & PR Rules
 
 - **One PR per logical unit.** Even if given a list of tasks, work on them one at a time — separate branch, separate PR per topic (e.g. bug fixes, docs, new features are never mixed).
