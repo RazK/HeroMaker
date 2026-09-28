@@ -132,6 +132,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 <input
                   id="dateOfBirth"
                   type="date"
+                  // The backend requires a birth date at least a year back; a
+                  // phone's picker opens on today, which it would then reject.
+                  max={new Date(Date.now() - 366 * 24 * 3600 * 1000).toISOString().slice(0, 10)}
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
                   required

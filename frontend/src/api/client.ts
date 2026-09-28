@@ -94,7 +94,18 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     let errorMessage = `HTTP ${response.status}`;
     try {
       const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.detail || errorMessage;
+      // FastAPI validation errors arrive as a list of {msg, loc}; a plain
+      // string detail is shown as-is. Never let an object reach the UI, where
+      // it renders as "[object Object]".
+      const detail = errorJson.detail;
+      if (Array.isArray(detail)) {
+        errorMessage = detail
+          .map((d: { msg?: string }) => String(d?.msg ?? '').replace(/^Value error, /, ''))
+          .filter(Boolean)
+          .join('. ') || errorMessage;
+      } else if (typeof detail === 'string') {
+        errorMessage = detail;
+      }
     } catch {
       errorMessage = errorText || errorMessage;
     }
