@@ -57,6 +57,7 @@ print(f"✓ Loaded Railway credentials from: {railway_env}")
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.config.settings import with_explicit_postgres_driver
 from app.database import Base
 from app.models import User, Creation, CreationStep, CouponUsage, Coupon
 from app.utils.storage import LocalFileStorage, S3FileStorage
@@ -69,7 +70,7 @@ def get_railway_db():
         print("ERROR: DATABASE_URL not set or not PostgreSQL")
         return None, None
     
-    engine = create_engine(db_url)
+    engine = create_engine(with_explicit_postgres_driver(db_url))
     Session = sessionmaker(bind=engine)
     return engine, Session()
 

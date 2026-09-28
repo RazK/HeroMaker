@@ -15,6 +15,25 @@ else:
 # Always use absolute path to data/db/heromaker.db
 _default_db_path = _project_root / "data" / "db" / "heromaker.db"
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{_default_db_path.absolute()}")
+
+
+def with_explicit_postgres_driver(url: str) -> str:
+    """Name the installed driver instead of trusting SQLAlchemy's default.
+
+    Railway hands us `postgresql://...`, which leaves the driver to SQLAlchemy.
+    2.0 picked psycopg2; 2.1 switched the default to psycopg 3, which is not
+    installed, so every container built after 2.1 shipped died on import with
+    `No module named 'psycopg'` - and Railway kept the old build running, so
+    nothing looked broken. `+psycopg2` matches requirements.txt whatever the
+    default is.
+    """
+    for prefix in ("postgresql://", "postgres://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
+
+
+DATABASE_URL = with_explicit_postgres_driver(DATABASE_URL)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
