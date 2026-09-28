@@ -259,6 +259,13 @@ def test_packs_endpoint_never_leaks_our_margins(configured, client):
     assert "cost" not in body
 
 
+def test_packs_show_prices_the_way_a_customer_reads_them(configured, client):
+    """Rendered as-is on the buy button, so "$5.00" and never "$5.0000"."""
+    packs = client.get("/api/payments/packs").json()
+    for pack in packs:
+        assert pack["price_display"] == f"${pack['price_cents'] // 100}.{pack['price_cents'] % 100:02d}"
+
+
 def test_checkout_requires_a_signed_in_user(configured, client):
     response = client.post("/api/payments/checkout", json={"pack": "maker"})
     assert response.status_code == 401

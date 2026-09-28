@@ -1,0 +1,69 @@
+.buy-credits-modal {
+  max-width: 440px;
+}
+
+.buy-credits-packs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.buy-credits-pack {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'name price'
+    'credits price'
+    'blurb blurb';
+  gap: 4px 12px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.1s;
+}
+
+.buy-credits-pack:hover:not(:disabled) {
+  border-color: var(--accent-color, #6366f1);
+}
+
+.buy-credits-pack:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.buy-credits-pack:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.buy-credits-pack-highlight {
+  border-width: 2px;
+  border-color: var(--accent-color, #6366f1);
+}
+
+.buy-credits-pack-name {
+  grid-area: name;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.buy-credits-pack-credits {
+  grid-area: credits;
+  font-size: 14px;
+}
+
+.buy-credits-pack-blurb {
+  grid-area: blurb;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.buy-credits-pack-price {
+  grid-area: price;
+  align-self: center;
+  font-weight: 700;
+  font-size: 18px;
+}

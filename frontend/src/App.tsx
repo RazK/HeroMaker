@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { HeaderUploadButtons } from './components/HeaderUploadButtons';
 import { HeaderAuth } from './components/HeaderAuth';
+import { PURCHASE_RETURN_PARAM } from './components/BuyCredits';
 import { PipelineProgress } from './components/PipelineProgress';
 import { CreationGallery } from './components/CreationGallery';
 import { HeroNameEditor } from './components/HeroNameEditor';
@@ -69,6 +70,40 @@ function App() {
       window.removeEventListener('auth:logout', handleAuthChange);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
     };
+  }, []);
+
+  // Back from a Lemon Squeezy checkout. The browser never reports a payment:
+  // the signed webhook grants the credits, usually within a second or two, so
+  // all this does is re-read the balance until it moves (or give up quietly).
+  const [purchaseNotice, setPurchaseNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(PURCHASE_RETURN_PARAM) !== 'done') return;
+    params.delete(PURCHASE_RETURN_PARAM);
+    const query = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+
+    if (!getAuthToken()) return;
+    setPurchaseNotice('Thanks! Adding your credits…');
+    let cancelled = false;
+    (async () => {
+      let start: number | undefined;
+      for (let attempt = 0; attempt < 15 && !cancelled; attempt++) {
+        try {
+          const me = await api.getMe();
+          if (start === undefined) start = me.credits;
+          if (me.credits !== start) break;
+        } catch {
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      if (cancelled) return;
+      await refreshCreditBalance();
+      setPurchaseNotice('Thanks! Your credits are in.');
+      setTimeout(() => setPurchaseNotice(null), 6000);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Apply bright mode class to document root for admin users
@@ -243,6 +278,12 @@ function App() {
             {creditBalance !== undefined && pipelineCost > creditBalance && (
               <div className="post-upload-actions-error">
                 Insufficient credits. You have {creditBalance} but need {pipelineCost}.
+                <button
+                  className="post-upload-action-buy"
+                  onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}
+                >
+                  Buy credits 🪙
+                </button>
               </div>
             )}
           </div>
@@ -250,6 +291,7 @@ function App() {
       )}
 
       <main className="app-main">
+        {purchaseNotice && <div className="app-purchase-notice">{purchaseNotice}</div>}
         {error && (
           <div className="app-error">
             <strong>Error:</strong> {error}

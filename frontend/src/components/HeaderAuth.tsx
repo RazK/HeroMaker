@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api, getAuthToken } from '../api/client';
 import { AuthModal } from './AuthModal';
 import { CouponRedeem } from './CouponRedeem';
+import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
 import './HeaderAuth.css';
 
@@ -22,6 +23,7 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
+  const [showBuyModal, setShowBuyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -39,11 +41,16 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
       await checkAuth();
     };
     
+    // Anywhere in the app can ask for the buy dialog, e.g. "not enough credits".
+    const handleOpenBuy = () => setShowBuyModal(true);
+
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     window.addEventListener('auth:credits-updated', handleCreditsUpdated);
+    window.addEventListener('credits:buy', handleOpenBuy);
     return () => {
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
       window.removeEventListener('auth:credits-updated', handleCreditsUpdated);
+      window.removeEventListener('credits:buy', handleOpenBuy);
     };
   }, []);
 
@@ -91,6 +98,11 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
     if (user) {
       setUser({ ...user, credits: newBalance });
     }
+  };
+
+  const handleOpenBuyModal = () => {
+    setShowUserMenu(false);
+    setShowBuyModal(true);
   };
 
   const handleOpenCouponModal = () => {
@@ -175,6 +187,9 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
           <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenProfile}>
             Edit Profile ✏️
           </button>
+          <button className="header-auth-menu-item header-auth-menu-action header-auth-menu-buy" onClick={handleOpenBuyModal}>
+            Buy Credits 🪙
+          </button>
           <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenCouponModal}>
             Redeem Coupon 🎟️
           </button>
@@ -183,6 +198,8 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
           </button>
         </div>
       )}
+
+      <BuyCredits isOpen={showBuyModal} onClose={() => setShowBuyModal(false)} />
 
       <CouponRedeem
         isOpen={showCouponModal}
