@@ -197,12 +197,18 @@ async function payOnLemonSqueezy(page, email) {
     throw new Error('the pay button stayed disabled: the checkout form is incomplete');
   }
   await pay.click({ timeout: 15000 });
-  // Test mode lands on a receipt page, then (or instead) on our redirect_url.
-  await page.waitForURL((u) => u.toString().startsWith(BASE_URL) || /thank|receipt|success/i.test(u.toString()), { timeout: 120000 });
+  // Success is a "Thanks for your order!" dialog on the same page, whose
+  // Continue button follows our redirect_url back to the app.
+  const thanks = page.getByText(/Thanks for your order/i).first();
+  // Whichever loses the race must not reject unhandled later and kill the run.
+  await Promise.race([
+    thanks.waitFor({ timeout: 120000 }).catch(() => {}),
+    page.waitForURL((u) => u.toString().startsWith(BASE_URL), { timeout: 120000 }).catch(() => {}),
+  ]);
   if (!page.url().startsWith(BASE_URL)) {
-    await snap(page, 'checkout-receipt');
-    const back = page.getByRole('link', { name: /continue|return|back/i }).first();
-    if (await back.count()) await back.click();
+    if (!(await thanks.isVisible().catch(() => false))) throw new Error('no order confirmation within 2 minutes of paying');
+    await snap(page, 'checkout-paid');
+    await page.getByRole('button', { name: /^continue/i }).or(page.getByRole('link', { name: /^continue/i })).first().click();
     await page.waitForURL((u) => u.toString().startsWith(BASE_URL), { timeout: 60000 });
   }
 }
