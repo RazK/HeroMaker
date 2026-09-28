@@ -91,6 +91,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # The game is served at /play/ from inside this image; see the script.
+      - name: Bundle Hero Moves into frontend/public/play
+        run: ./devops/scripts/bundle-game.sh
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -117,7 +125,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./frontend
           file: ./frontend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -185,8 +193,26 @@ jobs:
   # All three services deploy on every merge, even one that changed no service
   # code, so staging is always exactly main rather than "main, plus whichever
   # services happened to change since someone last looked".
+  # The game, built once for the deploy below. The deploy runs in Railway's CLI
+  # image, which has no Node; `railway up` then uploads it inside frontend/.
+  bundle-game:
+    needs: changes
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: ./devops/scripts/bundle-game.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hero-moves-bundle
+          path: frontend/public/play/
+          retention-days: 1
+
   deploy-staging:
-    needs: [changes, config, build-backend, build-frontend, build-vrm-converter]
+    needs: [changes, config, bundle-game, build-backend, build-frontend, build-vrm-converter]
     # always() so a skipped build (no changes in that service) does not skip the
     # deploy, but config must actually have succeeded — a skipped config job
     # would leave every ID empty and deploy to whatever Railway defaults to.
@@ -195,6 +221,7 @@ jobs:
       && github.event_name != 'pull_request'
       && github.ref == 'refs/heads/main'
       && needs.config.result == 'success'
+      && needs.bundle-game.result == 'success'
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     environment:
@@ -253,6 +280,12 @@ jobs:
 
       - name: Deploy Backend
         run: railway up --service=${{ needs.config.outputs.backend }} --environment=${{ needs.config.outputs.staging }} --detach
+
+      - name: Put the game where the frontend build picks it up
+        uses: actions/download-artifact@v4
+        with:
+          name: hero-moves-bundle
+          path: frontend/public/play
 
       - name: Deploy Frontend
         run: railway up --service=${{ needs.config.outputs.frontend }} --environment=${{ needs.config.outputs.staging }} --detach

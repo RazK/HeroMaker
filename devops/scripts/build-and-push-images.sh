@@ -16,7 +16,8 @@ docker build -t ${REGISTRY}/backend:${TAG} -f backend/Dockerfile ./backend
 
 # Build frontend image
 echo "📦 Building frontend image..."
-docker build -t ${REGISTRY}/frontend:${TAG} -f frontend/Dockerfile .
+./devops/scripts/bundle-game.sh  # the game at /play/ ships inside the frontend image
+docker build -t ${REGISTRY}/frontend:${TAG} -f frontend/Dockerfile ./frontend
 
 # Build VRM converter image
 echo "📦 Building VRM converter image..."
