@@ -739,3 +739,26 @@
 }
 
 
+
+.creation-gallery-item {
+  position: relative;
+}
+
+.play-hero-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.95);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.play-hero-button:hover {
+  background: rgba(79, 70, 229, 1);
+}

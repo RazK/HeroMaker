@@ -16,7 +16,7 @@ docker build -t ${REGISTRY}/backend:${TAG} -f backend/Dockerfile ./backend
 
 # Build frontend image
 echo "📦 Building frontend image..."
-docker build -t ${REGISTRY}/frontend:${TAG} -f frontend/Dockerfile ./frontend
+docker build -t ${REGISTRY}/frontend:${TAG} -f frontend/Dockerfile .
 
 # Build VRM converter image
 echo "📦 Building VRM converter image..."

@@ -49,6 +49,11 @@ export default defineConfig(({ mode }) => {
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // /play/ is the game, a separate app copied in beside this one. Without
+        // this the service worker answers every navigation there with the
+        // React shell, and the Play button opens HeroMaker instead of a game.
+        navigateFallbackDenylist: [/^\/play\//, /^\/api\//],
+        globIgnores: ['play/**'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

@@ -112,3 +112,9 @@
   .reel-label { font-size: 9px; }
   .reel-panel { gap: 6px; padding-top: 8px; }
 }
+
+.reel-hero-own {
+  font-weight: 700;
+  font-size: 18px;
+  padding: 6px 12px;
+}
