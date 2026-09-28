@@ -44,7 +44,11 @@ async function snap(page, name) {
 // On failure, say what the page actually showed: the visible text is what a
 // person would read, and it is what a log reader needs to fix the test.
 async function describe(page) {
-  const text = await page.innerText('body').catch(() => '(no body)');
+  const text = await page.evaluate(() => {
+    const clone = document.body.cloneNode(true);
+    clone.querySelectorAll('select, script, style').forEach((n) => n.remove());
+    return clone.innerText;
+  }).catch(() => '(no body)');
   return `url=${page.url()}\n--- visible text ---\n${text.slice(0, 3000)}`;
 }
 
@@ -92,8 +96,8 @@ async function creditsShown(page) {
 // markup changes between Stripe versions, so each field is looked for by the
 // several names Stripe has used, in every frame on the page.
 // ---------------------------------------------------------------------------
-async function fillFirst(page, selectors, value, label) {
-  for (const frame of page.frames()) {
+async function fillFirst(page, selectors, value, label, { mainOnly = false } = {}) {
+  for (const frame of mainOnly ? [page.mainFrame()] : page.frames()) {
     for (const sel of selectors) {
       const loc = frame.locator(sel).first();
       if (await loc.count().catch(() => 0)) {
@@ -116,6 +120,8 @@ async function payOnLemonSqueezy(page, email) {
   await page.waitForTimeout(4000); // Stripe mounts its iframes after load
   await snap(page, 'checkout-loaded');
 
+  // The checkout's "Email address" is Stripe's Link authentication field, so
+  // it lives in a Stripe iframe; a fresh address never triggers Link's code.
   await fillFirst(page, ['input[type=email]', 'input[name=email]'], email, 'email');
   const card = await fillFirst(page, [
     'input[name=cardnumber]', 'input[autocomplete="cc-number"]', '#Field-numberInput', 'input[name=number]',
@@ -126,22 +132,83 @@ async function payOnLemonSqueezy(page, email) {
   const cvc = await fillFirst(page, [
     'input[name=cvc]', 'input[autocomplete="cc-csc"]', '#Field-cvcInput',
   ], '123', 'cvc');
-  await fillFirst(page, ['input[name=name]', 'input[autocomplete="cc-name"]', 'input[name=billingName]', 'input[placeholder*="name" i]'], 'Robot Tester', 'name');
-  await fillFirst(page, ['input[name=postal]', 'input[name=postalCode]', 'input[autocomplete="postal-code"]', '#Field-postalCodeInput', 'input[name=zip]'], '10001', 'postal');
+  await fillFirst(page, ['input[name=name]', 'input[autocomplete="cc-name"]', 'input[name=billingName]', 'input[placeholder*="name" i]'], 'Robot Tester', 'name', { mainOnly: true });
+  // Billing country decides which address fields appear, so set it first.
+  for (const sel of await page.locator('select').all()) {
+    const hasUS = await sel.locator('option', { hasText: /^United States$/ }).count().catch(() => 0);
+    if (hasUS) {
+      await sel.selectOption({ label: 'United States' });
+      console.log('  selected billing country United States');
+      await page.waitForTimeout(1000);
+      break;
+    }
+  }
+
   if (!card || !exp || !cvc) {
     const frames = page.frames().map((f) => f.url().slice(0, 100)).join('\n  ');
     throw new Error(`could not find card fields (card=${card} exp=${exp} cvc=${cvc}); frames:\n  ${frames}`);
   }
+  // The address fields render only after a country is chosen ("Loading...").
+  const postal = ['input[name=postal]', 'input[name=postalCode]', 'input[autocomplete="postal-code"]', '#Field-postalCodeInput', 'input[name=zip]', 'input[placeholder*="zip" i]', 'input[placeholder*="postal" i]'];
+  let zipDone = false;
+  for (let i = 0; i < 15 && !zipDone; i++) {
+    zipDone = await fillFirst(page, postal, '10001', 'postal');
+    if (!zipDone) await page.waitForTimeout(1000);
+  }
+  // Stripe ticks "Save my information for faster checkout" (Link) by default,
+  // which makes a mobile number required. A buyer can untick it; so do we.
+  for (const frame of page.frames()) {
+    const save = frame.getByRole('checkbox', { name: /save my information/i }).first();
+    if (await save.count().catch(() => 0)) {
+      if (await save.isChecked().catch(() => false)) {
+        await save.uncheck({ timeout: 5000 }).catch(async () => { await save.click({ force: true }); });
+        console.log('  unticked "Save my information" (Link)');
+      }
+      break;
+    }
+  }
+
+  // A US billing address is complete only with street, city and state.
+  await fillFirst(page, ['input[placeholder="Address line 1"]', 'input[autocomplete="address-line1"]'], '350 5th Ave', 'address', { mainOnly: true });
+  await fillFirst(page, ['#city', 'input[placeholder="City"]', 'input[autocomplete="address-level2"]'], 'New York', 'city', { mainOnly: true });
+  const state = page.locator('input[placeholder^="Select a state"]').first();
+  if (await state.count()) {
+    await state.click();
+    await state.pressSequentially('New York', { delay: 30 });
+    const option = page.getByRole('option', { name: /^New York$/ }).first();
+    if (await option.count().catch(() => 0)) await option.click();
+    else await state.press('Enter');
+    console.log('  chose state New York');
+  }
   await snap(page, 'checkout-filled');
 
-  const pay = page.getByRole('button', { name: /pay|purchase|buy|complete|subscribe/i }).first();
+  let pay = page.getByRole('button', { name: /^(pay|purchase|buy|complete|place order)/i }).first();
+  if (!(await pay.count())) pay = page.locator('button[type=submit]').first();
+  console.log(`  pressing "${(await pay.innerText().catch(() => '?')).trim()}"`);
+  for (let i = 0; i < 20 && (await pay.isDisabled().catch(() => false)); i++) await page.waitForTimeout(1000);
+  if (await pay.isDisabled().catch(() => false)) {
+    // Say exactly which fields are still empty, in which frame.
+    for (const frame of page.frames()) {
+      const empty = await frame.evaluate(() => [...document.querySelectorAll('input, select')]
+        .filter((el) => el.offsetParent !== null && !el.value)
+        .map((el) => `${el.tagName.toLowerCase()} name=${el.name} id=${el.id} ac=${el.autocomplete} ph=${el.placeholder}`)).catch(() => []);
+      if (empty.length) console.log(`  empty in ${frame.url().slice(0, 70)}:\n    ${empty.join('\n    ')}`);
+    }
+    throw new Error('the pay button stayed disabled: the checkout form is incomplete');
+  }
   await pay.click({ timeout: 15000 });
-  // Test mode lands on a receipt page, then (or instead) on our redirect_url.
-  await page.waitForURL((u) => u.toString().startsWith(BASE_URL) || /thank|receipt|success/i.test(u.toString()), { timeout: 120000 });
+  // Success is a "Thanks for your order!" dialog on the same page, whose
+  // Continue button follows our redirect_url back to the app.
+  const thanks = page.getByText(/Thanks for your order/i).first();
+  // Whichever loses the race must not reject unhandled later and kill the run.
+  await Promise.race([
+    thanks.waitFor({ timeout: 120000 }).catch(() => {}),
+    page.waitForURL((u) => u.toString().startsWith(BASE_URL), { timeout: 120000 }).catch(() => {}),
+  ]);
   if (!page.url().startsWith(BASE_URL)) {
-    await snap(page, 'checkout-receipt');
-    const back = page.getByRole('link', { name: /continue|return|back/i }).first();
-    if (await back.count()) await back.click();
+    if (!(await thanks.isVisible().catch(() => false))) throw new Error('no order confirmation within 2 minutes of paying');
+    await snap(page, 'checkout-paid');
+    await page.getByRole('button', { name: /^continue/i }).or(page.getByRole('link', { name: /^continue/i })).first().click();
     await page.waitForURL((u) => u.toString().startsWith(BASE_URL), { timeout: 60000 });
   }
 }
@@ -149,7 +216,11 @@ async function payOnLemonSqueezy(page, email) {
 // ---------------------------------------------------------------------------
 
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+// English, US: third-party pages (the checkout) localise to the runner's
+// locale otherwise, and the robot finds buttons by their English names.
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 900 }, locale: 'en-US', timezoneId: 'America/New_York',
+});
 const page = await context.newPage();
 page.setDefaultTimeout(30000);
 page.on('pageerror', (e) => console.log(`  [page error] ${e.message}`));
