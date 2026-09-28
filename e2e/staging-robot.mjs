@@ -155,6 +155,19 @@ async function payOnLemonSqueezy(page, email) {
     zipDone = await fillFirst(page, postal, '10001', 'postal');
     if (!zipDone) await page.waitForTimeout(1000);
   }
+  // Stripe ticks "Save my information for faster checkout" (Link) by default,
+  // which makes a mobile number required. A buyer can untick it; so do we.
+  for (const frame of page.frames()) {
+    const save = frame.getByRole('checkbox', { name: /save my information/i }).first();
+    if (await save.count().catch(() => 0)) {
+      if (await save.isChecked().catch(() => false)) {
+        await save.uncheck({ timeout: 5000 }).catch(async () => { await save.click({ force: true }); });
+        console.log('  unticked "Save my information" (Link)');
+      }
+      break;
+    }
+  }
+
   // A US billing address is complete only with street, city and state.
   await fillFirst(page, ['input[placeholder="Address line 1"]', 'input[autocomplete="address-line1"]'], '350 5th Ave', 'address', { mainOnly: true });
   await fillFirst(page, ['#city', 'input[placeholder="City"]', 'input[autocomplete="address-level2"]'], 'New York', 'city', { mainOnly: true });
