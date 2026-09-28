@@ -120,9 +120,9 @@ async function payOnLemonSqueezy(page, email) {
   await page.waitForTimeout(4000); // Stripe mounts its iframes after load
   await snap(page, 'checkout-loaded');
 
-  // Main frame only: Stripe also mounts a "Link" sign-in iframe with its own
-  // email box, and typing there starts Link's one-time-code flow instead.
-  await fillFirst(page, ['input[type=email]', 'input[name=email]'], email, 'email', { mainOnly: true });
+  // The checkout's "Email address" is Stripe's Link authentication field, so
+  // it lives in a Stripe iframe; a fresh address never triggers Link's code.
+  await fillFirst(page, ['input[type=email]', 'input[name=email]'], email, 'email');
   const card = await fillFirst(page, [
     'input[name=cardnumber]', 'input[autocomplete="cc-number"]', '#Field-numberInput', 'input[name=number]',
   ], '4242424242424242', 'card number');
@@ -143,16 +143,34 @@ async function payOnLemonSqueezy(page, email) {
       break;
     }
   }
-  await fillFirst(page, ['input[name=postal]', 'input[name=postalCode]', 'input[autocomplete="postal-code"]', '#Field-postalCodeInput', 'input[name=zip]'], '10001', 'postal');
+
   if (!card || !exp || !cvc) {
     const frames = page.frames().map((f) => f.url().slice(0, 100)).join('\n  ');
     throw new Error(`could not find card fields (card=${card} exp=${exp} cvc=${cvc}); frames:\n  ${frames}`);
+  }
+  // The address fields render only after a country is chosen ("Loading...").
+  const postal = ['input[name=postal]', 'input[name=postalCode]', 'input[autocomplete="postal-code"]', '#Field-postalCodeInput', 'input[name=zip]', 'input[placeholder*="zip" i]', 'input[placeholder*="postal" i]'];
+  let zipDone = false;
+  for (let i = 0; i < 15 && !zipDone; i++) {
+    zipDone = await fillFirst(page, postal, '10001', 'postal');
+    if (!zipDone) await page.waitForTimeout(1000);
   }
   await snap(page, 'checkout-filled');
 
   let pay = page.getByRole('button', { name: /^(pay|purchase|buy|complete|place order)/i }).first();
   if (!(await pay.count())) pay = page.locator('button[type=submit]').first();
   console.log(`  pressing "${(await pay.innerText().catch(() => '?')).trim()}"`);
+  for (let i = 0; i < 20 && (await pay.isDisabled().catch(() => false)); i++) await page.waitForTimeout(1000);
+  if (await pay.isDisabled().catch(() => false)) {
+    // Say exactly which fields are still empty, in which frame.
+    for (const frame of page.frames()) {
+      const empty = await frame.evaluate(() => [...document.querySelectorAll('input, select')]
+        .filter((el) => el.offsetParent !== null && !el.value)
+        .map((el) => `${el.tagName.toLowerCase()} name=${el.name} id=${el.id} ac=${el.autocomplete} ph=${el.placeholder}`)).catch(() => []);
+      if (empty.length) console.log(`  empty in ${frame.url().slice(0, 70)}:\n    ${empty.join('\n    ')}`);
+    }
+    throw new Error('the pay button stayed disabled: the checkout form is incomplete');
+  }
   await pay.click({ timeout: 15000 });
   // Test mode lands on a receipt page, then (or instead) on our redirect_url.
   await page.waitForURL((u) => u.toString().startsWith(BASE_URL) || /thank|receipt|success/i.test(u.toString()), { timeout: 120000 });
