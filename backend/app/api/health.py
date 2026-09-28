@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.database import engine
 from app.config.settings import VRM_CONVERTER_SERVICE_URL
+from app.build_info import build_sha
 import requests
 import logging
 
@@ -19,8 +20,16 @@ async def health_check():
     """
     Basic health check endpoint.
     Returns 200 if the service is running.
+
+    `version` is the commit this container was built from. It is what makes a
+    deploy verifiable from outside - "healthy" alone is equally true of a build
+    that shipped ten minutes ago and one that silently never shipped at all.
     """
-    return {"status": "healthy", "service": "HeroMaker API"}
+    return {
+        "status": "healthy",
+        "service": "HeroMaker API",
+        "version": build_sha(),
+    }
 
 
 @router.get("/health/detailed")
@@ -32,6 +41,7 @@ async def detailed_health_check():
     health_status = {
         "status": "healthy",
         "service": "HeroMaker API",
+        "version": build_sha(),
         "checks": {}
     }
     overall_healthy = True

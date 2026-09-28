@@ -107,3 +107,8 @@ marketing/concepts/assets/models.data.js
 # ARE committed, so this staging directory is not - it would be the same
 # images twice, with two places to change them.
 marketing/photos/pairs/
+
+# Stamped into the image by the deploy workflow; a property of a build, not
+# of the source. Committing it would make every local run claim to be some
+# commit it is not.
+backend/app/BUILD_SHA
