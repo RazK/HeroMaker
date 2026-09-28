@@ -44,7 +44,11 @@ async function snap(page, name) {
 // On failure, say what the page actually showed: the visible text is what a
 // person would read, and it is what a log reader needs to fix the test.
 async function describe(page) {
-  const text = await page.innerText('body').catch(() => '(no body)');
+  const text = await page.evaluate(() => {
+    const clone = document.body.cloneNode(true);
+    clone.querySelectorAll('select, script, style').forEach((n) => n.remove());
+    return clone.innerText;
+  }).catch(() => '(no body)');
   return `url=${page.url()}\n--- visible text ---\n${text.slice(0, 3000)}`;
 }
 
@@ -92,8 +96,8 @@ async function creditsShown(page) {
 // markup changes between Stripe versions, so each field is looked for by the
 // several names Stripe has used, in every frame on the page.
 // ---------------------------------------------------------------------------
-async function fillFirst(page, selectors, value, label) {
-  for (const frame of page.frames()) {
+async function fillFirst(page, selectors, value, label, { mainOnly = false } = {}) {
+  for (const frame of mainOnly ? [page.mainFrame()] : page.frames()) {
     for (const sel of selectors) {
       const loc = frame.locator(sel).first();
       if (await loc.count().catch(() => 0)) {
@@ -116,7 +120,9 @@ async function payOnLemonSqueezy(page, email) {
   await page.waitForTimeout(4000); // Stripe mounts its iframes after load
   await snap(page, 'checkout-loaded');
 
-  await fillFirst(page, ['input[type=email]', 'input[name=email]'], email, 'email');
+  // Main frame only: Stripe also mounts a "Link" sign-in iframe with its own
+  // email box, and typing there starts Link's one-time-code flow instead.
+  await fillFirst(page, ['input[type=email]', 'input[name=email]'], email, 'email', { mainOnly: true });
   const card = await fillFirst(page, [
     'input[name=cardnumber]', 'input[autocomplete="cc-number"]', '#Field-numberInput', 'input[name=number]',
   ], '4242424242424242', 'card number');
@@ -126,7 +132,17 @@ async function payOnLemonSqueezy(page, email) {
   const cvc = await fillFirst(page, [
     'input[name=cvc]', 'input[autocomplete="cc-csc"]', '#Field-cvcInput',
   ], '123', 'cvc');
-  await fillFirst(page, ['input[name=name]', 'input[autocomplete="cc-name"]', 'input[name=billingName]', 'input[placeholder*="name" i]'], 'Robot Tester', 'name');
+  await fillFirst(page, ['input[name=name]', 'input[autocomplete="cc-name"]', 'input[name=billingName]', 'input[placeholder*="name" i]'], 'Robot Tester', 'name', { mainOnly: true });
+  // Billing country decides which address fields appear, so set it first.
+  for (const sel of await page.locator('select').all()) {
+    const hasUS = await sel.locator('option', { hasText: /^United States$/ }).count().catch(() => 0);
+    if (hasUS) {
+      await sel.selectOption({ label: 'United States' });
+      console.log('  selected billing country United States');
+      await page.waitForTimeout(1000);
+      break;
+    }
+  }
   await fillFirst(page, ['input[name=postal]', 'input[name=postalCode]', 'input[autocomplete="postal-code"]', '#Field-postalCodeInput', 'input[name=zip]'], '10001', 'postal');
   if (!card || !exp || !cvc) {
     const frames = page.frames().map((f) => f.url().slice(0, 100)).join('\n  ');
@@ -134,7 +150,9 @@ async function payOnLemonSqueezy(page, email) {
   }
   await snap(page, 'checkout-filled');
 
-  const pay = page.getByRole('button', { name: /pay|purchase|buy|complete|subscribe/i }).first();
+  let pay = page.getByRole('button', { name: /^(pay|purchase|buy|complete|place order)/i }).first();
+  if (!(await pay.count())) pay = page.locator('button[type=submit]').first();
+  console.log(`  pressing "${(await pay.innerText().catch(() => '?')).trim()}"`);
   await pay.click({ timeout: 15000 });
   // Test mode lands on a receipt page, then (or instead) on our redirect_url.
   await page.waitForURL((u) => u.toString().startsWith(BASE_URL) || /thank|receipt|success/i.test(u.toString()), { timeout: 120000 });
@@ -149,7 +167,11 @@ async function payOnLemonSqueezy(page, email) {
 // ---------------------------------------------------------------------------
 
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+// English, US: third-party pages (the checkout) localise to the runner's
+// locale otherwise, and the robot finds buttons by their English names.
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 900 }, locale: 'en-US', timezoneId: 'America/New_York',
+});
 const page = await context.newPage();
 page.setDefaultTimeout(30000);
 page.on('pageerror', (e) => console.log(`  [page error] ${e.message}`));
