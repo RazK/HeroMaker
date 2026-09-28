@@ -155,6 +155,18 @@ async function payOnLemonSqueezy(page, email) {
     zipDone = await fillFirst(page, postal, '10001', 'postal');
     if (!zipDone) await page.waitForTimeout(1000);
   }
+  // A US billing address is complete only with street, city and state.
+  await fillFirst(page, ['input[placeholder="Address line 1"]', 'input[autocomplete="address-line1"]'], '350 5th Ave', 'address', { mainOnly: true });
+  await fillFirst(page, ['#city', 'input[placeholder="City"]', 'input[autocomplete="address-level2"]'], 'New York', 'city', { mainOnly: true });
+  const state = page.locator('input[placeholder^="Select a state"]').first();
+  if (await state.count()) {
+    await state.click();
+    await state.pressSequentially('New York', { delay: 30 });
+    const option = page.getByRole('option', { name: /^New York$/ }).first();
+    if (await option.count().catch(() => 0)) await option.click();
+    else await state.press('Enter');
+    console.log('  chose state New York');
+  }
   await snap(page, 'checkout-filled');
 
   let pay = page.getByRole('button', { name: /^(pay|purchase|buy|complete|place order)/i }).first();
