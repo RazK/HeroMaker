@@ -195,7 +195,7 @@ def get_packs(include_unconfigured: bool = True) -> List[Dict]:
             **pack,
             "heroes": pack["credits"] // per_hero,
             "price_cents": price_cents(pack["price_usd_micros"]),
-            "price_display": pricing.micros_to_usd_str(pack["price_usd_micros"]),
+            "price_display": pricing.micros_to_usd_str(pack["price_usd_micros"], places=2),
             "variant_id": vid,
             "configured": vid is not None,
             "margin": margin(pack),

@@ -464,6 +464,26 @@ export const api = {
   },
 
   /**
+   * Credit packs on sale. Only packs with a working checkout are listed.
+   */
+  async getPacks(): Promise<CreditPack[]> {
+    return fetchJson<CreditPack[]>(`${API_BASE_URL}/api/payments/packs`);
+  },
+
+  /**
+   * Open a Lemon Squeezy checkout for a pack. The caller sends the browser to
+   * checkout_url and nothing else: credits are granted only by the signed
+   * webhook, never by anything the browser reports.
+   */
+  async createCheckout(pack: string, redirectUrl: string): Promise<{ checkout_url: string; test_mode: boolean }> {
+    return fetchJson<{ checkout_url: string; test_mode: boolean }>(`${API_BASE_URL}/api/payments/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pack, redirect_url: redirectUrl }),
+    });
+  },
+
+  /**
    * Get the credit cost for running steps
    */
   async getCreationCost(steps?: string[]): Promise<{ cost: number }> {
@@ -611,6 +631,17 @@ export const api = {
 };
 
 // Admin types
+export interface CreditPack {
+  slug: string;
+  name: string;
+  blurb: string;
+  credits: number;
+  heroes: number;
+  price_cents: number;
+  price_display: string;
+  highlight: boolean;
+}
+
 export interface CreationStats {
   completed: number;
   failed: number;
