@@ -29,7 +29,7 @@ try:
 except ImportError:
     sys.exit("Pillow is missing. Run this with .venv/bin/python, not bare python.")
 
-SITE = "https://heromaker.up.railway.app"
+SITE = "https://heromaker-backend.up.railway.app"
 OUT = Path(__file__).resolve().parent / "photos" / "pairs"
 
 # The pairs the landing-page concepts reference. cookie-man is the lead: the

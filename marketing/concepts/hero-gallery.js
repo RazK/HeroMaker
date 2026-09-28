@@ -6,7 +6,7 @@
  * own gallery reads, and the pairs in it are real children's drawings and the
  * heroes they actually became.
  *
- *   GET https://heromaker.up.railway.app/api/creations/?limit=60
+ *   GET https://heromaker-backend.up.railway.app/api/creations/?limit=60
  *
  * Public, read-only, no key, and it answers `Access-Control-Allow-Origin: *`.
  * It returns a bare list at small limits and a `{creations, total}` envelope
@@ -31,7 +31,7 @@
  * worse than the fallback. No network, a slow network, a 500, an empty list
  * or a bad shape all leave the committed pairs exactly where they are.
  */
-const API = 'https://heromaker.up.railway.app'
+const API = 'https://heromaker-backend.up.railway.app'
 const LIMIT = 60      // how many creations to ask about
 const TILES = 12      // how many make it into the row
 const NEEDED = 6      // fewer live pairs than the fallback is not an upgrade

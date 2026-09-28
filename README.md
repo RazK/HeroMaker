@@ -10,12 +10,21 @@ AI-powered character creation pipeline that transforms 2D images into 3D VRM ava
 
 | What | Where |
 |------|-------|
-| **The product** | <https://heromaker.up.railway.app> |
-| API docs | <https://heromaker.up.railway.app/docs> |
-| Health | <https://heromaker.up.railway.app/health> |
-| Public gallery (JSON) | <https://heromaker.up.railway.app/api/creations/> |
+| **The product** (frontend) | <https://heromaker.up.railway.app> |
+| **The API** (backend) | <https://heromaker-backend.up.railway.app> |
+| API docs | <https://heromaker-backend.up.railway.app/docs> |
+| Health | <https://heromaker-backend.up.railway.app/health> |
+| Public gallery (JSON) | <https://heromaker-backend.up.railway.app/api/creations/> |
 | **Hero Moves** (webcam party game) | <https://razk.github.io/HeroMaker/hero-moves/> |
 | Hero Moves, camera-free prototype | <https://razk.github.io/HeroMaker/hero-moves/reel.html> |
+
+**Those are two different hosts, and it matters.** The SPA calls the backend's
+own public domain directly - `VITE_API_BASE_URL` is baked in at build time - so
+`/api/...` on the *frontend* host is not the API. It falls through to nginx's
+proxy, whose default target (`http://backend:8000`) is wrong on Railway: the
+backend answers on `${PORT}`, which Railway sets to 8080, at
+`backend.railway.internal`. Requests there hang for twenty seconds and return
+504, which looks exactly like an outage and was mistaken for one for four days.
 
 The product deploys to Railway (`backend/`, `frontend/`,
 `vrm-converter-service/`), which has **two environments, staging and

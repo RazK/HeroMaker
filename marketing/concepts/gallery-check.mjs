@@ -8,7 +8,7 @@
  * was restarting. This measures both halves of that.
  *
  *   online    the row ends up marked data-live, holds at least six pairs, and
- *             every image in it came from heromaker.up.railway.app
+ *             every image in it came from heromaker-backend.up.railway.app
  *   offline   with the whole API blocked, the row still holds the six pairs
  *             committed in assets/pairs/ — same count, nothing blank, and the
  *             page never waited on the network to show them
@@ -75,7 +75,7 @@ const server = createServer((req, res) => {
 })
 await new Promise(r => server.listen(0, '127.0.0.1', r))
 const ORIGIN = `http://127.0.0.1:${server.address().port}`
-const API = 'heromaker.up.railway.app'
+const API = 'heromaker-backend.up.railway.app'
 const NEEDED = 6
 
 /** What the row holds right now. */
@@ -87,7 +87,7 @@ const read = () => {
     tiles: row.children.length,
     live: row.dataset.live === '1',
     names: [...row.querySelectorAll('b')].map(b => b.textContent.trim()),
-    fromApi: srcs.filter(s => s.includes('heromaker.up.railway.app')).length,
+    fromApi: srcs.filter(s => s.includes('heromaker-backend.up.railway.app')).length,
     fromDisk: srcs.filter(s => s.startsWith('assets/pairs/')).length,
     count: (document.querySelector('[data-gallery-count]') || {}).textContent,
   }

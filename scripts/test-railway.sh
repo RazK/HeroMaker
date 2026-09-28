@@ -5,7 +5,7 @@
 
 set -e
 
-BACKEND_URL="${1:-https://heromaker.up.railway.app}"
+BACKEND_URL="${1:-https://heromaker-backend.up.railway.app}"
 
 echo "🚀 Testing Railway Deployment"
 echo "================================"
