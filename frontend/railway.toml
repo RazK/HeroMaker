@@ -4,7 +4,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "frontend/Dockerfile"
-dockerContext = "."  # repo root: the image also builds games/hero-moves
+dockerContext = "frontend"
 
 [deploy]
 startCommand = ""

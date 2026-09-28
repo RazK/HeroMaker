@@ -87,8 +87,26 @@ jobs:
             echo "| Reason | ${REASON:-_none given_} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # The game, built from the approved commit; see build-images.yml bundle-game.
+  bundle-game:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: ./devops/scripts/bundle-game.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hero-moves-bundle
+          path: frontend/public/play/
+          retention-days: 1
+
   promote:
-    needs: [config, verify]
+    needs: [config, verify, bundle-game]
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     # This is the gate. GitHub holds the job here until a required reviewer
@@ -105,6 +123,12 @@ jobs:
 
       - name: Deploy Backend
         run: railway up --service=${{ needs.config.outputs.backend }} --environment=${{ needs.config.outputs.production }} --detach
+
+      - name: Put the game where the frontend build picks it up
+        uses: actions/download-artifact@v4
+        with:
+          name: hero-moves-bundle
+          path: frontend/public/play
 
       - name: Deploy Frontend
         run: railway up --service=${{ needs.config.outputs.frontend }} --environment=${{ needs.config.outputs.production }} --detach

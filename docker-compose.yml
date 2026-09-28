@@ -39,9 +39,10 @@ services:
 
   # Frontend Web Application
   frontend:
+    # Run ./devops/scripts/bundle-game.sh first, or /play/ (the game) is empty.
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: heromaker-frontend
     ports:
       - "3000:80"  # Frontend
