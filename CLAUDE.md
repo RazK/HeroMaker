@@ -20,6 +20,10 @@ These came straight from the product owner. They override your defaults.
   so the rest of the work runs without him.
 - **Don't stop mid-task.** If you say you are starting something, start it in
   the same turn.
+- **Production → staging is always allowed; staging → production never is
+  without his explicit yes.** Copying data or files from production into
+  staging (to make staging look real) needs no approval — just do it and
+  say so. Anything that writes to production does.
 - **Flow:** feature branch → PR → CI green → **you merge it** → `main`
   auto-deploys to staging → you robot-test staging → he reviews staging →
   he approves *Promote to production*. Everything except his review is yours
