@@ -34,8 +34,11 @@ logs
 # Assets (mounted as volume)
 assets/
 
-# Node modules (for frontend)
+# Node modules, at any depth: the frontend image builds from the repo root
+# (it bundles games/hero-moves), and a host-built node_modules copied over
+# the image's own `npm ci` would break it.
 node_modules/
+**/node_modules/
 
 # Python
 __pycache__/
@@ -47,5 +50,6 @@ env/
 
 # Build outputs
 dist/
+**/dist/
 build/
 *.egg-info/

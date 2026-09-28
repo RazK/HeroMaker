@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { playUrl } from '../config/play';
 import { CreationResponse, api, ApiError } from '../api/client';
 import './ControlBar.css';
 
@@ -127,6 +128,7 @@ export function ControlBar({ creation, isLoggedIn, canDownload, onDelete, onCrea
           <div className="control-bar-success">
             <span className="control-bar-success-icon">🎉</span>
             <span>Your hero is ready!</span>
+            <a className="control-bar-play" href={playUrl(creation)}>▶ Play with your hero</a>
           </div>
         )}
 

@@ -294,3 +294,13 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.control-bar-play {
+  margin-left: 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #6366f1;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}

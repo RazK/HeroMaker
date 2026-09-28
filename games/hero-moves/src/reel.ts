@@ -43,7 +43,26 @@ const animUrl = (file: string): string => {
   return Object.entries(animFiles).find(([k]) => k.includes(`/${stem}`))?.[1] ?? file
 }
 
-const ROSTER = [
+/**
+ * `?vrm=<url>` plays ONE hero the player made, instead of the built-in roster:
+ * the HeroMaker app opens this page from a hero's Play button. Same-origin
+ * only, so the page cannot be pointed at someone else's server; `?name=`
+ * labels it.
+ */
+function ownHeroUrl(): string | null {
+  const raw = new URLSearchParams(location.search).get('vrm')
+  if (!raw) return null
+  try {
+    const u = new URL(raw, location.href)
+    return u.origin === location.origin ? u.href : null
+  } catch {
+    return null
+  }
+}
+const OWN_HERO = ownHeroUrl()
+const OWN_NAME = new URLSearchParams(location.search).get('name') || 'Your hero'
+
+const BUILT_IN = [
   { id: 'Crayon_Kid', name: 'Crayon Kid' },
   { id: 'Yummy_Bear', name: 'Yummy Bear' },
   { id: 'Superstar', name: 'Superstar' },
@@ -51,6 +70,8 @@ const ROSTER = [
   { id: 'Skelly', name: 'Skelly' },
   { id: 'Cloudy', name: 'Cloudy' },
 ].filter((r) => Object.keys(avatarFiles).some((k) => k.includes(`${r.id}.opt`)))
+
+const ROSTER = OWN_HERO ? [{ id: 'own', name: OWN_NAME }] : BUILT_IN
 
 /** The deck. Each card is one clip the hero can be asked to perform. */
 const DECK = CLIPS.map((c) => ({
@@ -161,6 +182,7 @@ app.append(el('div', { class: 'layer', id: 'reelUi' }, banner, panel))
 
 function render() {
   heroRow.replaceChildren(...ROSTER.map((r, i) => {
+    if (OWN_HERO) return el('div', { class: 'reel-hero-own' }, r.name)
     const thumb = Object.entries(thumbFiles).find(([k]) => k.includes(`${r.id}.thumb`))?.[1]
     const b = el('button', {
       class: `reel-hero${i === heroIndex ? ' on' : ''}`,
@@ -208,7 +230,7 @@ async function selectHero(i: number) {
   heroIndex = i
   render()
   const entry = ROSTER[i]
-  const url = Object.entries(avatarFiles).find(([k]) => k.includes(`${entry.id}.opt`))?.[1]
+  const url = OWN_HERO ?? Object.entries(avatarFiles).find(([k]) => k.includes(`${entry.id}.opt`))?.[1]
   if (!url) return
   if (hero) { root.remove(hero.root); hero.dispose() }
   anim?.dispose()
@@ -331,4 +353,5 @@ renderer.setAnimationLoop(() => {
   pick: (i: number) => selectHero(i),
   routine: () => [...routine],
   playing: () => playing,
+  hero: () => ROSTER[heroIndex]?.name,
 }

@@ -40,8 +40,8 @@ services:
   # Frontend Web Application
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: heromaker-frontend
     ports:
       - "3000:80"  # Frontend

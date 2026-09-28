@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { playUrl, canPlay } from '../config/play';
 import { api, CreationResponse, getAuthToken } from '../api/client';
 import { calculateOverallProgress } from './PipelineProgress';
 import './CreationGallery.css';
@@ -325,6 +326,16 @@ export function CreationGallery({ onSelectCreation }: CreationGalleryProps) {
               onMouseEnter={() => setHoveredCreationId(creation.id)}
               onMouseLeave={() => setHoveredCreationId(null)}
             >
+              {canPlay(creation) && (
+                <a
+                  className="play-hero-button"
+                  href={playUrl(creation)}
+                  onClick={(e) => e.stopPropagation()}
+                  title="Play a game with this hero"
+                >
+                  ▶ Play
+                </a>
+              )}
               {originalUrl ? (
                 <div className="creation-gallery-image-container">
                   {hasBothImages ? (

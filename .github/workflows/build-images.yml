@@ -32,6 +32,7 @@ jobs:
               - 'backend/**'
             frontend:
               - 'frontend/**'
+              - 'games/hero-moves/**'
             vrm-converter:
               - 'vrm-converter-service/**'
 
@@ -116,7 +117,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: .
           file: ./frontend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
