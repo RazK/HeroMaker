@@ -54,6 +54,7 @@ from sqlalchemy import (  # noqa: E402
 )
 from sqlalchemy.dialects.postgresql import insert as pg_insert  # noqa: E402
 
+from app.config.settings import with_explicit_postgres_driver  # noqa: E402
 from app.database import Base  # noqa: E402
 import app.models  # noqa: F401,E402  (registers every table on Base.metadata)
 
@@ -104,7 +105,7 @@ def open_source(url: str):
 def open_target(url: str):
     if not url.startswith("postgresql"):
         raise SystemExit(f"--target must be a PostgreSQL URL, got {mask(url)}")
-    return create_engine(url, pool_pre_ping=True)
+    return create_engine(with_explicit_postgres_driver(url), pool_pre_ping=True)
 
 
 def count_rows(conn, table_name: str):

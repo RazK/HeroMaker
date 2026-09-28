@@ -36,6 +36,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import create_engine, inspect, text  # noqa: E402
 
+from app.config.settings import with_explicit_postgres_driver  # noqa: E402
+
 # Columns that must never be printed, in any form. Belt and braces: this script
 # only ever SELECTs aggregates, but the list documents the intent and is used to
 # assert that no free-text column value leaks into the output.
@@ -79,7 +81,7 @@ def build_engine(url: str):
         if not path:
             raise SystemExit("Refusing to inspect an in-memory SQLite database")
         return create_engine(f"sqlite:///file:/{path}?mode=ro&uri=true")
-    engine = create_engine(url, pool_pre_ping=True)
+    engine = create_engine(with_explicit_postgres_driver(url), pool_pre_ping=True)
     if engine.dialect.name == "postgresql":
         # Enforced by Postgres, not by us being careful.
         engine = engine.execution_options(postgresql_readonly=True)
