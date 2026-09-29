@@ -262,14 +262,14 @@ async function payOnLemonSqueezy(page, email) {
 const browser = await chromium.launch();
 // English, US: third-party pages (the checkout) localise to the runner's
 // locale otherwise, and the robot finds buttons by their English names.
-// The demo is filmed as a customer sees it: a phone, held upright.
-const VIEW = DEMO ? { width: 390, height: 844 } : { width: 1280, height: 900 };
+// The demo is filmed as a customer sees it: a phone, held upright. The video
+// is exactly the viewport: Playwright does not scale a 2x device into a 2x
+// video, it paints the page into the top-left quarter and leaves the rest
+// grey, so a larger phone at 1x is what gives a sharp, full frame.
+const VIEW = DEMO ? { width: 540, height: 1170 } : { width: 1280, height: 900 };
 const context = await browser.newContext({
   viewport: VIEW, locale: 'en-US', timezoneId: 'America/New_York',
-  ...(DEMO ? {
-    deviceScaleFactor: 2, isMobile: true, hasTouch: true,
-    recordVideo: { dir: OUT, size: { width: VIEW.width * 2, height: VIEW.height * 2 } },
-  } : {}),
+  ...(DEMO ? { isMobile: true, hasTouch: true, recordVideo: { dir: OUT, size: VIEW } } : {}),
 });
 if (DEMO) await context.addInitScript(CURSOR_SCRIPT);
 const page = await context.newPage();
