@@ -9,7 +9,7 @@
 // time. A segment whose marks are missing is skipped rather than failing.
 import { execFileSync } from 'node:child_process';
 import { chromium } from 'playwright';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 
 const OUT = process.argv[2] || 'e2e/out';
@@ -73,28 +73,37 @@ const at = (ref) => {
   return video[name] === undefined ? undefined : video[name] + Number(off || 0);
 };
 
-// 1. One silent cut on the video's own clock.
-const parts = [];
+// 1. One silent cut on the video's own clock, a segment at a time. Cutting
+// all of them in one ffmpeg graph held frames for every segment in memory at
+// once and the runner was killed mid-cut, so each is its own small encode and
+// the pieces are joined without re-encoding.
 const shown = [];  // [startSec, endSec, en, he] on the output timeline
+const pieces = [];
 let clock = 0;
-for (const [from, to, secs, en, he] of PLAN) {
+const ENC = ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-an'];
+for (const [from, to, want, en, he] of PLAN) {
   const a = at(from), b = at(to);
   if (a === undefined || b === undefined || b <= a) { console.log(`skip ${from} -> ${to}`); continue; }
+  // Squeeze waits, never slow a moment down: a beat shorter than its slot
+  // plays at its own length.
+  const secs = Math.min(want, b - a);
   const speed = (b - a) / secs;
-  parts.push(`[0:v]trim=${a.toFixed(3)}:${b.toFixed(3)},setpts=(PTS-STARTPTS)/${speed.toFixed(4)},fps=30[s${parts.length}]`);
+  const piece = path.join(OUT, `piece-${pieces.length}.mp4`);
+  // The mark square lives in the bottom-right corner; crop it out.
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', a.toFixed(3), '-to', b.toFixed(3), '-i', IN,
+    '-vf', `setpts=(PTS-STARTPTS)/${speed.toFixed(4)},fps=30,crop=iw:ih-24:0:0,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
+    ...ENC, piece]);
+  pieces.push(piece);
   shown.push([clock, clock + secs, en, he]);
   clock += secs;
-  console.log(`${from} -> ${to}: ${(b - a).toFixed(1)}s -> ${secs}s (${speed.toFixed(1)}x)`);
+  console.log(`${from} -> ${to}: ${(b - a).toFixed(1)}s -> ${secs.toFixed(1)}s (${speed.toFixed(1)}x)`);
 }
-if (!parts.length) throw new Error('no segments: marks.json has none of the planned marks');
-
-const labels = parts.map((_, i) => `[s${i}]`).join('');
-const ENC = ['-c:v', 'libx264', '-preset', 'medium', '-crf', '19', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an'];
+if (!pieces.length) throw new Error('no segments: marks.json has none of the planned marks');
+const list = path.join(OUT, 'pieces.txt');
+writeFileSync(list, pieces.map((p) => `file '${path.resolve(p)}'`).join('\n'));
 const CUT = path.join(OUT, 'demo-cut.mp4');
-// The mark square lives in the bottom-right corner; crop it out of the reel.
-execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', IN, '-filter_complex',
-  `${parts.join(';')};${labels}concat=n=${parts.length}:v=1,crop=iw:ih-24:0:0,scale=trunc(iw/2)*2:trunc(ih/2)*2[v]`,
-  '-map', '[v]', ...ENC, CUT]);
+execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', CUT]);
+for (const p of pieces) unlinkSync(p);
 
 // 2. Captions are rendered by a browser, so Hebrew is shaped and ordered
 // right to left exactly as on the site, then laid over the cut per language.
@@ -129,9 +138,9 @@ for (const lang of ['en', 'he']) {
     prev = out;
   }
   const file = path.join(OUT, `demo-${lang}.mp4`);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...inputs, '-filter_complex', overlays.join(';'), '-map', '[v]', ...ENC, file]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...inputs, '-filter_complex', overlays.join(';'), '-map', '[v]',
+    ...ENC, '-movflags', '+faststart', file]);
   const dur = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString().trim();
   console.log(`${path.basename(file)}: ${Number(dur).toFixed(1)}s, ${W}x${H}`);
 }
 await browser.close();
-execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', IN, ...ENC, path.join(OUT, 'demo-full.mp4')]);

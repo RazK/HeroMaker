@@ -56,15 +56,25 @@ jobs:
           if [ -z "$STEPS" ]; then unset STEPS; fi
           node staging-robot.mjs
 
+      # Saved before any editing, so a failed cut never loses the recording.
+      - name: Upload screenshots and the raw recording
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-robot
+          path: e2e/out/
+
       - name: Cut the demo video
         if: always() && inputs.demo
         run: |
           command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; }
           node e2e/cut-demo.mjs e2e/out
 
-      - name: Upload screenshots
-        if: always()
+      - name: Upload the demo videos
+        if: always() && inputs.demo
         uses: actions/upload-artifact@v4
         with:
-          name: staging-robot
-          path: e2e/out/
+          name: demo-videos
+          path: |
+            e2e/out/demo-en.mp4
+            e2e/out/demo-he.mp4
