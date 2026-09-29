@@ -185,6 +185,25 @@ def _extract_rig_download_url(status: dict) -> str:
     return result_url
 
 
+def estimate_total_seconds(elapsed: float, progress: float, configured: Optional[float]) -> float:
+    """How long a Meshy task will take in total, from its progress so far.
+
+    Meshy's progress is not linear: a task sits at a few percent while it is
+    queued, then moves fast. Extrapolating from that alone ("6% in 55s, so
+    ~15 minutes") told users a 3D model was 22 minutes away when it finished in
+    two. So the step's configured estimate carries the early readings and the
+    extrapolation takes over as progress becomes meaningful: each is weighted
+    by how far along the task is. Never earlier than now.
+    """
+    extrapolated = elapsed / (progress / 100.0)
+    if configured:
+        w = min(max(progress / 100.0, 0.0), 1.0)
+        total = (1 - w) * configured + w * extrapolated
+    else:
+        total = extrapolated
+    return max(total, elapsed + 1)
+
+
 def _poll_meshy_task_with_progress(
     task_id: str,
     status_func: Callable[[str], dict],
@@ -216,8 +235,8 @@ def _poll_meshy_task_with_progress(
             if progress > 0 and step.started_at:
                 elapsed = (datetime.utcnow() - step.started_at).total_seconds()
                 if elapsed > 0:
-                    # Calculate: if X% done in Y seconds, total time = Y / (X/100)
-                    estimated_total_duration = elapsed / (progress / 100.0)
+                    configured = (get_step_by_name(step.step_name) or {}).get("estimated_duration")
+                    estimated_total_duration = estimate_total_seconds(elapsed, progress, configured)
                     step.estimated_completion_time = step.started_at + timedelta(seconds=estimated_total_duration)
                     remaining = estimated_total_duration - elapsed
                     logger.info(f"[{step.creation_id}] {step.step_name} progress: {progress}% (elapsed: {elapsed:.1f}s, remaining: ~{remaining:.1f}s)")
