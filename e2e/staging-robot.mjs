@@ -293,7 +293,30 @@ const context = await browser.newContext({
 if (DEMO) await context.addInitScript(CURSOR_SCRIPT);
 const page = await context.newPage();
 const t0 = Date.now();  // the video's clock starts with the page
-const mark = (name) => { marks[name] = (Date.now() - t0) / 1000; };
+// A recording under load drifts tens of seconds from the wall clock, so a
+// mark is also painted INTO the video: an 8x8 square in the bottom-right
+// corner, coloured by the mark's index in MARK_ORDER. cut-demo.mjs reads the
+// colour back frame by frame to find each moment on the video's own clock.
+const MARK_ORDER = ['landing', 'gallery_end', 'signup_start', 'signup_end', 'buy_start', 'checkout',
+  'paid', 'credits', 'credits_end', 'upload', 'pipeline_start', 'pipeline_end', 'ready_end',
+  'game_ready', 'play', 'end'];
+const MARK_COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#80ff00',
+  '#0080ff', '#ff0080', '#8000ff', '#00ff80', '#800000', '#008000', '#000080', '#808000'];
+const mark = (name) => {
+  marks[name] = (Date.now() - t0) / 1000;
+  const i = MARK_ORDER.indexOf(name);
+  if (!DEMO || i < 0) return;
+  page.evaluate((c) => {
+    let m = document.getElementById('__demo_mark');
+    if (!m) {
+      m = document.createElement('div');
+      m.id = '__demo_mark';
+      m.style.cssText = 'position:fixed;right:0;bottom:0;width:8px;height:8px;z-index:2147483647;pointer-events:none';
+      document.documentElement.appendChild(m);
+    }
+    m.style.background = c;
+  }, MARK_COLORS[i]).catch(() => {});
+};
 page.setDefaultTimeout(30000);
 page.on('pageerror', (e) => console.log(`  [page error] ${e.message}`));
 
@@ -481,11 +504,13 @@ try {
       await gp.waitForTimeout(3000);
       mark('game_ready');
       await caption(gp, L('Build a routine', 'בונים רצף תנועות'));
-      for (const move of ['Jump', 'Backflip', 'Dance', 'Victory']) {
-        await gp.locator('.reel-card', { hasText: move }).first().click();
-        await gp.waitForTimeout(500);
+      // Clicking the cards under software WebGL took 40s; the game's own API
+      // fills the same slots instantly, a beat apart so each one is seen.
+      for (const move of ['jump', 'backflip', 'dance', 'victory']) {
+        await gp.evaluate((m) => window.__reel.add(m), move);
+        await gp.waitForTimeout(600);
       }
-      await gp.getByRole('button', { name: /play the reel/i }).click();
+      await gp.evaluate(() => window.__reel.play());
       mark('play');
       await caption(gp, L('🎬 Showtime!', '🎬 הגיבור מופיע!'));
     } else {

@@ -29,9 +29,44 @@ const PLAN = [
   ['end-3', 'end', 1.5],                  // title
 ];
 
+// Must match MARK_ORDER / MARK_COLORS in staging-robot.mjs.
+const MARK_ORDER = ['landing', 'gallery_end', 'signup_start', 'signup_end', 'buy_start', 'checkout',
+  'paid', 'credits', 'credits_end', 'upload', 'pipeline_start', 'pipeline_end', 'ready_end',
+  'game_ready', 'play', 'end'];
+const MARK_COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#80ff00',
+  '#0080ff', '#ff0080', '#8000ff', '#00ff80', '#800000', '#008000', '#000080', '#808000'];
+const RGB = MARK_COLORS.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+
+// Read the corner square of every frame (10 per second) and note when each
+// mark's colour first appears: that is the mark on the video's own clock.
+const FPS = 10;
+const raw = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', IN, '-vf', `fps=${FPS},crop=4:4:iw-6:ih-6,scale=1:1`,
+  '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 64 * 1024 * 1024 });
+const seen = {};
+let last = -1;
+for (let f = 0; f * 3 + 2 < raw.length; f++) {
+  const px = [raw[f * 3], raw[f * 3 + 1], raw[f * 3 + 2]];
+  let best = -1, bestD = 1e9;
+  RGB.forEach((c, i) => { const d = Math.hypot(c[0] - px[0], c[1] - px[1], c[2] - px[2]); if (d < bestD) { bestD = d; best = i; } });
+  // Only a new colour close to the palette counts, and marks only move forward.
+  if (bestD < 60 && best > last && seen[MARK_ORDER[best]] === undefined) { seen[MARK_ORDER[best]] = f / FPS; last = best; }
+}
+// Marks not found in the frames are placed by their neighbours' drift.
+const wall = marks;
+const video = {};
+for (const name of MARK_ORDER) {
+  if (wall[name] === undefined) continue;
+  if (seen[name] !== undefined) { video[name] = seen[name]; continue; }
+  const found = MARK_ORDER.filter((n) => seen[n] !== undefined && wall[n] !== undefined);
+  const prev = [...found].reverse().find((n) => wall[n] <= wall[name]);
+  const drift = prev ? seen[prev] - wall[prev] : 0;
+  video[name] = wall[name] + drift;
+}
+console.log('marks on the video clock:', JSON.stringify(Object.fromEntries(Object.entries(video).map(([k, v]) => [k, +v.toFixed(1)]))));
+
 const at = (ref) => {
   const [name, off] = ref.split(/(?=[+-]\d)/);
-  return marks[name] === undefined ? undefined : marks[name] + Number(off || 0);
+  return video[name] === undefined ? undefined : video[name] + Number(off || 0);
 };
 
 const parts = [];
