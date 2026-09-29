@@ -443,7 +443,7 @@ try {
     if (n < 1) throw new Error('no heroes under My Creations');
     const done = await page.locator('.creation-gallery-item .creation-gallery-status-completed').count();
     await caption(page, 'הגיבור מחכה ב"היצירות שלי"');
-    if (DEMO) { await mine.first().hover(); await page.waitForTimeout(3500); }
+    if (DEMO) { await mine.first().locator('.play-hero-button').hover(); await page.waitForTimeout(3500); }
     return `${n} hero(es) under My Creations, ${done} completed${heroName ? ` (${heroName})` : ''}`;
   });
 
@@ -463,7 +463,7 @@ try {
       await caption(gp, 'משחקים עם הגיבור שנוצר מהציור!');
       await gp.waitForTimeout(3000);
       await caption(gp, 'בונים רצף תנועות');
-      for (const move of ['Jump', 'Backflip', 'Dance', 'Fly', 'Victory']) {
+      for (const move of ['Jump', 'Backflip', 'Dance', 'Victory']) {
         await gp.locator('.reel-card', { hasText: move }).first().click();
         await gp.waitForTimeout(500);
       }
