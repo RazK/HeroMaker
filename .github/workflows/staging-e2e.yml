@@ -15,6 +15,11 @@ on:
         description: 'Comma-separated subset (landing,gallery,signup,buy,create,profile,game). Empty = all.'
         required: false
         default: ''
+      demo:
+        description: 'Record a narrated demo video of the run (human pace, Hebrew captions)'
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: staging-robot
@@ -46,9 +51,14 @@ jobs:
         env:
           BASE_URL: ${{ steps.url.outputs.frontend }}
           STEPS: ${{ inputs.steps }}
+          DEMO: ${{ inputs.demo && '1' || '' }}
         run: |
           if [ -z "$STEPS" ]; then unset STEPS; fi
           node staging-robot.mjs
+
+      - name: Cut the demo video
+        if: always() && inputs.demo
+        run: ./e2e/cut-demo.sh e2e/out
 
       - name: Upload screenshots
         if: always()
