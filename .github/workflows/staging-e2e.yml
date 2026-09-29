@@ -58,7 +58,9 @@ jobs:
 
       - name: Cut the demo video
         if: always() && inputs.demo
-        run: ./e2e/cut-demo.sh e2e/out
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; }
+          ./e2e/cut-demo.sh e2e/out
 
       - name: Upload screenshots
         if: always()

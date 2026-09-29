@@ -175,7 +175,7 @@ async function payOnLemonSqueezy(page, email) {
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(4000); // Stripe mounts its iframes after load
   await snap(page, 'checkout-loaded');
-  await caption(page, 'תשלום מאובטח דרך Lemon Squeezy (כרטיס בדיקה)');
+  await caption(page, 'תשלום מאובטח דרך Lemon Squeezy · כרטיס בדיקה');
 
   // The checkout's "Email address" is Stripe's Link authentication field, so
   // it lives in a Stripe iframe; a fresh address never triggers Link's code.
@@ -275,7 +275,9 @@ async function payOnLemonSqueezy(page, email) {
 
 // ---------------------------------------------------------------------------
 
-const browser = await chromium.launch({ slowMo: DEMO ? 90 : 0 });
+// No slowMo: slowing every action of Stripe's own fields stalled a payment.
+// The demo gets its pace from explicit pauses and typing delays instead.
+const browser = await chromium.launch();
 // English, US: third-party pages (the checkout) localise to the runner's
 // locale otherwise, and the robot finds buttons by their English names.
 const VIEW = DEMO ? { width: 1280, height: 720 } : { width: 1280, height: 900 };
