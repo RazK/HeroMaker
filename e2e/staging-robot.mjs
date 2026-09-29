@@ -26,12 +26,9 @@ const ALL_STEPS = ['landing', 'gallery', 'signup', 'buy', 'create', 'profile', '
 const STEPS = (process.env.STEPS || ALL_STEPS.join(',')).split(',').map((s) => s.trim());
 const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS || 25 * 60 * 1000);
 // DEMO=1 records a video of the same journey at a human pace, with a visible
-// cursor and Hebrew captions, and marks where the long pipeline wait starts and
+// cursor, on a phone-sized portrait screen, and marks where the long pipeline wait starts and
 // ends so e2e/cut-demo.sh can fast-forward it. The checks are identical.
 const DEMO = process.env.DEMO === '1';
-// Caption language for the demo: English by default, DEMO_LANG=he for Hebrew.
-const HE = process.env.DEMO_LANG === 'he';
-const L = (en, he) => (HE ? he : en);
 const marks = {};
 
 if (!BASE_URL) {
@@ -100,27 +97,9 @@ async function creditsShown(page) {
 }
 
 // ---------------------------------------------------------------------------
-// Demo presentation: a caption bar and a visible cursor. No-ops unless DEMO.
+// Demo presentation: a visible cursor. Captions are added afterwards by
+// cut-demo.mjs, so the recording is clean and one take serves every language.
 // ---------------------------------------------------------------------------
-async function caption(p, text) {
-  if (!DEMO) return;
-  await p.evaluate((t) => {
-    let el = document.getElementById('__demo_caption');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = '__demo_caption';
-      el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483647;'
-        + 'background:rgba(15,15,35,.88);color:#fff;font:700 26px/1.35 system-ui,-apple-system,Segoe UI,Arial,sans-serif;'
-        + 'padding:14px 28px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.45);max-width:88vw;text-align:center;'
-        + 'pointer-events:none;transition:opacity .3s';
-      document.documentElement.appendChild(el);
-    }
-    el.dir = t.rtl ? 'rtl' : 'ltr';
-    el.textContent = t.text;
-    el.style.opacity = t.text ? '1' : '0';
-  }, { text, rtl: HE }).catch(() => {});
-}
-
 // Draws the mouse, which a headless recording otherwise never shows. Runs in
 // every page and frame the context opens, so it survives navigation.
 const CURSOR_SCRIPT = `(() => {
@@ -179,7 +158,6 @@ async function payOnLemonSqueezy(page, email) {
   await page.waitForTimeout(4000); // Stripe mounts its iframes after load
   await snap(page, 'checkout-loaded');
   mark('checkout');
-  await caption(page, L('Secure checkout by Lemon Squeezy · test card', 'תשלום מאובטח דרך Lemon Squeezy · כרטיס בדיקה'));
 
   // The checkout's "Email address" is Stripe's Link authentication field, so
   // it lives in a Stripe iframe; a fresh address never triggers Link's code.
@@ -270,7 +248,6 @@ async function payOnLemonSqueezy(page, email) {
   if (!page.url().startsWith(BASE_URL)) {
     if (!(await thanks.isVisible().catch(() => false))) throw new Error('no order confirmation within 2 minutes of paying');
     await snap(page, 'checkout-paid');
-    await caption(page, L('Payment complete ✅', 'התשלום עבר ✅'));
     await linger(page, 2500);
     mark('paid');
     await page.getByRole('button', { name: /^continue/i }).or(page.getByRole('link', { name: /^continue/i })).first().click();
@@ -285,10 +262,14 @@ async function payOnLemonSqueezy(page, email) {
 const browser = await chromium.launch();
 // English, US: third-party pages (the checkout) localise to the runner's
 // locale otherwise, and the robot finds buttons by their English names.
-const VIEW = DEMO ? { width: 1280, height: 720 } : { width: 1280, height: 900 };
+// The demo is filmed as a customer sees it: a phone, held upright.
+const VIEW = DEMO ? { width: 390, height: 844 } : { width: 1280, height: 900 };
 const context = await browser.newContext({
   viewport: VIEW, locale: 'en-US', timezoneId: 'America/New_York',
-  ...(DEMO ? { recordVideo: { dir: OUT, size: VIEW } } : {}),
+  ...(DEMO ? {
+    deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    recordVideo: { dir: OUT, size: { width: VIEW.width * 2, height: VIEW.height * 2 } },
+  } : {}),
 });
 if (DEMO) await context.addInitScript(CURSOR_SCRIPT);
 const page = await context.newPage();
@@ -330,7 +311,6 @@ try {
     const res = await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
     if (!res || res.status() >= 400) throw new Error(`landing answered ${res && res.status()}`);
     await page.getByRole('heading', { name: 'HeroMaker' }).waitFor();
-    await caption(page, L("HeroMaker turns a child's drawing into a 3D hero you can play with", 'HeroMaker — ציור של ילד הופך לגיבור תלת־ממדי שמשחקים איתו'));
     await linger(page, 3500);
     mark('landing');
     return `HTTP ${res.status()}`;
@@ -341,7 +321,6 @@ try {
     await items.first().waitFor({ timeout: 45000 });
     const n = await items.count();
     if (DEMO) {
-      await caption(page, L('The hero gallery: every drawing became a hero', 'גלריית הגיבורים: מכל ציור נוצר גיבור'));
       await page.mouse.move(640, 400);
       for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 260); await page.waitForTimeout(700); }
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -351,7 +330,6 @@ try {
     // Open one hero and come back, as a browsing visitor would.
     await items.first().click();
     await page.locator('.step-card').first().waitFor({ timeout: 30000 });
-    await caption(page, L('Every hero keeps its journey: drawing → image → 3D model → rig', 'כל גיבור שומר את כל שלבי הדרך: ציור ← תמונה ← מודל ← שלד ותנועה'));
     if (DEMO) {
       await page.waitForTimeout(1500);
       for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(800); }
@@ -365,7 +343,6 @@ try {
 
   await step(page, 'signup', async () => {
     mark('signup_start');
-    await caption(page, L('Sign up', 'נרשמים'));
     await page.locator('.header-auth-button').click();
     await page.locator('button.auth-modal-tab', { hasText: 'Sign Up' }).click();
     await type(page, '#username', user.username);
@@ -375,7 +352,6 @@ try {
     await type(page, '#password', user.password);
     await page.locator('button.auth-modal-submit').click();
     await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
-    await caption(page, L('Signed in with 0 credits — time to buy some', 'מחוברים. יש 0 קרדיטים, צריך לקנות'));
     await linger(page, 2500);
     mark('signup_end');
     return `${user.username}, balance ${await creditsShown(page)}`;
@@ -388,7 +364,6 @@ try {
     await page.getByRole('button', { name: /Buy Credits/ }).click();
     const pack = page.locator('.buy-credits-pack[data-pack="starter"]');
     await pack.waitFor({ timeout: 20000 });
-    await caption(page, L('Pick a credit pack', 'בוחרים חבילת קרדיטים'));
     if (DEMO) { await pack.hover(); await page.waitForTimeout(2500); }
     const price = await pack.locator('.buy-credits-pack-price').innerText();
     if (!/^\$\d+\.\d{2}$/.test(price.trim())) throw new Error(`price renders as "${price}"`);
@@ -403,7 +378,6 @@ try {
       after = await creditsShown(page).catch(() => before);
     }
     if (after <= before) throw new Error(`balance still ${after} a minute after paying (was ${before})`);
-    await caption(page, L(`Credits added: ${before} → ${after} 🪙`, `הקרדיטים נכנסו: ${before} ← ${after} 🪙`));
     mark('credits');
     if (DEMO) { await page.locator('.header-auth-credits').hover(); await page.waitForTimeout(3000); }
     mark('credits_end');
@@ -412,24 +386,15 @@ try {
 
   await step(page, 'create', async () => {
     mark('upload');
-    await caption(page, L("Upload a child's drawing", 'מעלים ציור של ילד'));
     const input = page.locator('.header-upload-buttons input[type=file]');
     await input.setInputFiles(DRAWING);
     const go = page.locator('button.post-upload-action-primary');
     await go.waitFor({ timeout: 60000 });
     if (await go.isDisabled()) throw new Error(`Go is disabled: ${await describe(page)}`);
-    await caption(page, L('Press Go — the AI gets to work', 'לוחצים Go — ה-AI מתחיל לעבוד'));
     await linger(page, 2500);
     await go.click();
     await page.locator('.step-card').first().waitFor({ timeout: 60000 });
     mark('pipeline_start');
-    const STAGE_TEXT = HE ? {
-      'Image Processing': 'מנקים את הציור', 'AI Rendering': 'ה-AI מצייר את הגיבור',
-      '3D Modeling': 'בונים מודל תלת־ממדי', 'Rigging & Animation': 'מוסיפים שלד ותנועה',
-    } : {
-      'Image Processing': 'Cleaning up the drawing', 'AI Rendering': 'AI paints the hero',
-      '3D Modeling': 'Building the 3D model', 'Rigging & Animation': 'Adding a skeleton and motion',
-    };
 
     const deadline = Date.now() + PIPELINE_TIMEOUT_MS;
     let lastLine = '';
@@ -450,9 +415,6 @@ try {
       if (line !== lastLine) {
         console.log(`  [${new Date().toISOString().slice(11, 19)}] ${line}`);
         lastLine = line;
-        const busy = cards.find((c) => c.endsWith(':processing'));
-        const text = busy && STAGE_TEXT[busy.split(':')[0]];
-        if (text) await caption(page, `⏩ ${text}…`);
       }
       await page.waitForTimeout(DEMO ? 2000 : 10000);
     }
@@ -462,7 +424,6 @@ try {
     mark('pipeline_end');
     const done = await page.locator('.step-card-completed').count();
     heroName = await page.locator('.hero-name-editor, .hero-name').first().innerText().catch(() => null);
-    await caption(page, L('Your hero is ready! 🎉', 'הגיבור מוכן! 🎉'));
     if (DEMO) {
       await page.waitForTimeout(1500);
       for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 320); await page.waitForTimeout(900); }
@@ -482,7 +443,6 @@ try {
     const n = await mine.count();
     if (n < 1) throw new Error('no heroes under My Creations');
     const done = await page.locator('.creation-gallery-item .creation-gallery-status-completed').count();
-    await caption(page, L('Waiting in My Creations', 'הגיבור מחכה ב"היצירות שלי"'));
     if (DEMO) { await mine.first().locator('.play-hero-button').hover(); await page.waitForTimeout(3500); }
     return `${n} hero(es) under My Creations, ${done} completed${heroName ? ` (${heroName})` : ''}`;
   });
@@ -500,10 +460,8 @@ try {
     await gp.waitForFunction(() => window.__ready === true, null, { timeout: 90000 });
     const loaded = await gp.evaluate(() => window.__reel && window.__reel.hero && window.__reel.hero());
     if (DEMO) {
-      await caption(gp, L('Now play with the hero from the drawing!', 'משחקים עם הגיבור שנוצר מהציור!'));
       await gp.waitForTimeout(3000);
       mark('game_ready');
-      await caption(gp, L('Build a routine', 'בונים רצף תנועות'));
       // Clicking the cards under software WebGL took 40s; the game's own API
       // fills the same slots instantly, a beat apart so each one is seen.
       for (const move of ['jump', 'backflip', 'dance', 'victory']) {
@@ -512,7 +470,6 @@ try {
       }
       await gp.evaluate(() => window.__reel.play());
       mark('play');
-      await caption(gp, L('🎬 Showtime!', '🎬 הגיבור מופיע!'));
     } else {
       await gp.evaluate(() => { window.__reel.add('jump'); window.__reel.add('dance'); window.__reel.play(); });
     }
@@ -520,7 +477,6 @@ try {
     if (DEMO) {
       await gp.waitForFunction(() => !window.__reel.playing(), null, { timeout: 60000 }).catch(() => {});
       await gp.waitForTimeout(1500);
-      await caption(gp, L('HeroMaker — from drawing to hero', 'HeroMaker — מציור לגיבור, מקצה לקצה'));
       await gp.waitForTimeout(3500);
       mark('end');
     } else {
@@ -532,6 +488,26 @@ try {
 } catch {
   exitCode = 1;
 } finally {
+  // Leave no trace: every run makes the same hero from the same drawing, and
+  // ten identical robots in the public gallery is exactly what a visitor
+  // should never see. Deletes only this run's user's own heroes.
+  try {
+    const state = await context.storageState();
+    const origin = state.origins.find((o) => BASE_URL.startsWith(o.origin));
+    const token = origin?.localStorage.find((e) => e.name === 'heromaker_jwt_token')?.value;
+    if (token) {
+      const auth = { Authorization: `Bearer ${token}` };
+      const list = await (await fetch(`${BASE_URL}/api/creations/?mine_only=true`, { headers: auth })).json();
+      const mine = (Array.isArray(list) ? list : list.creations || []).filter((c) => c.username === user.username);
+      for (const c of mine) {
+        const r = await fetch(`${BASE_URL}/api/creations/${c.id}`, { method: 'DELETE', headers: auth });
+        console.log(`cleanup: deleted ${c.id} -> ${r.status}`);
+        if (!r.ok) exitCode = 1;  // a hero that cannot be deleted is a bug
+      }
+    }
+  } catch (e) {
+    console.log(`cleanup failed: ${e.message}`);
+  }
   report();
   if (DEMO) {
     writeFileSync(path.join(OUT, 'marks.json'), JSON.stringify(marks));
