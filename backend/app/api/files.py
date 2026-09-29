@@ -57,7 +57,7 @@ async def download_file(
         raise HTTPException(status_code=403, detail="Invalid path")
     
     # Ownership check: user must own the creation or be admin
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = db.query(Creation).filter(Creation.id == creation_id, Creation.deleted_at.is_(None)).first()
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     if not current_user.is_admin and creation.user_id != current_user.id:

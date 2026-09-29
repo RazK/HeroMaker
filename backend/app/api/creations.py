@@ -1,5 +1,6 @@
 """Creation and pipeline API endpoints."""
 import logging
+from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
 from sqlalchemy.orm import Session
@@ -22,6 +23,15 @@ from app.utils.storage import get_storage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
+    """A creation the app may show or act on: one its owner has not deleted."""
+    return (
+        db.query(Creation)
+        .filter(Creation.id == creation_id, Creation.deleted_at.is_(None))
+        .first()
+    )
 
 
 @router.get("/cost", response_model=CostResponse)
@@ -54,7 +64,7 @@ def get_step_status(
         db: Session = Depends(get_db),
 ):
     """Get status of a single step (for polling during processing)."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
@@ -74,7 +84,7 @@ def get_creation(
         creation_id: str,
         db: Session = Depends(get_db),
 ):
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
@@ -89,7 +99,7 @@ def update_creation(
         user: User = Depends(get_current_user_required),
 ):
     """Update a creation's metadata (character_name, name, age)."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
 
@@ -120,10 +130,10 @@ def list_creations(
     """List creations. Public endpoint - shows all creations in gallery by default."""
     if mine_only and user:
         # Filter to only user's creations
-        creations = db.query(Creation).filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
+        creations = db.query(Creation).filter(Creation.user_id == user.id, Creation.deleted_at.is_(None)).order_by(Creation.updated_at.desc()).all()
     else:
         # Show all creations (public gallery)
-        creations = db.query(Creation).order_by(Creation.updated_at.desc()).all()
+        creations = db.query(Creation).filter(Creation.deleted_at.is_(None)).order_by(Creation.updated_at.desc()).all()
     
     return [CreationResponse.from_creation(c) for c in creations]
 
@@ -136,7 +146,7 @@ def delete_creation(
         task_manager = Depends(get_task_manager)
 ):
     """Delete a creation and its files. Cancels all running tasks."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
@@ -149,15 +159,16 @@ def delete_creation(
     if cancelled > 0:
         logger.info(f"[{creation_id}] Cancelled {cancelled} tasks before deletion")
     
-    # Delete files
+    # Mark it deleted first, and only then remove its files: the old order
+    # removed the files, then failed the DELETE on the ledger's foreign key,
+    # and left a hero with no pictures. The row itself stays for the ledger.
+    creation.deleted_at = datetime.utcnow()
+    db.commit()
+
     try:
         delete_creation_files(creation_id, creation.user_id)
     except Exception as e:
         logger.warning(f"Error deleting files for creation {creation_id}: {e}")
-    
-    # Delete from database (cascades to steps)
-    db.delete(creation)
-    db.commit()
     
     return {"message": "Creation deleted"}
 
@@ -219,7 +230,7 @@ async def cancel_step(
         task_manager = Depends(get_task_manager)
 ):
     """Cancel a running step."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
@@ -276,7 +287,7 @@ async def run_step(
         task_manager = Depends(get_task_manager)
 ):
     """Run a single step independently. Handles retry automatically."""
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
@@ -401,7 +412,7 @@ async def run_pipeline_endpoint(
     Steps are executed in order, credits deducted per-step.
     If a step fails, pipeline stops there.
     """
-    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
     
