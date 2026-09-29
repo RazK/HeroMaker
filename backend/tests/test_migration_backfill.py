@@ -232,4 +232,6 @@ def test_migration_is_registered_in_the_runner():
     from app.migrations.registry import MIGRATIONS
     names = [name for name, _fn in MIGRATIONS]
     assert "008_financial_spine" in names
-    assert names[-1] == "008_financial_spine", "must be last in order"
+    # It must run after everything it builds on; later migrations may follow.
+    assert names.index("008_financial_spine") > names.index("007_coupon_multiple_per_user")
+    assert names == sorted(names), "migrations run in numeric order"

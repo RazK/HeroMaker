@@ -48,6 +48,10 @@ class Creation(Base):
     metadata_json = Column(JSON, default={}, name="metadata") # 'metadata' is reserved in Base
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Set when the owner deletes the hero. The row stays because the credit
+    # ledger and usage_events reference it: a paid hero's cost must remain
+    # attributable after it is gone from the app. See m009_creation_soft_delete.
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     user = relationship("User", back_populates="creations")
     steps = relationship("CreationStep", back_populates="creation", cascade="all, delete-orphan", lazy="select")
