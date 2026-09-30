@@ -136,9 +136,13 @@ function saveFound() {
 const found = loadFound()
 
 const app = document.getElementById('app')!
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
-renderer.shadowMap.enabled = true
+// ?lite=1 is the cheap path for weak GPUs - and for a software-rendered
+// recording, where every frame costs CPU and the clamped time step below would
+// otherwise turn a backflip into slow motion.
+const LITE = new URLSearchParams(location.search).get('lite') === '1'
+const renderer = new THREE.WebGLRenderer({ antialias: !LITE, powerPreference: 'high-performance' })
+renderer.setPixelRatio(LITE ? 0.8 : Math.min(devicePixelRatio, 2))
+renderer.shadowMap.enabled = !LITE
 renderer.shadowMap.type = THREE.PCFShadowMap
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -146,7 +150,7 @@ renderer.toneMappingExposure = 1.05
 app.appendChild(renderer.domElement)
 
 const scene = new THREE.Scene()
-const stage = new Stage()
+const stage = new Stage(undefined, LITE ? 'lite' : 'full')
 scene.add(stage.group)
 const play = new PlayCamera()
 const audio = new Audio()
@@ -309,10 +313,15 @@ addEventListener('resize', resize)
 
 let last = performance.now()
 let bob = 0
+let fps = 0
 renderer.setAnimationLoop(() => {
   const now = performance.now()
-  const dt = Math.min(0.1, (now - last) / 1000)
+  const raw = (now - last) / 1000
+  // Lite also lets a slow frame advance time in full, so motion keeps its real
+  // pace at a low frame rate instead of stretching into slow motion.
+  const dt = Math.min(LITE ? 0.3 : 0.1, raw)
   last = now
+  fps = fps * 0.9 + (raw > 0 ? 1 / raw : 0) * 0.1
 
   anim?.update(dt)
   // A one-shot that has finished hands the rig back; that is the cue to
@@ -354,4 +363,5 @@ renderer.setAnimationLoop(() => {
   routine: () => [...routine],
   playing: () => playing,
   hero: () => ROSTER[heroIndex]?.name,
+  fps: () => Math.round(fps),
 }
