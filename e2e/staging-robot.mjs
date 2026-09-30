@@ -457,6 +457,9 @@ try {
     ]);
     const gp = game || page;
     await gp.waitForURL(/\/play\//, { timeout: 30000 });
+    // The recording machine renders in software; lite mode keeps the moves at
+    // their real speed there (see reel.ts). The robot's checks run full quality.
+    if (DEMO) await gp.goto(gp.url() + '&lite=1');
     await gp.waitForFunction(() => window.__ready === true, null, { timeout: 90000 });
     const loaded = await gp.evaluate(() => window.__reel && window.__reel.hero && window.__reel.hero());
     if (DEMO) {
