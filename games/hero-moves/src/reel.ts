@@ -267,6 +267,7 @@ let bannerUntil = 0
 function showBanner(text: string) {
   banner.textContent = text
   banner.classList.add('show')
+  top.classList.add('combo')
   bannerUntil = performance.now() + 1400
 }
 
@@ -276,10 +277,20 @@ function resize() {
   renderer.setSize(w, h, false)
   if (!hero) return
   const card = panel.getBoundingClientRect()
+  // The hero owns the stage between the header and the moves bar, on every
+  // orientation, and is centred in it.
+  const band = { top: top.getBoundingClientRect().bottom, bottom: card.top }
+  const portrait = h > w
   play.frame({
-    heroHeight: hero.height, spanX: hero.width * 1.6, spanZ: hero.width,
-    aspect: w / h, portrait: h > w,
-    headroom: card.top, viewportH: h, viewportW: w,
+    // A phone held upright is narrow: frame the hero's body rather than the
+    // full T-pose arm span (as wide as the hero is tall, on a real one), or a
+    // tall frame holds a small hero. A fingertip may leave the frame in an
+    // outstretched move; the body never does.
+    heroHeight: hero.height, spanX: hero.width * (portrait ? 0.8 : 1.15),
+    // One hero, and this camera never orbits: no depth to allow for.
+    spanZ: 0,
+    aspect: w / h, portrait,
+    headroom: card.top, viewportH: h, viewportW: w, band,
   })
 }
 addEventListener('resize', resize)
@@ -310,8 +321,12 @@ renderer.setAnimationLoop(() => {
     hero.vrm.update(dt)
   }
   bob = damp(bob, 0.02, 6, dt)
-  play.setAirborne(!!anim?.active)
-  if (bannerUntil && now > bannerUntil) { banner.classList.remove('show'); bannerUntil = 0 }
+  // Only a clip that leaves the floor pulls the camera back; the idle dance
+  // loop is always "active" and would otherwise shrink the hero for good.
+  play.setAirborne(!!anim?.airborne)
+  if (bannerUntil && now > bannerUntil) {
+    banner.classList.remove('show'); top.classList.remove('combo'); bannerUntil = 0
+  }
 
   stage.update(dt, (now / 600) % 1)
   play.update(dt, (now / 600) % 1)
@@ -322,9 +337,8 @@ renderer.setAnimationLoop(() => {
 ;(async () => {
   await selectHero(0)
   render()
-  // Frame first, then declare the card: setPresentation reads the last framing
-  // to decide whether there is anywhere sideways to go, and with none recorded
-  // it assumes landscape and shunts the hero off to one side.
+  // Frame first, then declare the card: setPresentation re-solves the last
+  // framing, and that framing carries the band the hero is centred in.
   resize()
   play.setPresentation(true)
   resize()

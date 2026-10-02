@@ -3,6 +3,11 @@
  * is happening now, chunky buttons with a pressable depth, Fredoka for names
  * and Nunito for labels. The stage owns the screen; the moves sit on a sheet at
  * the bottom, and the header carries one round button per edge.
+ *
+ * The layout is symmetric on every screen: the moves are one centred bar
+ * along the bottom (a 4x2 grid on a phone held upright, a single row of eight
+ * anywhere wider), and the hero is framed, centred, into the stage left
+ * between the header and that bar - see `band` in stage/camera.ts.
  */
 :root {
   --tb-grape: #5b3df5;
@@ -60,11 +65,15 @@ html, body { font-family: 'Nunito', system-ui, sans-serif; }
   display: flex; flex-direction: column; gap: var(--tb-space);
   box-shadow: 0 -8px 30px rgba(35, 25, 66, .25);
 }
-@media (orientation: landscape) {
-  .reel-panel { width: min(440px, 46vw); border-radius: 0 28px 0 0; }
-}
 
-.reel-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.reel-deck {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+  width: 100%; max-width: 560px; margin: 0 auto;
+}
+/* Wider than tall: one row of eight, centred, the same card size throughout. */
+@media (orientation: landscape) {
+  .reel-deck { grid-template-columns: repeat(8, minmax(0, 1fr)); max-width: 1040px; }
+}
 .reel-card {
   cursor: pointer; font: inherit; color: var(--tb-ink);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -76,7 +85,10 @@ html, body { font-family: 'Nunito', system-ui, sans-serif; }
 .reel-card:active { transform: translateY(var(--tb-depth)); box-shadow: 0 0 0 var(--tb-line); }
 .reel-card:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 2px; }
 .reel-card .ico { font-size: 28px; line-height: 1; }
-.reel-card .lbl { font-weight: 800; font-size: 13px; }
+.reel-card .lbl {
+  font-weight: 800; font-size: 13px; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .reel-card.on {
   background: var(--tb-grape); border-color: var(--tb-grape); color: var(--tb-white);
   box-shadow: 0 var(--tb-depth) 0 var(--tb-deep);
@@ -92,17 +104,27 @@ html, body { font-family: 'Nunito', system-ui, sans-serif; }
 .reel-hero img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
 /* ---------------------------------------------------------------- combo */
+/*
+ * The combo lands in the header, where the title is, so it never covers the
+ * hero: the title steps aside while it shows.
+ */
 .reel-banner {
-  position: absolute; left: 50%; top: 22%; transform: translate(-50%, 0) scale(.8);
-  font: 700 clamp(28px, 8vmin, 60px)/1 'Fredoka', system-ui, sans-serif;
-  color: var(--tb-sun); white-space: nowrap;
+  position: absolute; left: 50%;
+  top: calc(var(--tb-space) + env(safe-area-inset-top, 0px));
+  height: var(--tb-nav); width: calc(100% - 2 * (var(--tb-nav) + 2 * var(--tb-space)));
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  transform: translate(-50%, 0) scale(.8);
+  font: 700 clamp(20px, 5vmin, 44px)/1 'Fredoka', system-ui, sans-serif;
+  color: var(--tb-sun);
   opacity: 0; pointer-events: none;
-  -webkit-text-stroke: 7px var(--tb-deep);
+  -webkit-text-stroke: 6px var(--tb-deep);
   paint-order: stroke fill;
   text-shadow: 0 6px 0 var(--tb-deep);
   transition: opacity .18s ease, transform .18s ease;
 }
 .reel-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.reel-top.combo .reel-title { opacity: 0; }
+.reel-title { transition: opacity .18s ease; }
 
 /*
  * On a short screen the labels go rather than the cards: an icon at a
