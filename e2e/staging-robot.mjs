@@ -311,6 +311,10 @@ try {
     const res = await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
     if (!res || res.status() >= 400) throw new Error(`landing answered ${res && res.status()}`);
     await page.getByRole('button', { name: 'HeroMaker home' }).waitFor();
+    // A cached service worker keeps returning visitors on the old app forever.
+    const sw = await page.request.get(BASE_URL + '/sw.js');
+    const swCache = sw.headers()['cache-control'] || '';
+    if (!/no-cache|no-store|max-age=0/.test(swCache)) throw new Error(`/sw.js is cacheable ("${swCache}"): returning visitors would never get a new release`);
     await linger(page, 3500);
     mark('landing');
     return `HTTP ${res.status()}`;
