@@ -24,9 +24,16 @@ def _generate_thumbnail(original_path: Path, thumb_path: Path) -> bool:
         from PIL import Image
         with Image.open(original_path) as img:
             img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
-            # Save as JPEG for smaller size, regardless of original format
-            if img.mode in ("RGBA", "P"):
+            # A transparent render must stay transparent: converting it to RGB
+            # would paint everything around the hero black.
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            if img.mode in ("RGBA", "LA") and img.getextrema()[-1][0] < 255:
+                img.save(thumb_path, "PNG", optimize=True)
+                return True
+            if img.mode != "RGB":
                 img = img.convert("RGB")
+            # Opaque images: JPEG for smaller size, regardless of original format
             thumb_path_jpg = thumb_path.with_suffix(".jpg")
             img.save(thumb_path_jpg, "JPEG", quality=80, optimize=True)
             # If the requested path was .png, also save there for compatibility

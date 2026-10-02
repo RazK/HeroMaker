@@ -61,7 +61,7 @@ Requirements:
 - Keep all original details: colors, clothing, accessories, features
 - Front view, full body visible, standing upright, fully contained in the view without cropping.
 - T-pose: arms extended horizontally, legs straight
-- White or simple background
+- Transparent background: only the character, no floor, no ground shadow, no scenery
 - High quality 3D render style, well-lit
 - Clean edges, good contrast
 
@@ -96,6 +96,7 @@ Render the character exactly as shown, in a clean 3D style with arms extended ho
                 "model": "gpt-image-1",
                 "size": "1024x1024",
                 "quality": "high",
+                "background": "transparent",
                 "n": 1,
             },
         ) as call:
@@ -106,6 +107,11 @@ Render the character exactly as shown, in a clean 3D style with arms extended ho
                     prompt=prompt_text,
                     size="1024x1024",
                     quality="high",
+                    # A cut-out hero with an alpha channel: the app can place it on
+                    # any surface, and Meshy reads the alpha as the silhouette.
+                    # Same price as an opaque render.
+                    background="transparent",
+                    output_format="png",
                     n=1,
                     timeout=120.0  # 2 minute timeout per request
                     # Note: GPT-Image-1 always returns base64, no response_format parameter needed
