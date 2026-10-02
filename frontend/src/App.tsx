@@ -5,6 +5,7 @@ import { PURCHASE_RETURN_PARAM } from './components/BuyCredits';
 import { PipelineProgress } from './components/PipelineProgress';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
+import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Gallery } from './components/tb/Gallery';
 import { HeroScreen } from './components/tb/HeroScreen';
 import { Icon } from './components/tb/Icon';
@@ -15,10 +16,14 @@ import { loadStepConfig, getTotalCost } from './config/steps';
 import './styles/toybox.css';
 import './App.css';
 
-type View = 'gallery' | 'hero' | 'steps' | 'admin';
+type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset';
+
+// The only URL the app routes on: the link in a "Forgot password?" email.
+const isResetUrl = () => window.location.pathname === RESET_PASSWORD_PATH;
 
 function App() {
-  const [view, setView] = useState<View>('gallery');
+  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : 'gallery');
+  const [resetToken] = useState(() => (isResetUrl() ? new URLSearchParams(window.location.search).get('token') ?? '' : ''));
   const [creation, setCreation] = useState<CreationResponse | null>(null);
   const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -107,6 +112,7 @@ function App() {
   }, []);
 
   const goHome = () => {
+    if (isResetUrl()) window.history.replaceState(null, '', '/');
     setView('gallery');
     setCreation(null);
     setError(null);
@@ -203,7 +209,9 @@ function App() {
   );
 
   let screen;
-  if (view === 'admin' && userInfo) {
+  if (view === 'reset') {
+    screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
+  } else if (view === 'admin' && userInfo) {
     screen = (
       <div className="tb-screen tb-screen--wide">
         <Header left={<NavButton icon="back" label="Back" onClick={goHome} />} title="Admin" />

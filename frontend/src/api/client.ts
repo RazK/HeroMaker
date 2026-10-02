@@ -434,9 +434,31 @@ export const api = {
     return result;
   },
 
-  /** What the sign-in sheet offers. Public; a failure just means "no extras". */
-  async getAuthConfig(): Promise<{ google_client_id: string | null }> {
-    return fetchJson<{ google_client_id: string | null }>(`${API_BASE_URL}/api/auth/config`);
+  /** Which sign-in features this deployment offers. Fetched once per page load. */
+  getAuthConfig(): Promise<AuthConfig> {
+    authConfigPromise ??= fetchJson<AuthConfig>(`${API_BASE_URL}/api/auth/config`)
+      .catch(() => ({ password_reset: false, google_client_id: null }));
+    return authConfigPromise;
+  },
+
+  /** Always resolves the same way whether or not the account exists. */
+  async forgotPassword(email: string): Promise<void> {
+    await fetchJson(`${API_BASE_URL}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  /** Sets the new password and signs in, exactly like login. */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const result = await fetchJson<{ access_token: string }>(`${API_BASE_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+    setAuthToken(result.access_token);
+    window.dispatchEvent(new CustomEvent('auth:login'));
   },
 
   /** Sign in or up with a Google Identity Services ID token. */
@@ -665,6 +687,13 @@ export const api = {
 };
 
 // Admin types
+export interface AuthConfig {
+  password_reset: boolean;
+  google_client_id: string | null;
+}
+
+let authConfigPromise: Promise<AuthConfig> | undefined;
+
 export interface CreditPack {
   slug: string;
   name: string;

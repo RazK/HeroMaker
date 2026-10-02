@@ -18,3 +18,5 @@
 }
 .auth-or::before,
 .auth-or::after { content: ''; flex: 1; border-top: 2px solid var(--tb-line); }
+.auth-modal-forgot { align-self: flex-end; font-size: 14px; }
+.auth-modal-sent { text-align: center; overflow-wrap: anywhere; }

@@ -163,3 +163,36 @@ class UpdateProfileRequest(BaseModel):
                 raise ValueError('Date of birth seems invalid (age would be over 150)')
         return v
 
+
+
+def _validate_new_password(v: str) -> str:
+    # Same rule as SignupRequest.validate_password.
+    if len(v) < 6:
+        raise ValueError('Password must be at least 6 characters long')
+    return v
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+    @field_validator('email')
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        # Signup stores emails lowercased. No format check: a malformed
+        # address simply matches no account and gets the same answer.
+        return v.strip().lower()[:320]
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        return _validate_new_password(v)
+
+
+class AuthConfigResponse(BaseModel):
+    password_reset: bool
+    google_client_id: Optional[str] = None

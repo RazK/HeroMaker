@@ -355,3 +355,22 @@ class Payment(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     user = relationship("User")
+
+
+class PasswordResetToken(Base):
+    """
+    One "forgot password" link. Single use, expires after an hour.
+
+    Only the sha256 of the token is stored: the token itself exists in the
+    email and nowhere else, so a leaked database cannot be turned into password
+    resets. Written by POST /api/auth/forgot-password, consumed by
+    POST /api/auth/reset-password (see app/services/password_reset.py).
+    """
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
