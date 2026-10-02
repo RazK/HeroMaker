@@ -3,6 +3,25 @@ name: Database Backup
 # Backs up PRODUCTION. With two Railway environments the target has to be
 # explicit — a backup that silently ran against staging would look healthy and
 # be worthless.
+#
+# How it runs, and why it is not the one-liner it used to be:
+#
+# `railway run` does not run anything on Railway. It runs the command HERE,
+# on the GitHub runner, with the service's variables injected. The old job ran
+# it inside ghcr.io/railwayapp/cli, which has no Python, so every run since
+# 2026-01-19 died with "No such file or directory (os error 2)" before the
+# backup script was ever reached. So the runner needs what the script needs:
+# Python and the backend's requirements, and a pg_dump at least as new as the
+# server (pg_dump refuses to dump a newer server).
+#
+# The backend's DATABASE_URL points at postgres.railway.internal, which only
+# resolves inside Railway. From GitHub the database is reached through its
+# public TCP proxy, DATABASE_PUBLIC_URL on the Postgres service; the script
+# takes it as BACKUP_DATABASE_URL. The S3 variables still come from the
+# backend, so the dump lands where the app's files do (_backups/database/).
+#
+# Everything here only READS production: variables, and the database via
+# pg_dump. The one write is the dump file into the backup bucket.
 
 on:
   schedule:
@@ -17,19 +36,64 @@ jobs:
   backup:
     needs: config
     runs-on: ubuntu-latest
-    container: ghcr.io/railwayapp/cli:latest
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICE: ${{ needs.config.outputs.backend }}
+      ENVIRONMENT: ${{ needs.config.outputs.production }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check the token
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN secret is missing. It must be a Railway project token scoped to production."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # matches backend/Dockerfile
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend requirements
+        run: pip install -r backend/requirements.txt
+
+      - name: Install pg_dump 18
+        # From the PostgreSQL apt repo: Ubuntu's own client lags the server,
+        # and a newer pg_dump dumps any older server.
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+          echo /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Show what the token reaches
+        run: railway status || true
+
+      - name: Resolve the database's public URL
+        # "Postgres" is the service NAME the backend's own variables reference
+        # (${{Postgres.DATABASE_URL}} in devops/railway/env/backend.env).
+        run: |
+          set -euo pipefail
+          url=$(railway variables --service Postgres --environment "$ENVIRONMENT" --json \
+                | jq -r '.DATABASE_PUBLIC_URL // empty')
+          if [ -z "$url" ]; then
+            echo "::error::The Postgres service in '$ENVIRONMENT' has no DATABASE_PUBLIC_URL. Enable its public TCP proxy: Railway -> Postgres -> Settings -> Networking -> TCP Proxy."
+            exit 1
+          fi
+          echo "::add-mask::$url"
+          echo "BACKUP_DATABASE_URL=$url" >> "$GITHUB_ENV"
+
       - name: Run Database Backup
         run: |
           railway run \
-            --service=${{ needs.config.outputs.backend }} \
-            --environment=${{ needs.config.outputs.production }} \
-            python scripts/backup_database.py
+            --service="$SERVICE" \
+            --environment="$ENVIRONMENT" \
+            -- python backend/scripts/backup_database.py
 
       - name: Backup Summary
         run: |
