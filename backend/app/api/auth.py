@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 from app.schemas.auth import (
     SignupRequest,
     LoginRequest,
+    GoogleLoginRequest,
     UserResponse,
     TokenResponse,
     MessageResponse,
@@ -16,6 +18,7 @@ from app.services.auth import (
     create_access_token,
     get_current_user
 )
+from app.services import google_auth
 from app.services.users import update_user
 
 router = APIRouter()
@@ -101,6 +104,58 @@ def login(
     
     return TokenResponse(
         access_token=access_token,
+        user=UserResponse.from_user(user)
+    )
+
+
+@router.get("/config")
+def auth_config():
+    """What the sign-in sheet should offer. Public, so nothing secret goes here."""
+    return {
+        "google_client_id": google_auth.client_id(),
+    }
+
+
+@router.post("/google", response_model=TokenResponse)
+def login_with_google(
+    google_data: GoogleLoginRequest,
+    db: Session = Depends(get_db)
+):
+    """Sign in, or sign up, with a Google Identity Services ID token."""
+    try:
+        claims = google_auth.verify_credential(google_data.credential)
+    except google_auth.GoogleNotConfigured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google sign-in is not available"
+        )
+    except google_auth.GoogleUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not reach Google, please try again"
+        )
+    except google_auth.InvalidGoogleToken:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google sign-in failed"
+        )
+
+    try:
+        try:
+            user = google_auth.find_or_create_user(claims, db)
+        except IntegrityError:
+            # Two sign-ins for the same new account raced (a double tap); the
+            # other request created it, so this one now finds it.
+            db.rollback()
+            user = google_auth.find_or_create_user(claims, db)
+    except google_auth.GoogleAccountConflict:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is already linked to a different Google account"
+        )
+
+    return TokenResponse(
+        access_token=create_access_token(user.id),
         user=UserResponse.from_user(user)
     )
 

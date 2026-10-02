@@ -434,6 +434,29 @@ export const api = {
     return result;
   },
 
+  /** What the sign-in sheet offers. Public; a failure just means "no extras". */
+  async getAuthConfig(): Promise<{ google_client_id: string | null }> {
+    return fetchJson<{ google_client_id: string | null }>(`${API_BASE_URL}/api/auth/config`);
+  },
+
+  /** Sign in or up with a Google Identity Services ID token. */
+  async loginWithGoogle(credential: string): Promise<{ access_token: string; user: any }> {
+    const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
+      `${API_BASE_URL}/api/auth/google`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ credential }),
+      }
+    );
+    setAuthToken(result.access_token);
+    window.dispatchEvent(new CustomEvent('auth:login'));
+    console.log('[API] google login success');
+    return result;
+  },
+
   async logout(): Promise<void> {
     console.log('[API] logout');
     try {

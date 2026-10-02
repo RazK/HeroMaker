@@ -65,6 +65,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    credential: str  # the ID token Google Identity Services handed the browser
+
+
 class UserResponse(BaseModel):
     id: str
     username: str
