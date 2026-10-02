@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, CreationResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
-import { playUrl } from '../../config/play';
+import { GameChooser } from './GameChooser';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, Sheet, SheetRow, Stepper } from './parts';
 import { STEP_UI, currentStep, etaText, heroName, heroState, remainingCost, stepViews } from './pipeline';
@@ -31,7 +31,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const state = heroState(creation);
   const owns = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | null>(null);
+  const [sheet, setSheet] = useState<'play' | 'more' | 'rename' | 'delete' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
@@ -135,7 +135,7 @@ export function HeroScreen(props: HeroScreenProps) {
     );
     bar = owns ? (
       <>
-        <a className="tb-btn tb-btn--primary tb-btn--full tb-play control-bar-play" href={playUrl(creation)}><Icon name="play" />Play with {name}</a>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play control-bar-play" onClick={() => setSheet('play')}><Icon name="play" />Play with {name}</button>
         <div className="tb-bar-row">
           <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={share}><Icon name="share" />Share</button>
           <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={downloadVrm}><Icon name="download" />Download</button>
@@ -143,7 +143,7 @@ export function HeroScreen(props: HeroScreenProps) {
       </>
     ) : (
       <>
-        <a className="tb-btn tb-btn--primary tb-btn--full tb-play" href={playUrl(creation)}><Icon name="play" />Play with {name}</a>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('play')}><Icon name="play" />Play with {name}</button>
         <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onMakeOwn}><Icon name="camera" />Make your own hero</button>
       </>
     );
@@ -186,6 +186,8 @@ export function HeroScreen(props: HeroScreenProps) {
         {body}
       </div>
       <div className="tb-bar">{bar}</div>
+
+      {sheet === 'play' && <GameChooser creation={creation} onClose={() => setSheet(null)} />}
 
       {sheet === 'more' && (
         <Sheet title={name} onClose={() => setSheet(null)}>
