@@ -59,7 +59,7 @@ def test_thumbnail_of_a_transparent_render_stays_transparent(tmp_path):
     assert files_api._generate_thumbnail(src, thumb)
 
     with Image.open(thumb) as t:
-        assert t.format == "PNG"
+        assert t.format == "WEBP", "transparent thumbnails are WebP with alpha"
         assert t.mode == "RGBA"
         assert t.getpixel((0, 0))[3] == 0, "the corner must stay see-through, not black"
 

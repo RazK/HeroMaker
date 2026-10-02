@@ -24,13 +24,28 @@ except ImportError:
 
 from app.config.settings import FILES_ROOT
 
+# Cached thumbnails are stored next to their source as "thumb_<filename>".
+THUMB_PREFIX = "thumb_"
+
+
+def thumbnail_name(filename: str) -> Optional[str]:
+    """The cached-thumbnail name derived from ``filename``, or None for a thumbnail itself."""
+    if filename.startswith(THUMB_PREFIX):
+        return None
+    return THUMB_PREFIX + filename
+
 
 class StorageBackend(ABC):
     """Abstract base class for storage backends."""
     
     @abstractmethod
-    def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes) -> str:
-        """Upload a file and return the storage key/path."""
+    def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes,
+                    content_type: Optional[str] = None) -> str:
+        """Upload a file and return the storage key/path.
+
+        Uploading a file invalidates its cached thumbnail (``thumb_<filename>``),
+        so a re-rendered image never keeps showing the old one in the gallery.
+        """
         pass
     
     @abstractmethod
@@ -77,10 +92,14 @@ class LocalFileStorage(StorageBackend):
         creation_dir.mkdir(parents=True, exist_ok=True)
         return creation_dir / filename
     
-    def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes) -> str:
+    def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes,
+                    content_type: Optional[str] = None) -> str:
         """Upload a file to local filesystem."""
         file_path = self._get_file_path(user_id, creation_id, filename)
         file_path.write_bytes(file_data)
+        thumb = thumbnail_name(filename)
+        if thumb:
+            (file_path.parent / thumb).unlink(missing_ok=True)
         return str(file_path)
     
     def download_file(self, user_id: str, creation_id: str, filename: str) -> bytes:
@@ -148,20 +167,32 @@ class S3FileStorage(StorageBackend):
         """Get the S3 key for a file (maintains same structure as local: {user_id}/{creation_id}/{filename})."""
         return f"{user_id}/{creation_id}/{filename}"
     
-    def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes) -> str:
+    def upload_file(self, user_id: str, creation_id: str, filename: str, file_data: bytes,
+                    content_type: Optional[str] = None) -> str:
         """Upload a file to S3."""
         s3_key = self._get_s3_key(user_id, creation_id, filename)
+        extra = {"ContentType": content_type} if content_type else {}
         try:
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
-                Body=file_data
+                Body=file_data,
+                **extra,
             )
             logger.debug(f"Uploaded file to S3: {s3_key}")
-            return s3_key
         except (ClientError, BotoCoreError) as e:
             logger.error(f"Failed to upload file to S3: {s3_key}, error: {e}")
             raise
+        thumb = thumbnail_name(filename)
+        if thumb:
+            # delete_object succeeds for a missing key, so this is one cheap call.
+            try:
+                self.s3_client.delete_object(
+                    Bucket=self.bucket_name, Key=self._get_s3_key(user_id, creation_id, thumb)
+                )
+            except (ClientError, BotoCoreError) as e:
+                logger.warning(f"Could not invalidate thumbnail for {s3_key}: {e}")
+        return s3_key
     
     def download_file(self, user_id: str, creation_id: str, filename: str) -> bytes:
         """Download a file from S3."""
