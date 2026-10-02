@@ -38,7 +38,13 @@
   --tb-font-body: 'Nunito', system-ui, sans-serif;
 
   --tb-gutter: 20px;
-  --tb-header-h: 64px;
+  /* The one vertical rhythm: visible space above and below the header, between
+     header and content, between content and the bottom bar, and below the
+     last button. Buttons draw their 3D depth below their box, so paddings
+     under a button add that depth back to keep the VISIBLE gap equal. */
+  --tb-space: 16px;
+  --tb-depth: 6px;
+  --tb-depth-sm: 4px;
   --tb-btn-h: 58px;
   --tb-btn-sm-h: 48px;
   --tb-stack: 18px;
@@ -231,14 +237,14 @@ h1, h2, h3, h4 {
   position: sticky;
   top: 0;
   z-index: 100;
-  height: var(--tb-header-h);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 var(--tb-gutter);
+  padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth-sm));
   background: var(--tb-cream);
+  box-shadow: 0 2px 0 var(--tb-line);
 }
 .tb-header-side { display: flex; align-items: center; gap: 8px; min-width: 48px; }
 .tb-header-side--end { justify-content: flex-end; }
@@ -284,8 +290,8 @@ h1, h2, h3, h4 {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 8px var(--tb-gutter) 16px;
+  gap: var(--tb-space);
+  padding: var(--tb-space) var(--tb-gutter);
 }
 .tb-bar {
   position: sticky;
@@ -293,8 +299,9 @@ h1, h2, h3, h4 {
   display: flex;
   flex-direction: column;
   gap: var(--tb-stack);
-  padding: 16px var(--tb-gutter) 32px;
+  padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
   background: var(--tb-cream);
+  box-shadow: 0 -2px 0 var(--tb-line);
 }
 .tb-bar-row { display: flex; gap: 12px; }
 .tb-bar-row > * { flex: 1 1 0; min-width: 0; }
@@ -326,7 +333,7 @@ h1, h2, h3, h4 {
   overflow-y: auto;
   background: var(--tb-white);
   border-radius: var(--tb-radius-card) var(--tb-radius-card) 0 0;
-  padding: 12px var(--tb-gutter) 32px;
+  padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 8px;
