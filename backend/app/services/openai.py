@@ -18,6 +18,50 @@ from app.services.usage import UsageContext
 logger = logging.getLogger(__name__)
 
 
+# Prompt for transforming drawing to 3D render in T-pose
+# Note: Keep prompt neutral to avoid OpenAI's safety filters
+# Avoid words like "child", "weapon", "violence", character names that might trigger moderation
+# (The " \" on the first line keeps the trailing space the prompt has always
+# shipped with, which editors that strip trailing whitespace would remove.)
+RENDER_PROMPT = """Transform this drawing into a professional 3D character render in T-pose position. \
+
+
+Requirements:
+- Keep all original details: colors, clothing, accessories, features
+- Front view, full body visible, standing upright, fully contained in the view without cropping.
+- T-pose: arms extended horizontally, legs straight
+- Transparent background: only the character, no floor, no ground shadow, no scenery
+- High quality 3D render style, well-lit
+- Clean edges, good contrast
+
+Render the character exactly as shown, in a clean 3D style with arms extended horizontally, ready for 3D model generation."""
+
+# Everything sent to images.edit() that shapes the picture we get back. Kept in
+# one place for two readers: the call below, and the staging result cache
+# (app/services/result_cache.py), which keys on a hash of RENDER_PROMPT plus
+# these - so editing either one makes every cached render miss, as it should.
+#
+# The model/size/quality must stay in step with
+# pricing.OPENAI_IMAGE_USD_MICROS, which is quoted for exactly
+# gpt-image-1 @ 1024x1024 @ quality=high.
+RENDER_PARAMS = {
+    "model": "gpt-image-1",
+    "size": "1024x1024",
+    "quality": "high",
+    # A cut-out hero with an alpha channel: the app can place it on
+    # any surface, and Meshy reads the alpha as the silhouette.
+    # Same price as an opaque render.
+    "background": "transparent",
+    "output_format": "png",
+    "n": 1,
+}
+
+
+def render_cache_version() -> dict:
+    """What a cached render depends on besides the input image."""
+    return {"prompt": RENDER_PROMPT, **RENDER_PARAMS}
+
+
 def render_image(
     input_path: Path,
     output_path: Path,
@@ -52,21 +96,6 @@ def render_image(
     
     client = OpenAI(api_key=OPENAI_API_KEY)
     
-    # Prompt for transforming drawing to 3D render in T-pose
-    # Note: Keep prompt neutral to avoid OpenAI's safety filters
-    # Avoid words like "child", "weapon", "violence", character names that might trigger moderation
-    prompt_text = """Transform this drawing into a professional 3D character render in T-pose position. 
-
-Requirements:
-- Keep all original details: colors, clothing, accessories, features
-- Front view, full body visible, standing upright, fully contained in the view without cropping.
-- T-pose: arms extended horizontally, legs straight
-- Transparent background: only the character, no floor, no ground shadow, no scenery
-- High quality 3D render style, well-lit
-- Clean edges, good contrast
-
-Render the character exactly as shown, in a clean 3D style with arms extended horizontally, ready for 3D model generation."""
-    
     try:
         logger.info(f"Starting OpenAI GPT-Image-1 render for {input_path}")
         
@@ -84,37 +113,25 @@ Render the character exactly as shown, in a clean 3D style with arms extended ho
         # the pipeline re-running openai_render because a later step failed -
         # and those each come through here and each get their own row.
         #
-        # The model/size/quality below must stay in step with
-        # pricing.OPENAI_IMAGE_USD_MICROS, which is quoted for exactly
-        # gpt-image-1 @ 1024x1024 @ quality=high.
+        # The model/size/quality in RENDER_PARAMS must stay in step with
+        # pricing.OPENAI_IMAGE_USD_MICROS.
         with usage_service.track(
             usage,
             pricing.PROVIDER_OPENAI,
             pricing.OP_OPENAI_IMAGE_EDIT,
             quantity=1,
             metadata={
-                "model": "gpt-image-1",
-                "size": "1024x1024",
-                "quality": "high",
-                "background": "transparent",
-                "n": 1,
+                k: RENDER_PARAMS[k]
+                for k in ("model", "size", "quality", "background", "n")
             },
         ) as call:
             with open(input_path, "rb") as img_file:
                 response = client.images.edit(
-                    model="gpt-image-1",
                     image=img_file,
-                    prompt=prompt_text,
-                    size="1024x1024",
-                    quality="high",
-                    # A cut-out hero with an alpha channel: the app can place it on
-                    # any surface, and Meshy reads the alpha as the silhouette.
-                    # Same price as an opaque render.
-                    background="transparent",
-                    output_format="png",
-                    n=1,
-                    timeout=120.0  # 2 minute timeout per request
+                    prompt=RENDER_PROMPT,
+                    timeout=120.0,  # 2 minute timeout per request
                     # Note: GPT-Image-1 always returns base64, no response_format parameter needed
+                    **RENDER_PARAMS,
                 )
             # OpenAI's own request id, so a line in our margin report can be
             # reconciled against a line on their invoice.

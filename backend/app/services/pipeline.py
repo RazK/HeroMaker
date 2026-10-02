@@ -32,6 +32,7 @@ from app.services import image_processing
 from app.services import openai as openai_service
 from app.services import meshy
 from app.services import vrm_conversion
+from app.services import result_cache
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
 from app.config import pricing
@@ -393,11 +394,54 @@ async def step_image_processing(creation_id: str, user_id: str, db: Session) -> 
             )
 
 
+# Request parameters of the paid Meshy calls. One place, read by the calls
+# below and by the staging result cache, whose key hashes them: change one and
+# every cached Meshy result misses. See app/services/result_cache.py.
+MESHY_3D_PARAMS = {
+    "endpoint": "/openapi/v1/image-to-3d",
+    "pose_mode": "t-pose",
+    # MeshyClient.create_image_to_3d_task defaults, as the pipeline relies on them.
+    "should_texture": True,
+    "enable_pbr": False,
+    "should_remesh": True,
+    "save_pre_remeshed_model": False,
+}
+MESHY_RIG_PARAMS = {
+    "endpoint": "/openapi/v1/rigging",
+    # The rig step also keeps Meshy's walking animation when one is offered.
+    "outputs": ["rigged.glb", "walking.glb?"],
+}
+
+
+def _meshy_3d_call_kwargs() -> dict:
+    return {k: v for k, v in MESHY_3D_PARAMS.items() if k != "endpoint"}
+
+
+async def _cache_begin(step_name: str, creation_id: str, user_id: str, version: dict):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, lambda: result_cache.begin(step_name, user_id, creation_id, version)
+    )
+
+
+async def _cache_save(attempt, files, metadata=None) -> None:
+    if not attempt.active:
+        return
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, lambda: attempt.save(files, metadata))
+
+
 async def step_openai_render(creation_id: str, user_id: str, db: Session) -> None:
     """Render image: processed.jpg → rendered.png"""
     storage = get_storage()
     loop = asyncio.get_event_loop()
-    
+
+    cache = await _cache_begin(
+        "openai_render", creation_id, user_id, openai_service.render_cache_version()
+    )
+    if cache.hit:
+        return
+
     with _get_file_path_for_processing(creation_id, user_id, "processed.jpg", "r") as input_path:
         with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "w") as output_path:
             await loop.run_in_executor(
@@ -409,32 +453,45 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
                 )
             )
 
+    await _cache_save(cache, ["rendered.png"])
+
 
 async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
     """Generate 3D model: rendered.png → model.glb"""
     storage = get_storage()
     loop = asyncio.get_event_loop()
+
+    cache = await _cache_begin("meshy_3d", creation_id, user_id, MESHY_3D_PARAMS)
+    if cache.hit:
+        # meshy_rig needs the task id the model came from; the cached one is
+        # still a real Meshy task.
+        step = _get_creation_step(creation_id, "meshy_3d", db)
+        step.metadata_json = {**cache.metadata, "result_cache": cache.marker()}
+        flag_modified(step, "metadata_json")
+        db.commit()
+        return
+
     client = MeshyClient()
-    
+
     with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as input_path:
         # Create task (sync call)
         task_id = await loop.run_in_executor(
             None,
             lambda: client.create_image_to_3d_task(
                 input_path,
-                pose_mode="t-pose",
                 usage=UsageContext.for_step(creation_id, user_id, "meshy_3d"),
+                **_meshy_3d_call_kwargs(),
             )
         )
-        
+
         logger.info(f"[{creation_id}] Meshy 3D task created: {task_id}")
-        
+
         # Store task_id in DB for meshy_rig dependency
         step = _get_creation_step(creation_id, "meshy_3d", db)
         step.metadata_json = {"meshy_3d_task_id": task_id}
         flag_modified(step, "metadata_json")
         db.commit()
-        
+
         # Poll and download (sync call)
         with _get_file_path_for_processing(creation_id, user_id, "model.glb", "w") as output_path:
             await loop.run_in_executor(
@@ -442,12 +499,22 @@ async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
                 lambda: execute_meshy_3d_sync(task_id, output_path, step, db, client)
             )
 
+    await _cache_save(cache, ["model.glb"], {"meshy_3d_task_id": task_id})
+
 
 async def step_meshy_rig(creation_id: str, user_id: str, db: Session) -> None:
     """Rig 3D model: model.glb → rigged.glb"""
     storage = get_storage()
     loop = asyncio.get_event_loop()
-    
+
+    cache = await _cache_begin("meshy_rig", creation_id, user_id, MESHY_RIG_PARAMS)
+    if cache.hit:
+        step = _get_creation_step(creation_id, "meshy_rig", db)
+        step.metadata_json = {**cache.metadata, "result_cache": cache.marker()}
+        flag_modified(step, "metadata_json")
+        db.commit()
+        return
+
     # Get meshy_3d task_id from meshy_3d step metadata
     meshy_3d_step = db.query(CreationStep).filter(
         CreationStep.creation_id == creation_id,
@@ -473,6 +540,15 @@ async def step_meshy_rig(creation_id: str, user_id: str, db: Session) -> None:
                 usage=UsageContext.for_step(creation_id, user_id, "meshy_rig"),
             )
         )
+
+    if cache.active:
+        produced = dict(step.metadata_json or {})
+        files = ["rigged.glb"]
+        keep = {"rig_task_id": produced.get("rig_task_id")}
+        if produced.get("walking_glb_url"):
+            files.append("walking.glb")
+            keep["walking_glb_url"] = produced["walking_glb_url"]
+        await _cache_save(cache, files, keep)
 
 
 async def step_convert_vrm(creation_id: str, user_id: str, db: Session) -> None:
