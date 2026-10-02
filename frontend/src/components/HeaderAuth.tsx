@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { api, getAuthToken } from '../api/client';
 import { AuthModal } from './AuthModal';
 import { CouponRedeem } from './CouponRedeem';
 import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
+import { Icon } from './tb/Icon';
+import { NavButton, Sheet, SheetRow } from './tb/parts';
 import './HeaderAuth.css';
 
 interface User {
@@ -17,16 +19,18 @@ interface User {
 
 interface HeaderAuthProps {
   onOpenAdmin?: () => void;
+  /** False on screens whose header has its own buttons: the dialogs stay mounted, the controls don't show. */
+  controls?: boolean;
 }
 
-export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
+export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {}) {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // Check auth status on mount
   useEffect(() => {
@@ -43,6 +47,12 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
     
     // Anywhere in the app can ask for the buy dialog, e.g. "not enough credits".
     const handleOpenBuy = () => setShowBuyModal(true);
+    // Anywhere can ask for sign-in or sign-up, e.g. "Make a hero" while signed out.
+    const handleOpenAuth = (e: Event) => {
+      setAuthMode((e as CustomEvent).detail?.mode === 'signup' ? 'signup' : 'login');
+      setShowAuthModal(true);
+    };
+    window.addEventListener('auth:open', handleOpenAuth);
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     window.addEventListener('auth:credits-updated', handleCreditsUpdated);
@@ -51,22 +61,10 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
       window.removeEventListener('auth:credits-updated', handleCreditsUpdated);
       window.removeEventListener('credits:buy', handleOpenBuy);
+      window.removeEventListener('auth:open', handleOpenAuth);
     };
   }, []);
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowUserMenu(false);
-      }
-    };
-
-    if (showUserMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showUserMenu]);
 
   const checkAuth = async () => {
     const token = getAuthToken();
@@ -129,84 +127,50 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
   if (!user) {
     return (
       <>
-        <button className="header-auth-button" onClick={() => setShowAuthModal(true)}>
-          Log In
-        </button>
+        {controls && (
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm header-auth-button" onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}>
+            Sign in
+          </button>
+        )}
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
           onSuccess={handleLoginSuccess}
+          initialMode={authMode}
         />
       </>
     );
   }
 
   return (
-    <div className="header-auth" ref={menuRef}>
-      {/* Admin button - only visible for admins */}
-      {user.is_admin && (
-        <button
-          className="header-button"
-          onClick={handleOpenAdmin}
-          title="Admin Panel"
-        >
-          <span className="header-button-text">Admin</span>
-          <span className="header-button-icon">⚙️</span>
-        </button>
+    <div className="header-auth">
+      {controls && (
+        <>
+          <button type="button" className="tb-credits header-auth-credits" aria-label={`${user.credits} credits. Buy more`} onClick={handleOpenBuyModal}>
+            <Icon name="coin" size={18} />{user.credits}
+          </button>
+          <NavButton icon="user" label="Account" className="header-auth-user-button" onClick={() => setShowUserMenu(true)} />
+        </>
       )}
 
-      <button
-        className="header-button header-auth-user-button"
-        onClick={() => setShowUserMenu(!showUserMenu)}
-      >
-        <span className="header-button-text">{user.username}</span>
-        <span className="header-auth-credits">🪙 {user.credits}</span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className={`header-auth-chevron ${showUserMenu ? 'open' : ''}`}
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      
       {showUserMenu && (
-        <div className="header-auth-menu">
-          <div className="header-auth-menu-item header-auth-menu-user-info">
-            <div className="header-auth-menu-username">{user.username}</div>
-            <div className="header-auth-menu-email">{user.email}</div>
-            <div className="header-auth-menu-credits">
-              Credits: <strong>{user.credits}</strong>
-            </div>
-          </div>
-          <div className="header-auth-menu-divider"></div>
-          <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenProfile}>
-            Edit Profile ✏️
-          </button>
-          <button className="header-auth-menu-item header-auth-menu-action header-auth-menu-buy" onClick={handleOpenBuyModal}>
-            Buy Credits 🪙
-          </button>
-          <button className="header-auth-menu-item header-auth-menu-action" onClick={handleOpenCouponModal}>
-            Redeem Coupon 🎟️
-          </button>
-          <button className="header-auth-menu-item header-auth-menu-logout" onClick={handleLogout}>
-            Log Out
-          </button>
-        </div>
+        <Sheet title={user.username} onClose={() => setShowUserMenu(false)}>
+          <div className="tb-muted header-auth-menu-email">{user.email} · {user.credits} credits</div>
+          <SheetRow icon="coin" label="Buy credits" onClick={handleOpenBuyModal} />
+          <SheetRow icon="ticket" label="Redeem a coupon" onClick={handleOpenCouponModal} />
+          <SheetRow icon="pencil" label="Edit profile" onClick={handleOpenProfile} />
+          {user.is_admin && <SheetRow icon="gear" label="Admin" onClick={handleOpenAdmin} />}
+          <div className="tb-sheet-divider" />
+          <SheetRow icon="logout" label="Sign out" onClick={handleLogout} />
+        </Sheet>
       )}
 
       <BuyCredits isOpen={showBuyModal} onClose={() => setShowBuyModal(false)} />
-
       <CouponRedeem
         isOpen={showCouponModal}
         onClose={() => setShowCouponModal(false)}
         onSuccess={handleCouponSuccess}
       />
-
       <ProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
@@ -216,4 +180,3 @@ export function HeaderAuth({ onOpenAdmin }: HeaderAuthProps = {}) {
     </div>
   );
 }
-

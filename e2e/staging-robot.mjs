@@ -310,7 +310,7 @@ try {
   await step(page, 'landing', async () => {
     const res = await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
     if (!res || res.status() >= 400) throw new Error(`landing answered ${res && res.status()}`);
-    await page.getByRole('heading', { name: 'HeroMaker' }).waitFor();
+    await page.getByRole('button', { name: 'HeroMaker home' }).waitFor();
     await linger(page, 3500);
     mark('landing');
     return `HTTP ${res.status()}`;
@@ -329,14 +329,14 @@ try {
     mark('gallery_end');
     // Open one hero and come back, as a browsing visitor would.
     await items.first().click();
-    await page.locator('.step-card').first().waitFor({ timeout: 30000 });
+    await page.locator('.tb-hero-screen').waitFor({ timeout: 30000 });
     if (DEMO) {
       await page.waitForTimeout(1500);
       for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(800); }
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
       await page.waitForTimeout(800);
     }
-    await page.locator('.app-header-center').click();
+    await page.locator('.tb-back').click();
     await items.first().waitFor();
     return `${n} heroes shown; opened one and returned`;
   });
@@ -344,7 +344,7 @@ try {
   await step(page, 'signup', async () => {
     mark('signup_start');
     await page.locator('.header-auth-button').click();
-    await page.locator('button.auth-modal-tab', { hasText: 'Sign Up' }).click();
+    await page.locator('button.auth-modal-tab').click(); // "Create an account"
     await type(page, '#username', user.username);
     await type(page, '#email', user.email);
     await type(page, '#name', DEMO ? 'Maya' : 'Robot Tester');
@@ -361,7 +361,7 @@ try {
     const before = await creditsShown(page);
     mark('buy_start');
     await page.locator('.header-auth-user-button').click();
-    await page.getByRole('button', { name: /Buy Credits/ }).click();
+    await page.getByRole('button', { name: /buy credits/i }).click();
     const pack = page.locator('.buy-credits-pack[data-pack="starter"]');
     await pack.waitFor({ timeout: 20000 });
     if (DEMO) { await pack.hover(); await page.waitForTimeout(2500); }
@@ -393,36 +393,34 @@ try {
     if (await go.isDisabled()) throw new Error(`Go is disabled: ${await describe(page)}`);
     await linger(page, 2500);
     await go.click();
-    await page.locator('.step-card').first().waitFor({ timeout: 60000 });
+    await page.locator('.tb-hero-screen').waitFor({ timeout: 60000 });
     mark('pipeline_start');
 
     const deadline = Date.now() + PIPELINE_TIMEOUT_MS;
     let lastLine = '';
+    const ready = page.locator('.tb-hero-screen[data-state="ready"]');
     while (Date.now() < deadline) {
-      if (await page.locator('.control-bar-success').isVisible().catch(() => false)) break;
-      const failed = page.locator('.step-card-failed');
+      if (await ready.isVisible().catch(() => false)) break;
+      const failed = page.locator('.tb-failed');
       if (await failed.count()) {
-        const name = await failed.first().locator('.step-card-name').innerText().catch(() => '?');
-        const err = await failed.first().locator('.step-card-error').innerText().catch(() => '?');
-        throw new Error(`stage "${name}" failed: ${err}`);
+        const name = await failed.getAttribute('data-step').catch(() => '?');
+        const label = await failed.locator('.tb-status-name').innerText().catch(() => '?');
+        throw new Error(`stage "${name}" failed: ${label}`);
       }
-      const cards = await page.locator('.step-card').evaluateAll((els) => els.map((el) => {
-        const n = el.querySelector('.step-card-name')?.textContent?.trim();
-        const s = (el.className.match(/step-card-(pending|processing|completed|failed)/) || [])[1];
-        return `${n}:${s}`;
-      }));
-      const line = cards.join('  ');
+      const line = await page.locator('.tb-making').evaluate((el) => {
+        const dots = [...el.querySelectorAll('.tb-step-dot')].map((d) => (d.className.match(/tb-step-dot--(\w+)/) || [])[1]);
+        return `${el.getAttribute('data-step')}  [${dots.join(' ')}]  ${el.querySelector('.tb-status-eta')?.textContent || ''}`;
+      }).catch(() => '');
       if (line !== lastLine) {
         console.log(`  [${new Date().toISOString().slice(11, 19)}] ${line}`);
         lastLine = line;
       }
       await page.waitForTimeout(DEMO ? 2000 : 10000);
     }
-    if (!(await page.locator('.control-bar-success').isVisible().catch(() => false))) {
+    if (!(await ready.isVisible().catch(() => false))) {
       throw new Error(`hero not ready after ${PIPELINE_TIMEOUT_MS / 60000} min; last: ${lastLine}`);
     }
     mark('pipeline_end');
-    const done = await page.locator('.step-card-completed').count();
     heroName = await page.locator('.hero-name-editor, .hero-name').first().innerText().catch(() => null);
     if (DEMO) {
       await page.waitForTimeout(1500);
@@ -431,25 +429,24 @@ try {
       await page.waitForTimeout(1500);
     }
     mark('ready_end');
-    return `all ${done} visible stages completed; "Your hero is ready!" shown`;
+    return `all stages completed; "${heroName || 'hero'}" shown ready to play`;
   });
 
   await step(page, 'profile', async () => {
-    await page.locator('.app-header-center').click();
-    await page.locator('select.creation-gallery-ownership-select').selectOption('my');
-    await page.locator('select.creation-gallery-status-select').selectOption({ index: 0 }).catch(() => {});
+    await page.locator('.tb-back').click();
+    await page.locator('.tb-chip-mine').click();
     const mine = page.locator('.creation-gallery-item');
     await mine.first().waitFor({ timeout: 30000 });
     const n = await mine.count();
-    if (n < 1) throw new Error('no heroes under My Creations');
-    const done = await page.locator('.creation-gallery-item .creation-gallery-status-completed').count();
-    if (DEMO) { await mine.first().locator('.play-hero-button').hover(); await page.waitForTimeout(3500); }
-    return `${n} hero(es) under My Creations, ${done} completed${heroName ? ` (${heroName})` : ''}`;
+    if (n < 1) throw new Error('no heroes under My heroes');
+    const done = await page.locator('.creation-gallery-item.creation-gallery-status-completed').count();
+    if (DEMO) { await mine.first().hover(); await page.waitForTimeout(3500); }
+    return `${n} hero(es) under My heroes, ${done} completed${heroName ? ` (${heroName})` : ''}`;
   });
 
   await step(page, 'game', async () => {
-    const mine = page.locator('.creation-gallery-item').first();
-    const play = mine.locator('.play-hero-button');
+    await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
+    const play = page.locator('.tb-play');
     await play.waitFor({ timeout: 20000 });
     const [game] = await Promise.all([
       context.waitForEvent('page', { timeout: 10000 }).catch(() => null),
