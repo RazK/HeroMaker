@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
@@ -8,7 +11,10 @@ from app.schemas.auth import (
     UserResponse,
     TokenResponse,
     MessageResponse,
-    UpdateProfileRequest
+    UpdateProfileRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    AuthConfigResponse,
 )
 from app.services.auth import (
     hash_password,
@@ -17,6 +23,10 @@ from app.services.auth import (
     get_current_user
 )
 from app.services.users import update_user
+from app.services import mailer, password_reset
+from app.config.settings import get_frontend_url
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -183,3 +193,79 @@ def logout():
     return MessageResponse(message="Logged out successfully")
 
 
+
+
+@router.get("/config", response_model=AuthConfigResponse)
+def auth_config():
+    """Which sign-in features this deployment offers."""
+    return AuthConfigResponse(password_reset=mailer.is_configured())
+
+
+FORGOT_PASSWORD_MESSAGE = "If that email has an account, a reset link is on its way."
+
+
+def _client_ip(request: Request) -> str:
+    """
+    Best-effort client address for rate limiting.
+
+    The backend sits behind Railway's edge (and, for browser calls, the
+    frontend's nginx), so the socket peer is a proxy. The first
+    X-Forwarded-For entry is the original client as the first proxy saw it.
+    It can be forged, which is why the per-email limit, not this one, is what
+    protects an inbox; this one only slows a single noisy client.
+    """
+    forwarded = request.headers.get("x-forwarded-for", "")
+    first = forwarded.split(",")[0].strip()
+    if first:
+        return first
+    return request.client.host if request.client else "unknown"
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(
+    data: ForgotPasswordRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """
+    Email a single-use reset link.
+
+    Always the same 200 answer, whether or not the account exists and whether
+    or not a limit was hit, so it cannot be used to discover who has an
+    account. The email is sent after the response, so a known address does not
+    answer measurably slower than an unknown one.
+    """
+    reply = MessageResponse(message=FORGOT_PASSWORD_MESSAGE)
+    if not data.email or not password_reset.allow_request(data.email, _client_ip(request)):
+        return reply
+
+    user = db.query(User).filter(func.lower(User.email) == data.email).first()
+    if user is None:
+        return reply
+
+    token = password_reset.create_token(db, user)
+    link = f"{get_frontend_url()}/reset-password?token={token}"
+    background_tasks.add_task(mailer.send_password_reset, user.email, link)
+    return reply
+
+
+@router.post("/reset-password", response_model=TokenResponse)
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Set a new password with a reset token, and sign the user in."""
+    found = password_reset.find_valid(db, data.token)
+    if found is None or not password_reset.consume(db, found[0]):
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This link has expired or was already used.",
+        )
+    _, user = found
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
+    db.refresh(user)
+    logger.info("Password reset for user %s", user.id)
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        user=UserResponse.from_user(user),
+    )

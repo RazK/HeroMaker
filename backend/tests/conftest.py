@@ -40,6 +40,7 @@ from app.models import (  # noqa: E402
     Creation,
     CreationStep,
     CreditTransaction,
+    PasswordResetToken,
     Payment,
     UsageEvent,
     User,
@@ -55,6 +56,7 @@ _WIPE_ORDER = (
     Coupon,
     CreationStep,
     Creation,
+    PasswordResetToken,
     User,
 )
 

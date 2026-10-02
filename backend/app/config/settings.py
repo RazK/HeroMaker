@@ -68,6 +68,22 @@ VRM_CONVERTER_TIMEOUT = int(os.getenv("VRM_CONVERTER_TIMEOUT", "300"))  # 5 minu
 # Comma-separated list of allowed origins, or "*" for all origins (default for development)
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
 
+
+def get_frontend_url() -> str:
+    """Where this backend's own frontend lives, for links in emails.
+
+    FRONTEND_URL is set on Railway to this environment's frontend domain
+    (devops/railway/env/backend.env, "Service wiring"). Without it, the first
+    explicit CORS origin is the same thing; failing that, the local dev server.
+    Never taken from the request: a Host header is attacker-controlled, and a
+    reset link pointing at an attacker's site would hand them the token.
+    """
+    url = os.getenv("FRONTEND_URL", "").strip()
+    if not url:
+        origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",")]
+        url = next((o for o in origins if o and o != "*"), "http://localhost:5173")
+    return url.rstrip("/")
+
 # S3 Storage Configuration (optional - only used if S3_BUCKET is set)
 # For Railway Storage Buckets (S3-compatible)
 S3_BUCKET = os.getenv("S3_BUCKET")  # Bucket name from Railway

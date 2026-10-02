@@ -7,12 +7,18 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  initialMode?: 'login' | 'signup';
+  initialMode?: AuthMode;
 }
 
+export type AuthMode = 'login' | 'signup' | 'forgot';
+
 export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }: AuthModalProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
-  useEffect(() => { if (isOpen) setMode(initialMode); }, [isOpen, initialMode]);
+  const [mode, setMode] = useState<AuthMode>(initialMode);
+  useEffect(() => { if (isOpen) { setMode(initialMode); setResetSent(false); } }, [isOpen, initialMode]);
+  // "Forgot password?" shows only where the backend can actually send email.
+  const [canReset, setCanReset] = useState(false);
+  useEffect(() => { if (isOpen) api.getAuthConfig().then((c) => setCanReset(c.password_reset)); }, [isOpen]);
+  const [resetSent, setResetSent] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,6 +35,11 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }:
     setIsLoading(true);
 
     try {
+      if (mode === 'forgot') {
+        await api.forgotPassword(email);
+        setResetSent(true);
+        return;
+      }
       if (mode === 'signup') {
         await api.signup(username, email, password, name, dateOfBirth);
       } else {
@@ -55,10 +66,37 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }:
     setDateOfBirth('');
     setError(null);
     setMode('login');
+    setResetSent(false);
     onClose();
   };
 
-  const switchTo = (m: 'login' | 'signup') => { setMode(m); setError(null); };
+  const switchTo = (m: AuthMode) => { setMode(m); setError(null); setResetSent(false); };
+
+  if (mode === 'forgot') {
+    return (
+      <Sheet title={resetSent ? 'Check your email' : 'Forgot password?'} onClose={handleClose} className="auth-modal auth-modal--forgot">
+        {resetSent ? (
+          <div className="tb-stack auth-modal-actions">
+            <div className="tb-muted auth-modal-sent">If <strong>{email}</strong> has an account, a link is on its way.</div>
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full auth-modal-back" onClick={() => switchTo('login')}>Back to sign in</button>
+          </div>
+        ) : (
+          <form className="auth-modal-form" onSubmit={handleSubmit}>
+            <div className="tb-field">
+              <label htmlFor="forgot-email">Email</label>
+              <input id="forgot-email" className="tb-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} autoComplete="email" autoFocus />
+            </div>
+            <div className="tb-stack auth-modal-actions">
+              {error && <div className="auth-modal-error" role="alert">{error}</div>}
+              <button type="submit" className="tb-btn tb-btn--primary tb-btn--full auth-modal-submit" disabled={isLoading}>
+                {isLoading ? 'Please wait…' : 'Send link'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet title={mode === 'login' ? 'Welcome back' : 'Save every hero'} onClose={handleClose} className="auth-modal">
@@ -109,6 +147,9 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }:
               placeholder={mode === 'signup' ? 'At least 6 characters' : undefined}
               disabled={isLoading}
             />
+            {mode === 'login' && canReset && (
+              <button type="button" className="tb-link auth-modal-forgot" onClick={() => switchTo('forgot')}>Forgot password?</button>
+            )}
           </div>
         </div>
 

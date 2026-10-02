@@ -9,6 +9,7 @@ from app.migrations import m006_tokens_to_credits
 from app.migrations import m007_coupon_multiple_per_user
 from app.migrations import m008_financial_spine
 from app.migrations import m009_creation_soft_delete
+from app.migrations import m010_password_reset_tokens
 
 
 # Register all migrations in order
@@ -23,6 +24,7 @@ MIGRATIONS = [
     ("007_coupon_multiple_per_user", m007_coupon_multiple_per_user.migrate),
     ("008_financial_spine", m008_financial_spine.migrate),
     ("009_creation_soft_delete", m009_creation_soft_delete.migrate),
+    ("010_password_reset_tokens", m010_password_reset_tokens.migrate),
 ]
 
 
