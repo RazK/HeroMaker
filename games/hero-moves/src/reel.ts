@@ -8,6 +8,7 @@ import { Performer, loadAllClips, CLIPS } from './anim/performer'
 import { Audio } from './core/audio'
 import { el } from './ui/dom'
 import { damp } from './core/math'
+import { OWN_HERO, OWN_NAME, goBack, BACK_ICON } from './ownhero'
 
 /**
  * Hero Stunt Reel — a prototype of the direction the research points at.
@@ -43,24 +44,8 @@ const animUrl = (file: string): string => {
   return Object.entries(animFiles).find(([k]) => k.includes(`/${stem}`))?.[1] ?? file
 }
 
-/**
- * `?vrm=<url>` plays ONE hero the player made, instead of the built-in roster:
- * the HeroMaker app opens this page from a hero's Play button. Same-origin
- * only, so the page cannot be pointed at someone else's server; `?name=`
- * labels it.
- */
-function ownHeroUrl(): string | null {
-  const raw = new URLSearchParams(location.search).get('vrm')
-  if (!raw) return null
-  try {
-    const u = new URL(raw, location.href)
-    return u.origin === location.origin ? u.href : null
-  } catch {
-    return null
-  }
-}
-const OWN_HERO = ownHeroUrl()
-const OWN_NAME = new URLSearchParams(location.search).get('name') || 'Your hero'
+// `?vrm=<url>` plays ONE hero the player made, instead of the built-in roster:
+// the HeroMaker app opens this page from a hero's Play button. See ownhero.ts.
 
 const BUILT_IN = [
   { id: 'Crayon_Kid', name: 'Crayon Kid' },
@@ -168,17 +153,13 @@ let heroIndex = 0
 const recent: string[] = []
 let playingId: string | null = null
 
-const ICONS = {
-  back: '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-}
-
 const heroRow = el('div', { class: 'reel-heroes' })
 const deckRow = el('div', { class: 'reel-deck' })
 const banner = el('div', { class: 'reel-banner' })
 const combos = el('div', { class: 'reel-combos', title: 'Combos found' })
 const back = el('button', { class: 'reel-nav', title: 'Back', onclick: goBack })
 back.setAttribute('aria-label', 'Back')
-back.innerHTML = ICONS.back
+back.innerHTML = BACK_ICON
 
 const top = el('div', { class: 'reel-top' },
   OWN_HERO ? back : el('span', { class: 'reel-nav-spacer' }),
@@ -187,11 +168,6 @@ const top = el('div', { class: 'reel-top' },
 )
 const panel = el('div', { class: 'reel-panel' }, ...(OWN_HERO ? [] : [heroRow]), deckRow)
 app.append(el('div', { class: 'layer', id: 'reelUi' }, top, banner, panel))
-
-function goBack() {
-  if (window.history.length > 1 && document.referrer.startsWith(location.origin)) window.history.back()
-  else location.assign('/')
-}
 
 function render() {
   heroRow.replaceChildren(...ROSTER.map((r, i) => {

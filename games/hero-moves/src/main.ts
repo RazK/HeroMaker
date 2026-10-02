@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import './ui/style.css'
 import './ui/party.css'
+import './ui/toybox.css'
 import { Stage } from './stage/stage'
 import { BACKDROPS } from './stage/backdrops'
 import { PlayCamera } from './stage/camera'
@@ -18,6 +19,7 @@ import { el } from './ui/dom'
 import { clamp, damp } from './core/math'
 import { bodyConfidence, type Skeleton } from './pose/keypoints'
 import { classify } from './pose/vocab'
+import { OWN_HERO, OWN_NAME, goBack, BACK_ICON } from './ownhero'
 
 /**
  * Hero Moves — one to three players, one lane each.
@@ -54,13 +56,24 @@ const ALL_HEROES = [
   { id: 'Cloudy', name: 'Cloudy' },
 ]
 
+/**
+ * `?vrm=<url>&name=` dances the hero the player made: the HeroMaker app opens
+ * this page that way. The roster is then that one hero, so there is nothing
+ * to pick; every lane in a party round is that hero. See ownhero.ts for what
+ * is accepted (same-origin only).
+ */
+const OWN_ID = 'own'
+
 function heroSource(id: string): string | null {
+  if (OWN_HERO) return id === OWN_ID ? OWN_HERO : null
   const block = document.getElementById(`hm-avatar-${id}`)
   if (block?.textContent) return `data:application/octet-stream;base64,${block.textContent.trim()}`
   return Object.entries(avatarFiles).find(([k]) => k.includes(`${id}.opt`))?.[1] ?? null
 }
 
-const ROSTER = ALL_HEROES.filter((h) => heroSource(h.id) !== null)
+const ROSTER = OWN_HERO
+  ? [{ id: OWN_ID, name: OWN_NAME }]
+  : ALL_HEROES.filter((h) => heroSource(h.id) !== null)
 
 let announceFirstHero: (() => void) | null = null
 const firstHeroReady = ROSTER.length
@@ -69,7 +82,7 @@ const firstHeroReady = ROSTER.length
 
 ;(window as unknown as Record<string, unknown>).__hmAvatar = (id: string) => {
   const entry = ALL_HEROES.find((h) => h.id === id)
-  if (!entry || ROSTER.some((r) => r.id === id)) return
+  if (OWN_HERO || !entry || ROSTER.some((r) => r.id === id)) return
   ROSTER.push(entry)
   renderMenu()
   announceFirstHero?.()
@@ -155,6 +168,17 @@ const pauseLayer = el('div', { class: 'layer sheet', id: 'pause', hidden: true }
 const resultsLayer = el('div', { class: 'layer sheet', id: 'results', hidden: true })
 app.append(hud.hud, hud.platesLayer, hud.countdownLayer, menuLayer, pauseLayer, resultsLayer)
 
+/**
+ * Back to the app, where the app keeps it: a round button in the top-left.
+ * Only when the app opened the game, and only between rounds - mid-song the
+ * corner belongs to the HUD, and pause already has a way out.
+ */
+const backBtn = el('button', { class: 'tb-back', title: 'Back', onclick: goBack })
+backBtn.setAttribute('aria-label', 'Back')
+backBtn.innerHTML = BACK_ICON
+backBtn.hidden = !OWN_HERO
+if (OWN_HERO) { app.append(backBtn); app.classList.add('has-back') }
+
 // ---- menu ------------------------------------------------------------------
 const countRow = el('div', { class: 'segmented' })
 const stanceRow = el('div', { class: 'segmented' })
@@ -211,7 +235,9 @@ const menuFoot = el('div', { class: 'menu-foot' },
 
 menuLayer.append(
   el('div', { class: 'card' },
-    el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves'),
+    OWN_HERO
+      ? el('h1', {}, el('em', {}, OWN_NAME), 'Dance party')
+      : el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves'),
     camWrap,
     // Two settings, one row. Both are three-way switches, and stacking them
     // pushed the hero gallery off the bottom of the card.
@@ -280,7 +306,9 @@ function renderMenu() {
   // "Crayon Kid" as "Cra…" — the thumbnail already says who it is and the
   // gallery underneath spells it out. Two chips have room, so they keep it.
   whoRow.className = `pick-who n${playerCount}`
-  whoRow.hidden = playerCount < 2
+  // With the player's own hero there is one hero and nothing to choose.
+  whoRow.hidden = playerCount < 2 || !!OWN_HERO
+  gallery.hidden = !!OWN_HERO
   whoRow.replaceChildren(...Array.from({ length: playerCount }, (_, i) => {
     const hero = ROSTER[picks[i]]
     const b = el('button', {
@@ -406,6 +434,7 @@ function showMenu() {
 
 game.onPhase = (p: PartyPhase) => {
   menuLayer.hidden = p !== 'menu'
+  backBtn.hidden = !OWN_HERO || (p !== 'menu' && p !== 'results')
   pauseLayer.hidden = p !== 'paused'
   resultsLayer.hidden = p !== 'results'
   hud.hud.hidden = p === 'menu' || p === 'results'
@@ -940,6 +969,8 @@ function startLoadingTracker() {
   /** Every set the picker offers, so a harness can walk all six. */
   backdrops: () => BACKDROPS.map((b) => b.id),
   pick: (lane: number, hero: number) => { picks[lane] = hero; void loadLane(lane, hero); renderMenu() },
+  /** Which hero each visible lane is dancing, and whether it has loaded. */
+  heroes: () => lanes.slice(0, playerCount).map((l) => ({ id: ROSTER[l.heroIndex]?.id, loaded: !!l.hero })),
   pause: () => game.pause(clock),
   resume: () => game.resume(clock),
   finish: () => game.finish(),

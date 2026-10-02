@@ -452,9 +452,20 @@ try {
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
     const play = page.locator('.tb-play');
     await play.waitFor({ timeout: 20000 });
+    // Play opens a chooser with one card per game.
+    await play.click();
+    const stunt = page.locator('.tb-game-card[data-game="stunt"]');
+    await stunt.waitFor({ timeout: 10000 });
+    // The other game must be offered and actually be in the image, for this
+    // hero: a card whose page 404s is worse than no card.
+    const danceHref = await page.locator('.tb-game-card[data-game="dance"]').getAttribute('href');
+    if (!danceHref || !/^\/play\/index\.html\?vrm=/.test(danceHref)) throw new Error(`Dance party card links to ${danceHref}`);
+    const dancePage = await page.request.get(new URL(danceHref, page.url()).href);
+    if (!dancePage.ok()) throw new Error(`Dance party page answered ${dancePage.status()}`);
+    await snap(page, 'game-chooser');
     const [game] = await Promise.all([
       context.waitForEvent('page', { timeout: 10000 }).catch(() => null),
-      play.click(),
+      stunt.click(),
     ]);
     const gp = game || page;
     await gp.waitForURL(/\/play\//, { timeout: 30000 });
@@ -485,7 +496,7 @@ try {
       await gp.waitForTimeout(1500);
     }
     await snap(gp, 'game-playing');
-    return `game loaded the user's hero (${loaded || 'custom'}) and is playing`;
+    return `chose Stunt show (Dance party offered, page ${dancePage.status()}); game loaded the user's hero (${loaded || 'custom'}) and is playing`;
   });
 } catch {
   exitCode = 1;
