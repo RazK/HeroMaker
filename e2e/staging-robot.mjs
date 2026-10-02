@@ -466,25 +466,23 @@ try {
     if (DEMO) {
       await gp.waitForTimeout(3000);
       mark('game_ready');
-      // Clicking the cards under software WebGL took 40s; the game's own API
-      // fills the same slots instantly, a beat apart so each one is seen.
-      for (const move of ['jump', 'backflip', 'dance', 'victory']) {
-        await gp.evaluate((m) => window.__reel.add(m), move);
-        await gp.waitForTimeout(600);
-      }
-      await gp.evaluate(() => window.__reel.play());
       mark('play');
-    } else {
-      await gp.evaluate(() => { window.__reel.add('jump'); window.__reel.add('dance'); window.__reel.play(); });
-    }
-    await gp.waitForFunction(() => window.__reel.playing(), null, { timeout: 15000 });
-    if (DEMO) {
-      await gp.waitForFunction(() => !window.__reel.playing(), null, { timeout: 60000 }).catch(() => {});
-      await gp.waitForTimeout(1500);
+      // Each tap plays at once; under software WebGL the game's own API is the
+      // fast way to tap, and each move is let finish so it is seen.
+      for (const move of ['jump', 'backflip', 'victory']) {
+        await gp.evaluate((m) => window.__reel.tap(m), move);
+        await gp.waitForFunction(() => window.__reel.playing() === null, null, { timeout: 60000 }).catch(() => {});
+      }
       await gp.waitForTimeout(3500);
       mark('end');
     } else {
-      await gp.waitForTimeout(3000);
+      // A real tap on a move card: it must start playing at once, no queue.
+      await gp.locator('.reel-card[data-move="jump"]').click();
+      await gp.waitForFunction(() => window.__reel.playing() === 'jump', null, { timeout: 5000 });
+      await gp.waitForTimeout(500);
+      await gp.locator('.reel-card[data-move="backflip"]').click();
+      await gp.waitForFunction(() => window.__reel.playing() === 'backflip', null, { timeout: 5000 });
+      await gp.waitForTimeout(1500);
     }
     await snap(gp, 'game-playing');
     return `game loaded the user's hero (${loaded || 'custom'}) and is playing`;

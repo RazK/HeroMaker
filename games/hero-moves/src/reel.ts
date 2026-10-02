@@ -19,8 +19,8 @@ import { damp } from './core/math'
  * camera-free precedent for this exact asset — a child's drawing, animated —
  * took 6.7 million uploads on four clips and no game at all.
  *
- * So: no camera, no tracker, no permission prompt. Choose clips, arrange them,
- * watch your hero perform the routine.
+ * So: no camera, no tracker, no permission prompt. Tap a move, and your hero
+ * does it on the spot.
  *
  * The one thing that stops this being a five-minute toy is combinatorial
  * discovery, which is why Incredibox — the closest precedent, and a *paid* app
@@ -162,31 +162,39 @@ let anim: Performer | null = null
 let heroIndex = 0
 
 // ---------------------------------------------------------------- ui
-const routine: string[] = []
-const MAX = 6
+// Tap a move and the hero does it, now. No queue, no play button: the last
+// three taps are still read for combos, so ordering moves is something to
+// discover rather than a form to fill in.
+const recent: string[] = []
+let playingId: string | null = null
+
+const ICONS = {
+  back: '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+}
 
 const heroRow = el('div', { class: 'reel-heroes' })
 const deckRow = el('div', { class: 'reel-deck' })
-const slotRow = el('div', { class: 'reel-slots' })
 const banner = el('div', { class: 'reel-banner' })
-const status = el('div', { class: 'reel-status' }, 'Tap moves to build a routine')
-const playBtn = el('button', { class: 'btn', onclick: () => performRoutine() }, 'PLAY THE REEL')
-const clearBtn = el('button', { class: 'btn secondary', onclick: () => { routine.length = 0; render() } }, 'CLEAR')
+const combos = el('div', { class: 'reel-combos', title: 'Combos found' })
+const back = el('button', { class: 'reel-nav', title: 'Back', onclick: goBack })
+back.setAttribute('aria-label', 'Back')
+back.innerHTML = ICONS.back
 
-const panel = el('div', { class: 'reel-panel' },
-  heroRow,
-  el('div', { class: 'reel-label' }, 'Your routine'),
-  slotRow,
-  el('div', { class: 'reel-label' }, 'Moves'),
-  deckRow,
-  el('div', { class: 'actions row' }, playBtn, clearBtn),
-  status,
+const top = el('div', { class: 'reel-top' },
+  OWN_HERO ? back : el('span', { class: 'reel-nav-spacer' }),
+  el('div', { class: 'reel-title' }, OWN_HERO ? OWN_NAME : 'Hero Moves'),
+  combos,
 )
-app.append(el('div', { class: 'layer', id: 'reelUi' }, banner, panel))
+const panel = el('div', { class: 'reel-panel' }, ...(OWN_HERO ? [] : [heroRow]), deckRow)
+app.append(el('div', { class: 'layer', id: 'reelUi' }, top, banner, panel))
+
+function goBack() {
+  if (window.history.length > 1 && document.referrer.startsWith(location.origin)) window.history.back()
+  else location.assign('/')
+}
 
 function render() {
   heroRow.replaceChildren(...ROSTER.map((r, i) => {
-    if (OWN_HERO) return el('div', { class: 'reel-hero-own' }, r.name)
     const thumb = Object.entries(thumbFiles).find(([k]) => k.includes(`${r.id}.thumb`))?.[1]
     const b = el('button', {
       class: `reel-hero${i === heroIndex ? ' on' : ''}`,
@@ -197,37 +205,16 @@ function render() {
     return b
   }))
 
-  slotRow.replaceChildren(...Array.from({ length: MAX }, (_, i) => {
-    const id = routine[i]
-    const card = DECK.find((d) => d.id === id)
-    return el('button', {
-      class: `reel-slot${card ? ' filled' : ''}`,
-      onclick: () => { if (card) { routine.splice(i, 1); render() } },
-      title: card ? `Remove ${card.label}` : 'Empty',
-    }, card ? el('span', { class: 'ico' }, card.icon) : el('span', { class: 'ico dim' }, `${i + 1}`))
+  deckRow.replaceChildren(...DECK.map((d) => {
+    const b = el('button', {
+      class: `reel-card${d.id === playingId ? ' on' : ''}`,
+      onclick: () => perform(d.id),
+    }, el('span', { class: 'ico' }, d.icon), el('span', { class: 'lbl' }, d.label))
+    b.dataset.move = d.id
+    return b
   }))
 
-  deckRow.replaceChildren(...DECK.map((d) =>
-    el('button', {
-      class: 'reel-card',
-      onclick: () => { if (routine.length < MAX) { routine.push(d.id); audio.uiClick(); render() } },
-    }, el('span', { class: 'ico' }, d.icon), el('span', {}, d.label))))
-
-  playBtn.disabled = routine.length === 0 || playing
-  const hit = combosIn(routine)
-  status.textContent = routine.length === 0
-    ? 'Tap moves to build a routine'
-    : hit.length
-      ? `${hit.map((c) => c.name).join(' ')}  ·  ${found.size}/${COMBOS.length} combos found`
-      : found.size === COMBOS.length
-        ? `${routine.length}/${MAX} moves  ·  all ${COMBOS.length} combos found`
-        : `${routine.length}/${MAX} moves  ·  ${found.size}/${COMBOS.length} combos found`
-}
-
-/** Every combo whose sequence appears in order inside the routine. */
-function combosIn(seq: string[]) {
-  return COMBOS.filter((c) =>
-    seq.some((_, i) => c.seq.every((id, k) => seq[i + k] === id)))
+  combos.textContent = `★ ${found.size}/${COMBOS.length}`
 }
 
 async function selectHero(i: number) {
@@ -238,62 +225,49 @@ async function selectHero(i: number) {
   if (!url) return
   if (hero) { root.remove(hero.root); hero.dispose() }
   anim?.dispose()
+  playingId = null
   hero = await loadHero(url)
   root.add(hero.root)
   anim = new Performer(hero)
   resize()
   const mine = hero
   await loadAllClips(anim, animUrl)
-  if (hero === mine && !playing) anim.play('dance', { loop: true })
+  if (hero === mine && !playingId) anim.play('dance', { loop: true })
 }
 
 // ---------------------------------------------------------------- playback
-let playing = false
-let queue: string[] = []
-
-async function performRoutine() {
-  if (playing || !anim || routine.length === 0) return
+/** Play one move right away, cutting off whatever was playing. */
+function perform(id: string) {
+  if (!anim || !anim.has(id)) return
   audio.resume()
-  playing = true
-  render()
-  queue = [...routine]
-  // Announce a combo as it is completed, not at the end — the feedback has to
-  // land on the move that earned it.
-  next()
-}
-
-function next() {
-  if (!anim) return
-  const id = queue.shift()
-  if (!id) {
-    playing = false
-    anim.play('dance', { loop: true })
-    render()
-    return
-  }
+  // Tapping the move that is already playing starts it again.
+  if (anim.playing === id) anim.stop(0.1)
   anim.play(id)
+  playingId = id
   audio.pose()
-  // Check whether this clip completed a combo, counting what has played so far.
-  const played = routine.slice(0, routine.length - queue.length)
+  recent.push(id)
+  if (recent.length > 3) recent.shift()
+  // A combo is banked on the move that completes it, so finding one feels
+  // like finding it.
   const justHit = COMBOS.find((c) =>
-    c.seq.length <= played.length &&
-    c.seq.every((s, k) => played[played.length - c.seq.length + k] === s))
+    c.seq.length <= recent.length &&
+    c.seq.every((s, k) => recent[recent.length - c.seq.length + k] === s))
   if (justHit) {
-    // Bank it here, not at the end of the routine: the counter has to move on
-    // the move that earned it, or finding a combo does not feel like finding.
     const isNew = !found.has(justHit.name)
     found.add(justHit.name)
     if (isNew) saveFound()
     showBanner(isNew ? `${justHit.name} NEW!` : justHit.name)
     audio.star(found.size)
-    render()
+    recent.length = 0
   }
+  render()
 }
 
 let bannerUntil = 0
 function showBanner(text: string) {
   banner.textContent = text
   banner.classList.add('show')
+  top.classList.add('combo')
   bannerUntil = performance.now() + 1400
 }
 
@@ -303,10 +277,20 @@ function resize() {
   renderer.setSize(w, h, false)
   if (!hero) return
   const card = panel.getBoundingClientRect()
+  // The hero owns the stage between the header and the moves bar, on every
+  // orientation, and is centred in it.
+  const band = { top: top.getBoundingClientRect().bottom, bottom: card.top }
+  const portrait = h > w
   play.frame({
-    heroHeight: hero.height, spanX: hero.width * 1.6, spanZ: hero.width,
-    aspect: w / h, portrait: h > w,
-    headroom: card.top, viewportH: h, viewportW: w,
+    // A phone held upright is narrow: frame the hero's body rather than the
+    // full T-pose arm span (as wide as the hero is tall, on a real one), or a
+    // tall frame holds a small hero. A fingertip may leave the frame in an
+    // outstretched move; the body never does.
+    heroHeight: hero.height, spanX: hero.width * (portrait ? 0.8 : 1.15),
+    // One hero, and this camera never orbits: no depth to allow for.
+    spanZ: 0,
+    aspect: w / h, portrait,
+    headroom: card.top, viewportH: h, viewportW: w, band,
   })
 }
 addEventListener('resize', resize)
@@ -324,18 +308,25 @@ renderer.setAnimationLoop(() => {
   fps = fps * 0.9 + (raw > 0 ? 1 / raw : 0) * 0.1
 
   anim?.update(dt)
-  // A one-shot that has finished hands the rig back; that is the cue to
-  // advance the queue rather than a timer, so a longer clip simply takes
-  // longer instead of being cut off.
-  if (playing && anim && !anim.active) next()
+  // A move that has finished hands the rig back; the hero goes back to
+  // dancing until the next tap.
+  if (playingId && anim && !anim.active) {
+    playingId = null
+    anim.play('dance', { loop: true })
+    render()
+  }
 
   if (hero) {
     hero.root.position.y = anim?.active ? 0 : bob
     hero.vrm.update(dt)
   }
   bob = damp(bob, 0.02, 6, dt)
-  play.setAirborne(!!anim?.active)
-  if (bannerUntil && now > bannerUntil) { banner.classList.remove('show'); bannerUntil = 0 }
+  // Only a clip that leaves the floor pulls the camera back; the idle dance
+  // loop is always "active" and would otherwise shrink the hero for good.
+  play.setAirborne(!!anim?.airborne)
+  if (bannerUntil && now > bannerUntil) {
+    banner.classList.remove('show'); top.classList.remove('combo'); bannerUntil = 0
+  }
 
   stage.update(dt, (now / 600) % 1)
   play.update(dt, (now / 600) % 1)
@@ -346,9 +337,8 @@ renderer.setAnimationLoop(() => {
 ;(async () => {
   await selectHero(0)
   render()
-  // Frame first, then declare the card: setPresentation reads the last framing
-  // to decide whether there is anywhere sideways to go, and with none recorded
-  // it assumes landscape and shunts the hero off to one side.
+  // Frame first, then declare the card: setPresentation re-solves the last
+  // framing, and that framing carries the band the hero is centred in.
   resize()
   play.setPresentation(true)
   resize()
@@ -357,11 +347,9 @@ renderer.setAnimationLoop(() => {
 })()
 
 ;(window as unknown as Record<string, unknown>).__reel = {
-  add: (id: string) => { routine.push(id); render() },
-  play: () => performRoutine(),
+  tap: (id: string) => perform(id),
   pick: (i: number) => selectHero(i),
-  routine: () => [...routine],
-  playing: () => playing,
+  playing: () => playingId,
   hero: () => ROSTER[heroIndex]?.name,
   fps: () => Math.round(fps),
 }

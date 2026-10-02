@@ -44,6 +44,13 @@ const CARD_SHIFT_NDC = 0.34
  * the full solution or their arms leave the frame.
  */
 const PORTRAIT_WIDTH_CAP = 1.5
+/**
+ * With `band` set, the fraction of that strip the hero's height fills, and of
+ * the frame's width the line may take. Below 1 so a raised arm and the bob of
+ * a dance stay inside it; an airborne clip eases the camera back on top.
+ */
+const BAND_FILL = 0.8
+const BAND_FILL_WIDTH = 0.9
 /** How far round the orbit is allowed to go. Past this the faces turn away. */
 export const MAX_AZIMUTH = 34
 
@@ -70,6 +77,16 @@ export interface Framing {
   headroom?: number
   viewportH?: number
   viewportW?: number
+  /**
+   * The strip of screen the heroes own while a card is showing, in px from the
+   * top: below any header, above a bar of controls along the bottom.
+   *
+   * Opt-in, and it changes what a card means. By default a card in landscape
+   * is a side panel and the line steps sideways to clear it. Given a band, the
+   * card is a bar along the foot of *every* orientation, so the line stays
+   * centred and is framed into the band instead, as portrait already is.
+   */
+  band?: { top: number; bottom: number }
 }
 
 export class PlayCamera {
@@ -106,17 +123,27 @@ export class PlayCamera {
     return this.cardVisible && (this.lastFraming?.portrait ?? false)
   }
 
+  /** The band to frame into, when the caller gave one and a card is up. */
+  private get cardBand() {
+    const f = this.lastFraming
+    return this.cardVisible && f?.band && f.viewportH ? f.band : null
+  }
+
   /** Solve and apply the framing. Called on resize and when a hero changes. */
   frame(f: Framing) {
     this.lastFraming = f
     // With a card at the foot of a portrait screen the pair only owns the strip
     // above it, so the fill is solved against that strip.
-    const band = this.cardPortrait && f.headroom && f.viewportH
-      ? Math.min(FILL_PORTRAIT, (f.headroom * 0.76) / f.viewportH)
-      : null
+    const strip = this.cardBand
+    const band = strip
+      ? (BAND_FILL * Math.max(1, strip.bottom - strip.top)) / f.viewportH!
+      : this.cardPortrait && f.headroom && f.viewportH
+        ? Math.min(FILL_PORTRAIT, (f.headroom * 0.76) / f.viewportH)
+        : null
     const fill = band ?? (f.portrait ? FILL_PORTRAIT : FILL_LANDSCAPE)
-    const cardLand = this.cardVisible && !f.portrait
-    const fillW = f.portrait ? FILL_WIDTH_PORTRAIT : cardLand ? FILL_WIDTH_CARD : FILL_WIDTH
+    const cardLand = this.cardVisible && !f.portrait && !strip
+    const fillW = strip ? BAND_FILL_WIDTH
+      : f.portrait ? FILL_WIDTH_PORTRAIT : cardLand ? FILL_WIDTH_CARD : FILL_WIDTH
 
     this.camera.aspect = f.aspect
     this.camera.fov = f.portrait ? 44 : 40
@@ -148,7 +175,7 @@ export class PlayCamera {
     // leaves a tall frame with a lot of stage floor under it. Tilting up moves
     // the heroes down into the frame and trades that floor for headroom, which
     // is where the count-in and the score plates live anyway.
-    this.lookY = f.heroHeight * (f.portrait && !this.cardVisible ? 0.86 : 0.52)
+    this.lookY = f.heroHeight * (f.portrait && !this.cardVisible ? 0.86 : strip ? 0.5 : 0.52)
     this.apply()
   }
 
@@ -200,7 +227,14 @@ export class PlayCamera {
     this.camera.lookAt(this.target)
 
     const f = this.lastFraming
-    if (this.cardPortrait && f?.viewportH && f.headroom) {
+    const strip = this.cardBand
+    if (strip && f?.viewportH) {
+      // Slide the rendered window so the middle of the frustum lands in the
+      // middle of the band rather than the middle of the screen.
+      this.camera.setViewOffset(f.viewportW ?? 1, f.viewportH, 0, (f.viewportH - strip.top - strip.bottom) / 2,
+        f.viewportW ?? 1, f.viewportH)
+      this.offsetApplied = true
+    } else if (this.cardPortrait && f?.viewportH && f.headroom) {
       this.camera.setViewOffset(f.viewportW ?? 1, f.viewportH, 0, (f.viewportH - f.headroom) / 2,
         f.viewportW ?? 1, f.viewportH)
       this.offsetApplied = true

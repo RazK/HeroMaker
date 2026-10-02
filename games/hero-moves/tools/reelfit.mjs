@@ -1,7 +1,9 @@
 import { chromium } from 'playwright'
 
 /**
- * Does the Stunt Reel fit, at the sizes it actually gets?
+ * Does the Stunt Reel fit, at the sizes it actually gets? And is it laid out
+ * the way it is meant to be: the moves a centred bar along the bottom, one row
+ * in landscape and two in portrait?
  *
  * Twice now a card has shipped that overflowed on a real phone and looked
  * fine at the size it was developed at. The reel puts a fixed control panel at
@@ -36,17 +38,17 @@ for (const size of SIZES) {
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000 })
   await page.waitForTimeout(400)
 
-  // Fill the routine so the panel is measured at its tallest.
-  await page.evaluate(() => {
-    for (const id of ['punch', 'jump', 'backflip', 'dance', 'punch', 'jump']) window.__reel.add(id)
-  })
-  await page.waitForTimeout(300)
 
   const m = await page.evaluate(() => {
     const panel = document.querySelector('.reel-panel')
     const r = panel.getBoundingClientRect()
     const deck = document.querySelector('.reel-card').getBoundingClientRect()
+    const cards = [...document.querySelectorAll('.reel-card')].map((c) => c.getBoundingClientRect())
+    const left = Math.min(...cards.map((c) => c.left)), right = Math.max(...cards.map((c) => c.right))
     return {
+      rows: new Set(cards.map((c) => Math.round(c.top))).size,
+      // Symmetry: how far the block of cards sits off the middle of the screen.
+      offCentre: Math.round(Math.abs((left + right) / 2 - innerWidth / 2)),
       panelH: Math.round(r.height),
       panelW: Math.round(r.width),
       viewH: innerHeight,
@@ -59,10 +61,14 @@ for (const size of SIZES) {
   })
   await page.close()
 
-  // In landscape the panel is a side column, so it costs width, not height.
+  // The moves are a bar along the bottom on every orientation: one row of
+  // eight when the screen is wider than tall, a 4x2 grid when it is not.
   const landscape = size.w > size.h
-  const stageFraction = landscape ? 1 - m.panelW / m.viewW : 1 - m.panelH / m.viewH
+  const stageFraction = 1 - m.panelH / m.viewH
   const problems = []
+  const wantRows = landscape ? 1 : 2
+  if (m.rows !== wantRows) problems.push(`${m.rows} rows of moves, want ${wantRows}`)
+  if (m.offCentre > 1) problems.push(`moves ${m.offCentre}px off centre`)
   if (m.belowBottom > 0) problems.push(`panel ${m.belowBottom}px below the fold`)
   if (m.aboveTop > 0) problems.push(`panel ${m.aboveTop}px above the top`)
   if (m.docScroll > 0) problems.push(`page scrolls ${m.docScroll}px`)
