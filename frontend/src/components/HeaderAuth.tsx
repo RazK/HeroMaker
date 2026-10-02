@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, getAuthToken } from '../api/client';
-import { AuthModal } from './AuthModal';
+import { AuthModal, type AuthMode } from './AuthModal';
 import { CouponRedeem } from './CouponRedeem';
 import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
@@ -26,7 +26,7 @@ interface HeaderAuthProps {
 export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {}) {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -49,7 +49,8 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
     const handleOpenBuy = () => setShowBuyModal(true);
     // Anywhere can ask for sign-in or sign-up, e.g. "Make a hero" while signed out.
     const handleOpenAuth = (e: Event) => {
-      setAuthMode((e as CustomEvent).detail?.mode === 'signup' ? 'signup' : 'login');
+      const mode = (e as CustomEvent).detail?.mode;
+      setAuthMode(mode === 'signup' || mode === 'forgot' ? mode : 'login');
       setShowAuthModal(true);
     };
     window.addEventListener('auth:open', handleOpenAuth);
