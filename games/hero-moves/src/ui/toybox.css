@@ -1,0 +1,94 @@
+/*
+ * The dance game in the HeroMaker app's Toy Box look, laid over its own
+ * stage-light sheet rather than replacing it.
+ *
+ * Only the chrome a player touches changes: cream cards, grape for the action
+ * and for what is chosen, chunky buttons with a pressable depth, Fredoka for
+ * headings and Nunito for everything else, and a round back button to the app
+ * in the top-left corner where the app keeps it. The stage, the move strip and
+ * the score plates keep their dark-theatre styling, which is what they were
+ * measured for (tools/contrast.mjs).
+ *
+ * Tokens match frontend/src/styles/toybox.css.
+ */
+:root {
+  --tb-grape: #5b3df5;
+  --tb-deep: #3a22b8;
+  --tb-sun: #ffc233;
+  --tb-ink: #231942;
+  --tb-cream: #fff6e9;
+  --tb-white: #ffffff;
+  --tb-line: #e9e0fb;
+  --tb-space: 16px;
+  --tb-depth: 4px;
+  --tb-nav: 48px;
+
+  /* The game's own tokens, pointed at the app's palette. */
+  --ink: var(--tb-ink);
+  --paper: var(--tb-cream);
+  --gold: var(--tb-sun);
+  --grape-ink: var(--tb-grape);
+  --radius: 28px;
+}
+
+html, body { font-family: 'Nunito', system-ui, sans-serif; }
+h1, h2, .boot-title, #countdown, #grade, .readout .value, .p-score {
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  font-weight: 600;
+}
+h1 { letter-spacing: 0; }
+.card h1 em, h1 em { color: var(--tb-grape); letter-spacing: .08em; }
+
+/* ---------------------------------------------------------------- buttons */
+.btn {
+  background: var(--tb-grape); color: var(--tb-white);
+  border-radius: 20px;
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-deep);
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.btn:hover { filter: none; }
+.btn:active { transform: translateY(var(--tb-depth)); box-shadow: 0 0 0 var(--tb-deep); }
+.btn:focus-visible { outline: 3px solid var(--tb-sun); }
+.btn.secondary {
+  background: var(--tb-white); color: var(--tb-grape);
+  box-shadow: 0 0 0 2px var(--tb-line) inset, 0 var(--tb-depth) 0 var(--tb-line);
+}
+.btn.secondary:active { box-shadow: 0 0 0 2px var(--tb-line) inset, 0 0 0 var(--tb-line); }
+/* Buttons draw their depth below their box, so the column leaves room for it. */
+.actions { gap: calc(var(--space-2) + var(--tb-depth)); padding-bottom: var(--tb-depth); }
+
+.cam-btn {
+  background: var(--tb-grape); color: var(--tb-white); border-radius: 20px;
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-deep);
+}
+.seg.on { color: var(--tb-grape); }
+.stage-pick.on { background: var(--tb-grape); color: var(--tb-white); }
+.gtile.on { background: rgba(91, 61, 245, .08); }
+
+/* ---------------------------------------------------------------- back */
+.tb-back {
+  position: absolute; z-index: 30;
+  left: calc(var(--tb-space) + env(safe-area-inset-left, 0px));
+  top: calc(var(--tb-space) + env(safe-area-inset-top, 0px));
+  width: var(--tb-nav); height: var(--tb-nav); border-radius: 50%;
+  display: grid; place-items: center; padding: 0; border: 0; cursor: pointer;
+  background: var(--tb-white); color: var(--tb-grape);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-line);
+  pointer-events: auto;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.tb-back:active { transform: translateY(var(--tb-depth)); box-shadow: 0 0 0 var(--tb-line); }
+.tb-back:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 3px; }
+
+/*
+ * With the back button showing, the lobby card keeps clear of its corner. In
+ * portrait the card already sits at the foot of the screen; in landscape it
+ * hugs the left edge, right under the button, so it steps down a row.
+ */
+@media (orientation: landscape) {
+  .has-back #title, .has-back #results {
+    padding-top: calc(var(--tb-nav) + 2 * var(--tb-space));
+    padding-bottom: var(--tb-space);
+  }
+  .has-back .card { max-height: 100%; }
+}
