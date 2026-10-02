@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
+import { Sheet } from './tb/parts';
 import './AuthModal.css';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialMode?: 'login' | 'signup';
 }
 
-export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }: AuthModalProps) {
+  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+  useEffect(() => { if (isOpen) setMode(initialMode); }, [isOpen, initialMode]);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,82 +58,31 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     onClose();
   };
 
+  const switchTo = (m: 'login' | 'signup') => { setMode(m); setError(null); };
+
   return (
-    <div className="auth-modal-overlay" onClick={handleClose}>
-      <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="auth-modal-close" onClick={handleClose}>×</button>
-        
-        <div className="auth-modal-tabs">
-          <button
-            className={`auth-modal-tab ${mode === 'login' ? 'active' : ''}`}
-            onClick={() => {
-              setMode('login');
-              setError(null);
-            }}
-          >
-            Login
-          </button>
-          <button
-            className={`auth-modal-tab ${mode === 'signup' ? 'active' : ''}`}
-            onClick={() => {
-              setMode('signup');
-              setError(null);
-            }}
-          >
-            Sign Up
-          </button>
-        </div>
-
-        <form className="auth-modal-form" onSubmit={handleSubmit}>
-          {error && (
-            <div className="auth-modal-error">
-              {error}
-            </div>
-          )}
-
-          <div className="auth-modal-field">
+    <Sheet title={mode === 'login' ? 'Welcome back' : 'Save every hero'} onClose={handleClose} className="auth-modal">
+      <form className="auth-modal-form" onSubmit={handleSubmit}>
+        <div className="auth-modal-fields">
+          <div className="tb-field">
             <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoComplete="username"
-              disabled={isLoading}
-            />
+            <input id="username" className="tb-input" type="text" value={username} onChange={(e) => setUsername(e.target.value)} required disabled={isLoading} autoComplete="username" />
           </div>
-
           {mode === 'signup' && (
             <>
-              <div className="auth-modal-field">
-                <label htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="auth-modal-field">
-                <label htmlFor="name">Name</label>
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  autoComplete="name"
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="auth-modal-field">
-                <label htmlFor="dateOfBirth">Date of Birth</label>
+          <div className="tb-field">
+            <label htmlFor="email">Email</label>
+            <input id="email" className="tb-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} autoComplete="email" />
+          </div>
+          <div className="tb-field">
+            <label htmlFor="name">Your name</label>
+            <input id="name" className="tb-input" type="text" value={name} onChange={(e) => setName(e.target.value)} required disabled={isLoading} autoComplete="name" />
+          </div>
+              <div className="tb-field">
+                <label htmlFor="dateOfBirth">Date of birth</label>
                 <input
                   id="dateOfBirth"
+                  className="tb-input"
                   type="date"
                   // The backend requires a birth date at least a year back; a
                   // phone's picker opens on today, which it would then reject.
@@ -143,34 +95,36 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               </div>
             </>
           )}
-
-          <div className="auth-modal-field">
+          <div className="tb-field">
             <label htmlFor="password">Password</label>
             <input
               id="password"
+              className="tb-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               minLength={6}
+              placeholder={mode === 'signup' ? 'At least 6 characters' : undefined}
               disabled={isLoading}
             />
-            {mode === 'signup' && (
-              <small className="auth-modal-hint">At least 6 characters</small>
-            )}
           </div>
+        </div>
 
-          <button
-            type="submit"
-            className="auth-modal-submit"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Please wait...' : mode === 'login' ? 'Log In' : 'Sign Up'}
+        <div className="tb-stack auth-modal-actions">
+          {error && <div className="auth-modal-error" role="alert">{error}</div>}
+          <div className="tb-bar-note">
+            {mode === 'login' ? 'New here? ' : 'Already have an account? '}
+            <button type="button" className="tb-link auth-modal-tab" onClick={() => switchTo(mode === 'login' ? 'signup' : 'login')}>
+              {mode === 'login' ? 'Create an account' : 'Sign in'}
+            </button>
+          </div>
+          <button type="submit" className="tb-btn tb-btn--primary tb-btn--full auth-modal-submit" disabled={isLoading}>
+            {isLoading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Sheet>
   );
 }
-

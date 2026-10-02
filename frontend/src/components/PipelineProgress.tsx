@@ -36,12 +36,6 @@ function getReadyStepName(steps: CreationStepResponse[]): string | null {
   return null; // All completed
 }
 
-export function calculateOverallProgress(creation: CreationResponse): number {
-  if (creation.steps.length === 0) return 0;
-  const completed = creation.steps.filter((s) => s.status === 'completed').length;
-  return Math.round((completed / creation.steps.length) * 100);
-}
-
 export function PipelineProgress({ creation, creditBalance, isLoggedIn, currentUserId, isAdmin, onStepRun, onCreationRefresh, onDelete }: PipelineProgressProps) {
   const [previewStep, setPreviewStep] = useState<CreationStepResponse | null>(null);
 

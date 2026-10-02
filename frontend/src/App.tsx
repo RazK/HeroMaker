@@ -1,40 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
-import { HeaderUploadButtons } from './components/HeaderUploadButtons';
 import { HeaderAuth } from './components/HeaderAuth';
 import { PURCHASE_RETURN_PARAM } from './components/BuyCredits';
 import { PipelineProgress } from './components/PipelineProgress';
-import { CreationGallery } from './components/CreationGallery';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
+import { Gallery } from './components/tb/Gallery';
+import { HeroScreen } from './components/tb/HeroScreen';
+import { Icon } from './components/tb/Icon';
+import { Header, NavButton, Sheet } from './components/tb/parts';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
+import './styles/toybox.css';
 import './App.css';
 
+type View = 'gallery' | 'hero' | 'steps' | 'admin';
+
 function App() {
+  const [view, setView] = useState<View>('gallery');
   const [creation, setCreation] = useState<CreationResponse | null>(null);
   const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNewHero, setShowNewHero] = useState(false);
   const [showWebcamModal, setShowWebcamModal] = useState(false);
   const [showPostUploadActions, setShowPostUploadActions] = useState(false);
   const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean } | null>(null);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [galleryKey, setGalleryKey] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoggedIn = creditBalance !== undefined;
 
-  // Load step config on mount
   useEffect(() => {
     loadStepConfig()
-      .then(() => {
-        setPipelineCost(getTotalCost());
-      })
+      .then(() => setPipelineCost(getTotalCost()))
       .catch(console.error);
   }, []);
 
-  // Fetch credit balance and user info when auth state changes
   const refreshCreditBalance = async () => {
     const token = getAuthToken();
     if (!token) {
@@ -46,7 +51,6 @@ function App() {
       const user = await api.getMe();
       setCreditBalance(user.credits);
       setUserInfo({ id: user.id, is_admin: user.is_admin });
-      // Dispatch event to notify HeaderAuth to refresh
       window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
     } catch {
       setCreditBalance(undefined);
@@ -56,15 +60,11 @@ function App() {
 
   useEffect(() => {
     refreshCreditBalance();
-
-    // Listen for auth events
     const handleAuthChange = () => refreshCreditBalance();
     const handleUnauthorized = () => setCreditBalance(undefined);
-
     window.addEventListener('auth:login', handleAuthChange);
     window.addEventListener('auth:logout', handleAuthChange);
     window.addEventListener('auth:unauthorized', handleUnauthorized);
-
     return () => {
       window.removeEventListener('auth:login', handleAuthChange);
       window.removeEventListener('auth:logout', handleAuthChange);
@@ -106,120 +106,219 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
-  // Apply bright mode class to document root for admin users
-  useEffect(() => {
-    if (userInfo?.is_admin) {
-      document.documentElement.classList.add('bright-mode');
-    } else {
-      document.documentElement.classList.remove('bright-mode');
+  const goHome = () => {
+    setView('gallery');
+    setCreation(null);
+    setError(null);
+    setGalleryKey((k) => k + 1);
+    window.scrollTo({ top: 0 });
+  };
+
+  const openHero = (c: CreationResponse) => {
+    setCreation(c);
+    setError(null);
+    setView('hero');
+    window.scrollTo({ top: 0 });
+  };
+
+  // A hero is made by people with an account: signed out, this opens sign-up.
+  const startNewHero = () => {
+    if (!isLoggedIn) {
+      window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup' } }));
+      return;
     }
-  }, [userInfo?.is_admin]);
+    setShowNewHero(true);
+  };
 
   const handleUpload = async (file: File, characterName?: string) => {
-    console.log('[App] handleUpload:', { filename: file.name, characterName });
+    setShowNewHero(false);
     setIsUploading(true);
     setError(null);
-
     try {
-      // Create preview for the modal
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedFilePreview(e.target?.result as string);
-      };
+      reader.onload = (e) => setUploadedFilePreview(e.target?.result as string);
       reader.readAsDataURL(file);
-
-      // Create creation and upload image
       const newCreation = await api.createCreation(file, characterName);
-      console.log('[App] Creation successful:', {
-        creationId: newCreation.id,
-        status: newCreation.status,
-      });
-      
       setCreation(newCreation);
       setShowPostUploadActions(true);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Failed to upload image';
-      console.error('[App] Upload failed:', err);
-      setError(message);
+      setError(err instanceof ApiError ? err.message : 'Failed to upload image');
       setUploadedFilePreview(null);
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const cancelUpload = () => {
+    setShowPostUploadActions(false);
+    setCreation(null);
+    setUploadedFilePreview(null);
   };
 
   const handleStartPipeline = async () => {
     if (!creation) return;
-
     setIsStarting(true);
     setError(null);
-
     try {
-      // Run full pipeline (all steps automatically)
       await api.runPipeline(creation.id);
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
-      
       await refreshCreditBalance();
       setShowPostUploadActions(false);
       setUploadedFilePreview(null);
+      const fresh = await api.getCreation(creation.id).catch(() => creation);
+      openHero(fresh);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Failed to start pipeline';
-      console.error('[App] Pipeline start failed:', err);
-      setError(message);
+      setError(err instanceof ApiError ? err.message : 'Failed to start pipeline');
       await refreshCreditBalance();
     } finally {
       setIsStarting(false);
     }
   };
 
-  const handleSelectCreation = (selectedCreation: CreationResponse) => {
-    console.log('[App] Creation selected:', {
-      creationId: selectedCreation.id,
-      status: selectedCreation.status,
-      stepsCount: selectedCreation.steps.length,
-    });
-    setCreation(selectedCreation);
-    setError(null);
+  const refreshCreation = async () => {
+    if (!creation) return;
+    try {
+      setCreation(await api.getCreation(creation.id));
+    } catch (err) {
+      console.error('[App] Failed to refresh creation:', err);
+    }
   };
 
-  // Note: Auto-start removed - modal now handles pipeline start
+  const hasProcessingStep = creation?.steps.some((s) => s.status === 'processing');
+  const shouldPoll = view !== 'gallery' && creation && (hasProcessingStep || creation.status === 'pending');
+  useCreationPolling(shouldPoll ? creation.id : null, (updated) => setCreation(updated));
 
-  // Poll for updates when there's a processing step
-  const hasProcessingStep = creation?.steps.some(s => s.status === 'processing');
-  const shouldPoll = creation && (hasProcessingStep || creation.status === 'pending');
-  useCreationPolling(shouldPoll ? creation.id : null, (updatedCreation) => {
-    setCreation(updatedCreation);
-  });
+  const short = creditBalance !== undefined && pipelineCost > creditBalance;
+  const notices = (
+    <>
+      {purchaseNotice && <div className="tb-notice app-purchase-notice" role="status"><Icon name="coin" />{purchaseNotice}</div>}
+      {error && (
+        <div className="tb-notice tb-notice--error app-error" role="alert">
+          {error}
+          <button type="button" className="tb-link" onClick={() => setError(null)}>OK</button>
+        </div>
+      )}
+    </>
+  );
+
+  let screen;
+  if (view === 'admin' && userInfo) {
+    screen = (
+      <div className="tb-screen tb-screen--wide">
+        <Header left={<NavButton icon="back" label="Back" onClick={goHome} />} title="Admin" />
+        <div className="tb-screen-body"><AdminPanel onClose={goHome} currentUserId={userInfo.id} /></div>
+      </div>
+    );
+  } else if (view === 'steps' && creation) {
+    screen = (
+      <div className="tb-screen tb-screen--wide">
+        <Header left={<NavButton icon="back" label="Back to hero" onClick={() => setView('hero')} />} title="Every step" />
+        <div className="tb-screen-body app-pipeline-section">
+          <HeroNameEditor
+            creationId={creation.id}
+            characterName={creation.character_name}
+            name={creation.name}
+            age={creation.age}
+            isAdmin={userInfo?.is_admin ?? false}
+            isLoggedIn={isLoggedIn}
+            onCharacterNameUpdated={(v) => setCreation({ ...creation, character_name: v })}
+            onNameUpdated={(v) => setCreation({ ...creation, name: v })}
+            onAgeUpdated={(v) => setCreation({ ...creation, age: v })}
+          />
+          <PipelineProgress
+            creation={creation}
+            creditBalance={creditBalance}
+            isLoggedIn={isLoggedIn}
+            currentUserId={userInfo?.id}
+            isAdmin={userInfo?.is_admin ?? false}
+            onStepRun={() => refreshCreditBalance()}
+            onCreationRefresh={refreshCreation}
+            onDelete={goHome}
+          />
+        </div>
+      </div>
+    );
+  } else if (view === 'hero' && creation) {
+    screen = (
+      <HeroScreen
+        creation={creation}
+        isLoggedIn={isLoggedIn}
+        currentUserId={userInfo?.id}
+        isAdmin={userInfo?.is_admin ?? false}
+        creditBalance={creditBalance}
+        onBack={goHome}
+        onRefresh={refreshCreation}
+        onDeleted={goHome}
+        onShowSteps={() => setView('steps')}
+        onMakeOwn={startNewHero}
+        onCreditsChanged={refreshCreditBalance}
+      />
+    );
+  } else {
+    screen = (
+      <div className="tb-screen tb-screen--wide">
+        <Header
+          left={(
+            <button type="button" className="tb-logo app-header-center" onClick={goHome} aria-label="HeroMaker home">
+              <img src="/logo-head-transparent.png" alt="" />
+              <span>HeroMaker</span>
+            </button>
+          )}
+          right={<HeaderAuth onOpenAdmin={() => setView('admin')} />}
+        />
+        {notices}
+        <div className="tb-screen-body">
+          {!isLoggedIn && (
+            <section className="tb-intro">
+              <h2 className="tb-intro-title">Draw it.<br />We make it a real hero.</h2>
+              <p className="tb-muted">Snap a photo of any drawing. In a few minutes it is a 3D hero that moves, and your kid can play with it.</p>
+            </section>
+          )}
+          <Gallery key={galleryKey} isLoggedIn={isLoggedIn} isAdmin={userInfo?.is_admin ?? false} onSelect={openHero} />
+          <footer className="tb-footer">Made by Raz Karl &amp; Elad Shikley</footer>
+        </div>
+        <div className="tb-bar">
+          <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-new-hero" disabled={isUploading} onClick={startNewHero}>
+            <Icon name="camera" />{isUploading ? 'Uploading…' : 'Make a hero'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="app-header-left">
-          <HeaderUploadButtons
-            onUpload={handleUpload}
-            onStartWebcam={() => setShowWebcamModal(true)}
-            disabled={isUploading}
-            isLoggedIn={creditBalance !== undefined}
-          />
-        </div>
-        <div
-          className="app-header-center"
-          onClick={() => {
-            setCreation(null);
-            setError(null);
-            setShowAdminPanel(false);
-            // Scroll to top smoothly
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          style={{ cursor: 'pointer' }}
-        >
-          <img src="/logo-head-transparent.png" alt="HeroMaker Logo" className="app-logo" />
-          <h1>HeroMaker</h1>
-        </div>
-        <div className="app-header-right">
-          <HeaderAuth onOpenAdmin={() => setShowAdminPanel(true)} />
-        </div>
-      </header>
-      
+      {screen}
+      {/* Off the gallery the account controls are hidden, but its dialogs
+          (buy credits, sign-in) must stay mounted for any screen to open. */}
+      {view !== 'gallery' && <HeaderAuth controls={false} />}
+      {view !== 'gallery' && notices}
+
+      {/* Always mounted, so "Photos" can open it from the sheet. */}
+      <div className="header-upload-buttons" hidden>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+        />
+      </div>
+
+      {showNewHero && (
+        <Sheet title="New hero" onClose={() => setShowNewHero(false)}>
+          <div className="tb-muted tb-new-hero-tip">Whole character in frame · good light</div>
+          <div className="tb-stack">
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => { setShowNewHero(false); setShowWebcamModal(true); }}>
+              <Icon name="camera" />Take a photo
+            </button>
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => fileInputRef.current?.click()}>
+              <Icon name="image" />Choose from photos
+            </button>
+          </div>
+        </Sheet>
+      )}
+
       {showWebcamModal && (
         <FileUpload
           onUpload={(file, characterName) => {
@@ -235,143 +334,30 @@ function App() {
       )}
 
       {showPostUploadActions && creation && (
-        <div className="post-upload-actions-overlay">
-          <div className="post-upload-actions-modal">
-            <button
-              className="post-upload-actions-close"
-              onClick={() => {
-                setShowPostUploadActions(false);
-                setCreation(null);
-                setUploadedFilePreview(null);
-              }}
-              disabled={isStarting}
-            >
-              ×
-            </button>
-            <h3>Make My Hero!</h3>
-            {uploadedFilePreview && (
-              <div className="post-upload-actions-preview">
-                <img src={uploadedFilePreview} alt="Uploaded" />
-              </div>
-            )}
-            <div className="post-upload-actions-buttons">
-              <button
-                className="post-upload-action-button post-upload-action-primary"
-                onClick={handleStartPipeline}
-                disabled={isStarting || (creditBalance !== undefined && pipelineCost > creditBalance)}
-              >
-                <span>{isStarting ? 'Creating...' : 'Go'}</span>
-                {pipelineCost > 0 && <span className="post-upload-action-cost">🪙 {pipelineCost}</span>}
-              </button>
-              <button
-                className="post-upload-action-button post-upload-action-secondary"
-                onClick={() => {
-                  setShowPostUploadActions(false);
-                  setCreation(null);
-                  setUploadedFilePreview(null);
-                }}
-                disabled={isStarting}
-              >
-                Cancel
-              </button>
+        <Sheet title="Make this hero?" onClose={() => { if (!isStarting) cancelUpload(); }} className="post-upload-actions-modal">
+          {uploadedFilePreview && (
+            <div className="tb-upload-preview">
+              <img src={uploadedFilePreview} alt="Your drawing" />
             </div>
-            {creditBalance !== undefined && pipelineCost > creditBalance && (
-              <div className="post-upload-actions-error">
-                Insufficient credits. You have {creditBalance} but need {pipelineCost}.
-                <button
-                  className="post-upload-action-buy"
-                  onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}
-                >
-                  Buy credits 🪙
-                </button>
-              </div>
+          )}
+          <div className="tb-stack" style={{ paddingTop: 8 }}>
+            {short && <div className="tb-bar-note post-upload-actions-error">You need {pipelineCost} credits. You have {creditBalance}.</div>}
+            {short ? (
+              <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}>
+                <Icon name="coin" />Buy credits
+              </button>
+            ) : (
+              <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail post-upload-action-primary" disabled={isStarting} onClick={handleStartPipeline}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="play" />{isStarting ? 'Starting…' : 'Make my hero'}</span>
+                {pipelineCost > 0 && <span className="tb-btn-trail"><Icon name="coin" size={18} />{pipelineCost} credits</span>}
+              </button>
             )}
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" disabled={isStarting} onClick={cancelUpload}>Cancel</button>
           </div>
-        </div>
-      )}
-
-      <main className="app-main">
-        {purchaseNotice && <div className="app-purchase-notice">{purchaseNotice}</div>}
-        {error && (
-          <div className="app-error">
-            <strong>Error:</strong> {error}
-            <button onClick={() => setError(null)}>×</button>
-          </div>
-        )}
-
-        {showAdminPanel && userInfo ? (
-          <AdminPanel
-            onClose={() => setShowAdminPanel(false)}
-            currentUserId={userInfo.id}
-          />
-        ) : !creation ? (
-          <div className="app-gallery-section">
-            <CreationGallery 
-              onSelectCreation={handleSelectCreation}
-            />
-          </div>
-        ) : (
-          <div className="app-pipeline-section">
-            <HeroNameEditor
-              creationId={creation.id}
-              characterName={creation.character_name}
-              name={creation.name}
-              age={creation.age}
-              isAdmin={userInfo?.is_admin ?? false}
-              isLoggedIn={creditBalance !== undefined}
-              onCharacterNameUpdated={(newName) => {
-                setCreation({ ...creation, character_name: newName });
-              }}
-              onNameUpdated={(newName) => {
-                setCreation({ ...creation, name: newName });
-              }}
-              onAgeUpdated={(newAge) => {
-                setCreation({ ...creation, age: newAge });
-              }}
-            />
-
-            <PipelineProgress
-              creation={creation}
-              creditBalance={creditBalance}
-              isLoggedIn={creditBalance !== undefined}
-              currentUserId={userInfo?.id}
-              isAdmin={userInfo?.is_admin ?? false}
-              onStepRun={() => {
-                // Refresh credit balance after step starts
-                refreshCreditBalance();
-              }}
-              onCreationRefresh={async () => {
-                // Directly fetch and update creation state
-                // This ensures UI updates even when polling was stopped
-                try {
-                  const updated = await api.getCreation(creation.id);
-                  setCreation(updated);
-                } catch (err) {
-                  console.error('[App] Failed to refresh creation:', err);
-                }
-              }}
-              onDelete={() => {
-                setCreation(null);
-                setError(null);
-              }}
-            />
-          </div>
-        )}
-      </main>
-      
-      {!creation && (
-        <footer className="app-footer">
-          <div className="app-footer-content">
-            <span className="app-footer-name">Raz Karl</span>
-            <span className="app-footer-normal">&</span>
-            <span className="app-footer-name">Elad Shikley</span>
-            <span className="app-footer-normal">Hanukkah 2025 ©</span>
-          </div>
-        </footer>
+        </Sheet>
       )}
     </div>
   );
 }
 
 export default App;
-

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, CreditPack } from '../api/client';
-import './CouponRedeem.css';
+import { Icon } from './tb/Icon';
+import { Sheet } from './tb/parts';
 import './BuyCredits.css';
 
 interface BuyCreditsProps {
@@ -47,37 +48,36 @@ export function BuyCredits({ isOpen, onClose }: BuyCreditsProps) {
   };
 
   return (
-    <div className="coupon-modal-overlay" onClick={onClose}>
-      <div className="coupon-modal buy-credits-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="coupon-modal-close" onClick={onClose}>×</button>
-        <h2 className="coupon-modal-title">Buy Credits 🪙</h2>
-        <p className="coupon-modal-subtitle">Credits pay for making heroes.</p>
+    <Sheet title="Pick a pack" onClose={onClose} className="buy-credits-modal">
+      <div className="tb-muted buy-credits-note"><Icon name="lock" size={16} />Secure checkout · 1 hero = 10 credits</div>
+      {error && <div className="buy-credits-error" role="alert">{error}</div>}
+      {!packs && !error && <div className="tb-muted">Loading…</div>}
+      {packs && packs.length === 0 && !error && <div className="buy-credits-error">Payments are unavailable right now.</div>}
 
-        {error && <div className="coupon-modal-error">{error}</div>}
-        {!packs && !error && <p className="coupon-modal-subtitle">Loading…</p>}
-        {packs && packs.length === 0 && !error && (
-          <div className="coupon-modal-error">Payments are unavailable right now.</div>
-        )}
-
-        <div className="buy-credits-packs">
-          {packs?.map((pack) => (
-            <button
-              key={pack.slug}
-              className={`buy-credits-pack${pack.highlight ? ' buy-credits-pack-highlight' : ''}`}
-              data-pack={pack.slug}
-              disabled={buying !== null}
-              onClick={() => handleBuy(pack.slug)}
-            >
-              <span className="buy-credits-pack-name">{pack.name}</span>
-              <span className="buy-credits-pack-credits">🪙 {pack.credits}</span>
-              <span className="buy-credits-pack-blurb">{pack.heroes} heroes · {pack.blurb}</span>
-              <span className="buy-credits-pack-price">
-                {buying === pack.slug ? 'Opening checkout…' : pack.price_display}
+      <div className="buy-credits-packs">
+        {packs?.map((pack) => (
+          <button
+            key={pack.slug}
+            type="button"
+            className={`buy-credits-pack${pack.highlight ? ' buy-credits-pack-highlight' : ''}`}
+            data-pack={pack.slug}
+            disabled={buying !== null}
+            onClick={() => handleBuy(pack.slug)}
+          >
+            <span className="buy-credits-pack-main">
+              <span className="buy-credits-pack-name">
+                {pack.name}
+                {pack.highlight && <span className="buy-credits-pack-badge">Best value</span>}
               </span>
-            </button>
-          ))}
-        </div>
+              <span className="buy-credits-pack-blurb">{pack.heroes} heroes</span>
+            </span>
+            <span className="buy-credits-pack-side">
+              <span className="buy-credits-pack-price">{pack.price_display}</span>
+              <span className="buy-credits-pack-credits">{buying === pack.slug ? 'Opening…' : `${pack.credits} credits`}</span>
+            </span>
+          </button>
+        ))}
       </div>
-    </div>
+    </Sheet>
   );
 }

@@ -1,69 +1,28 @@
-.buy-credits-modal {
-  max-width: 440px;
-}
-
-.buy-credits-packs {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
+.buy-credits-note { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; font-size: 14px; }
+.buy-credits-error { color: var(--tb-red); font-weight: 700; padding: 0 4px; }
+.buy-credits-packs { display: flex; flex-direction: column; gap: 12px; }
 .buy-credits-pack {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas:
-    'name price'
-    'credits price'
-    'blurb blurb';
-  gap: 4px 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--tb-radius-card);
+  border: 2.5px solid var(--tb-line);
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  font-family: var(--tb-font-body);
   text-align: left;
-  padding: 14px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
   cursor: pointer;
-  transition: border-color 0.2s, transform 0.1s;
+  box-shadow: 0 4px 0 var(--tb-line);
 }
-
-.buy-credits-pack:hover:not(:disabled) {
-  border-color: var(--accent-color, #6366f1);
-}
-
-.buy-credits-pack:active:not(:disabled) {
-  transform: scale(0.99);
-}
-
-.buy-credits-pack:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-
-.buy-credits-pack-highlight {
-  border-width: 2px;
-  border-color: var(--accent-color, #6366f1);
-}
-
-.buy-credits-pack-name {
-  grid-area: name;
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.buy-credits-pack-credits {
-  grid-area: credits;
-  font-size: 14px;
-}
-
-.buy-credits-pack-blurb {
-  grid-area: blurb;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.buy-credits-pack-price {
-  grid-area: price;
-  align-self: center;
-  font-weight: 700;
-  font-size: 18px;
-}
+.buy-credits-pack:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-line); }
+.buy-credits-pack-highlight { border-color: var(--tb-grape); box-shadow: 0 6px 0 var(--tb-grape-deep); }
+.buy-credits-pack:disabled { opacity: 0.6; cursor: wait; }
+.buy-credits-pack-main { flex-grow: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.buy-credits-pack-name { display: flex; align-items: center; gap: 8px; font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; }
+.buy-credits-pack-badge { padding: 2px 8px; border-radius: 999px; background: var(--tb-sun); font-family: var(--tb-font-body); font-weight: 800; font-size: 12px; text-transform: uppercase; }
+.buy-credits-pack-blurb { font-size: 14px; color: var(--tb-ink-2); }
+.buy-credits-pack-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.buy-credits-pack-price { font-family: var(--tb-font-display); font-weight: 600; font-size: 26px; }
+.buy-credits-pack-credits { font-size: 13px; font-weight: 800; color: var(--tb-ink-2); white-space: nowrap; }

@@ -1,0 +1,75 @@
+.tb-gallery { display: flex; flex-direction: column; gap: 16px; }
+.tb-gallery-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 36px; }
+.tb-gallery-count { flex-shrink: 0; }
+.tb-gallery-chips { display: flex; gap: 8px; overflow-x: auto; min-width: 0; scrollbar-width: none; }
+.tb-gallery-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 720px) { .tb-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+@media (min-width: 1100px) { .tb-gallery-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tb-gallery-empty { padding: 48px 0; text-align: center; color: var(--tb-ink-2); }
+
+.tb-tile {
+  position: relative;
+  height: 232px;
+  border: none;
+  border-radius: var(--tb-radius-card);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--tb-ink);
+  text-align: left;
+  display: block;
+  width: 100%;
+  transition: transform 120ms ease;
+}
+.tb-tile:active { transform: scale(0.98); }
+.tb-tile:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.35); }
+.tb-tile--skeleton { cursor: default; opacity: 0.6; }
+@media (min-width: 720px) { .tb-tile { height: 280px; } }
+
+.tb-tile-img {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 12px;
+  bottom: 72px;
+  width: calc(100% - 16px);
+  height: calc(100% - 84px);
+  object-fit: contain;
+  object-position: center bottom;
+}
+.tb-tile-card {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  height: 56px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border-radius: 20px;
+  background: var(--tb-white);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.tb-tile-name { font-family: var(--tb-font-display); font-weight: 600; font-size: 17px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-tile-by, .tb-tile-status { font-size: 13px; font-weight: 700; color: var(--tb-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-tile-status { color: var(--tb-grape-text); }
+.tb-tile-status--failed { color: var(--tb-red); }
+.tb-tile-progress { height: 6px; border-radius: 3px; background: var(--tb-track); overflow: hidden; }
+.tb-tile-progress span { display: block; height: 100%; background: var(--tb-grape); }
+.tb-tile-play {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--tb-grape);
+  color: var(--tb-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 0 var(--tb-grape-deep);
+}
