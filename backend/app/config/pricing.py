@@ -116,6 +116,11 @@ OP_MESHY_REMESH = "remesh"
 OP_MESHY_RETEXTURE = "retexture"
 OP_MESHY_ANIMATION = "animation"
 OP_VRM_CONVERT = "convert_vrm"
+# A paid step answered from the staging result cache (app/services/result_cache.py)
+# instead of the provider. Booked under PROVIDER_INTERNAL at zero: nothing was
+# spent. The list price the hit avoided is in the event's metadata as
+# "avoided_list_price_usd_micros".
+OP_RESULT_CACHE_HIT = "result_cache_hit"
 
 # Meshy credits per operation. Operations not in this table are billed at 0 and
 # logged, rather than silently dropped.

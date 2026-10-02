@@ -150,13 +150,37 @@ class ParsingTests(unittest.TestCase):
             self.parse("JUST_A_WORD\n")
 
 
+# Keys that are DELIBERATELY set in staging only. Each one is a staging-only
+# behaviour that must never reach production; adding to this list is a
+# decision, not a way to make the test below pass.
+STAGING_ONLY = {
+    # Result cache for the paid pipeline steps, so the staging robot does not
+    # pay OpenAI and Meshy for the same drawing every run.
+    # backend/app/services/result_cache.py
+    "backend": {"PIPELINE_RESULT_CACHE"},
+}
+
+
 class LayeringTests(unittest.TestCase):
     def test_staging_and_production_resolve_identically(self):
         # The point of the layout: no per-environment copies to drift apart.
         for service in tool.service_names(tool.load_project()):
             staging, _ = tool.resolve(service, "staging", include_secrets=False)
             production, _ = tool.resolve(service, "production", include_secrets=False)
+            for key in STAGING_ONLY.get(service, ()):
+                staging.pop(key, None)
             self.assertEqual(staging, production, f"{service} differs between environments")
+
+    def test_staging_only_keys_never_resolve_in_production(self):
+        for service, keys in STAGING_ONLY.items():
+            production, _ = tool.resolve(service, "production", include_secrets=False)
+            for key in keys:
+                self.assertNotIn(key, production, f"{key} must not be set for {service} in production")
+
+    def test_result_cache_is_on_in_staging(self):
+        staging, origin = tool.resolve("backend", "staging", include_secrets=False)
+        self.assertEqual(staging.get("PIPELINE_RESULT_CACHE"), "1")
+        self.assertEqual(origin["PIPELINE_RESULT_CACHE"], "backend.staging.env")
 
     def test_backend_gets_common_and_service_layers(self):
         variables, origin = tool.resolve("backend", "production", include_secrets=False)
