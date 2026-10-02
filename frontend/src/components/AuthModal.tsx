@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { Sheet } from './tb/parts';
+import { GoogleSignIn } from './GoogleSignIn';
 import './AuthModal.css';
 
 interface AuthModalProps {
@@ -58,6 +59,22 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }:
     }
   };
 
+  const handleGoogle = async (credential: string) => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      await api.loginWithGoogle(credential);
+      onSuccess();
+      handleClose();
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 409
+        ? err.message
+        : 'Google sign-in didn\u2019t work. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleClose = () => {
     setUsername('');
     setEmail('');
@@ -101,6 +118,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }:
   return (
     <Sheet title={mode === 'login' ? 'Welcome back' : 'Save every hero'} onClose={handleClose} className="auth-modal">
       <form className="auth-modal-form" onSubmit={handleSubmit}>
+        <GoogleSignIn onCredential={handleGoogle} />
         <div className="auth-modal-fields">
           <div className="tb-field">
             <label htmlFor="username">Username</label>

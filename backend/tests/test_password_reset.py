@@ -182,9 +182,9 @@ def test_rate_limited_per_ip(client, outbox, account):
 
 def test_config_reports_password_reset(client, monkeypatch):
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
-    assert client.get("/api/auth/config").json() == {"password_reset": False}
+    assert client.get("/api/auth/config").json()["password_reset"] is False
     monkeypatch.setenv("RESEND_API_KEY", "re_test")
-    assert client.get("/api/auth/config").json() == {"password_reset": True}
+    assert client.get("/api/auth/config").json()["password_reset"] is True
 
 
 def test_mailer_without_key_sends_nothing_and_logs_link_outside_production(monkeypatch, caplog):

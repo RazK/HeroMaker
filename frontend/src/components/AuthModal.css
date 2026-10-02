@@ -2,5 +2,21 @@
 .auth-modal-fields { display: flex; flex-direction: column; gap: 16px; }
 .auth-modal-actions { padding-top: 8px; }
 .auth-modal-error { color: var(--tb-red); font-weight: 700; text-align: center; }
+
+/* Continue with Google, then "or", then the email form. The button itself is
+   Google's (an iframe GIS renders), so only its slot is styled here. */
+.auth-google { display: flex; flex-direction: column; gap: 16px; }
+.auth-google-button { display: flex; justify-content: center; min-height: 44px; }
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--tb-ink-2);
+  font-weight: 800;
+  font-size: 15px;
+  text-transform: lowercase;
+}
+.auth-or::before,
+.auth-or::after { content: ''; flex: 1; border-top: 2px solid var(--tb-line); }
 .auth-modal-forgot { align-self: flex-end; font-size: 14px; }
 .auth-modal-sent { text-align: center; overflow-wrap: anywhere; }

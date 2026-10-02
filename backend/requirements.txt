@@ -37,4 +37,6 @@ psycopg2-binary>=2.9.9
 # Authentication
 python-jose[cryptography]>=3.3.0
 bcrypt>=4.0.0
+# Sign in with Google: verifies Google Identity Services ID tokens
+google-auth>=2.20.0
 
