@@ -36,11 +36,6 @@ for (const size of SIZES) {
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 300000 })
   await page.waitForTimeout(400)
 
-  // Fill the routine so the panel is measured at its tallest.
-  await page.evaluate(() => {
-    for (const id of ['punch', 'jump', 'backflip', 'dance', 'punch', 'jump']) window.__reel.add(id)
-  })
-  await page.waitForTimeout(300)
 
   const m = await page.evaluate(() => {
     const panel = document.querySelector('.reel-panel')

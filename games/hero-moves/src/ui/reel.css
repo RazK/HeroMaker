@@ -1,120 +1,117 @@
 /*
- * Hero Stunt Reel.
- *
- * The stage owns the top of the screen and the controls own the bottom — the
- * player is watching a performance, so the performance gets the space and the
- * deck gets only what it needs to be tappable.
+ * Hero Moves in the HeroMaker app's Toy Box look: cream paper, grape for what
+ * is happening now, chunky buttons with a pressable depth, Fredoka for names
+ * and Nunito for labels. The stage owns the screen; the moves sit on a sheet at
+ * the bottom, and the header carries one round button per edge.
  */
-#reelUi { pointer-events: none; justify-content: flex-end; }
+:root {
+  --tb-grape: #5b3df5;
+  --tb-deep: #3a22b8;
+  --tb-sun: #ffc233;
+  --tb-ink: #231942;
+  --tb-cream: #fff6e9;
+  --tb-white: #ffffff;
+  --tb-line: #e9e0fb;
+  --tb-space: 16px;
+  --tb-depth: 4px;
+  --tb-nav: 48px;
+}
 
+html, body { font-family: 'Nunito', system-ui, sans-serif; }
+
+#reelUi { pointer-events: none; justify-content: space-between; align-items: stretch; padding: 0; }
+
+/* ---------------------------------------------------------------- header */
+.reel-top {
+  display: grid; grid-template-columns: var(--tb-nav) 1fr var(--tb-nav); align-items: center;
+  gap: var(--tb-space);
+  padding: calc(var(--tb-space) + env(safe-area-inset-top, 0px)) var(--tb-space) 0;
+}
+.reel-nav, .reel-combos {
+  width: var(--tb-nav); height: var(--tb-nav); border-radius: 50%;
+  background: var(--tb-white); color: var(--tb-grape);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-line);
+  display: grid; place-items: center;
+}
+.reel-nav {
+  pointer-events: auto; cursor: pointer; border: 0; padding: 0;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.reel-nav:active { transform: translateY(var(--tb-depth)); box-shadow: 0 0 0 var(--tb-line); }
+.reel-nav:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 3px; }
+.reel-nav-spacer { width: var(--tb-nav); }
+.reel-combos {
+  font: 700 13px/1 'Fredoka', system-ui, sans-serif; color: var(--tb-ink);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.reel-title {
+  text-align: center; font: 600 22px/1.1 'Fredoka', system-ui, sans-serif; color: var(--tb-white);
+  text-shadow: 0 2px 10px rgba(35, 25, 66, .7);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- moves */
 .reel-panel {
   pointer-events: auto;
   width: 100%;
-  background: rgba(18, 12, 32, .9);
-  border-top: 1px solid rgba(253, 247, 236, .14);
-  padding: var(--space-3) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-  display: flex; flex-direction: column; gap: var(--space-2);
+  background: var(--tb-cream);
+  border-radius: 28px 28px 0 0;
+  padding: var(--tb-space) var(--tb-space) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: var(--tb-space);
+  box-shadow: 0 -8px 30px rgba(35, 25, 66, .25);
 }
 @media (orientation: landscape) {
-  .reel-panel { width: min(420px, 44vw); margin-right: auto; border-radius: 0 18px 0 0; }
+  .reel-panel { width: min(440px, 46vw); border-radius: 0 28px 0 0; }
 }
 
-.reel-label {
-  font-size: clamp(9px, 1.3vmin, 11px); font-weight: 800;
-  letter-spacing: .16em; text-transform: uppercase; color: rgba(253, 247, 236, .78);
-}
-
-/* Hero picker: small, because choosing is not the game. */
-.reel-heroes { display: flex; gap: 6px; }
-.reel-hero {
-  pointer-events: auto; cursor: pointer; padding: 0; border: 0;
-  width: 40px; height: 40px; border-radius: 10px; overflow: hidden;
-  background: rgba(253, 247, 236, .1); opacity: .55;
-}
-.reel-hero.on { opacity: 1; outline: 2px solid var(--gold); }
-.reel-hero img { display: block; width: 100%; height: 100%; }
-
-/* The routine, as numbered slots so an empty one still reads as a place. */
-.reel-slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.reel-slot {
-  pointer-events: auto; cursor: pointer;
-  aspect-ratio: 1; border-radius: 12px; border: 2px dashed rgba(253, 247, 236, .22);
-  background: transparent; color: rgba(253, 247, 236, .4);
-  display: grid; place-items: center; font: inherit;
-}
-.reel-slot.filled {
-  border-style: solid; border-color: var(--gold);
-  background: rgba(255, 210, 63, .14); color: var(--paper);
-}
-.reel-slot .ico { font-size: clamp(16px, 3.4vmin, 24px); line-height: 1; }
-.reel-slot .ico.dim { font-size: clamp(11px, 2vmin, 14px); font-weight: 800; }
-
-/* The deck. */
-/* Eight clips now, so two rows of four rather than one of eight — a 40px tap
-   target is the floor on a touch screen and eight across a 320px phone is not. */
-.reel-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.reel-deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .reel-card {
-  pointer-events: auto; cursor: pointer; font: inherit; font-weight: 800;
-  font-size: clamp(10px, 1.5vmin, 12px);
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 8px 4px; border: 0; border-radius: 12px;
-  background: rgba(253, 247, 236, .1); color: var(--paper);
+  cursor: pointer; font: inherit; color: var(--tb-ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 76px; padding: 10px 4px;
+  background: var(--tb-white); border: 2px solid var(--tb-line); border-radius: 20px;
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-line);
+  transition: transform .08s ease, box-shadow .08s ease, background .15s ease;
 }
-.reel-card:active { transform: translateY(2px); }
-.reel-card .ico { font-size: clamp(18px, 3.6vmin, 26px); line-height: 1; }
-
-/* The panel is dark, so the card-styled secondary button vanishes into it. */
-.actions.row { flex-direction: row; gap: var(--space-2); align-items: stretch; }
-.actions.row .btn { flex: 2; white-space: nowrap; font-size: clamp(14px, 2vmin, 19px); }
-.actions.row .btn.secondary {
-  flex: 1;
-  background: rgba(253, 247, 236, .12);
-  color: var(--paper);
-  box-shadow: inset 0 0 0 1px rgba(253, 247, 236, .25);
-}
-.btn[disabled] { opacity: .4; cursor: not-allowed; }
-
-.reel-status {
-  font-size: clamp(10px, 1.5vmin, 12px); font-weight: 700;
-  color: var(--gold); text-align: center; min-height: 1.4em;
+.reel-card:active { transform: translateY(var(--tb-depth)); box-shadow: 0 0 0 var(--tb-line); }
+.reel-card:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 2px; }
+.reel-card .ico { font-size: 28px; line-height: 1; }
+.reel-card .lbl { font-weight: 800; font-size: 13px; }
+.reel-card.on {
+  background: var(--tb-grape); border-color: var(--tb-grape); color: var(--tb-white);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-deep);
 }
 
-/* Combo banner: the entire retention mechanic, so it gets the stage. */
+/* Hero picker, only on the standalone build with its built-in heroes. */
+.reel-heroes { display: flex; justify-content: center; gap: 8px; }
+.reel-hero {
+  cursor: pointer; padding: 0; width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+  background: var(--tb-white); border: 3px solid var(--tb-line);
+}
+.reel-hero.on { border-color: var(--tb-grape); }
+.reel-hero img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* ---------------------------------------------------------------- combo */
 .reel-banner {
   position: absolute; left: 50%; top: 22%; transform: translate(-50%, 0) scale(.8);
-  font-weight: 800; font-size: clamp(26px, 7vmin, 62px);
-  color: var(--gold); letter-spacing: .02em; white-space: nowrap;
+  font: 700 clamp(28px, 8vmin, 60px)/1 'Fredoka', system-ui, sans-serif;
+  color: var(--tb-sun); white-space: nowrap;
   opacity: 0; pointer-events: none;
-  -webkit-text-stroke: 7px rgba(16, 10, 28, .92);
+  -webkit-text-stroke: 7px var(--tb-deep);
   paint-order: stroke fill;
-  text-shadow: 0 6px 28px rgba(0, 0, 0, .75);
+  text-shadow: 0 6px 0 var(--tb-deep);
   transition: opacity .18s ease, transform .18s ease;
 }
 .reel-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 
 /*
- * On a short screen the eight-card deck needs two rows, and the panel grew far
- * enough to squeeze the stage below a third of the height — which is the one
- * thing this design cannot trade, since watching the performance *is* the game.
- * Caught by tools/reelfit.mjs at 320x480, not by looking at it.
- *
- * The labels go rather than the cards: an icon at a full-size tap target beats
- * a named button too small to hit.
+ * On a short screen the labels go rather than the cards: an icon at a
+ * full-size tap target beats a named button too small to hit. Caught by
+ * tools/reelfit.mjs at 320x480.
  */
 @media (max-height: 560px) {
-  .reel-card span:not(.ico) { display: none; }
-  /* Shorter, but never below a thumb. 44px is the floor on a touch screen, and
-     dropping the label without pinning this took the buttons to 30px. */
-  .reel-card { padding: 4px; min-height: 44px; justify-content: center; }
+  .reel-card .lbl { display: none; }
+  .reel-card { min-height: 48px; padding: 4px; }
   .reel-card .ico { font-size: 22px; }
-  .reel-slot { border-radius: 10px; }
   .reel-heroes { display: none; }
-  .reel-label { font-size: 9px; }
-  .reel-panel { gap: 6px; padding-top: 8px; }
-}
-
-.reel-hero-own {
-  font-weight: 700;
-  font-size: 18px;
-  padding: 6px 12px;
 }

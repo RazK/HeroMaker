@@ -41,15 +41,12 @@ async function tap(label) {
   await page.waitForTimeout(650)
 }
 
-// A routine containing two combos: FLY into LANDING is the superhero landing,
-// and PUNCH PUNCH VICTORY is the knockout.
-for (const m of (flag('routine', 'Fly,Landing,Punch,Punch,Victory')).split(',')) await tap(m)
-await page.waitForTimeout(900)
-await page.locator('.btn', { hasText: 'PLAY THE REEL' }).click()
-
-// Let the whole routine run; the clips are a few seconds each.
-await page.waitForFunction(() => window.__reel.playing() === true, null, { timeout: 20000 })
-await page.waitForFunction(() => window.__reel.playing() === false, null, { timeout: 180000 })
+// Two combos: FLY into LANDING is the superhero landing, and PUNCH PUNCH
+// VICTORY is the knockout. Each tap plays at once; let each move finish.
+for (const m of (flag('routine', 'Fly,Landing,Punch,Punch,Victory')).split(',')) {
+  await tap(m)
+  await page.waitForFunction(() => window.__reel.playing() === null, null, { timeout: 30000 })
+}
 await page.waitForTimeout(3000)
 
 await context.close()
