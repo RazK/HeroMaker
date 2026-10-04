@@ -6,9 +6,12 @@ from typing import Optional
 import io
 import mimetypes
 import logging
+import os
+import time
 from sqlalchemy.orm import Session
 from app.config.settings import FILES_ROOT
-from app.utils.storage import get_storage, LocalFileStorage, THUMB_PREFIX
+from app.utils.storage import get_storage, LocalFileStorage, THUMB_PREFIX, OPT_PREFIX, optimized_name
+from app.utils.gltf_optimize import optimize_glb
 from app.services.auth import get_current_user_required
 from app.models import User, Creation
 from app.database import get_db
@@ -105,6 +108,62 @@ def _s3_thumbnail_redirect(storage, user_id: str, creation_id: str,
     return _s3_redirect(storage, user_id, creation_id, thumb_name)
 
 
+def _opt_media_type(filename: str) -> str:
+    return "model/gltf-binary" if filename.lower().endswith(".glb") else "application/octet-stream"
+
+
+def _make_optimized(data: bytes, original_name: str) -> Optional[bytes]:
+    """A web-optimized copy of a GLB/VRM, or None if it cannot be made.
+
+    ~0.5 s for a pipeline hero (7.4 MB walking.glb -> 1.5 MB); callers run it in
+    a worker thread so the event loop is never blocked.
+    """
+    started = time.perf_counter()
+    try:
+        result = optimize_glb(data)
+    except Exception as e:
+        logger.error(f"Failed to optimize {original_name}: {e}")
+        return None
+    logger.info(f"Optimized {original_name}: {result.before} -> {result.after} bytes "
+                f"in {time.perf_counter() - started:.2f}s")
+    return result.data
+
+
+def _s3_optimized_redirect(storage, user_id: str, creation_id: str,
+                           opt_name: str, original_name: str) -> RedirectResponse:
+    """Redirect to the cached optimized copy, generating and storing it on first use."""
+    if not storage.file_exists(user_id, creation_id, opt_name):
+        try:
+            data = storage.download_file(user_id, creation_id, original_name)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="File not found")
+        optimized = _make_optimized(data, original_name)
+        if optimized is None:
+            return _s3_redirect(storage, user_id, creation_id, original_name)
+        storage.upload_file(user_id, creation_id, opt_name, optimized,
+                            content_type=_opt_media_type(original_name))
+    return _s3_redirect(storage, user_id, creation_id, opt_name)
+
+
+def _local_optimized_path(original_path: Path, opt_path: Path) -> Path:
+    """The cached optimized copy on disk, (re)generated when missing or stale.
+
+    Locally the pipeline writes its outputs straight to disk rather than through
+    storage.upload_file, so the copy is also regenerated when it is older than
+    the original. Returns the original if no copy can be made.
+    """
+    if opt_path.exists() and opt_path.stat().st_mtime >= original_path.stat().st_mtime:
+        return opt_path
+    optimized = _make_optimized(original_path.read_bytes(), original_path.name)
+    if optimized is None:
+        return original_path
+    # Write then rename, so a concurrent request never serves half a file.
+    tmp = opt_path.with_name(f".{opt_path.name}.{os.getpid()}.{time.monotonic_ns()}.tmp")
+    tmp.write_bytes(optimized)
+    os.replace(tmp, opt_path)
+    return opt_path
+
+
 @router.get("/download/{user_id}/{creation_id}/{filename:path}")
 async def download_file(
     user_id: str,
@@ -167,6 +226,11 @@ async def serve_file(user_id: str, creation_id: str, filename: str):
     to get a thumbnail no larger than THUMBNAIL_SIZE. It is generated from the
     original on first request and cached next to it, on disk or as an S3 object.
     Uploading a new original deletes the cached thumbnail (see storage.upload_file).
+
+    Likewise 'opt_' + a .glb or .vrm name (e.g. opt_walking.glb) serves a copy
+    ~5x smaller and visually identical (see app/utils/gltf_optimize.py), made on
+    first request and cached the same way. If it cannot be made, the original
+    is served instead.
     """
     # Basic security check
     if ".." in filename or ".." in user_id or ".." in creation_id:
@@ -174,12 +238,23 @@ async def serve_file(user_id: str, creation_id: str, filename: str):
 
     storage = get_storage()
 
-    # Handle thumbnail requests
+    # Handle thumbnail and optimized-copy requests
     is_thumbnail = filename.startswith(THUMB_PREFIX)
-    original_filename = filename[len(THUMB_PREFIX):] if is_thumbnail else filename
+    is_optimized = (not is_thumbnail and filename.startswith(OPT_PREFIX)
+                    and optimized_name(filename[len(OPT_PREFIX):]) == filename)
+    if is_thumbnail:
+        original_filename = filename[len(THUMB_PREFIX):]
+    elif is_optimized:
+        original_filename = filename[len(OPT_PREFIX):]
+    else:
+        original_filename = filename
 
     if not isinstance(storage, LocalFileStorage):
-        # S3 storage: redirect to a presigned URL of the (cached) thumbnail or file.
+        # S3 storage: redirect to a presigned URL of the (cached) derived copy or file.
+        if is_optimized:
+            return await run_in_threadpool(
+                _s3_optimized_redirect, storage, user_id, creation_id, filename, original_filename
+            )
         if is_thumbnail:
             return await run_in_threadpool(
                 _s3_thumbnail_redirect, storage, user_id, creation_id, filename, original_filename
@@ -193,6 +268,15 @@ async def serve_file(user_id: str, creation_id: str, filename: str):
         raise HTTPException(status_code=404, detail="File not found")
 
     original_path = storage.get_file_path(user_id, creation_id, original_filename)
+
+    if is_optimized:
+        file_path = await run_in_threadpool(
+            _local_optimized_path, original_path, original_path.parent / filename
+        )
+        return FileResponse(file_path, media_type=_opt_media_type(original_filename), headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "ETag": f'"{file_path.stat().st_mtime}"',
+        })
 
     if is_thumbnail:
         thumb_path = original_path.parent / filename

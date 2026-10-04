@@ -80,6 +80,14 @@ Measured on the sample pack and verified by playing the result back: identical
 motion, 56% fewer bytes. Keyframe values, interpolation and timing are
 untouched. It is the dead-thumbnail finding one asset type over.
 
+The logic lives in `backend/app/utils/gltf_optimize.py` (plain GLB too: skins,
+animations, several textures). The backend serves it as **`opt_<name>`** for any
+`.glb`/`.vrm` (`/api/files/<user>/<creation>/opt_walking.glb`): made on first
+request, cached next to the original like `thumb_`, dropped on re-upload. That
+copy carries WebP spec-correctly via `EXT_texture_webp` (three.js reads it);
+the CLI keeps its data-URI form unless given `--webp-extension`. Measured on a
+staging hero: walking.glb 7.41 -> 1.49 MB, model.glb 4.17 -> 1.23 MB, ~0.5 s.
+
 **If you are working on preview/gallery/thumbnail load times, start here** — the
 dead-thumbnail finding is a pipeline bug worth fixing at the source
 (`vrm-converter-service/`), which would shrink every avatar for every consumer

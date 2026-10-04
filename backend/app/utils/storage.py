@@ -28,11 +28,32 @@ from app.config.settings import FILES_ROOT
 THUMB_PREFIX = "thumb_"
 
 
+# Web-optimized copies of 3D files are stored next to theirs as "opt_<filename>".
+OPT_PREFIX = "opt_"
+OPTIMIZABLE_SUFFIXES = (".glb", ".vrm")
+
+_DERIVED_PREFIXES = (THUMB_PREFIX, OPT_PREFIX)
+
+
 def thumbnail_name(filename: str) -> Optional[str]:
     """The cached-thumbnail name derived from ``filename``, or None for a thumbnail itself."""
     if filename.startswith(THUMB_PREFIX):
         return None
     return THUMB_PREFIX + filename
+
+
+def optimized_name(filename: str) -> Optional[str]:
+    """The cached web-optimized name for a .glb/.vrm, or None if there is none."""
+    if filename.startswith(_DERIVED_PREFIXES) or not filename.lower().endswith(OPTIMIZABLE_SUFFIXES):
+        return None
+    return OPT_PREFIX + filename
+
+
+def derived_names(filename: str) -> list[str]:
+    """Every cached copy generated from ``filename``; uploading it makes them stale."""
+    if filename.startswith(_DERIVED_PREFIXES):
+        return []
+    return [n for n in (thumbnail_name(filename), optimized_name(filename)) if n]
 
 
 class StorageBackend(ABC):
@@ -43,8 +64,9 @@ class StorageBackend(ABC):
                     content_type: Optional[str] = None) -> str:
         """Upload a file and return the storage key/path.
 
-        Uploading a file invalidates its cached thumbnail (``thumb_<filename>``),
-        so a re-rendered image never keeps showing the old one in the gallery.
+        Uploading a file invalidates its cached copies (``thumb_<filename>``, and
+        ``opt_<filename>`` for a .glb/.vrm), so a re-rendered image or re-rigged
+        model never keeps showing the old one.
         """
         pass
     
@@ -97,9 +119,8 @@ class LocalFileStorage(StorageBackend):
         """Upload a file to local filesystem."""
         file_path = self._get_file_path(user_id, creation_id, filename)
         file_path.write_bytes(file_data)
-        thumb = thumbnail_name(filename)
-        if thumb:
-            (file_path.parent / thumb).unlink(missing_ok=True)
+        for derived in derived_names(filename):
+            (file_path.parent / derived).unlink(missing_ok=True)
         return str(file_path)
     
     def download_file(self, user_id: str, creation_id: str, filename: str) -> bytes:
@@ -183,15 +204,14 @@ class S3FileStorage(StorageBackend):
         except (ClientError, BotoCoreError) as e:
             logger.error(f"Failed to upload file to S3: {s3_key}, error: {e}")
             raise
-        thumb = thumbnail_name(filename)
-        if thumb:
+        for derived in derived_names(filename):
             # delete_object succeeds for a missing key, so this is one cheap call.
             try:
                 self.s3_client.delete_object(
-                    Bucket=self.bucket_name, Key=self._get_s3_key(user_id, creation_id, thumb)
+                    Bucket=self.bucket_name, Key=self._get_s3_key(user_id, creation_id, derived)
                 )
             except (ClientError, BotoCoreError) as e:
-                logger.warning(f"Could not invalidate thumbnail for {s3_key}: {e}")
+                logger.warning(f"Could not invalidate {derived} for {s3_key}: {e}")
         return s3_key
     
     def download_file(self, user_id: str, creation_id: str, filename: str) -> bytes:
