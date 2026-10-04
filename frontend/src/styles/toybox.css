@@ -285,6 +285,14 @@ h1, h2, h3, h4 {
   display: flex;
   flex-direction: column;
 }
+/* A screen that never scrolls: exactly the visible height, the stage takes
+   what the header, text and bar leave. Only where that leaves a stage worth
+   looking at; on a very short screen it scrolls rather than squash. */
+@media (min-height: 560px) {
+  .tb-screen--fit { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+  .tb-screen--fit .tb-screen-body { overflow: hidden; }
+  .tb-screen--fit .tb-stage { min-height: 0; }
+}
 .tb-screen-body {
   flex-grow: 1;
   min-height: 0;

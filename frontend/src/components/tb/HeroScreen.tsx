@@ -17,6 +17,7 @@ interface HeroScreenProps {
   onRefresh: () => Promise<void>;
   onDeleted: () => void;
   onShowSteps: () => void;
+  onShowMaking: () => void;
   onMakeOwn: () => void;
   onCreditsChanged: () => void;
 }
@@ -103,7 +104,10 @@ export function HeroScreen(props: HeroScreenProps) {
     <Header
       left={<NavButton icon="back" label="Back to heroes" onClick={props.onBack} className="tb-back" />}
       title={state === 'making' || state === 'idle' ? `Making ${name}` : undefined}
-      right={owns && state !== 'making' ? <NavButton icon="more" label="More actions" onClick={() => setSheet('more')} className="tb-more" /> : undefined}
+      right={<>
+        {(state === 'ready' || painted) && <NavButton icon="layers" label="How it was made" onClick={props.onShowMaking} className="tb-making-of-open" />}
+        {owns && state !== 'making' && <NavButton icon="more" label="More actions" onClick={() => setSheet('more')} className="tb-more" />}
+      </>}
     />
   );
 
@@ -113,10 +117,10 @@ export function HeroScreen(props: HeroScreenProps) {
       <img className={`tb-stage-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
       {state === 'making' && !painted && <div className="tb-scanline" />}
       {(state === 'ready' || painted) && (
-        <div className="tb-polaroid">
+        <button type="button" className="tb-polaroid tb-polaroid--button" onClick={props.onShowMaking} aria-label="How it was made">
           <img src={file('thumb_original.jpg')} alt="The drawing" />
           <div>{creation.name ? `${creation.name}${creation.age ? `, ${creation.age}` : ''}` : 'The drawing'}</div>
-        </div>
+        </button>
       )}
     </div>
   );
@@ -179,7 +183,7 @@ export function HeroScreen(props: HeroScreenProps) {
   }
 
   return (
-    <div className="tb-screen tb-hero-screen" data-state={state}>
+    <div className="tb-screen tb-screen--fit tb-hero-screen" data-state={state}>
       {header}
       <div className="tb-screen-body">
         {error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>}
