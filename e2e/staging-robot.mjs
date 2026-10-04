@@ -452,6 +452,19 @@ try {
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
     const play = page.locator('.tb-play');
     await play.waitFor({ timeout: 20000 });
+    // The hero screen fits the phone: nothing to scroll.
+    const scrolls = await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1);
+    if (scrolls) throw new Error('hero screen scrolls');
+    // "How it was made": drawing, painting, 3D, moving.
+    await page.locator('.tb-making-of-open').click();
+    await page.waitForSelector('.tb-making-of', { timeout: 10000 });
+    const phases = await page.locator('.tb-making-steps [role="tab"]').count();
+    if (phases !== 4) throw new Error(`making-of shows ${phases} phases, expected 4`);
+    for (let i = 0; i < 3; i++) await page.locator('.tb-making-next').click();
+    await page.locator('.tb-making-stage canvas').waitFor({ timeout: 20000 });
+    await snap(page, 'making-of');
+    await page.locator('.tb-back').click();
+    await play.waitFor({ timeout: 10000 });
     // Play opens a chooser with one card per game.
     await play.click();
     const stunt = page.locator('.tb-game-card[data-game="stunt"]');
