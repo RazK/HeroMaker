@@ -105,7 +105,6 @@ export function HeroScreen(props: HeroScreenProps) {
       left={<NavButton icon="back" label="Back to heroes" onClick={props.onBack} className="tb-back" />}
       title={state === 'making' || state === 'idle' ? `Making ${name}` : undefined}
       right={<>
-        {(state === 'ready' || painted) && <NavButton icon="layers" label="How it was made" onClick={props.onShowMaking} className="tb-making-of-open" />}
         {owns && state !== 'making' && <NavButton icon="more" label="More actions" onClick={() => setSheet('more')} className="tb-more" />}
       </>}
     />
@@ -116,6 +115,11 @@ export function HeroScreen(props: HeroScreenProps) {
       {state === 'ready' && <div className="tb-stage-sun" />}
       <img className={`tb-stage-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
       {state === 'making' && !painted && <div className="tb-scanline" />}
+      {state === 'ready' && (
+        <button type="button" className="tb-pill tb-making-of-open" onClick={props.onShowMaking}>
+          <Icon name="play" size={16} />How it was made
+        </button>
+      )}
       {(state === 'ready' || painted) && (
         <button type="button" className="tb-polaroid tb-polaroid--button" onClick={props.onShowMaking} aria-label="How it was made">
           <img src={file('thumb_original.jpg')} alt="The drawing" />
