@@ -445,7 +445,7 @@ h1, h2, h3, h4 {
   width: calc(100% - 32px);
   height: calc(100% - 32px);
   object-fit: contain;
-  object-position: center bottom;
+  object-position: center;
 }
 .tb-polaroid {
   position: absolute;
