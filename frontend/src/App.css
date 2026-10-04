@@ -1,7 +1,7 @@
 /* App shell. Everything visual lives in styles/toybox.css. */
 
 .app {
-  min-height: 100vh;
+  min-height: 100%;
   min-height: 100dvh;
   background: var(--tb-cream);
 }
@@ -25,3 +25,7 @@
 .tb-new-hero-tip { padding: 0 4px 12px; }
 
 .app-pipeline-section { gap: 24px; }
+
+/* Notices raised while a fit screen is showing float over it: below such a
+   screen they would be outside the visible area, and could not be scrolled to. */
+.tb-toasts { position: fixed; top: 80px; left: 0; right: 0; z-index: 900; max-width: 560px; margin: 0 auto; }

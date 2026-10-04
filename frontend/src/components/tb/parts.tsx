@@ -53,11 +53,11 @@ export function NavButton({ icon, label, onClick, className = '' }: { icon: Icon
   );
 }
 
-export function Header({ left, title, right }: { left?: ReactNode; title?: string; right?: ReactNode }) {
+export function Header({ left, title, right, titleClassName = '' }: { left?: ReactNode; title?: string; right?: ReactNode; titleClassName?: string }) {
   return (
     <header className="tb-header">
       <div className="tb-header-side">{left}</div>
-      {title && <div className="tb-header-title">{title}</div>}
+      {title && <div className={`tb-header-title ${titleClassName}`.trim()}>{title}</div>}
       <div className="tb-header-side tb-header-side--end">{right}</div>
     </header>
   );
@@ -79,4 +79,25 @@ export function Stepper({ steps }: { steps: StepView[] }) {
       ))}
     </div>
   );
+}
+
+/**
+ * For screens that fit the viewport exactly (`.tb-screen--fit`): while one is
+ * mounted the document itself cannot scroll. Without this, anything in the
+ * page that is a pixel taller than the visible area -- on mobile Chrome, any
+ * `100vh`, which is the height with the URL bar HIDDEN -- lets the page slide
+ * under the finger and drags the header out of view.
+ */
+let fitScreens = 0;
+export function useFitScreen() {
+  useEffect(() => {
+    const html = document.documentElement;
+    fitScreens += 1;
+    html.classList.add('tb-no-scroll');
+    window.scrollTo(0, 0);
+    return () => {
+      fitScreens -= 1;
+      if (fitScreens === 0) html.classList.remove('tb-no-scroll');
+    };
+  }, []);
 }

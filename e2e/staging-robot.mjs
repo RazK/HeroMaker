@@ -452,12 +452,26 @@ try {
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
     const play = page.locator('.tb-play');
     await play.waitFor({ timeout: 20000 });
-    // The hero screen fits the phone: nothing to scroll.
-    const scrolls = await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1);
-    if (scrolls) throw new Error('hero screen scrolls');
-    // "How it was made": drawing, painting, 3D, moving.
-    await page.locator('.tb-making-of-open').click();
+    // The hero screen fits the phone, and the document itself cannot scroll:
+    // a desktop browser has no collapsing URL bar, so "it fits here" is not
+    // enough; the page must be locked (overflow hidden on html and body).
+    const noScroll = () => page.evaluate(() => {
+      const h = document.documentElement;
+      const locked = [h, document.body].every((el) => getComputedStyle(el).overflowY === 'hidden');
+      window.scrollTo(0, 500);
+      return { fits: h.scrollHeight <= innerHeight + 1, locked, y: window.scrollY };
+    });
+    let ns = await noScroll();
+    if (!ns.fits || !ns.locked || ns.y !== 0) throw new Error(`hero screen can scroll: ${JSON.stringify(ns)}`);
+    // The header's title is the hero's name.
+    const title = (await page.locator('.tb-hero-screen .tb-header-title').innerText()).trim();
+    const playText = (await play.innerText()).trim();
+    if (!title || !playText.endsWith(title)) throw new Error(`header title "${title}" is not the hero's name (Play reads "${playText}")`);
+    // "How it was made": from its button in the bar; drawing, painting, 3D, moving.
+    await page.locator('.tb-bar .tb-making-of-open').click();
     await page.waitForSelector('.tb-making-of', { timeout: 10000 });
+    ns = await noScroll();
+    if (!ns.fits || !ns.locked || ns.y !== 0) throw new Error(`"How it was made" can scroll: ${JSON.stringify(ns)}`);
     const phases = await page.locator('.tb-making-steps [role="tab"]').count();
     if (phases !== 4) throw new Error(`making-of shows ${phases} phases, expected 4`);
     for (let i = 0; i < 3; i++) await page.locator('.tb-making-next').click();

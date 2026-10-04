@@ -78,6 +78,25 @@
   --radius-lg: 28px;
 }
 
+/* The height chain. Percentages resolve against the initial containing
+   block, which on mobile is the visible area with the URL bar SHOWN; `vh` is
+   the area with it HIDDEN, so nothing at page level is sized in vh. */
+html { height: 100%; }
+body { min-height: 100%; }
+
+/* While a fit screen is mounted (useFitScreen), the document does not scroll
+   at all: no overflow, no rubber-band, no pull-to-refresh, no URL bar sliding
+   the header out of view. Each level is exactly the visible height. */
+html.tb-no-scroll,
+html.tb-no-scroll body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html.tb-no-scroll #root,
+html.tb-no-scroll .app { height: 100%; min-height: 0; overflow: hidden; }
+html.tb-no-scroll .tb-screen--fit { height: 100%; }
+
 html body {
   font-family: var(--tb-font-body);
   background: var(--tb-cream);
@@ -286,12 +305,25 @@ h1, h2, h3, h4 {
   flex-direction: column;
 }
 /* A screen that never scrolls: exactly the visible height, the stage takes
-   what the header, text and bar leave. Only where that leaves a stage worth
-   looking at; on a very short screen it scrolls rather than squash. */
-@media (min-height: 560px) {
-  .tb-screen--fit { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
-  .tb-screen--fit .tb-screen-body { overflow: hidden; }
-  .tb-screen--fit .tb-stage { min-height: 0; }
+   what the header and the bar leave. A drag on it (or on its 3D canvas) is
+   never a page scroll. */
+.tb-screen--fit { height: 100svh; height: 100dvh; min-height: 0; overflow: hidden; }
+.tb-screen--fit .tb-screen-body { overflow: hidden; }
+.tb-screen--fit .tb-stage { min-height: 0; touch-action: none; }
+/* Phone on its side: too short to stack header, stage and bar, so the bar
+   moves beside the stage. Play stays the bottom-most button. */
+@media (orientation: landscape) and (max-height: 559px) {
+  .tb-screen--fit {
+    max-width: 960px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .tb-screen--fit > .tb-header { grid-column: 1 / -1; }
+  /* 8 + 8: the same 16px between stage and bar as everywhere else, and room
+     for the current step's ring at the stepper's end. */
+  .tb-screen--fit > .tb-screen-body { padding-right: 8px; }
+  .tb-screen--fit > .tb-bar { padding-left: 8px; justify-content: flex-end; box-shadow: none; }
 }
 .tb-screen-body {
   flex-grow: 1;
@@ -338,7 +370,9 @@ h1, h2, h3, h4 {
   width: 100%;
   max-width: 560px;
   max-height: 92vh;
+  max-height: 92dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--tb-white);
   border-radius: var(--tb-radius-card) var(--tb-radius-card) 0 0;
   padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));

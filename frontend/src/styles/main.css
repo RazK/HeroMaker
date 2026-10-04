@@ -64,9 +64,9 @@ body {
   line-height: 1.6;
 }
 
-#root {
-  min-height: 100vh;
-}
+/* No min-height here: on mobile 100vh is taller than the visible area (it is
+   the height with the URL bar hidden), which made every screen scroll by the
+   URL bar's height. The app shell sizes itself (App.css). */
 
 /* Utility classes */
 .spinner {

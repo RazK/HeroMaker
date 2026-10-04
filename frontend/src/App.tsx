@@ -305,7 +305,7 @@ function App() {
       {/* Off the gallery the account controls are hidden, but its dialogs
           (buy credits, sign-in) must stay mounted for any screen to open. */}
       {view !== 'gallery' && <HeaderAuth controls={false} />}
-      {view !== 'gallery' && notices}
+      {view !== 'gallery' && <div className="tb-toasts">{notices}</div>}
 
       {/* Always mounted, so "Photos" can open it from the sheet. */}
       <div className="header-upload-buttons" hidden>
