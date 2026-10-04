@@ -3,7 +3,7 @@ import { api, ApiError, CreationResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { GameChooser } from './GameChooser';
 import { Icon } from './Icon';
-import { Dialog, Header, NavButton, Sheet, SheetRow, Stepper } from './parts';
+import { Dialog, Header, NavButton, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
 import { STEP_UI, currentStep, etaText, heroName, heroState, remainingCost, stepViews } from './pipeline';
 import './HeroScreen.css';
 
@@ -36,6 +36,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
+  useFitScreen();
 
   // The estimate counts down between polls.
   useEffect(() => {
@@ -100,13 +101,31 @@ export function HeroScreen(props: HeroScreenProps) {
   const retryCost = remainingCost(creation);
   const short = creditBalance !== undefined && retryCost > creditBalance;
 
+  const ready = state === 'ready';
+  const canShare = ready || painted;
+  // The sheet behind ⋯ : the same button for everyone, more rows for the owner.
+  const moreRows = [
+    canShare && <SheetRow key="share" icon="share" label="Share" onClick={() => { setSheet(null); share(); }} />,
+    ready && <SheetRow key="made" icon="layers" label="How it was made" onClick={() => { setSheet(null); props.onShowMaking(); }} />,
+    ...(owns ? [
+      <SheetRow key="rename" icon="pencil" label="Rename" onClick={() => setSheet('rename')} />,
+      ready && <SheetRow key="again" icon="redo" label="Make it again" trail={`${getTotalCost()} credits`} onClick={makeAgain} />,
+      ready && <SheetRow key="vrm" icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />,
+      <SheetRow key="steps" icon="grid" label="See every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />,
+      <div key="div" className="tb-sheet-divider" />,
+      <SheetRow key="delete" icon="trash" label="Delete hero" danger onClick={() => setSheet('delete')} />,
+    ] : []),
+  ].filter(Boolean);
+
+  // Back | the hero's name | ⋯ — the same three things on every state, so
+  // nothing moves as the hero comes to life. With nothing to offer (a visitor
+  // watching a hero being made) the end keeps its width, empty.
   const header = (
     <Header
       left={<NavButton icon="back" label="Back to heroes" onClick={props.onBack} className="tb-back" />}
-      title={state === 'making' || state === 'idle' ? `Making ${name}` : undefined}
-      right={<>
-        {owns && state !== 'making' && <NavButton icon="more" label="More actions" onClick={() => setSheet('more')} className="tb-more" />}
-      </>}
+      title={name}
+      titleClassName="hero-name"
+      right={moreRows.length > 0 && <NavButton icon="more" label="More" onClick={() => setSheet('more')} className="tb-more" />}
     />
   );
 
@@ -115,11 +134,6 @@ export function HeroScreen(props: HeroScreenProps) {
       {state === 'ready' && <div className="tb-stage-sun" />}
       <img className={`tb-stage-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
       {state === 'making' && !painted && <div className="tb-scanline" />}
-      {state === 'ready' && (
-        <button type="button" className="tb-pill tb-making-of-open" onClick={props.onShowMaking}>
-          <Icon name="play" size={16} />How it was made
-        </button>
-      )}
       {(state === 'ready' || painted) && (
         <button type="button" className="tb-polaroid tb-polaroid--button" onClick={props.onShowMaking} aria-label="How it was made">
           <img src={file('thumb_original.jpg')} alt="The drawing" />
@@ -132,27 +146,18 @@ export function HeroScreen(props: HeroScreenProps) {
   let body;
   let bar;
   if (state === 'ready') {
-    body = (
+    body = stage;
+    // Two equal secondary buttons, then Play: the same height and the same
+    // place for Play whoever is looking. Only the second button differs.
+    bar = (
       <>
-        <div className="tb-hero-title tb-ready">
-          <div className="tb-eyebrow">{creation.name ? `${creation.name}’s hero is ready` : 'Your hero is ready'}</div>
-          <div className="tb-h1 hero-name">{name}</div>
-        </div>
-        {stage}
-      </>
-    );
-    bar = owns ? (
-      <>
-        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play control-bar-play" onClick={() => setSheet('play')}><Icon name="play" />Play with {name}</button>
         <div className="tb-bar-row">
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={share}><Icon name="share" />Share</button>
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={downloadVrm}><Icon name="download" />Download</button>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-making-of-open" onClick={props.onShowMaking}><Icon name="layers" />How it was made</button>
+          {owns
+            ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-share" onClick={share}><Icon name="share" />Share</button>
+            : <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-make-own" onClick={props.onMakeOwn}><Icon name="camera" />Make your own</button>}
         </div>
-      </>
-    ) : (
-      <>
-        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('play')}><Icon name="play" />Play with {name}</button>
-        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onMakeOwn}><Icon name="camera" />Make your own hero</button>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('play')}><Icon name="play" /><span className="tb-btn-label">Play with {name}</span></button>
       </>
     );
   } else {
@@ -199,12 +204,7 @@ export function HeroScreen(props: HeroScreenProps) {
 
       {sheet === 'more' && (
         <Sheet title={name} onClose={() => setSheet(null)}>
-          <SheetRow icon="pencil" label="Rename" onClick={() => setSheet('rename')} />
-          {state === 'ready' && <SheetRow icon="redo" label="Make it again" trail={`${getTotalCost()} credits`} onClick={makeAgain} />}
-          {state === 'ready' && <SheetRow icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />}
-          <SheetRow icon="grid" label="See every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />
-          <div className="tb-sheet-divider" />
-          <SheetRow icon="trash" label="Delete hero" danger onClick={() => setSheet('delete')} />
+          {moreRows}
         </Sheet>
       )}
       {sheet === 'rename' && <RenameSheet creation={creation} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}

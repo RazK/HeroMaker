@@ -17,9 +17,11 @@
   border-radius: 12px;
   max-width: 90vw;
   max-height: 90vh;
+  max-height: 90dvh;
   width: 100%;
   max-width: 600px;
   height: 80vh;
+  height: 80dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -115,5 +117,6 @@
   .preview-modal {
     max-width: 900px;
     height: 85vh;
+    height: 85dvh;
   }
 }

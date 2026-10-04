@@ -68,6 +68,7 @@
   max-width: 90vw;
   height: auto;
   max-height: 85vh;
+  max-height: 85dvh;
   aspect-ratio: 4 / 3;
   display: flex;
   flex-direction: column;

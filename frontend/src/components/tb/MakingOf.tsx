@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, CreationResponse } from '../../api/client';
 import { ModelPreview } from '../ModelPreview';
 import { Icon, IconName } from './Icon';
-import { Header, NavButton } from './parts';
+import { Header, NavButton, useFitScreen } from './parts';
 import { heroName } from './pipeline';
 import './MakingOf.css';
 
@@ -39,6 +39,7 @@ export function MakingOf({ creation, onBack }: { creation: CreationResponse; onB
     ...(done('meshy_rig') ? [{ icon: 'run' as IconName, label: 'Brought to life', show: () => model(moving, { walkingUrl: moving }) }] : []),
   ];
   const [at, setAt] = useState(0);
+  useFitScreen();
   const phase = phases[at];
   const last = at === phases.length - 1;
 
