@@ -7,3 +7,12 @@
   object-fit: contain;
 }
 .tb-making-label { text-align: center; }
+.tb-making-loading { position: absolute; inset: 0; display: grid; place-items: center; }
+.tb-making-img--dim { opacity: 0.35; filter: grayscale(0.4); }
+.tb-ring {
+  position: relative; width: 88px; height: 88px; border-radius: 50%;
+  background: conic-gradient(var(--tb-grape) var(--p), var(--tb-track) 0);
+  display: grid; place-items: center; transition: background 0.2s;
+}
+.tb-ring::before { content: ''; position: absolute; inset: 10px; border-radius: 50%; background: var(--tb-white); }
+.tb-ring span { position: relative; font-family: var(--tb-font-display); font-weight: 700; font-size: 20px; color: var(--tb-grape); }
