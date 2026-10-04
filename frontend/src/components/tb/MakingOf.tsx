@@ -12,7 +12,7 @@ import './MakingOf.css';
  * hero can see this, and it is all pictures.
  */
 export function MakingOf({ creation, onBack }: { creation: CreationResponse; onBack: () => void }) {
-  const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
+  const file = (f: string) => api.getFileUrl(creation.id, f.endsWith('.glb') ? `opt_${f}` : f, creation.user_id); // opt_: ~5x smaller GLB, same look
   const rig = creation.steps.find((s) => s.step_name === 'meshy_rig');
   const walking = (rig?.metadata_json as { walking_glb_url?: string } | null)?.walking_glb_url ?? 'walking.glb';
   const done = (step: string) => creation.steps.find((s) => s.step_name === step)?.status === 'completed';
