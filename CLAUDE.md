@@ -29,6 +29,13 @@ These came straight from the product owner. They override your defaults.
   he approves *Promote to production*. Everything except his review is yours
   to automate.
 
+## Design: read docs/design/BRANDBOOK.md before any UI work
+
+Toy Box is the only look: tokens in `frontend/src/styles/toybox.css`, parts in
+`frontend/src/components/tb/`. The brand book holds the layout, text, icon and
+motion rules Raz set, and the checklist to run before showing him any UI.
+Visual version: <https://claude.ai/artifact/XESKFupFdphrXKy6JzH2LH>
+
 ## Git & PR Rules
 
 - **One PR per logical unit.** Even if given a list of tasks, work on them one at a time — separate branch, separate PR per topic (e.g. bug fixes, docs, new features are never mixed).
