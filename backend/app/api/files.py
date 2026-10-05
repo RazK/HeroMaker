@@ -77,10 +77,20 @@ def _sniff_mime(path: Path) -> Optional[str]:
 
 
 def _s3_redirect(storage, user_id: str, creation_id: str, filename: str) -> RedirectResponse:
+    """Redirect to the file in S3, cacheable for as long as the URL stays the same.
+
+    The target is the same URL for the rest of the hour (see
+    S3FileStorage.get_cacheable_url), so the browser may keep this redirect
+    until then and its cached copy of the file is found again: a hero's VRM
+    downloads once, not once per screen. The redirect used to say 24 hours
+    while pointing at a URL minted fresh on every request, which no cache
+    could reuse anyway.
+    """
+    url, max_age = storage.get_cacheable_url(user_id, creation_id, filename)
     return RedirectResponse(
-        url=storage.get_file_url(user_id, creation_id, filename),
+        url=url,
         status_code=302,
-        headers={"Cache-Control": "public, max-age=86400"},  # 24 hours for redirects
+        headers={"Cache-Control": f"public, max-age={max_age}" if max_age > 0 else "no-cache"},
     )
 
 

@@ -63,10 +63,15 @@ async function withImageElementTextures<T>(fn: () => Promise<T>): Promise<T> {
  * blocks `fetch()` to `data:` — so decode it here and hand the bytes straight
  * to the parser rather than letting the loader go near the network.
  */
+type Gltf = Awaited<ReturnType<typeof loader.loadAsync>>
+
 function loadGltf(url: string) {
   if (!url.startsWith('data:')) return loader.loadAsync(url)
-  const buffer = dataUriToArrayBuffer(url)
-  return new Promise<Awaited<ReturnType<typeof loader.loadAsync>>>((resolve, reject) => {
+  return parseGltf(dataUriToArrayBuffer(url))
+}
+
+function parseGltf(buffer: ArrayBuffer) {
+  return new Promise<Gltf>((resolve, reject) => {
     loader.parse(buffer, '', resolve, reject)
   })
 }
@@ -98,7 +103,15 @@ function addOutline(scene: THREE.Object3D, thickness: number) {
 }
 
 export async function loadHero(url: string, opts: { outline?: boolean } = {}): Promise<Hero> {
-  const gltf = await withImageElementTextures(() => loadGltf(url))
+  return heroFromGltf(await withImageElementTextures(() => loadGltf(url)), opts)
+}
+
+/** The same, from a VRM already downloaded — for a caller that fetched it itself to show progress. */
+export async function parseHero(buffer: ArrayBuffer, opts: { outline?: boolean } = {}): Promise<Hero> {
+  return heroFromGltf(await withImageElementTextures(() => parseGltf(buffer)), opts)
+}
+
+function heroFromGltf(gltf: Gltf, opts: { outline?: boolean }): Hero {
   const vrm = gltf.userData.vrm as VRM
   if (!vrm) throw new Error('not a VRM file')
 

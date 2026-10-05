@@ -28,7 +28,7 @@ const PLAN = [
   ['pipeline_start', 'pipeline_end', 6, 'AI paints it, builds it in 3D, and rigs it', 'ה-AI מצייר, בונה בתלת־ממד ומוסיף שלד'],
   ['pipeline_end', 'ready_end', 5, 'Your hero is ready!', 'הגיבור מוכן!'],
   ['game_ready', 'play', 3, 'Now play with it', 'ועכשיו משחקים איתו'],
-  ['play', 'play+10', 10, 'Build a routine and watch it perform', 'בונים רצף תנועות וצופים בהופעה'],
+  ['play', 'play+10', 10, 'Tap a move and it does it', 'לוחצים על תנועה והגיבור עושה אותה'],
   ['end-3', 'end', 3, 'HeroMaker', 'HeroMaker'],
 ];
 

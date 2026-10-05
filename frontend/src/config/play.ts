@@ -1,39 +1,28 @@
 import { CreationResponse } from '../api/client';
 
-/**
- * The games a hero can be played in. Both are pages of one game build
- * (games/hero-moves), built into this image under /play/, and both load the
- * hero they are given with ?vrm= and label it with ?name=.
- *
- * The VRM path is deliberately RELATIVE, never API_BASE_URL: the games only
- * accept a same-origin URL, and nginx proxies /api/ to the backend in every
- * environment, so this works whether or not the SPA itself calls the backend
- * directly.
- */
-export type GameId = 'stunt' | 'dance';
+type HeroRef = Pick<CreationResponse, 'id' | 'user_id' | 'character_name' | 'name'>;
 
-export interface Game {
-  id: GameId;
-  /** One to three words: the card says the rest with a picture. */
-  name: string;
-  page: string;
-  /** Needs the webcam, so the card says so with a camera badge. */
-  camera: boolean;
+/**
+ * The hero's VRM as every 3D view loads it: the web-optimized copy the backend
+ * serves as opt_avatar.vrm (~1.5 MB instead of ~9 MB, visually identical).
+ *
+ * RELATIVE, never API_BASE_URL: the game pages only accept a same-origin URL,
+ * and nginx proxies /api/ to the backend in every environment. The hero page
+ * and the Dance party page both use exactly this URL, so the second one finds
+ * the file in the browser cache.
+ */
+export function heroVrmUrl(creation: Pick<CreationResponse, 'id' | 'user_id'>): string {
+  return `/api/files/${creation.user_id}/${creation.id}/opt_avatar.vrm`;
 }
 
-export const GAMES: Game[] = [
-  { id: 'stunt', name: 'Stunt show', page: 'reel.html', camera: false },
-  { id: 'dance', name: 'Dance party', page: 'index.html', camera: true },
-];
-
-export function playUrl(
-  creation: Pick<CreationResponse, 'id' | 'user_id' | 'character_name' | 'name'>,
-  game: GameId = 'stunt',
-): string {
-  const vrm = `/api/files/${creation.user_id}/${creation.id}/avatar.vrm`;
+/**
+ * The camera game, Dance party: a page of the game build (games/hero-moves)
+ * served under /play/. It loads the hero it is given with ?vrm= and labels it
+ * with ?name=. The moves a hero can do without a camera live on its own page.
+ */
+export function playUrl(creation: HeroRef): string {
   const name = creation.character_name || creation.name || 'Your hero';
-  const page = GAMES.find((g) => g.id === game)?.page ?? GAMES[0].page;
-  return `/play/${page}?vrm=${encodeURIComponent(vrm)}&name=${encodeURIComponent(name)}`;
+  return `/play/index.html?vrm=${encodeURIComponent(heroVrmUrl(creation))}&name=${encodeURIComponent(name)}`;
 }
 
 export function canPlay(creation: Pick<CreationResponse, 'steps'>): boolean {

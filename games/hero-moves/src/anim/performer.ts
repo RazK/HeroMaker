@@ -66,6 +66,8 @@ export class Performer {
   get playing() { return this.currentId }
   get ready() { return this.actions.size > 0 }
   has(id: string) { return this.actions.has(id) }
+  /** The bound clip, for measuring how much room it needs. */
+  clip(id: string): THREE.AnimationClip | undefined { return this.actions.get(id)?.getClip() }
 
   /**
    * Load one clip. Failures are swallowed to a warning on purpose: a missing

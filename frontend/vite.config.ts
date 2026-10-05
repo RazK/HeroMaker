@@ -108,9 +108,12 @@ export default defineConfig(({ mode }) => {
     // Ensure proper chunking for better caching
     rollupOptions: {
       output: {
+        // three.js and @react-three only load with ModelPreview, which is lazy
+        // (LazyModelPreview.tsx): left to the dynamic import, they stay out of
+        // the first load. Naming them a manual chunk used to pull the JSX
+        // runtime in with them, so every page downloaded all of three.js.
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
         },
       },
     },

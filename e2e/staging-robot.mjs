@@ -2,7 +2,7 @@
 //
 //   landing page -> heroes gallery -> sign up -> buy credits (Lemon Squeezy
 //   test mode) -> upload a drawing -> every pipeline stage completes -> the
-//   hero is in "My Creations" -> play a game with it
+//   hero is in "My Creations" -> its page: the intro, then moves -> Dance party
 //
 // It talks to nothing but the public frontend URL, like a person would. No
 // API shortcuts: a step passes only if the UI shows it passed. Every step
@@ -449,81 +449,89 @@ try {
   });
 
   await step(page, 'game', async () => {
+    // The hero's page plays how it was made the first time a hero is opened on
+    // a device. This robot watched its hero become ready, so forget that and
+    // open it as a first visit.
+    await page.evaluate(() => {
+      for (const k of Object.keys(localStorage)) if (k.startsWith('heromaker.intro.seen.')) localStorage.removeItem(k);
+    });
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
-    const play = page.locator('.tb-play');
-    await play.waitFor({ timeout: 20000 });
+    const stage = page.locator('.tb-live-stage');
+    await stage.waitFor({ timeout: 20000 });
+    const phase = await stage.getAttribute('data-phase');
+    if (phase === 'live') throw new Error('a first visit did not open into the intro');
+    await snap(page, 'intro');
     // The hero screen fits the phone, and the document itself cannot scroll:
     // a desktop browser has no collapsing URL bar, so "it fits here" is not
     // enough; the page must be locked (overflow hidden on html and body).
-    const noScroll = () => page.evaluate(() => {
+    const ns = await page.evaluate(() => {
       const h = document.documentElement;
       const locked = [h, document.body].every((el) => getComputedStyle(el).overflowY === 'hidden');
       window.scrollTo(0, 500);
       return { fits: h.scrollHeight <= innerHeight + 1, locked, y: window.scrollY };
     });
-    let ns = await noScroll();
     if (!ns.fits || !ns.locked || ns.y !== 0) throw new Error(`hero screen can scroll: ${JSON.stringify(ns)}`);
-    // The header's title is the hero's name.
     const title = (await page.locator('.tb-hero-screen .tb-header-title').innerText()).trim();
-    const playText = (await play.innerText()).trim();
-    if (!title || !playText.endsWith(title)) throw new Error(`header title "${title}" is not the hero's name (Play reads "${playText}")`);
-    // "How it was made": from its button in the bar; drawing, painting, 3D, moving.
-    await page.locator('.tb-bar .tb-making-of-open').click();
-    await page.waitForSelector('.tb-making-of', { timeout: 10000 });
-    ns = await noScroll();
-    if (!ns.fits || !ns.locked || ns.y !== 0) throw new Error(`"How it was made" can scroll: ${JSON.stringify(ns)}`);
-    const phases = await page.locator('.tb-making-steps [role="tab"]').count();
-    if (phases !== 4) throw new Error(`making-of shows ${phases} phases, expected 4`);
-    for (let i = 0; i < 3; i++) await page.locator('.tb-making-next').click();
-    await page.locator('.tb-making-stage canvas').waitFor({ timeout: 20000 });
-    await snap(page, 'making-of');
-    await page.locator('.tb-back').click();
-    await play.waitFor({ timeout: 10000 });
-    // Play opens a chooser with one card per game.
-    await play.click();
-    const stunt = page.locator('.tb-game-card[data-game="stunt"]');
-    await stunt.waitFor({ timeout: 10000 });
-    // The other game must be offered and actually be in the image, for this
-    // hero: a card whose page 404s is worse than no card.
-    const danceHref = await page.locator('.tb-game-card[data-game="dance"]').getAttribute('href');
-    if (!danceHref || !/^\/play\/index\.html\?vrm=/.test(danceHref)) throw new Error(`Dance party card links to ${danceHref}`);
-    const dancePage = await page.request.get(new URL(danceHref, page.url()).href);
-    if (!dancePage.ok()) throw new Error(`Dance party page answered ${dancePage.status()}`);
-    await snap(page, 'game-chooser');
-    const [game] = await Promise.all([
-      context.waitForEvent('page', { timeout: 10000 }).catch(() => null),
-      stunt.click(),
-    ]);
-    const gp = game || page;
-    await gp.waitForURL(/\/play\//, { timeout: 30000 });
-    // The recording machine renders in software; lite mode keeps the moves at
-    // their real speed there (see reel.ts). The robot's checks run full quality.
-    if (DEMO) await gp.goto(gp.url() + '&lite=1');
-    await gp.waitForFunction(() => window.__ready === true, null, { timeout: 90000 });
-    const loaded = await gp.evaluate(() => window.__reel && window.__reel.hero && window.__reel.hero());
+    if (!title) throw new Error('the header shows no hero name');
+
+    // A tap on the stage skips the intro, straight to the live hero.
+    if (DEMO) await page.waitForTimeout(4000);
+    await stage.click({ position: { x: 24, y: 120 } });
+    await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-phase') === 'live', null, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-shown') === 'hero', null, { timeout: 90000 });
+    await page.locator('.tb-move:not([disabled])').first().waitFor({ timeout: 90000 });
+    mark('game_ready');
+
+    // A real tap on a move: it plays at once, no queue. Measured in the page,
+    // from the pointer going down to the stage reporting the move.
+    const tapToMove = async (move) => {
+      await page.evaluate((m) => {
+        const s = document.querySelector('.tb-live-stage');
+        window.__tap = { at: 0, playing: 0 };
+        document.addEventListener('pointerdown', () => { window.__tap.at = performance.now(); }, { once: true, capture: true });
+        new MutationObserver((_, o) => {
+          if (s.getAttribute('data-playing') === m) { window.__tap.playing = performance.now(); o.disconnect(); }
+        }).observe(s, { attributes: true });
+      }, move);
+      await page.locator(`.tb-move[data-move="${move}"]`).click();
+      await page.waitForFunction(() => window.__tap.playing > 0, null, { timeout: 5000 });
+      return page.evaluate(() => Math.round(window.__tap.playing - window.__tap.at));
+    };
+    mark('play');
+    const jumpMs = await tapToMove('jump');
+    if (jumpMs > 300) throw new Error(`jump started ${jumpMs} ms after the tap`);
+    await page.waitForTimeout(DEMO ? 300 : 500);
+    const flipMs = await tapToMove('backflip');
+    await page.waitForTimeout(700);
+    await snap(page, 'hero-moving');
+    // When a move ends the hero goes back to its idle dance by itself.
+    await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-playing') === '', null, { timeout: 30000 });
     if (DEMO) {
-      await gp.waitForTimeout(3000);
-      mark('game_ready');
-      mark('play');
-      // Each tap plays at once; under software WebGL the game's own API is the
-      // fast way to tap, and each move is let finish so it is seen.
-      for (const move of ['jump', 'backflip', 'victory']) {
-        await gp.evaluate((m) => window.__reel.tap(m), move);
-        await gp.waitForFunction(() => window.__reel.playing() === null, null, { timeout: 60000 }).catch(() => {});
-      }
-      await gp.waitForTimeout(3500);
-      mark('end');
-    } else {
-      // A real tap on a move card: it must start playing at once, no queue.
-      await gp.locator('.reel-card[data-move="jump"]').click();
-      await gp.waitForFunction(() => window.__reel.playing() === 'jump', null, { timeout: 5000 });
-      await gp.waitForTimeout(500);
-      await gp.locator('.reel-card[data-move="backflip"]').click();
-      await gp.waitForFunction(() => window.__reel.playing() === 'backflip', null, { timeout: 5000 });
-      await gp.waitForTimeout(1500);
+      await tapToMove('victory');
+      await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-playing') === '', null, { timeout: 30000 });
+      await page.waitForTimeout(2000);
     }
-    await snap(gp, 'game-playing');
-    return `chose Stunt show (Dance party offered, page ${dancePage.status()}); game loaded the user's hero (${loaded || 'custom'}) and is playing`;
+
+    // Dance party is the bottom-most button on the page, and its page loads.
+    const lowest = await page.evaluate(() => {
+      const all = [...document.querySelectorAll('.tb-hero-screen button, .tb-hero-screen a')];
+      return all.reduce((a, b) => (b.getBoundingClientRect().bottom > a.getBoundingClientRect().bottom ? b : a)).className;
+    });
+    if (!/\btb-play\b/.test(lowest)) throw new Error(`the bottom-most button is "${lowest}", not Dance party`);
+    const play = page.locator('.tb-play');
+    const playText = (await play.innerText()).trim();
+    if (playText !== 'Dance party') throw new Error(`the primary reads "${playText}"`);
+    const href = await play.getAttribute('href');
+    if (!href || !/^\/play\/index\.html\?vrm=[^&]*opt_avatar\.vrm/.test(href)) throw new Error(`Dance party links to ${href}`);
+    await play.click();
+    await page.waitForURL(/\/play\/index\.html/, { timeout: 30000 });
+    await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 90000 });
+    const ready = await page.evaluate(() => window.__ready);
+    if (ready !== true) throw new Error(`Dance party did not start: ${ready}`);
+    await page.waitForTimeout(DEMO ? 3000 : 1500);
+    await snap(page, 'dance-party');
+    mark('end');
+    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Dance party is the bottom-most button and its page started`;
   });
 } catch {
   exitCode = 1;
