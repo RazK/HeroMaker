@@ -30,6 +30,23 @@ const gltfLoader = new GLTFLoader()
 const vrmaLoader = new GLTFLoader()
 vrmaLoader.register((parser) => new VRMAnimationLoaderPlugin(parser))
 
+/**
+ * A clip file is downloaded and parsed once per page, however many heroes play
+ * it: the parsed source is the same for every hero, only the binding differs.
+ * A failed load is forgotten so a later attempt can retry it.
+ */
+type Gltf = Awaited<ReturnType<GLTFLoader['loadAsync']>>
+const sources = new Map<string, Promise<Gltf>>()
+function loadSource(loader: GLTFLoader, url: string): Promise<Gltf> {
+  let p = sources.get(url)
+  if (!p) {
+    p = loader.loadAsync(url)
+    p.catch(() => sources.delete(url))
+    sources.set(url, p)
+  }
+  return p
+}
+
 /** `createVRMAnimationClip` wants somewhere to park lookAt tracks; give it one. */
 function ensureLookAtProxy(vrm: VRM) {
   if (!vrm.lookAt) return
@@ -39,9 +56,18 @@ function ensureLookAtProxy(vrm: VRM) {
   vrm.scene.add(proxy)
 }
 
+/**
+ * Start downloading and parsing a clip before any hero exists to bind it to.
+ * The source is cached, so the later `loadVrma`/`loadRetargeted` for a hero
+ * reuses it instead of fetching again.
+ */
+export function preloadClip(url: string, kind: 'vrma' | 'gltf'): Promise<unknown> {
+  return loadSource(kind === 'vrma' ? vrmaLoader : gltfLoader, url).catch(() => undefined)
+}
+
 export async function loadVrma(url: string, vrm: VRM): Promise<LoadedClip> {
   ensureLookAtProxy(vrm)
-  const gltf = await vrmaLoader.loadAsync(url)
+  const gltf = await loadSource(vrmaLoader, url)
   const animations = gltf.userData.vrmAnimations as VRMAnimation[] | undefined
   if (!animations?.length) throw new Error(`${url} carries no VRMC_vrm_animation`)
   return { clip: createVRMAnimationClip(animations[0], vrm), format: 'vrma' }
@@ -50,7 +76,7 @@ export async function loadVrma(url: string, vrm: VRM): Promise<LoadedClip> {
 export async function loadRetargeted(
   url: string, vrm: VRM, rig: RigMap = UE_RIG,
 ): Promise<LoadedClip> {
-  const gltf = await gltfLoader.loadAsync(url)
+  const gltf = await loadSource(gltfLoader, url)
   if (!gltf.animations.length) throw new Error(`${url} carries no animation`)
   return { clip: retargetToVRM(gltf.animations[0], gltf.scene, vrm, rig), format: 'gltf' }
 }

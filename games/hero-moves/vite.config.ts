@@ -14,9 +14,20 @@ export default defineConfig(({ mode }) => ({
       // Classic script, not a module: it boots mid-parse so the game is
       // playable before the payload behind it has finished downloading.
       ? { output: { format: 'iife', inlineDynamicImports: true } }
-      : { input: { main: 'index.html', moveslab: 'moveslab.html', dancers: 'dancers.html', thumbs: 'thumbs.html',
-                    posecheck: 'posecheck.html', animlab: 'animlab.html',
-                    posegate: 'posegate.html', reel: 'reel.html', backdrops: 'backdrops.html' } },
+      : {
+          input: { main: 'index.html', moveslab: 'moveslab.html', dancers: 'dancers.html', thumbs: 'thumbs.html',
+                   posecheck: 'posecheck.html', animlab: 'animlab.html',
+                   posegate: 'posegate.html', reel: 'reel.html', backdrops: 'backdrops.html',
+                   // Not a page: the HeroMaker app imports it at run time from
+                   // /play/herostage.js (see src/herostage.ts), so it keeps a
+                   // fixed name and its exports, and shares three.js and the
+                   // clips with the Dance party page as ordinary hashed chunks.
+                   herostage: 'src/herostage.ts' },
+          preserveEntrySignatures: 'exports-only',
+          output: {
+            entryFileNames: (chunk) => chunk.name === 'herostage' ? 'herostage.js' : 'assets/[name]-[hash].js',
+          },
+        },
     target: 'es2020',
     // The packer needs the stylesheet as its own file so it can put it ahead of
     // the engine; an iife build otherwise folds CSS into the script, and the

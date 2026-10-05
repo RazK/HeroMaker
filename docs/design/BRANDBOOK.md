@@ -138,14 +138,14 @@ Mock-ups of each are in the artifact's "Rejected" card.
 
 ## Known debt (do not copy)
 
-- Primary above secondary in the ready-hero bar, failed bar, New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
-- Hero screen at 844 x 390: the sticky bar covers the stage. At 1280 x 800 it stays a 560px column.
+- Primary above secondary in the failed bar, New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
+- Hero screen being made or failed, at 844 x 390: the sticky bar covers the stage. At 1280 x 800 it stays a 560px column. (A ready hero is fixed: stage beside moves and bar sideways, a 720px column with one row of 8 moves on a desktop.)
 - Signed-out gallery has a 25-word paragraph under the headline.
 - Making gallery tile: name, bar and status overflow the 56px card.
 - Some paintings (`rendered.png`) are opaque and hide the sun.
-- Game move cards use emoji; the combo counter uses "★"; on short screens the cards are icon-only.
+- The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.
 - `--tb-line` borders on inputs and chips are 1.3:1, under the 3:1 a control border needs.
 - toybox.css's header comment says "Header 64px" and "32px from the bottom"; real: 80px + 4px depth, 16px visible.
-- Physical left/right in CSS: `.tb-btn-trail`, `.tb-header-title`, `.tb-sheet-row`, `.tb-stage-img`, `.tb-polaroid`, `.tb-notice button`, `.tb-tile`, `.tb-tile-img`, `.tb-tile-card`, `.tb-tile-play`, `.tb-pill`, `.tb-scanline`, `.tb-game-badge`, `.buy-credits-pack`. MakingOf's "Next" play icon must mirror. No Hebrew text font loaded yet.
+- Physical left/right in CSS: `.tb-btn-trail`, `.tb-header-title`, `.tb-sheet-row`, `.tb-stage-img`, `.tb-polaroid`, `.tb-notice button`, `.tb-tile`, `.tb-tile-img`, `.tb-tile-card`, `.tb-tile-play`, `.tb-pill`, `.tb-scanline`, `.buy-credits-pack`. No Hebrew text font loaded yet.
 
 More screenshots: [`img/`](img/) (gallery signed in/out and loading, sign up, buy credits, account, new hero, How it was made, the game in portrait and landscape).

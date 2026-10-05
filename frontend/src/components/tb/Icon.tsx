@@ -30,7 +30,16 @@ const PATHS: Record<string, JSX.Element> = {
   logout: <><path d="M15 4h4v16h-4" /><path d="M10 8l-4 4 4 4" /><path d="M6 12h10" /></>,
   star: <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />,
   music: <><path d="M9 18V5.5l11-2V16" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></>,
-  gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></>,
+  // The eight moves a hero can do on its page.
+  dance: <><circle cx="13" cy="4.5" r="1.8" /><path d="M12.5 8l-1 6" /><path d="M12.3 9.5L17 6" /><path d="M12.3 9.5L7 11" /><path d="M11.5 14L8 20" /><path d="M11.5 14l4 2.5-.5 4" /></>,
+  bodyroll: <><circle cx="12" cy="4.5" r="1.8" /><path d="M12 7.5c-2.5 2 2.5 4.5 0 7" /><path d="M12 14.5L9 20.5" /><path d="M12 14.5l3 6" /><path d="M6.5 7c-1.3 2-1.3 4 0 6" /><path d="M17.5 7c1.3 2 1.3 4 0 6" /></>,
+  backflip: <><circle cx="12" cy="12" r="2" /><path d="M19 12a7 7 0 1 1-2.05-4.95" /><path d="M17.5 3.5v3.8h-3.8" /></>,
+  punch: <><rect x="9" y="7" width="11" height="10" rx="3.5" /><path d="M13 7v4" /><path d="M16.5 7v4" /><path d="M9 11.5h6" /><path d="M3 9h3" /><path d="M2 12h4" /><path d="M3 15h3" /></>,
+  jump: <><path d="M12 16V4" /><path d="M7 9l5-5 5 5" /><path d="M5 20.5h14" /></>,
+  land: <><path d="M12 3v11" /><path d="M7.5 10l4.5 4.5 4.5-4.5" /><path d="M4 20h16" /><path d="M5.5 16.5L3.5 15" /><path d="M18.5 16.5l2-1.5" /></>,
+  fly: <><circle cx="18.5" cy="6" r="1.8" /><path d="M16 8.5L7 12.5" /><path d="M15 9l6 1.5" /><path d="M7 12.5l-4 .5" /><path d="M7 12.5L4 10" /><path d="M13.5 10.5c-1 3.5-4.5 5.5-9 5.5" /></>,
+  victory: <><path d="M8 4h8v5a4 4 0 01-8 0z" /><path d="M8 5.5H5.5a2.5 2.5 0 002.7 4" /><path d="M16 5.5h2.5a2.5 2.5 0 01-2.7 4" /><path d="M12 13v4" /><path d="M8.5 20.5h7" /><path d="M10 17h4v3.5h-4z" /></>,
+  gear:<><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></>,
 };
 
 export type IconName = keyof typeof PATHS;

@@ -1,0 +1,136 @@
+/* ---------- The stage: intro layers, the 3D canvas, the polaroid ---------- */
+
+.tb-live-stage { isolation: isolate; container-type: size; }
+/* The sun stays a circle on any stage shape (a wide stage made it a pill). */
+.tb-live-stage .tb-stage-sun { width: min(72cqw, 80cqh); height: min(72cqw, 80cqh); max-height: none; aspect-ratio: auto; }
+.tb-live-stage--intro { cursor: pointer; }
+.tb-layer,
+.tb-live-canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+.tb-layer--on { opacity: 1; }
+.tb-live-canvas canvas { display: block; width: 100%; height: 100%; }
+.tb-live-stage .tb-polaroid { z-index: 2; }
+/* During the intro everything sits 30px lower, centred in the band below its
+   stepper (the 3D does the same: HeroStage.setInsetTop). */
+.tb-live-stage .tb-stage-sun { transition: top 300ms ease; }
+.tb-live-stage--intro .tb-stage-sun { top: calc(50% + 30px); }
+.tb-live-stage--intro .tb-stage-img { top: 76px; height: calc(100% - 92px); }
+
+/* The painting, dimmed, under a ring that fills as the 3D file arrives. */
+.tb-live-loading { position: absolute; inset: 0; display: grid; place-items: center; }
+.tb-live-img--dim { opacity: 0.35; filter: grayscale(0.4); }
+.tb-ring {
+  position: relative; width: 88px; height: 88px; border-radius: 50%;
+  background: conic-gradient(var(--tb-grape) var(--p), var(--tb-track) 0);
+  display: grid; place-items: center; transition: background 0.2s;
+}
+.tb-ring::before { content: ''; position: absolute; inset: 10px; border-radius: 50%; background: var(--tb-white); }
+.tb-ring span { position: relative; font-family: var(--tb-font-display); font-weight: 700; font-size: 20px; color: var(--tb-grape); }
+
+/* The intro's stepper, small, on its own white ground over the top of the stage. */
+.tb-live-steps {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 12px;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: min(232px, calc(100% - 24px));
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  box-shadow: var(--tb-shadow-card);
+}
+.tb-live-steps .tb-stepper { height: 44px; gap: 4px; }
+.tb-live-steps .tb-step-dot { width: 28px; height: 28px; }
+.tb-live-steps .tb-step-dot svg { width: 16px; height: 16px; }
+.tb-live-steps .tb-step-dot--now { width: 34px; height: 34px; box-shadow: 0 0 0 4px var(--tb-track); }
+.tb-live-steps .tb-step-dot--now svg { width: 20px; height: 20px; }
+.tb-live-steps .tb-step-now .tb-step-dot--now { animation: none; }
+
+/* ---------- The moves: one row, four at a time, swipe for the rest ---------- */
+
+.tb-hero-moves {
+  flex-shrink: 0;
+  /* The buttons' depth sits under them; add it back so the visible gap to the
+     bar's hairline is the same 16px as everywhere else. */
+  padding-block-end: var(--tb-space);
+}
+.tb-moves {
+  --gap: 10px;
+  display: flex;
+  gap: var(--gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* The row runs to the screen's edges, so the fifth button peeks in from the
+     side margin: the hint that there are more. Snapped, a page of four lines
+     up with the margins like every other block. */
+  padding: 0 var(--tb-gutter) var(--tb-depth-sm);
+  scroll-padding-inline: var(--tb-gutter);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+.tb-moves::-webkit-scrollbar { display: none; }
+.tb-move {
+  flex: 0 0 calc((100% - 3 * var(--gap)) / 4);
+  min-width: 0;
+  height: 64px;
+  padding: 0 4px;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 20px;
+  font-size: 15px;
+  line-height: 18px;
+}
+.tb-move span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tb-move:nth-child(4n + 1) { scroll-snap-align: start; scroll-snap-stop: always; }
+.tb-move[aria-pressed='true'],
+.tb-move[aria-pressed='true']:active:not(:disabled) {
+  background: var(--tb-grape);
+  border-color: var(--tb-grape-deep);
+  color: var(--tb-white);
+  box-shadow: 0 4px 0 var(--tb-grape-deep);
+  transform: none;
+}
+/* Waiting for the moves to load: the same buttons, faded, not greyed out. */
+.tb-move:disabled {
+  background: var(--tb-white);
+  border-color: var(--tb-ink);
+  color: var(--tb-ink);
+  box-shadow: 0 4px 0 var(--tb-ink);
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---------- Layout of the ready hero ---------- */
+
+/* A desktop has room for all eight in one row, and a bigger stage. */
+@media (min-width: 900px) and (min-height: 600px) {
+  .tb-hero-screen[data-state='ready'] { max-width: 720px; }
+  .tb-move { flex: 1 1 0; }
+}
+
+/* A phone on its side: the stage on one side; the moves and the bar on the
+   other, the primary still the bottom-most button. */
+@media (orientation: landscape) and (max-height: 559px) {
+  .tb-hero-screen[data-state='ready'] {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: 'head head' 'body moves' 'body .' 'body bar';
+  }
+  .tb-hero-screen[data-state='ready'] > .tb-header { grid-area: head; }
+  .tb-hero-screen[data-state='ready'] > .tb-screen-body { grid-area: body; }
+  .tb-hero-screen[data-state='ready'] > .tb-hero-moves { grid-area: moves; padding-block: var(--tb-space) 0; }
+  .tb-hero-screen[data-state='ready'] > .tb-bar { grid-area: bar; }
+  .tb-hero-screen[data-state='ready'] .tb-moves { padding-inline-start: 8px; scroll-padding-inline: 8px var(--tb-gutter); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-layer, .tb-live-canvas, .tb-live-stage .tb-stage-sun { transition: none; }
+}

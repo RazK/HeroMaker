@@ -8,7 +8,6 @@ import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Gallery } from './components/tb/Gallery';
 import { HeroScreen } from './components/tb/HeroScreen';
-import { MakingOf } from './components/tb/MakingOf';
 import { Icon } from './components/tb/Icon';
 import { Header, NavButton, Sheet } from './components/tb/parts';
 import { useCreationPolling } from './hooks/useCreationPolling';
@@ -17,7 +16,7 @@ import { loadStepConfig, getTotalCost } from './config/steps';
 import './styles/toybox.css';
 import './App.css';
 
-type View = 'gallery' | 'hero' | 'steps' | 'making' | 'admin' | 'reset';
+type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset';
 
 // The only URL the app routes on: the link in a "Forgot password?" email.
 const isResetUrl = () => window.location.pathname === RESET_PASSWORD_PATH;
@@ -219,8 +218,6 @@ function App() {
         <div className="tb-screen-body"><AdminPanel onClose={goHome} currentUserId={userInfo.id} /></div>
       </div>
     );
-  } else if (view === 'making' && creation) {
-    screen = <MakingOf creation={creation} onBack={() => setView('hero')} />;
   } else if (view === 'steps' && creation) {
     screen = (
       <div className="tb-screen tb-screen--wide">
@@ -262,7 +259,6 @@ function App() {
         onRefresh={refreshCreation}
         onDeleted={goHome}
         onShowSteps={() => setView('steps')}
-        onShowMaking={() => setView('making')}
         onMakeOwn={startNewHero}
         onCreditsChanged={refreshCreditBalance}
       />

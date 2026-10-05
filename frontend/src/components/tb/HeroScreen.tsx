@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, CreationResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
-import { GameChooser } from './GameChooser';
+import { playUrl } from '../../config/play';
+import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
 import { STEP_UI, currentStep, etaText, heroName, heroState, remainingCost, stepViews } from './pipeline';
@@ -17,7 +18,6 @@ interface HeroScreenProps {
   onRefresh: () => Promise<void>;
   onDeleted: () => void;
   onShowSteps: () => void;
-  onShowMaking: () => void;
   onMakeOwn: () => void;
   onCreditsChanged: () => void;
 }
@@ -25,14 +25,17 @@ interface HeroScreenProps {
 /**
  * One hero, in whichever state it is in: being made, failed, or ready.
  * The layout is the same in all three — header, the hero, a bottom bar — so
- * nothing jumps around as the hero comes to life.
+ * nothing jumps around as the hero comes to life. Ready, the hero is live in
+ * 3D on this page, with its moves under it (HeroLive): how it was made plays
+ * in the same stage the first time it is opened.
  */
 export function HeroScreen(props: HeroScreenProps) {
   const { creation, isLoggedIn, currentUserId, isAdmin, creditBalance } = props;
   const state = heroState(creation);
   const owns = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'play' | 'more' | 'rename' | 'delete' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | null>(null);
+  const [introRequest, setIntroRequest] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
@@ -106,7 +109,7 @@ export function HeroScreen(props: HeroScreenProps) {
   // The sheet behind ⋯ : the same button for everyone, more rows for the owner.
   const moreRows = [
     canShare && <SheetRow key="share" icon="share" label="Share" onClick={() => { setSheet(null); share(); }} />,
-    ready && <SheetRow key="made" icon="layers" label="How it was made" onClick={() => { setSheet(null); props.onShowMaking(); }} />,
+    ready && <SheetRow key="made" icon="layers" label="How it was made" onClick={() => { setSheet(null); setIntroRequest((n) => n + 1); }} />,
     ...(owns ? [
       <SheetRow key="rename" icon="pencil" label="Rename" onClick={() => setSheet('rename')} />,
       ready && <SheetRow key="again" icon="redo" label="Make it again" trail={`${getTotalCost()} credits`} onClick={makeAgain} />,
@@ -129,35 +132,33 @@ export function HeroScreen(props: HeroScreenProps) {
     />
   );
 
+  // Being made, or failed: the picture so far. (Ready, HeroLive has the stage.)
   const stage = (
     <div className="tb-stage tb-hero-stage">
-      {state === 'ready' && <div className="tb-stage-sun" />}
       <img className={`tb-stage-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
       {state === 'making' && !painted && <div className="tb-scanline" />}
-      {(state === 'ready' || painted) && (
-        <button type="button" className="tb-polaroid tb-polaroid--button" onClick={props.onShowMaking} aria-label="How it was made">
+      {painted && (
+        <div className="tb-polaroid">
           <img src={file('thumb_original.jpg')} alt="The drawing" />
           <div>{creation.name ? `${creation.name}${creation.age ? `, ${creation.age}` : ''}` : 'The drawing'}</div>
-        </button>
+        </div>
       )}
     </div>
   );
 
+  const notice = error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>;
+
   let body;
   let bar;
   if (state === 'ready') {
-    body = stage;
-    // Two equal secondary buttons, then Play: the same height and the same
-    // place for Play whoever is looking. Only the second button differs.
+    // One secondary, then the primary last: the same place for it whoever is
+    // looking. Only the secondary differs.
     bar = (
       <>
-        <div className="tb-bar-row">
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-making-of-open" onClick={props.onShowMaking}><Icon name="layers" />How it was made</button>
-          {owns
-            ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-share" onClick={share}><Icon name="share" />Share</button>
-            : <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-make-own" onClick={props.onMakeOwn}><Icon name="camera" />Make your own</button>}
-        </div>
-        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('play')}><Icon name="play" /><span className="tb-btn-label">Play with {name}</span></button>
+        {owns
+          ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full tb-share" onClick={share}><Icon name="share" />Share</button>
+          : <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full tb-make-own" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
+        <a className="tb-btn tb-btn--primary tb-btn--full tb-play" href={playUrl(creation)}><Icon name="camera" />Dance party</a>
       </>
     );
   } else {
@@ -194,13 +195,10 @@ export function HeroScreen(props: HeroScreenProps) {
   return (
     <div className="tb-screen tb-screen--fit tb-hero-screen" data-state={state}>
       {header}
-      <div className="tb-screen-body">
-        {error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>}
-        {body}
-      </div>
+      {ready
+        ? <HeroLive key={creation.id} creation={creation} introRequest={introRequest} notice={notice} />
+        : <div className="tb-screen-body">{notice}{body}</div>}
       <div className="tb-bar">{bar}</div>
-
-      {sheet === 'play' && <GameChooser creation={creation} onClose={() => setSheet(null)} />}
 
       {sheet === 'more' && (
         <Sheet title={name} onClose={() => setSheet(null)}>

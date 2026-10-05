@@ -3,7 +3,10 @@ Storage abstraction layer for file operations.
 Supports both local filesystem (for local development) and S3 (for Railway deployment).
 Automatically switches based on environment variables.
 """
+import datetime
 import os
+import threading
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, BinaryIO
@@ -80,6 +83,13 @@ class StorageBackend(ABC):
         """Get a URL to access the file. For S3, returns presigned URL. For local, returns API path."""
         pass
     
+    def get_cacheable_url(self, user_id: str, creation_id: str, filename: str) -> tuple[str, int]:
+        """A URL for the file that a browser may cache, and for how many seconds.
+
+        The default is ``get_file_url`` and 0: nothing to cache.
+        """
+        return self.get_file_url(user_id, creation_id, filename), 0
+
     @abstractmethod
     def file_exists(self, user_id: str, creation_id: str, filename: str) -> bool:
         """Check if a file exists."""
@@ -155,6 +165,47 @@ class LocalFileStorage(StorageBackend):
     def get_file_path(self, user_id: str, creation_id: str, filename: str) -> Path:
         """Get the local file path."""
         return self._get_file_path(user_id, creation_id, filename)
+
+
+# How long one presigned URL is handed out for. See S3FileStorage.get_cacheable_url.
+URL_WINDOW = 3600
+# What S3 sends with the file: always ask whether it changed (a 304 when it has
+# not, so the bytes never download twice). The URL is reused for an hour, and a
+# hero made again within that hour must not keep showing the old one.
+S3_CACHE_CONTROL = "no-cache"
+
+_signing = threading.local()
+
+
+def _install_signing_clock() -> bool:
+    """Let a presign on this thread choose its own signing time.
+
+    botocore signs with ``botocore.auth.get_current_datetime()``. This wraps it
+    once so that a thread which sets ``_signing.at`` signs at that instant,
+    while every other signature (uploads, HEADs, other threads) keeps the real
+    clock. Returns False if this botocore does not sign through that function;
+    URLs then change on every request, as they always did, and
+    tests/test_cacheable_urls.py fails to say so.
+    """
+    try:
+        import botocore.auth as auth
+    except ImportError:
+        return False
+    real = getattr(auth, "get_current_datetime", None)
+    if real is None:
+        return False
+    if getattr(real, "_heromaker_pinnable", False):
+        return True
+
+    def get_current_datetime(remove_tzinfo=True):
+        at = getattr(_signing, "at", None)
+        if at is None:
+            return real(remove_tzinfo=remove_tzinfo)
+        return at.replace(tzinfo=None) if remove_tzinfo else at
+
+    get_current_datetime._heromaker_pinnable = True  # type: ignore[attr-defined]
+    auth.get_current_datetime = get_current_datetime
+    return True
 
 
 class S3FileStorage(StorageBackend):
@@ -240,6 +291,34 @@ class S3FileStorage(StorageBackend):
             logger.error(f"Failed to generate presigned URL for S3: {s3_key}, error: {e}")
             raise
     
+    def get_cacheable_url(self, user_id: str, creation_id: str, filename: str,
+                          now: Optional[float] = None) -> tuple[str, int]:
+        """A presigned URL that stays the same for an hour, and seconds until it changes.
+
+        A presigned URL carries its signing time, so presigning on every request
+        gave a new URL every request and the browser cache never hit: a hero's
+        3D files downloaded again on every screen that showed them. Signing at
+        the start of the current hour returns the same URL all hour. It is valid
+        for two, so a URL handed out at 10:59 still works at 11:59, and the
+        redirect to it may be cached until the hour ends.
+        """
+        now = time.time() if now is None else now
+        start = int(now // URL_WINDOW) * URL_WINDOW
+        s3_key = self._get_s3_key(user_id, creation_id, filename)
+        params = {"Bucket": self.bucket_name, "Key": s3_key, "ResponseCacheControl": S3_CACHE_CONTROL}
+        pinned = _install_signing_clock()
+        _signing.at = datetime.datetime.fromtimestamp(start, datetime.timezone.utc)
+        try:
+            url = self.s3_client.generate_presigned_url(
+                "get_object", Params=params, ExpiresIn=2 * URL_WINDOW,
+            )
+        except (ClientError, BotoCoreError) as e:
+            logger.error(f"Failed to generate presigned URL for S3: {s3_key}, error: {e}")
+            raise
+        finally:
+            _signing.at = None
+        return url, (max(0, int(start + URL_WINDOW - now)) if pinned else 0)
+
     def file_exists(self, user_id: str, creation_id: str, filename: str) -> bool:
         """Check if a file exists in S3."""
         s3_key = self._get_s3_key(user_id, creation_id, filename)
