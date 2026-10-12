@@ -107,7 +107,13 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
         errorMessage = detail;
       }
     } catch {
-      errorMessage = errorText || errorMessage;
+      // Not JSON: an HTML error page from a proxy (413, 502...). Never show
+      // markup to the user; say what happened in plain words.
+      errorMessage = response.status === 413
+        ? 'That photo is too big. Try another one.'
+        : /^\s*</.test(errorText) || !errorText
+          ? 'Something went wrong. Please try again.'
+          : errorText;
     }
     console.error(`[API] ${method} ${url} failed (${duration}ms):`, {
       status: response.status,
@@ -139,7 +145,8 @@ export const api = {
       characterName,
     });
     const formData = new FormData();
-    formData.append('image_file', file);
+    const upload = await shrinkPhoto(file);
+    formData.append('image_file', upload, upload.name);
     if (characterName) {
       formData.append('character_name', characterName);
     }
@@ -737,3 +744,28 @@ export interface AdminCouponResponse {
 
 export { ApiError };
 
+
+/**
+ * A phone photo is 3-12 MB at 4000px; the pipeline needs nowhere near that.
+ * Scale it to 2048px on the long side as a JPEG, upright (EXIF orientation is
+ * applied by createImageBitmap), so uploads are fast on mobile data and stay
+ * well under the server's body limit. Anything that fails returns the file as is.
+ */
+async function shrinkPhoto(file: File, maxSide = 2048): Promise<File> {
+  try {
+    if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 1.5 * 1024 * 1024) { bmp.close(); return file; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch {
+    return file;
+  }
+}
