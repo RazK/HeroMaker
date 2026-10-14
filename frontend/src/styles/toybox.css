@@ -13,6 +13,10 @@
  *  - Hero and drawing images are never cropped: object-fit: contain.
  */
 
+/* Titles and buttons are set in Barriecito, HeroMaker's brand face. It has one
+   weight; never let the browser fake a bold of it. Hebrew falls back to Fredoka. */
+html { font-synthesis: none; }
+
 :root {
   --tb-grape: #5b3df5;
   --tb-grape-deep: #3a22b8;
@@ -34,7 +38,7 @@
   --tb-plate-5: #d6ecff;
   --tb-plate-6: #ffd6e7;
 
-  --tb-font-display: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  --tb-font-display: 'Barriecito', 'Fredoka', 'Nunito', system-ui, sans-serif;
   --tb-font-body: 'Nunito', system-ui, sans-serif;
 
   --tb-gutter: 20px;
@@ -291,8 +295,7 @@ h1, h2, h3, h4 {
   color: var(--tb-ink);
 }
 .tb-logo img { width: 36px; height: 36px; object-fit: contain; }
-/* The wordmark keeps HeroMaker's original brand face, Barriecito; it is the logo, not UI type. */
-.tb-logo span { font-family: 'Barriecito', var(--tb-font-display); font-weight: 400; font-size: 28px; }
+.tb-logo span { font-family: var(--tb-font-display); font-weight: 400; font-size: 28px; }
 
 /* ---------- Screen + bottom bar ---------- */
 

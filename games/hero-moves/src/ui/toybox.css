@@ -32,8 +32,9 @@
 }
 
 html, body { font-family: 'Nunito', system-ui, sans-serif; }
-h1, h2, .boot-title, #countdown, #grade, .readout .value, .p-score {
-  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
+html { font-synthesis: none; }
+h1, h2, .boot-title, #countdown, #grade, .readout .value, .p-score, .btn {
+  font-family: 'Barriecito', 'Fredoka', 'Nunito', system-ui, sans-serif;
   font-weight: 600;
 }
 h1 { letter-spacing: 0; }
