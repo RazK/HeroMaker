@@ -13,6 +13,9 @@ from app.services.credits import refund_last_step_charge
 
 logger = logging.getLogger(__name__)
 
+# The key a whole-pipeline run is tracked under, in place of a step name.
+PIPELINE_KEY = "pipeline"
+
 # Global TaskManager instance (set in main.py lifespan)
 _task_manager: Optional['TaskManager'] = None
 
@@ -79,15 +82,24 @@ class TaskManager:
                     # Mark step as failed in DB
                     db = SessionLocal()
                     try:
-                        step = db.query(CreationStep).filter(
-                            CreationStep.creation_id == creation_id,
-                            CreationStep.step_name == step_name
-                        ).first()
+                        if step_name == PIPELINE_KEY:
+                            # A whole-pipeline task has no step row of its own:
+                            # the step it was inside is the one left charged
+                            # and stuck "processing".
+                            step = db.query(CreationStep).filter(
+                                CreationStep.creation_id == creation_id,
+                                CreationStep.status == "processing"
+                            ).first()
+                        else:
+                            step = db.query(CreationStep).filter(
+                                CreationStep.creation_id == creation_id,
+                                CreationStep.step_name == step_name
+                            ).first()
                         if step and step.status == "processing":
                             step.status = "failed"
                             step.error_message = f"Step timed out after {timeout_seconds} seconds"
                             db.commit()
-                            logger.info(f"[{creation_id}] Marked step {step_name} as failed (timeout)")
+                            logger.info(f"[{creation_id}] Marked step {step.step_name} as failed (timeout)")
                             # The step was charged before the provider was
                             # called. Cancelling the task raises CancelledError,
                             # which inherits from BaseException and so never
@@ -95,8 +107,8 @@ class TaskManager:
                             # pipeline.execute_step - this is the only place a
                             # timed-out step can be made whole.
                             refund_last_step_charge(
-                                db, creation_id, step_name,
-                                note=f"{step_name} timed out after {timeout_seconds}s",
+                                db, creation_id, step.step_name,
+                                note=f"{step.step_name} timed out after {timeout_seconds}s",
                             )
                     except Exception as e:
                         logger.error(f"[{creation_id}] Error marking timed-out step as failed: {e}")
@@ -154,6 +166,15 @@ class TaskManager:
             task = self._tasks.get(key)
             return task is not None and not task.done()
     
+    def running_for_creation(self, creation_id: str) -> list:
+        """Names of the tasks (steps, or PIPELINE_KEY) running for a creation."""
+        prefix = f"{creation_id}:"
+        with self._lock:
+            return [
+                key[len(prefix):] for key, task in self._tasks.items()
+                if key.startswith(prefix) and not task.done()
+            ]
+
     def cancel_all_tasks_for_creation(self, creation_id: str) -> int:
         """
         Cancel all tasks for a creation.

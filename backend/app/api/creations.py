@@ -1,6 +1,6 @@
 """Creation and pipeline API endpoints."""
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
 from sqlalchemy.orm import Session
@@ -13,8 +13,10 @@ from app.schemas.creation import (
 )
 from app.services.auth import get_current_user_required, get_current_user_optional
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
-from app.services.pipeline import _initialize_creation_steps, execute_step, run_pipeline
-from app.services.task_manager import get_task_manager
+from app.services.pipeline import (
+    _initialize_creation_steps, _reset_step, execute_step, run_pipeline, steps_from, clear_stale_failures,
+)
+from app.services.task_manager import get_task_manager, PIPELINE_KEY
 from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
 
@@ -278,6 +280,20 @@ async def cancel_step(
     }
 
 
+def _refuse_if_busy(creation: Creation, task_manager, except_step: Optional[str] = None) -> None:
+    """400 if this creation already has a pipeline run or another step going."""
+    running = [k for k in task_manager.running_for_creation(creation.id) if k != except_step]
+    if PIPELINE_KEY in running:
+        raise HTTPException(status_code=400, detail="Pipeline already running")
+    processing = [
+        s.step_name for s in creation.steps
+        if s.status == "processing" and s.step_name != except_step
+    ]
+    busy = processing or running
+    if busy:
+        raise HTTPException(status_code=400, detail=f"Pipeline already running (step: {busy[0]})")
+
+
 @router.post("/{creation_id}/steps/{step_name}/run", response_model=StepActionResponse)
 async def run_step(
         creation_id: str,
@@ -312,7 +328,14 @@ async def run_step(
     
     if not step:
         raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
-    
+
+    # One thing at a time per hero. Steps feed each other (rendered.png ->
+    # model.glb -> rigged.glb), so starting one while another runs either
+    # fails at once on a missing input or, worse, works on a stale file from an
+    # earlier run. On staging, "Try again" fired every unfinished step at once
+    # and the three after the painting each failed within a second.
+    _refuse_if_busy(creation, task_manager, except_step=step_name)
+
     # Check if already processing (double-check, in case status changed between checks)
     if step.status == "processing":
         # Double-check task manager (race condition protection)
@@ -430,14 +453,28 @@ async def run_pipeline_endpoint(
         if from_step not in step_names:
             raise HTTPException(status_code=400, detail=f"Invalid step name: {from_step}")
     
-    # Check if pipeline is already running (any step processing)
-    processing_steps = [s for s in creation.steps if s.status == "processing"]
-    if processing_steps:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Pipeline already running (step: {processing_steps[0].step_name})"
-        )
-    
+    # Already running? The DB alone cannot say: for the moment between this
+    # endpoint answering and the first step starting, nothing is "processing".
+    # A second tap in that window used to start a second run, and creating its
+    # task cancelled the first one mid-step.
+    _refuse_if_busy(creation, task_manager)
+
+    # Show the run as started before answering, as run_step does: the app reads
+    # the hero right after this returns, and a hero still reading "failed" (or
+    # "ready", for Make it again) at that moment is never polled again, so it
+    # would sit on the old state while the run goes on unseen.
+    steps_to_run = steps_from(from_step)
+    clear_stale_failures(creation_id, steps_to_run, db)
+    first = next((s for s in creation.steps if s.step_name == steps_to_run[0]), None)
+    if first is not None:
+        _reset_step(first)
+        first.status = "processing"
+        first.started_at = datetime.utcnow()
+        duration = (get_step_by_name(first.step_name) or {}).get("estimated_duration")
+        if duration:
+            first.estimated_completion_time = first.started_at + timedelta(seconds=duration)
+        db.commit()
+
     # Create a new DB session for the background task
     db_session = SessionLocal()
     
@@ -457,7 +494,7 @@ async def run_pipeline_endpoint(
     
     # Create pipeline task (no individual step timeout - each step has its own)
     # Use a long timeout for the entire pipeline (e.g., 2 hours)
-    task_manager.create_task(creation_id, "pipeline", run_pipeline_task(), timeout=7200)
+    task_manager.create_task(creation_id, PIPELINE_KEY, run_pipeline_task(), timeout=7200)
     
     return {
         "message": "Pipeline started",

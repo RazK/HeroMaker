@@ -12,6 +12,7 @@ from pathlib import Path
 from app.config.settings import MESHY_API_KEY
 from app.config import pricing
 from app.services import usage as usage_service
+from app.services import provider_errors
 from app.services.usage import UsageContext
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,21 @@ logger = logging.getLogger(__name__)
 class MeshyAPIError(Exception):
     """Custom exception for Meshy API errors."""
     pass
+
+
+class MeshyOutOfCredits(MeshyAPIError, provider_errors.ProviderOutOfCredits):
+    """Our Meshy account cannot take more work (HTTP 402, NoMorePendingTasks).
+    Still a MeshyAPIError, so every existing handler keeps catching it."""
+
+    def __init__(self, detail: str):
+        provider_errors.ProviderOutOfCredits.__init__(self, pricing.PROVIDER_MESHY, detail)
+
+
+def raise_if_out_of_credits(status_code, message: str) -> None:
+    """Raise MeshyOutOfCredits, and the ops alert, if Meshy says we are out."""
+    if provider_errors.is_meshy_out_of_credits(status_code, message):
+        provider_errors.alert_out_of_credits(pricing.PROVIDER_MESHY, message)
+        raise MeshyOutOfCredits(message)
 
 class MeshyClient:
     """Client for interacting with Meshy API."""
@@ -85,7 +101,11 @@ class MeshyClient:
             # Fallback to HTTP status if we couldn't extract a message
             if not error_msg:
                 error_msg = f"HTTP {response.status_code}: {str(e)}"
-            
+
+            try:
+                raise_if_out_of_credits(response.status_code, str(error_msg))
+            except MeshyOutOfCredits as out:
+                raise out from e
             raise MeshyAPIError(error_msg) from e
         except requests.exceptions.RequestException as e:
             raise MeshyAPIError(f"Request failed: {str(e)}") from e

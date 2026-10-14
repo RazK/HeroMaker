@@ -14,6 +14,7 @@ from app.config.settings import OPENAI_API_KEY
 from app.config import pricing
 from app.services import usage as usage_service
 from app.services.usage import UsageContext
+from app.services import provider_errors
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,11 @@ def render_image(
         raise Exception(error_msg) from e
         
     except RateLimitError as e:
+        # OpenAI sends "our account is empty" as a 429 too. That is not a rate
+        # limit and waiting does not fix it: name it, and raise the ops alert.
+        if provider_errors.is_openai_out_of_credits(e):
+            provider_errors.alert_out_of_credits(pricing.PROVIDER_OPENAI, str(e))
+            raise provider_errors.ProviderOutOfCredits(pricing.PROVIDER_OPENAI, str(e)) from e
         error_msg = (
             f"OpenAI API rate limit exceeded: {str(e)}\n"
             "You've hit OpenAI's rate limits. The request will be retried automatically with backoff. "

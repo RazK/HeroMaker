@@ -71,10 +71,12 @@ export function HeroScreen(props: HeroScreenProps) {
     }
   };
 
+  // One run, from the first unfinished step, in order: the server stops at the
+  // first failure. Starting each unfinished step on its own ran them all at
+  // once, and every step after the failed one failed on a missing input.
   const tryAgain = () => run(async () => {
-    for (const s of creation.steps.filter((x) => x.status === 'pending' || x.status === 'failed')) {
-      await api.runStep(creation.id, s.step_name);
-    }
+    const from = creation.steps.find((x) => x.status === 'pending' || x.status === 'failed');
+    if (from) await api.runPipeline(creation.id, from.step_name);
   }, 'Could not start again');
   const makeAgain = () => run(() => api.runPipeline(creation.id), 'Could not start again');
   const remove = async () => {

@@ -264,6 +264,7 @@ def _poll_meshy_task_with_progress(
                 pricing.PROVIDER_MESHY, task_id, "failed",
                 metadata={"meshy_status": current_status, "meshy_error": str(error_msg)[:500]},
             )
+            meshy.raise_if_out_of_credits(None, str(error_msg))
             raise MeshyAPIError(f"Meshy task {task_id} failed: {error_msg}")
         
         # Check timeout
@@ -776,6 +777,31 @@ async def execute_step(
 # Run Pipeline (Full Sequence)
 # ============================================================================
 
+def steps_from(from_step: Optional[str] = None) -> List[str]:
+    """The steps a run starting at from_step (default: the first) goes through."""
+    names = get_all_step_names()
+    if from_step:
+        if from_step not in names:
+            raise ValueError(f"Step {from_step} not found")
+        names = names[names.index(from_step):]
+    return names
+
+
+def clear_stale_failures(creation_id: str, steps_to_run: List[str], db: Session) -> None:
+    """Set "failed" steps a run is about to go through back to "pending", so the
+    hero shows the one step that failed THIS time, not a row of stale
+    "Input file not found" left by an earlier attempt."""
+    stale = db.query(CreationStep).filter(
+        CreationStep.creation_id == creation_id,
+        CreationStep.step_name.in_(steps_to_run),
+        CreationStep.status == "failed",
+    ).all()
+    for step in stale:
+        _reset_step(step)
+    if stale:
+        db.commit()
+
+
 async def run_pipeline(
     creation_id: str,
     user_id: str,
@@ -798,17 +824,14 @@ async def run_pipeline(
     Returns:
         dict with "status" ("completed" or "failed") and optionally "failed_step"
     """
-    steps_to_run = get_all_step_names()
-    
-    # If from_step specified, start from there
-    if from_step:
-        if from_step not in steps_to_run:
-            raise ValueError(f"Step {from_step} not found")
-        start_idx = steps_to_run.index(from_step)
-        steps_to_run = steps_to_run[start_idx:]
+    steps_to_run = steps_from(from_step)
     
     logger.info(f"[{creation_id}] Starting pipeline with steps: {steps_to_run}")
-    
+
+    # FAIL FAST. A step that fails ends the run: the steps after it are not
+    # started, not charged, and stay "pending".
+    clear_stale_failures(creation_id, steps_to_run, db)
+
     for step_name in steps_to_run:
         try:
             result = await execute_step(creation_id, user_id, step_name, db, mock_creation_id)
@@ -823,7 +846,12 @@ async def run_pipeline(
                 return {"status": "failed", "failed_step": step_name}
                 
         except Exception as e:
-            logger.error(f"[{creation_id}] Pipeline failed at step {step_name}: {e}")
+            # execute_step has already marked the step failed and refunded it.
+            # Stop here: nothing after it has an input to work from.
+            logger.error(
+                f"[{creation_id}] Pipeline stopped at step {step_name}; "
+                f"later steps not run: {e}"
+            )
             return {"status": "failed", "failed_step": step_name, "error": str(e)}
     
     logger.info(f"[{creation_id}] Pipeline completed successfully")
