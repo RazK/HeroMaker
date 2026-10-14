@@ -46,11 +46,11 @@ html, body { font-family: 'Nunito', system-ui, sans-serif; }
 .reel-nav:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 3px; }
 .reel-nav-spacer { width: var(--tb-nav); }
 .reel-combos {
-  font: 700 13px/1 'Fredoka', system-ui, sans-serif; color: var(--tb-ink);
+  font: 700 13px/1 'Barriecito', 'Fredoka', system-ui, sans-serif; color: var(--tb-ink);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .reel-title {
-  text-align: center; font: 600 22px/1.1 'Fredoka', system-ui, sans-serif; color: var(--tb-white);
+  text-align: center; font: 600 22px/1.1 'Barriecito', 'Fredoka', system-ui, sans-serif; color: var(--tb-white);
   text-shadow: 0 2px 10px rgba(35, 25, 66, .7);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -114,7 +114,7 @@ html, body { font-family: 'Nunito', system-ui, sans-serif; }
   height: var(--tb-nav); width: calc(100% - 2 * (var(--tb-nav) + 2 * var(--tb-space)));
   display: flex; align-items: center; justify-content: center; text-align: center;
   transform: translate(-50%, 0) scale(.8);
-  font: 700 clamp(20px, 5vmin, 44px)/1 'Fredoka', system-ui, sans-serif;
+  font: 700 clamp(20px, 5vmin, 44px)/1 'Barriecito', 'Fredoka', system-ui, sans-serif;
   color: var(--tb-sun);
   opacity: 0; pointer-events: none;
   -webkit-text-stroke: 6px var(--tb-deep);
