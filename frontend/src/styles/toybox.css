@@ -291,7 +291,8 @@ h1, h2, h3, h4 {
   color: var(--tb-ink);
 }
 .tb-logo img { width: 36px; height: 36px; object-fit: contain; }
-.tb-logo span { font-family: var(--tb-font-display); font-weight: 700; font-size: 24px; }
+/* The wordmark keeps HeroMaker's original brand face, Barriecito; it is the logo, not UI type. */
+.tb-logo span { font-family: 'Barriecito', var(--tb-font-display); font-weight: 400; font-size: 28px; }
 
 /* ---------- Screen + bottom bar ---------- */
 

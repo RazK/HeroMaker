@@ -30,6 +30,7 @@ One theme. No dark mode.
 | `--tb-red` | `#C62828` | Danger, failure |
 | `--tb-plate-1..6` | `#E9E3FF` `#FFE9A8` `#CFF5EA` `#FFDCC7` `#D6ECFF` `#FFD6E7` | Plates heroes stand on; gallery tiles cycle 1 to 6 |
 | `--tb-font-display` | Fredoka 500/600/700 | Names, titles, buttons, numbers |
+| Wordmark | Barriecito 400 | The "HeroMaker" logo text only. Never for UI text. |
 | `--tb-font-body` | Nunito 600/700/800 | Text. Never weight 400 |
 | `--tb-space` | `16px` | THE visible gap, everywhere |
 | `--tb-gutter` | `20px` | Side margins |
