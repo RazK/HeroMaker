@@ -46,17 +46,16 @@ export function ControlBar({ creation, isLoggedIn, canDownload, onDelete, onCrea
   };
 
   const handleContinue = async () => {
-    if (!isLoggedIn || isRunning || hasProcessingStep) return;
+    if (!isLoggedIn || isRunning || hasProcessingStep || !hasStepsToRun) return;
     
     setIsRunning(true);
     setError(null);
     
     try {
-      // Run only pending/failed steps
-      for (const step of stepsToRun) {
-        await api.runStep(creation.id, step.step_name);
-        window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
-      }
+      // Continue from the first pending/failed step, as one run in order: the
+      // server stops at the first failure instead of starting every step at once.
+      await api.runPipeline(creation.id, stepsToRun[0].step_name);
+      window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       if (onCreationRefresh) {
         await onCreationRefresh();
       }

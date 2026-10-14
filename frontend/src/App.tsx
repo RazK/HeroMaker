@@ -37,6 +37,15 @@ function App() {
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean } | null>(null);
   const [galleryKey, setGalleryKey] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Guards that hold across a double tap, which React state cannot: two taps
+  // land before the re-render that disables the button.
+  const uploadingRef = useRef(false);
+  const startingRef = useRef(false);
+  // The hero made from the photo just picked, until "Make my hero" starts it.
+  // Picking a photo creates the hero right away, so leaving without starting it
+  // (Cancel, tapping outside, picking another photo) must remove it again, or
+  // it sits in "My heroes" as "Not started" for good.
+  const unstartedRef = useRef<string | null>(null);
   const isLoggedIn = creditBalance !== undefined;
 
   useEffect(() => {
@@ -136,38 +145,52 @@ function App() {
     setShowNewHero(true);
   };
 
+  const discardUnstarted = () => {
+    const id = unstartedRef.current;
+    unstartedRef.current = null;
+    if (id) api.deleteCreation(id).catch((err) => console.error('[App] Failed to remove unstarted hero:', err));
+  };
+
   const handleUpload = async (file: File, characterName?: string) => {
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
     setShowNewHero(false);
     setIsUploading(true);
     setError(null);
+    discardUnstarted();
     try {
       const reader = new FileReader();
       reader.onload = (e) => setUploadedFilePreview(e.target?.result as string);
       reader.readAsDataURL(file);
       const newCreation = await api.createCreation(file, characterName);
+      unstartedRef.current = newCreation.id;
       setCreation(newCreation);
       setShowPostUploadActions(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to upload image');
       setUploadedFilePreview(null);
     } finally {
+      uploadingRef.current = false;
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const cancelUpload = () => {
+    discardUnstarted();
     setShowPostUploadActions(false);
     setCreation(null);
     setUploadedFilePreview(null);
   };
 
   const handleStartPipeline = async () => {
-    if (!creation) return;
+    if (!creation || startingRef.current) return;
+    startingRef.current = true;
     setIsStarting(true);
     setError(null);
     try {
       await api.runPipeline(creation.id);
+      unstartedRef.current = null;
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       await refreshCreditBalance();
       setShowPostUploadActions(false);
@@ -178,6 +201,7 @@ function App() {
       setError(err instanceof ApiError ? err.message : 'Failed to start pipeline');
       await refreshCreditBalance();
     } finally {
+      startingRef.current = false;
       setIsStarting(false);
     }
   };
