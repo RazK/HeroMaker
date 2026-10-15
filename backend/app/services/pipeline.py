@@ -437,8 +437,15 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
     storage = get_storage()
     loop = asyncio.get_event_loop()
 
+    # The look the user picked. Read from the hero on every run, so "Make it
+    # again" and "Try again" paint in the same style. NULL is the default.
+    creation = db.query(Creation).filter(Creation.id == creation_id).first()
+    style = openai_service.resolve_style(creation.style if creation else None)
+
+    # The cache key includes the style's prompt: the same drawing in another
+    # style is a miss, never the other style's painting.
     cache = await _cache_begin(
-        "openai_render", creation_id, user_id, openai_service.render_cache_version()
+        "openai_render", creation_id, user_id, openai_service.render_cache_version(style)
     )
     if cache.hit:
         return
@@ -451,6 +458,7 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
                     input_path,
                     output_path,
                     usage=UsageContext.for_step(creation_id, user_id, "openai_render"),
+                    style=style,
                 )
             )
 

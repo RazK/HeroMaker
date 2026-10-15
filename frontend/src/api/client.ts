@@ -38,6 +38,14 @@ export interface CreationResponse {
   completed_at: string | null;
   steps: CreationStepResponse[];
   error_message: string | null;
+  /** The painting's style, a key of GET /api/styles. Older heroes read "pixar". */
+  style?: string;
+}
+
+/** A look the painting can be made in. The first one is the default. */
+export interface RenderStyle {
+  key: string;
+  label: string;
 }
 
 // Step configuration from backend
@@ -185,10 +193,15 @@ export const api = {
    * Run full pipeline (all steps sequentially)
    * @param creationId The creation to process
    * @param fromStep Optional step name to start from (for retry scenarios)
+   * @param style Optional painting style, stored on the hero. Leave it out to
+   *   keep the hero's own (Make it again, Try again).
    */
-  async runPipeline(creationId: string, fromStep?: string): Promise<{ message: string; creation_id: string; from_step: string }> {
-    const params = fromStep ? `?from_step=${encodeURIComponent(fromStep)}` : '';
-    console.log('[API] runPipeline:', { creationId, fromStep });
+  async runPipeline(creationId: string, fromStep?: string, style?: string): Promise<{ message: string; creation_id: string; from_step: string }> {
+    const query = new URLSearchParams();
+    if (fromStep) query.set('from_step', fromStep);
+    if (style) query.set('style', style);
+    const params = query.toString() ? `?${query}` : '';
+    console.log('[API] runPipeline:', { creationId, fromStep, style });
     const result = await fetchJson<{ message: string; creation_id: string; from_step: string }>(
       `${API_BASE_URL}/api/creations/${creationId}/run-pipeline${params}`,
       {
@@ -531,6 +544,13 @@ export const api = {
    */
   async getPacks(): Promise<CreditPack[]> {
     return fetchJson<CreditPack[]>(`${API_BASE_URL}/api/payments/packs`);
+  },
+
+  /**
+   * The painting styles, in picker order. Public.
+   */
+  async getStyles(): Promise<RenderStyle[]> {
+    return fetchJson<RenderStyle[]>(`${API_BASE_URL}/api/styles`);
   },
 
   /**

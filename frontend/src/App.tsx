@@ -10,6 +10,7 @@ import { Gallery } from './components/tb/Gallery';
 import { HeroScreen } from './components/tb/HeroScreen';
 import { Icon } from './components/tb/Icon';
 import { Header, NavButton, Sheet } from './components/tb/parts';
+import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/StylePicker';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
@@ -36,6 +37,8 @@ function App() {
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean } | null>(null);
   const [galleryKey, setGalleryKey] = useState(0);
+  const renderStyles = useRenderStyles();
+  const [renderStyle, setRenderStyle] = useState<string>(DEFAULT_STYLE);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Guards that hold across a double tap, which React state cannot: two taps
   // land before the re-render that disables the button.
@@ -165,6 +168,7 @@ function App() {
       const newCreation = await api.createCreation(file, characterName);
       unstartedRef.current = newCreation.id;
       setCreation(newCreation);
+      setRenderStyle(DEFAULT_STYLE);
       setShowPostUploadActions(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to upload image');
@@ -189,7 +193,7 @@ function App() {
     setIsStarting(true);
     setError(null);
     try {
-      await api.runPipeline(creation.id);
+      await api.runPipeline(creation.id, undefined, renderStyle);
       unstartedRef.current = null;
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       await refreshCreditBalance();
@@ -372,8 +376,11 @@ function App() {
               <img src={uploadedFilePreview} alt="Your drawing" />
             </div>
           )}
-          <div className="tb-stack" style={{ paddingTop: 8 }}>
+          <StylePicker styles={renderStyles} value={renderStyle} onChange={setRenderStyle} disabled={isStarting} />
+          {/* Helper line, secondary, primary LAST: the brand book's bar order. */}
+          <div className="tb-stack post-upload-actions-bar">
             {short && <div className="tb-bar-note post-upload-actions-error">You need {pipelineCost} credits. You have {creditBalance}.</div>}
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" disabled={isStarting} onClick={cancelUpload}>Cancel</button>
             {short ? (
               <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}>
                 <Icon name="coin" />Buy credits
@@ -384,7 +391,6 @@ function App() {
                 {pipelineCost > 0 && <span className="tb-btn-trail"><Icon name="coin" size={18} />{pipelineCost} credits</span>}
               </button>
             )}
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" disabled={isStarting} onClick={cancelUpload}>Cancel</button>
           </div>
         </Sheet>
       )}

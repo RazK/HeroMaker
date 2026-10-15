@@ -52,6 +52,10 @@ class Creation(Base):
     # ledger and usage_events reference it: a paid hero's cost must remain
     # attributable after it is gone from the app. See m009_creation_soft_delete.
     deleted_at = Column(DateTime, nullable=True, index=True)
+    # The look of the painting: a key of app.services.openai.STYLES. NULL is
+    # the default ("pixar"), which every hero made before styles existed is.
+    # See m011_creation_style.
+    style = Column(String, nullable=True)
 
     user = relationship("User", back_populates="creations")
     steps = relationship("CreationStep", back_populates="creation", cascade="all, delete-orphan", lazy="select")

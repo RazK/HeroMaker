@@ -16,6 +16,10 @@
 
 .tb-upload-preview {
   height: 300px;
+  /* The drawing gives way first when the sheet runs out of room (a 360 x 640
+     phone), so the style row and both buttons always fit without scrolling. */
+  flex: 0 1 300px;
+  min-height: 120px;
   border-radius: var(--tb-radius-card);
   background: #faf7f2;
   overflow: hidden;
@@ -23,6 +27,7 @@
 }
 .tb-upload-preview img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
 .tb-new-hero-tip { padding: 0 4px 12px; }
+.post-upload-actions-bar { flex-shrink: 0; padding-top: 2px; }
 
 .app-pipeline-section { gap: 24px; }
 
