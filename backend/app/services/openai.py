@@ -89,8 +89,9 @@ Render the character as a blocky voxel figure that is clearly the one in the dra
 ANIME_PROMPT = """Transform this drawing into an anime-style cel-shaded 3D character in T-pose position.
 
 Requirements:
-- One single character, built from the drawing: keep its colors, clothing, accessories, hairstyle and features
-- Anime look: big expressive eyes with bright highlights, small nose and mouth, stylized hair in clean sculpted shapes
+- One single character, built from the drawing: keep its colors, clothing, accessories and features
+- Keep the head exactly as drawn: a mask, hood, helmet or bald head stays that way. Add hair only if the drawing has hair, and then in its drawn shape and color
+- Anime look applied to what is drawn: large expressive eyes with bright highlights in the drawn eye positions, small nose and mouth, clean sculpted shapes
 - Cel shading: flat areas of color, crisp shadow edges, clean dark outlines
 - Front view, full body visible, standing upright, fully contained in the view without cropping.
 - T-pose: arms extended horizontally, legs straight
@@ -104,7 +105,8 @@ ORIGINAL_PROMPT = """Turn this drawing into a 3D figure that looks exactly like 
 
 Requirements:
 - One single character, as close to the drawing as possible: the same shapes, the same proportions, the same colors
-- Keep the hand-drawn look: crayon and marker texture on every surface, slightly wobbly outlines, uneven hand coloring
+- Keep the hand-drawn look: crayon and marker texture on the body, clothing and accessories, slightly wobbly outlines, uneven hand coloring
+- Keep the face readable: every facial feature in the drawing (eyes, mask, glasses, mouth) stays in the same place, size and color, as clean solid shapes, never covered or blurred by texture
 - Unfiltered: do not beautify, correct, smooth or add anything; no details that are not in the drawing
 - Give it real volume, as if the drawing itself had become a solid handmade figure
 - Front view, full body visible, standing upright, fully contained in the view without cropping.
