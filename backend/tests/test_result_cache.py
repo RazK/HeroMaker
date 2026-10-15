@@ -219,7 +219,7 @@ def test_changing_the_prompt_misses(
     user = make_user(credits=100)
     _make_hero(db, _new_hero(db, make_creation, storage, user), user)
 
-    monkeypatch.setattr(openai_service, "RENDER_PROMPT", openai_service.RENDER_PROMPT + " Bigger eyes.")
+    monkeypatch.setitem(openai_service.STYLES["pixar"], "prompt", openai_service.RENDER_PROMPT + " Bigger eyes.")
     second = _new_hero(db, make_creation, storage, user)
     _make_hero(db, second, user)
 
@@ -228,6 +228,35 @@ def test_changing_the_prompt_misses(
     # A new render is new input for Meshy, so the whole chain is paid again.
     assert len(providers.meshy_posts) == 4
     assert len(_paid_events(second.id)) == 3
+
+
+def test_another_style_on_the_same_drawing_misses_and_its_repeat_hits(
+        db, make_user, make_creation, storage, providers, cache_on):
+    """A Lego request on a drawing cached as Pixar must not get the Pixar painting."""
+    user = make_user(credits=100)
+    _make_hero(db, _new_hero(db, make_creation, storage, user), user)        # NULL style: pixar
+    assert providers.openai_calls[0]["prompt"] == openai_service.RENDER_PROMPT
+
+    lego = _new_hero(db, make_creation, storage, user)
+    lego.style = "lego"
+    db.commit()
+    _make_hero(db, lego, user)
+    assert len(providers.openai_calls) == 2, "the Pixar entry was served for a Lego request"
+    assert providers.openai_calls[1]["prompt"] == openai_service.STYLES["lego"]["prompt"]
+    assert len(providers.meshy_posts) == 4                  # a new painting is new input for Meshy
+
+    again = _new_hero(db, make_creation, storage, user)
+    again.style = "lego"
+    db.commit()
+    _make_hero(db, again, user)
+    assert len(providers.openai_calls) == 2                 # Lego, the second time, is a hit
+    assert _outputs(storage, user.id, again.id) == _outputs(storage, user.id, lego.id)
+
+    pixar = _new_hero(db, make_creation, storage, user)
+    pixar.style = "pixar"                                   # explicit pixar == NULL
+    db.commit()
+    _make_hero(db, pixar, user)
+    assert len(providers.openai_calls) == 2
 
 
 def test_changing_a_meshy_parameter_misses_only_meshy(

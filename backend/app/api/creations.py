@@ -17,6 +17,7 @@ from app.services.pipeline import (
     _initialize_creation_steps, _reset_step, execute_step, run_pipeline, steps_from, clear_stale_failures,
 )
 from app.services.task_manager import get_task_manager, PIPELINE_KEY
+from app.services import openai as openai_service
 from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
 
@@ -25,6 +26,17 @@ from app.utils.storage import get_storage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _checked_style(style: Optional[str]) -> Optional[str]:
+    """A style the client asked for, validated against the registry. None or
+    empty means "not given". Anything else unknown is the client's mistake."""
+    if style is None or style == "":
+        return None
+    if not openai_service.is_valid_style(style):
+        valid = ", ".join(openai_service.STYLES)
+        raise HTTPException(status_code=400, detail=f"Unknown style '{style}'. Choose one of: {valid}")
+    return style
 
 
 def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
@@ -181,20 +193,25 @@ def delete_creation(
 async def create_creation(
         image_file: UploadFile = File(...),
         character_name: Optional[str] = Form(None),
+        style: Optional[str] = Form(None),
         db: Session = Depends(get_db),
         user: User = Depends(get_current_user_required)
 ):
     """
     Create a new creation and upload the image file.
-    
+
     This endpoint creates the creation record and uploads the image.
     The pipeline must be started separately using the /{creation_id}/run endpoint.
+    `style` (optional) is a key of GET /api/styles; it can also be given, or
+    changed, when the pipeline is started.
     """
+    style = _checked_style(style)
     # Create creation record
     new_creation = Creation(
         user_id=user.id,
         character_name=character_name,
-        name=user.name  # Creator's name (default to user's name)
+        name=user.name,  # Creator's name (default to user's name)
+        style=style,
     )
     db.add(new_creation)
     db.commit()
@@ -426,15 +443,21 @@ async def run_pipeline_endpoint(
         creation_id: str,
         from_step: Optional[str] = Query(None, description="Step name to start from (for retry)"),
         mock_creation_id: Optional[str] = Query(None, description="Creation ID to copy outputs from (admin testing)"),
+        style: Optional[str] = Query(None, description="Painting style (GET /api/styles). Omitted: the hero keeps the one it has."),
         db: Session = Depends(get_db),
         user: User = Depends(get_current_user_required),
         task_manager = Depends(get_task_manager)
 ):
     """Run full pipeline (all steps sequentially) or from a specific step.
-    
+
     Steps are executed in order, credits deducted per-step.
     If a step fails, pipeline stops there.
+
+    `style` is stored on the hero before the run starts. Without it the hero
+    keeps its style, which is how "Make it again" and "Try again" repeat it.
+    Every style costs the same.
     """
+    style = _checked_style(style)
     creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
@@ -458,6 +481,10 @@ async def run_pipeline_endpoint(
     # A second tap in that window used to start a second run, and creating its
     # task cancelled the first one mid-step.
     _refuse_if_busy(creation, task_manager)
+
+    if style is not None and style != creation.style:
+        creation.style = style
+        db.commit()
 
     # Show the run as started before answering, as run_step does: the app reads
     # the hero right after this returns, and a hero still reading "failed" (or

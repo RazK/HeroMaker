@@ -395,6 +395,12 @@ try {
     const go = page.locator('button.post-upload-action-primary');
     await go.waitFor({ timeout: 60000 });
     if (await go.isDisabled()) throw new Error(`Go is disabled: ${await describe(page)}`);
+    // The style picker: five cards, Pixar picked. The robot keeps Pixar on
+    // purpose - its drawing's Pixar painting is in the staging result cache.
+    const cards = page.locator('.tb-styles .tb-style');
+    await cards.first().waitFor({ timeout: 15000 });
+    const styles = await cards.evaluateAll((els) => els.map((el) => `${el.dataset.style}${el.getAttribute('aria-checked') === 'true' ? '*' : ''}`));
+    if (styles.join(',') !== 'pixar*,lego,minecraft,anime,original') throw new Error(`style cards are [${styles.join(', ')}], want pixar* (picked), lego, minecraft, anime, original`);
     await linger(page, 2500);
     await go.click();
     await page.locator('.tb-hero-screen').waitFor({ timeout: 60000 });

@@ -37,10 +37,126 @@ Requirements:
 
 Render the character exactly as shown, in a clean 3D style with arms extended horizontally, ready for 3D model generation."""
 
+
+# ---------------------------------------------------------------------------
+# Styles: what the painting looks like. The user picks one before Go.
+#
+# Every style's prompt keeps what Meshy needs to make a riggable model from the
+# picture: ONE full-body character, front view, T-pose (arms out, legs
+# straight), nothing cropped, a transparent background with no floor or
+# shadow, and no text. Change a style's look freely; never drop those lines.
+#
+# "pixar" is RENDER_PROMPT itself, byte for byte. Existing heroes (style NULL)
+# are this style, and the staging result cache keys on the prompt text, so
+# keeping it identical keeps every cached render a hit.
+#
+# The prompts describe each look in plain words rather than naming the brand:
+# brand and character names are what OpenAI's moderation is most likely to
+# refuse (see the note above RENDER_PROMPT). The brand names are UI labels.
+# ---------------------------------------------------------------------------
+
+DEFAULT_STYLE = "pixar"
+
+LEGO_PROMPT = """Transform this drawing into a 3D toy figure built like a classic plastic building-brick minifigure, in T-pose position.
+
+Requirements:
+- One single character, built from the drawing: keep its colors, clothing, accessories and features as molded plastic parts and printed details
+- Minifigure build: round cylindrical head with a stud on top, simple printed face, blocky trapezoid torso, short straight legs, simple rounded hands
+- Glossy molded plastic, crisp seams between the parts, small round studs where bricks would have them
+- Front view, full body visible, standing upright, fully contained in the view without cropping.
+- T-pose: arms extended horizontally, legs straight
+- Transparent background: only the character, no floor, no baseplate, no ground shadow, no scenery
+- No added text: no captions, labels, logos or brand marks; an emblem drawn on the costume stays
+- High quality 3D render, well-lit, clean edges, good contrast
+
+Render the character as a plastic brick-toy figure that is clearly the one in the drawing, with arms extended horizontally, ready for 3D model generation."""
+
+MINECRAFT_PROMPT = """Transform this drawing into a blocky voxel-game 3D character in T-pose position.
+
+Requirements:
+- One single character, built from the drawing: keep its colors, clothing, accessories and features, rebuilt from cubes
+- A cube-shaped head, a rectangular box body, box-shaped arms and box-shaped legs, all with sharp square edges
+- Pixel-art skin on every face of every block: flat squares of color, no smooth gradients, no curves
+- Hair and accessories as small blocks attached to the body
+- Front view, full body visible, standing upright, fully contained in the view without cropping.
+- T-pose: arms extended horizontally, legs straight
+- Transparent background: only the character, no floor, no ground shadow, no scenery, no terrain blocks
+- No added text: no captions, labels or logos; an emblem drawn on the costume stays, in pixels
+- High quality 3D render, well-lit, clean edges, good contrast
+
+Render the character as a blocky voxel figure that is clearly the one in the drawing, with arms extended horizontally, ready for 3D model generation."""
+
+ANIME_PROMPT = """Transform this drawing into an anime-style cel-shaded 3D character in T-pose position.
+
+Requirements:
+- One single character, built only from what the drawing shows: its colors, clothing, accessories and features
+- Add nothing the drawing does not show: no new hair, clothing, accessories or props
+- Anime look applied to the drawn character: large expressive eyes where the eyes are drawn, small nose and mouth, clean sculpted shapes
+- Cel shading: flat areas of color, crisp shadow edges, clean dark outlines
+- Front view, full body visible, standing upright, fully contained in the view without cropping.
+- T-pose: arms extended horizontally, legs straight
+- Transparent background: only the character, no floor, no ground shadow, no scenery
+- No added text: no captions, speech bubbles or sound effects; an emblem drawn on the costume stays
+- High quality 3D render, well-lit, clean edges, good contrast
+
+Render the character in anime cel-shaded 3D, clearly the one in the drawing, with arms extended horizontally, ready for 3D model generation."""
+
+ORIGINAL_PROMPT = """Turn this drawing into a 3D figure that looks exactly like the drawing, in T-pose position.
+
+Requirements:
+- One single character, as close to the drawing as possible: the same shapes, the same proportions, the same colors
+- Keep the look of the drawing itself: the texture of whatever it was drawn with, its outlines and its coloring
+- Keep the face readable: every facial feature in the drawing stays in the same place, size and color, clearly visible
+- White counts as a color: areas left white or uncolored inside the character (such as the whites of eyes, teeth or highlights) stay white, never filled in with a neighboring color
+- Unfiltered: do not beautify, correct, smooth or add anything; no details that are not in the drawing
+- Give it real volume, as if the drawing itself had become a solid handmade figure
+- Front view, full body visible, standing upright, fully contained in the view without cropping.
+- T-pose: arms extended horizontally, legs straight
+- Transparent background: only the character, no paper, no floor, no ground shadow, no scenery
+- No added text: leave out any name, caption or signature written beside the character; an emblem drawn on the costume stays
+- Well-lit, clean silhouette edges, good contrast
+
+Render the character exactly as drawn, only made three-dimensional, with arms extended horizontally, ready for 3D model generation."""
+
+# Ordered: this is the order the picker shows them in.
+STYLES = {
+    "pixar": {"label": "Pixar", "prompt": RENDER_PROMPT},
+    "lego": {"label": "Lego", "prompt": LEGO_PROMPT},
+    "minecraft": {"label": "Minecraft", "prompt": MINECRAFT_PROMPT},
+    "anime": {"label": "Anime", "prompt": ANIME_PROMPT},
+    "original": {"label": "Original", "prompt": ORIGINAL_PROMPT},
+}
+
+
+def list_styles() -> list:
+    """[{key, label}] in picker order. What GET /api/styles answers."""
+    return [{"key": key, "label": s["label"]} for key, s in STYLES.items()]
+
+
+def is_valid_style(style: Optional[str]) -> bool:
+    return style in STYLES
+
+
+def resolve_style(style: Optional[str]) -> str:
+    """The style a stored value means. NULL (every hero made before styles) is
+    the default. A value no longer in the registry also falls back to it, so a
+    retired style can never stop an old hero from being made again."""
+    if style is None or style == "":
+        return DEFAULT_STYLE
+    if style not in STYLES:
+        logger.warning("Unknown render style %r; using %r", style, DEFAULT_STYLE)
+        return DEFAULT_STYLE
+    return style
+
+
+def style_prompt(style: Optional[str] = None) -> str:
+    return STYLES[resolve_style(style)]["prompt"]
+
 # Everything sent to images.edit() that shapes the picture we get back. Kept in
 # one place for two readers: the call below, and the staging result cache
-# (app/services/result_cache.py), which keys on a hash of RENDER_PROMPT plus
-# these - so editing either one makes every cached render miss, as it should.
+# (app/services/result_cache.py), which keys on a hash of the style's prompt
+# plus these - so editing either one, or picking another style, makes the
+# cached render miss, as it should.
 #
 # The model/size/quality must stay in step with
 # pricing.OPENAI_IMAGE_USD_MICROS, which is quoted for exactly
@@ -58,15 +174,22 @@ RENDER_PARAMS = {
 }
 
 
-def render_cache_version() -> dict:
-    """What a cached render depends on besides the input image."""
-    return {"prompt": RENDER_PROMPT, **RENDER_PARAMS}
+def render_cache_version(style: Optional[str] = None) -> dict:
+    """What a cached render depends on besides the input image.
+
+    The prompt is the chosen style's, so a Lego request on a drawing that was
+    cached as Pixar misses instead of returning the Pixar painting. For the
+    default style this is exactly what it was before styles existed (no extra
+    key), so the entries already in the cache keep hitting.
+    """
+    return {"prompt": style_prompt(style), **RENDER_PARAMS}
 
 
 def render_image(
     input_path: Path,
     output_path: Path,
     usage: Optional[UsageContext] = None,
+    style: Optional[str] = None,
 ) -> Path:
     """
     Convert scanned drawing to rendered figure using OpenAI's GPT-Image-1.
@@ -77,6 +200,7 @@ def render_image(
         usage: Optional cost-attribution context (user/creation/step). When
             given, every invocation of this function - success, failure, or
             retry - writes one row to usage_events. See app/services/usage.py.
+        style: a key of STYLES; None means DEFAULT_STYLE.
     
     Returns:
         Path to output file
@@ -95,10 +219,12 @@ def render_image(
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
+    style = resolve_style(style)
+    prompt = STYLES[style]["prompt"]
     client = OpenAI(api_key=OPENAI_API_KEY)
     
     try:
-        logger.info(f"Starting OpenAI GPT-Image-1 render for {input_path}")
+        logger.info(f"Starting OpenAI GPT-Image-1 render for {input_path} (style {style})")
         
         # Use GPT-Image-1's images.edit() for image-to-image transformation
         # GPT-Image-1 supports full image editing without requiring a mask
@@ -122,14 +248,17 @@ def render_image(
             pricing.OP_OPENAI_IMAGE_EDIT,
             quantity=1,
             metadata={
-                k: RENDER_PARAMS[k]
-                for k in ("model", "size", "quality", "background", "n")
+                **{
+                    k: RENDER_PARAMS[k]
+                    for k in ("model", "size", "quality", "background", "n")
+                },
+                "style": style,
             },
         ) as call:
             with open(input_path, "rb") as img_file:
                 response = client.images.edit(
                     image=img_file,
-                    prompt=RENDER_PROMPT,
+                    prompt=prompt,
                     timeout=120.0,  # 2 minute timeout per request
                     # Note: GPT-Image-1 always returns base64, no response_format parameter needed
                     **RENDER_PARAMS,

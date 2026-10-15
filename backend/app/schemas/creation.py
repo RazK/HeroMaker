@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from app.config.steps import STEPS
 from app.models import CreationStep
+from app.services.openai import DEFAULT_STYLE, resolve_style
 
 class CreationRequest(BaseModel):
     character_name: Optional[str] = None
@@ -73,7 +74,8 @@ class CreationResponse(BaseModel):
     completed_at: Optional[datetime] = None  # Derived from steps
     steps: List[CreationStepResponse] = []
     error_message: Optional[str] = None  # Derived from failed step
-    
+    style: str = DEFAULT_STYLE  # Key of the painting's style; a NULL column reads as the default
+
     @classmethod
     def from_creation(cls, creation):
         """Build CreationResponse from Creation model, including steps."""
@@ -90,6 +92,7 @@ class CreationResponse(BaseModel):
             updated_at=creation.updated_at,
             completed_at=creation.completed_at,
             error_message=creation.error_message,
+            style=resolve_style(creation.style),
             steps=[],
         )
         
