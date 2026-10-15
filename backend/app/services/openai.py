@@ -107,6 +107,7 @@ Requirements:
 - One single character, as close to the drawing as possible: the same shapes, the same proportions, the same colors
 - Keep the look of the drawing itself: the texture of whatever it was drawn with, its outlines and its coloring
 - Keep the face readable: every facial feature in the drawing stays in the same place, size and color, clearly visible
+- White counts as a color: areas left white or uncolored inside the character (such as the whites of eyes, teeth or highlights) stay white, never filled in with a neighboring color
 - Unfiltered: do not beautify, correct, smooth or add anything; no details that are not in the drawing
 - Give it real volume, as if the drawing itself had become a solid handmade figure
 - Front view, full body visible, standing upright, fully contained in the view without cropping.
