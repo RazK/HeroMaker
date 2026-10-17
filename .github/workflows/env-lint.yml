@@ -19,6 +19,10 @@ on:
       - '.github/workflows/**'
   workflow_dispatch:
 
+concurrency:
+  group: env-lint-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest

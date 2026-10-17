@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.models import User, Creation, CreationStep
 from app.schemas.creation import (
-    CreationRequest, CreationResponse, CreationStepResponse,
+    CreationRequest, CreationResponse, CreationStepResponse, FeaturedRequest,
     MessageResponse, CostResponse, StepConfigResponse, StepActionResponse, PipelineActionResponse
 )
 from app.services.auth import get_current_user_required, get_current_user_optional
@@ -139,17 +139,55 @@ def update_creation(
 def list_creations(
         db: Session = Depends(get_db),
         user: Optional[User] = Depends(get_current_user_optional),
-        mine_only: bool = False
+        mine_only: bool = False,
+        featured_only: bool = False,
 ):
-    """List creations. Public endpoint - shows all creations in gallery by default."""
+    """List creations for the gallery. Public endpoint.
+
+    - mine_only (signed in): the caller's own heroes, in any state.
+    - featured_only: Editors' choice, the gallery's default view - the
+      finished heroes an admin has starred.
+    - neither: every hero ("All heroes") for an admin. "All heroes" is an
+      admin view: anyone else gets Editors' choice, so an unstarred hero is
+      never listed to a visitor. A hero's own page (GET /{id}) is unaffected,
+      so a shared link keeps working.
+    """
+    live = db.query(Creation).filter(Creation.deleted_at.is_(None))
     if mine_only and user:
-        # Filter to only user's creations
-        creations = db.query(Creation).filter(Creation.user_id == user.id, Creation.deleted_at.is_(None)).order_by(Creation.updated_at.desc()).all()
+        creations = live.filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
+    elif not featured_only and user is not None and user.is_admin:
+        creations = live.order_by(Creation.updated_at.desc()).all()
     else:
-        # Show all creations (public gallery)
-        creations = db.query(Creation).filter(Creation.deleted_at.is_(None)).order_by(Creation.updated_at.desc()).all()
-    
+        creations = live.filter(Creation.featured.is_(True)).order_by(Creation.updated_at.desc()).all()
+        # status is derived from the steps, so "finished" is checked here.
+        creations = [c for c in creations if c.status == "completed"]
+
     return [CreationResponse.from_creation(c) for c in creations]
+
+
+@router.put("/{creation_id}/featured", response_model=CreationResponse)
+def set_featured(
+        creation_id: str,
+        body: FeaturedRequest,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_current_user_required),
+):
+    """Star or unstar a hero for Editors' choice. Admins only."""
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    creation = _live_creation(db, creation_id)
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
+
+    # Write updated_at back as it was: the gallery orders by it, and starring
+    # a hero must not move it to the top of every view.
+    db.query(Creation).filter(Creation.id == creation_id).update(
+        {Creation.featured: body.featured, Creation.updated_at: Creation.updated_at},
+        synchronize_session=False,
+    )
+    db.commit()
+    db.refresh(creation)
+    return CreationResponse.from_creation(creation)
 
 
 @router.delete("/{creation_id}", response_model=MessageResponse)

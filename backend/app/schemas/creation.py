@@ -13,6 +13,9 @@ class CreationRequest(BaseModel):
 class MessageResponse(BaseModel):
     message: str
 
+class FeaturedRequest(BaseModel):
+    featured: bool
+
 class CostResponse(BaseModel):
     cost: int
 
@@ -75,6 +78,7 @@ class CreationResponse(BaseModel):
     steps: List[CreationStepResponse] = []
     error_message: Optional[str] = None  # Derived from failed step
     style: str = DEFAULT_STYLE  # Key of the painting's style; a NULL column reads as the default
+    featured: bool = False  # Starred by an admin: shown under Editors' choice
 
     @classmethod
     def from_creation(cls, creation):
@@ -93,6 +97,7 @@ class CreationResponse(BaseModel):
             completed_at=creation.completed_at,
             error_message=creation.error_message,
             style=resolve_style(creation.style),
+            featured=bool(creation.featured),
             steps=[],
         )
         

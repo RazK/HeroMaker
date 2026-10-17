@@ -4,7 +4,10 @@ import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState } from './pipeline';
 import './Gallery.css';
 
-type Filter = 'all' | 'mine' | 'failed';
+type Filter = 'featured' | 'all' | 'mine' | 'failed';
+
+/** How long an unstarred hero stays in Editors' choice before it leaves, in ms. */
+const LEAVE_MS = 700;
 
 interface GalleryProps {
   isLoggedIn: boolean;
@@ -13,26 +16,65 @@ interface GalleryProps {
 }
 
 /**
- * Every finished hero, on colored plates like toys on a shelf. "Mine" also
- * shows the heroes still being made and the ones that failed, because those
- * are the owner's to finish.
+ * Every finished hero, on colored plates like toys on a shelf. It opens on
+ * Editors' choice: the heroes an admin starred. "Mine" also shows the heroes
+ * still being made and the ones that failed, because those are the owner's
+ * to finish. Admins get a star on every tile to curate Editors' choice.
  */
 export function Gallery({ isLoggedIn, isAdmin, onSelect }: GalleryProps) {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('featured');
   const [creations, setCreations] = useState<CreationResponse[] | null>(null);
   const [error, setError] = useState(false);
+  // Unstarred while viewing Editors' choice: still shown for a beat, then gone.
+  const [leaving, setLeaving] = useState<Set<string>>(() => new Set());
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
+  const [starError, setStarError] = useState(false);
 
-  useEffect(() => { if (!isLoggedIn && filter !== 'all') setFilter('all'); }, [isLoggedIn, filter]);
+  useEffect(() => {
+    if ((!isLoggedIn && filter === 'mine') || (!isAdmin && (filter === 'all' || filter === 'failed'))) setFilter('featured');
+  }, [isLoggedIn, isAdmin, filter]);
 
   useEffect(() => {
     let cancelled = false;
     setCreations(null);
     setError(false);
-    api.listCreations(0, 0, filter === 'mine')
+    api.listCreations(0, 0, filter === 'mine', filter === 'featured')
       .then((r) => { if (!cancelled) setCreations(r.creations); })
       .catch(() => { if (!cancelled) setError(true); });
     return () => { cancelled = true; };
   }, [filter, isLoggedIn]);
+
+  useEffect(() => {
+    if (!starError) return;
+    const t = setTimeout(() => setStarError(false), 3000);
+    return () => clearTimeout(t);
+  }, [starError]);
+
+  const mark = (set: typeof setLeaving, id: string, on: boolean) =>
+    set((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
+  const setStar = (id: string, featured: boolean) =>
+    setCreations((cs) => cs && cs.map((c) => (c.id === id ? { ...c, featured } : c)));
+
+  // Optimistic: the star flips at once and flips back if the server says no.
+  const toggleStar = async (c: CreationResponse) => {
+    if (pending.has(c.id)) return;
+    const next = !c.featured;
+    const inFeatured = filter === 'featured';
+    mark(setPending, c.id, true);
+    setStar(c.id, next);
+    if (!next && inFeatured) mark(setLeaving, c.id, true);
+    const left = !next && inFeatured ? new Promise((r) => setTimeout(r, LEAVE_MS)) : Promise.resolve();
+    try {
+      await api.setFeatured(c.id, next);
+      await left;
+    } catch {
+      setStar(c.id, !next);
+      setStarError(true);
+    } finally {
+      mark(setLeaving, c.id, false);
+      mark(setPending, c.id, false);
+    }
+  };
 
   // Mine keeps in-progress heroes moving without a reload.
   useEffect(() => {
@@ -44,31 +86,77 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect }: GalleryProps) {
   }, [filter, creations]);
 
   const shown = (creations ?? [])
-    .filter((c) => (filter === 'all' ? c.status === 'completed' : filter === 'failed' ? c.status === 'failed' : true))
+    .filter((c) => {
+      if (filter === 'featured') return c.status === 'completed' && (c.featured || leaving.has(c.id));
+      if (filter === 'all') return c.status === 'completed';
+      if (filter === 'failed') return c.status === 'failed';
+      return true;
+    })
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+  // "All heroes" and "Failed" are admin views. Signed out there is only
+  // Editors' choice, and one lone chip is no choice: no chips at all.
+  const chips: { key: Filter; label: string; cls: string }[] = [
+    { key: 'featured', label: 'Editors’ choice', cls: 'tb-chip-featured' },
+    ...(isAdmin ? [{ key: 'all' as Filter, label: 'All heroes', cls: 'tb-chip-all' }] : []),
+    ...(isLoggedIn ? [{ key: 'mine' as Filter, label: 'My heroes', cls: 'tb-chip-mine' }] : []),
+    ...(isAdmin ? [{ key: 'failed' as Filter, label: 'Failed', cls: 'tb-chip-failed' }] : []),
+  ];
 
   return (
     <div className="tb-gallery creation-gallery">
-      {/* Filters only exist signed in; signed out the grid follows the intro directly. */}
-      {isLoggedIn && (
+      {chips.length > 1 && (
         <div className="tb-gallery-chips" role="tablist" aria-label="Show">
-          <button type="button" role="tab" aria-selected={filter === 'all'} className={`tb-chip${filter === 'all' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('all')}>All heroes</button>
-          <button type="button" role="tab" aria-selected={filter === 'mine'} className={`tb-chip tb-chip-mine${filter === 'mine' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('mine')}>My heroes</button>
-          {isAdmin && <button type="button" role="tab" aria-selected={filter === 'failed'} className={`tb-chip${filter === 'failed' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('failed')}>Failed</button>}
+          {chips.map((c) => (
+            <button key={c.key} type="button" role="tab" aria-selected={filter === c.key} className={`tb-chip ${c.cls}${filter === c.key ? ' tb-chip--on' : ''}`} onClick={() => setFilter(c.key)}>{c.label}</button>
+          ))}
         </div>
       )}
 
+      {starError && <div className="tb-gallery-note" role="status">Could not save that. Try again.</div>}
       {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setFilter(filter)}>Try again</button></div>}
       {!creations && !error && <div className="tb-gallery-grid">{Array.from({ length: 6 }, (_, i) => <div key={i} className={`tb-tile tb-tile--skeleton tb-plate-${(i % 6) + 1}`} />)}</div>}
       {creations && shown.length === 0 && (
-        <div className="tb-gallery-empty">{filter === 'mine' ? 'No heroes yet. Make your first one.' : 'No heroes here yet.'}</div>
+        <div className="tb-gallery-empty">
+          {filter === 'mine' ? 'No heroes yet. Make your first one.'
+            : filter === 'featured' ? <>No picks yet. Check back soon!{isAdmin && <> <button type="button" className="tb-link" onClick={() => setFilter('all')}>All heroes</button></>}</>
+            : 'No heroes here yet.'}
+        </div>
       )}
       {creations && shown.length > 0 && (
         <div className="tb-gallery-grid">
-          {shown.map((c, i) => <Tile key={c.id} creation={c} index={i} onClick={() => onSelect(c)} />)}
+          {shown.map((c, i) => (
+            <div key={c.id} className={`tb-tile-wrap${leaving.has(c.id) ? ' tb-tile-wrap--leaving' : ''}`}>
+              <Tile creation={c} index={i} onClick={() => onSelect(c)} />
+              {isAdmin && c.status === 'completed' && (
+                <StarToggle on={!!c.featured} busy={pending.has(c.id)} onToggle={() => toggleStar(c)} />
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Admin only: star a hero into Editors' choice. A sibling of the tile, not
+ * inside it (a button cannot hold a button), so a tap never opens the hero.
+ */
+function StarToggle({ on, busy, onToggle }: { on: boolean; busy: boolean; onToggle: () => void }) {
+  const label = on ? 'Remove from Editors’ choice' : 'Add to Editors’ choice';
+  return (
+    <button
+      type="button"
+      className={`tb-tile-star${on ? ' tb-tile-star--on' : ''}`}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      aria-busy={busy || undefined}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+    >
+      <span className="tb-tile-star-dot"><Icon name="star" size={20} /></span>
+    </button>
   );
 }
 
