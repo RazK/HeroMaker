@@ -107,7 +107,14 @@ jobs:
         working-directory: backend
         env:
           TEST_POSTGRES_URL: postgresql://test:test@localhost:5432/test
-        run: ../.venv/bin/python -m pytest -q
+        # Failures are also raised as annotations, so they show on the PR's
+        # Checks tab without opening the log.
+        run: |
+          set -o pipefail
+          ../.venv/bin/python -m pytest -q -rfE 2>&1 | tee pytest.out || {
+            grep -E '^(FAILED|ERROR) ' pytest.out | sed 's/^/::error title=pytest::/'
+            exit 1
+          }
 
   # `npm run build` is `tsc && vite build`: the type check and the production
   # bundle, which is everything the frontend Docker image's build stage does.
