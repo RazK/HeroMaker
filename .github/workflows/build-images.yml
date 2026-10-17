@@ -199,8 +199,15 @@ jobs:
     needs: changes
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      # "v<N> · <sha>" of this commit; the deploy job (no git there) stamps it.
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: version
+        run: echo "version=$(./devops/scripts/app-version.sh HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -277,6 +284,15 @@ jobs:
           echo "reports the environment 'not found', then either that token is"
           echo "not scoped to staging, or the environment is not named"
           echo "'${TARGET_ENVIRONMENT}' — the status above says which it is."
+
+      # `railway up` uploads files, not .git: the version travels as a file.
+      - name: Stamp the app version
+        env:
+          APP_VERSION: ${{ needs.bundle-game.outputs.version }}
+        run: |
+          printf '%s\n' "$APP_VERSION" > frontend/VERSION
+          cp frontend/VERSION backend/app/VERSION
+          cat backend/app/VERSION
 
       - name: Deploy Backend
         run: railway up --service=${{ needs.config.outputs.backend }} --environment=${{ needs.config.outputs.staging }} --detach

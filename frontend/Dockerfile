@@ -18,6 +18,10 @@ COPY . .
 # Pass VITE_API_BASE_URL as build arg so it's available during build
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+# App version for the footer. Railway deploys get it from ./VERSION (written by
+# the deploy job); this build arg overrides it; neither means "dev".
+ARG VITE_APP_VERSION
+ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build
 
 # Stage 2: Serve with Nginx

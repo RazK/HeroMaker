@@ -162,6 +162,13 @@ same way. Then fix `project.json` — only `project.json`.
 | production | *Actions → Promote to production*, approved by a reviewer |
 | rollback | same workflow, earlier SHA |
 
+**Quote the version when you report a merge or deploy** ("live on staging as
+v178 · 3f9c2ab"), so Raz can refresh and see it in the footer. It is
+`v<commits on main's first-parent line> · <short sha>`, made by
+`devops/scripts/app-version.sh <sha>`; read the deployed one from the footer or
+`GET /api/version` (backend). Production shows the same version as the staging
+build it promoted.
+
 Never add a workflow that deploys to production on push. Railway service and
 environment IDs come from `devops/railway/project.json` via the
 `railway-config.yml` reusable workflow — `railway-env.sh check` fails a
