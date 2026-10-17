@@ -189,5 +189,5 @@ Environment variables are separate and documented in
 | `build-images.yml` | PR, push to main, tags | builds/pushes images; on main, deploys to staging |
 | `promote-production.yml` | manual | the gated path to production |
 | `railway-config.yml` | called by the others | resolves service/environment IDs |
-| `backup.yml` | daily 02:00 UTC | backs up the **production** database |
+| `backup.yml` | daily 02:00 UTC | backs up the **production** database; deletes backups older than 30 days (newest 7 always kept) |
 | `env-lint.yml` | changes under `devops/railway/` | lints the env layers |
