@@ -246,7 +246,7 @@ function App() {
         <div className="tb-screen-body"><AdminPanel onClose={goHome} currentUserId={userInfo.id} /></div>
       </div>
     );
-  } else if (view === 'steps' && creation) {
+  } else if (view === 'steps' && creation && userInfo?.is_admin) {
     screen = (
       <div className="tb-screen tb-screen--wide">
         <Header left={<NavButton icon="back" label="Back to hero" onClick={() => setView('hero')} />} title="Every step" />
