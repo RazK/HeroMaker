@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, CreationResponse } from '../../api/client';
 import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState } from './pipeline';
@@ -91,7 +91,11 @@ function Tile({ creation, index, onClick }: { creation: CreationResponse; index:
       data-state={state}
       onClick={onClick}
     >
-      <img className={`tb-tile-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={file(painted ? 'thumb_rendered.png' : 'thumb_original.jpg')} alt={name} loading="lazy" />
+      {state === 'ready' ? (
+        <TileFade drawing={file('thumb_original.jpg')} hero={file('thumb_rendered.png')} name={name} index={index} />
+      ) : (
+        <img className={`tb-tile-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={file(painted ? 'thumb_rendered.png' : 'thumb_original.jpg')} alt={name} loading="lazy" />
+      )}
       <span className="tb-tile-card">
         <span className="tb-tile-name">{name}</span>
         {state === 'ready' && <span className="tb-tile-by">{by}</span>}
@@ -106,5 +110,44 @@ function Tile({ creation, index, onClick }: { creation: CreationResponse; index:
       </span>
       {state === 'ready' && <span className="tb-tile-play" aria-hidden="true"><Icon name="play" size={16} /></span>}
     </button>
+  );
+}
+
+/** One full cycle of the cross-fade, in seconds. Must match `.tb-tile-fade--on` in Gallery.css. */
+const FADE_CYCLE_S = 6.2;
+/** Neighbouring tiles start this far apart in the cycle, so the gallery never blinks in unison. */
+const FADE_STAGGER_S = 0.9;
+
+/**
+ * A ready tile: the kid's drawing and the hero render stacked, cross-fading
+ * between the two. The animation is pure CSS (Gallery.css); this only starts
+ * it once BOTH images have loaded, so a tile never fades to a blank plate.
+ * Until then, and for good if the drawing fails, the tile shows the render.
+ */
+function TileFade({ drawing, hero, name, index }: { drawing: string; hero: string; name: string; index: number }) {
+  const [loaded, setLoaded] = useState({ drawing: false, hero: false });
+  const [drawingFailed, setDrawingFailed] = useState(false);
+  const drawingRef = useRef<HTMLImageElement>(null);
+  const heroRef = useRef<HTMLImageElement>(null);
+  const done = (k: 'drawing' | 'hero') => setLoaded((l) => (l[k] ? l : { ...l, [k]: true }));
+
+  // An image already in the cache can finish before React attaches onLoad.
+  useEffect(() => {
+    if (drawingRef.current?.complete && drawingRef.current.naturalWidth) done('drawing');
+    if (heroRef.current?.complete && heroRef.current.naturalWidth) done('hero');
+  }, []);
+
+  const fading = loaded.drawing && loaded.hero && !drawingFailed;
+  const delay = ((index * FADE_STAGGER_S) % FADE_CYCLE_S).toFixed(1);
+
+  return (
+    <span className={`tb-tile-fade${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: `${delay}s` }}>
+      <span className="tb-tile-drawing" aria-hidden="true">
+        {!drawingFailed && (
+          <img ref={drawingRef} src={drawing} alt="" loading="lazy" decoding="async" onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />
+        )}
+      </span>
+      <img ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} loading="lazy" decoding="async" onLoad={() => done('hero')} />
+    </span>
   );
 }
