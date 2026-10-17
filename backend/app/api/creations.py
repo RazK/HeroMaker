@@ -180,7 +180,7 @@ def delete_creation(
     db.commit()
 
     try:
-        delete_creation_files(creation_id, creation.user_id)
+        delete_creation_files(creation.user_id, creation_id)
     except Exception as e:
         logger.warning(f"Error deleting files for creation {creation_id}: {e}")
     

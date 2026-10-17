@@ -65,3 +65,21 @@ def test_someone_else_cannot_delete_it(db, make_user, make_creation, completed_s
     assert response.status_code == 403
     db.expire_all()
     assert db.get(Creation, hero.id).deleted_at is None
+
+
+def test_deleting_a_hero_removes_its_files(db, make_user, make_creation, completed_steps, monkeypatch):
+    """The privacy policy promises a deleted hero's files are removed.
+
+    The endpoint called delete_creation_files(creation_id, user_id) while the
+    function takes (user_id, creation_id), so it looked in a folder that does
+    not exist and every file stayed in storage.
+    """
+    import app.api.creations as creations_api
+    calls = []
+    monkeypatch.setattr(creations_api, "delete_creation_files", lambda user_id, creation_id: calls.append((user_id, creation_id)))
+    user, hero = _paid_hero(db, make_user, make_creation, completed_steps)
+    client = TestClient(app)
+    auth = {"Authorization": f"Bearer {create_access_token(user.id)}"}
+
+    assert client.delete(f"/api/creations/{hero.id}", headers=auth).status_code == 200
+    assert calls == [(user.id, hero.id)]
