@@ -1,12 +1,13 @@
 name: Build and Push Docker Images
 
+# Merge to main -> staging. Pull requests are checked by ci.yml, not here: a PR
+# used to run these image builds too, which cost ~1.5 min per PR to check
+# little more than that the code compiles, and never ran a test.
 on:
   push:
     branches: [main]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 env:
@@ -307,32 +308,3 @@ jobs:
             echo "Production is unchanged. Once this looks right in staging, promote it:"
             echo "**Actions → Promote to production → Run workflow**, with ref \`${GITHUB_SHA}\`."
           } >> $GITHUB_STEP_SUMMARY
-
-  # Summary job that depends on all builds (for PR status checks)
-  summary:
-    needs: [changes, build-backend, build-frontend, build-vrm-converter]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check build results
-        run: |
-          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ needs.changes.outputs.backend }}" == "true" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
-            echo "- ✅ Backend: Built" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⏭️ Backend: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ "${{ needs.changes.outputs.frontend }}" == "true" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
-            echo "- ✅ Frontend: Built" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⏭️ Frontend: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ "${{ needs.changes.outputs.vrm-converter }}" == "true" ] || [ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]; then
-            echo "- ✅ VRM Converter: Built" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⏭️ VRM Converter: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
-          fi
