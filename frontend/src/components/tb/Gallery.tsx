@@ -114,15 +114,16 @@ function Tile({ creation, index, onClick }: { creation: CreationResponse; index:
 }
 
 /** One full cycle of the cross-fade, in seconds. Must match `.tb-tile-fade--on` in Gallery.css. */
-const FADE_CYCLE_S = 6.2;
+const FADE_CYCLE_S = 4;
 /** Neighbouring tiles start this far apart in the cycle, so the gallery never blinks in unison. */
-const FADE_STAGGER_S = 0.9;
+const FADE_STAGGER_S = 0.35;
 
 /**
  * A ready tile: the kid's drawing and the hero render stacked, cross-fading
  * between the two. The animation is pure CSS (Gallery.css); this only starts
  * it once BOTH images have loaded, so a tile never fades to a blank plate.
- * Until then, and for good if the drawing fails, the tile shows the render.
+ * The drawing shows as soon as it loads (the story starts there); if it
+ * fails, the tile shows the render for good.
  */
 function TileFade({ drawing, hero, name, index }: { drawing: string; hero: string; name: string; index: number }) {
   const [loaded, setLoaded] = useState({ drawing: false, hero: false });
@@ -141,7 +142,7 @@ function TileFade({ drawing, hero, name, index }: { drawing: string; hero: strin
   const delay = ((index * FADE_STAGGER_S) % FADE_CYCLE_S).toFixed(1);
 
   return (
-    <span className={`tb-tile-fade${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: `${delay}s` }}>
+    <span className={`tb-tile-fade${loaded.drawing && !drawingFailed ? ' tb-tile-fade--drawn' : ''}${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: `${delay}s` }}>
       <span className="tb-tile-drawing" aria-hidden="true">
         {!drawingFailed && (
           <img ref={drawingRef} src={drawing} alt="" loading="lazy" decoding="async" onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />

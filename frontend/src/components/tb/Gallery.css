@@ -75,15 +75,14 @@
 }
 
 /* ---------- Ready tile: drawing <-> hero cross-fade ----------
-   Each picture holds 2.5 s, then a 0.6 s cross-fade: 6.2 s a cycle.
-   The fade itself stays short, like every motion in the brand book; the hold
-   is long enough to actually look at the drawing, then at the hero.
+   Drawing first, then the hero: each holds 1.5 s with a 0.5 s cross-fade, a
+   4 s cycle. Raz: a longer hold loses people before they see the change.
    (The pre-Toy Box gallery used a 10 s cycle with 3 s fades and every tile in
    unison, so for most of the cycle both pictures sat half-transparent.)
    Opacity only, so it runs on the compositor: no layout, no paint, smooth on
    a phone with a full gallery. Gallery.tsx adds --on once both images have
    loaded and staggers tiles through --tb-fade-delay. Keep FADE_CYCLE_S there
-   in step with the 6.2 s here. */
+   in step with the 4 s here. */
 .tb-tile-fade { position: absolute; inset: 0; display: block; }
 .tb-tile-drawing {
   position: absolute;
@@ -110,24 +109,29 @@
   box-shadow: 0 6px 14px rgba(35, 25, 66, 0.18);
   transform: rotate(-4deg);
 }
+.tb-tile-fade--drawn .tb-tile-drawing { opacity: 1; }
+.tb-tile-fade--drawn .tb-tile-hero { opacity: 0; }
 .tb-tile-fade--on .tb-tile-drawing,
 .tb-tile-fade--on .tb-tile-hero {
-  animation: 6.2s ease-in-out var(--tb-fade-delay, 0s) infinite both;
+  animation: 4s ease-in-out var(--tb-fade-delay, 0s) infinite both;
 }
 .tb-tile-fade--on .tb-tile-drawing { animation-name: tb-tile-drawing; }
 .tb-tile-fade--on .tb-tile-hero { animation-name: tb-tile-hero; }
-/* 0-2.5 s hero, 2.5-3.1 s fade, 3.1-5.6 s drawing, 5.6-6.2 s fade back. */
+/* Drawing first, then what it became: 0-1.5 s drawing, 1.5-2 s fade,
+   2-3.5 s hero, 3.5-4 s fade back. */
 @keyframes tb-tile-drawing {
-  0%, 40.32% { opacity: 0; }
-  50%, 90.32% { opacity: 1; }
-  100% { opacity: 0; }
+  0%, 37.5% { opacity: 1; }
+  50%, 87.5% { opacity: 0; }
+  100% { opacity: 1; }
 }
 @keyframes tb-tile-hero {
-  0%, 40.32% { opacity: 1; }
-  50%, 90.32% { opacity: 0; }
-  100% { opacity: 1; }
+  0%, 37.5% { opacity: 0; }
+  50%, 87.5% { opacity: 1; }
+  100% { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .tb-tile-fade--on .tb-tile-drawing,
   .tb-tile-fade--on .tb-tile-hero { animation: none; }
+  .tb-tile-fade--drawn .tb-tile-drawing { opacity: 0; }
+  .tb-tile-fade--drawn .tb-tile-hero { opacity: 1; }
 }
