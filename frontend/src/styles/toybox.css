@@ -465,10 +465,12 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   object-fit: contain;
   object-position: center;
 }
+/* The kid's drawing in the stage's corner (Polaroid in parts.tsx). Over a
+   painting, useClearOfPolaroid keeps the picture out from under it. */
 .tb-polaroid {
   position: absolute;
-  left: 12px;
-  bottom: 12px;
+  inset-inline-start: 12px;
+  inset-block-end: 12px;
   width: 96px;
   padding: 6px 6px 0;
   background: var(--tb-white);
@@ -477,7 +479,22 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   box-shadow: 0 8px 20px rgba(35, 25, 66, 0.18);
 }
 .tb-polaroid img { display: block; width: 84px; height: 84px; object-fit: contain; border-radius: 6px; background: #faf7f2; }
-.tb-polaroid div { height: 26px; display: flex; align-items: center; justify-content: center; font-family: var(--tb-font-display); font-size: 13px; color: var(--tb-ink-2); }
+/* One line, always inside the card: the first name ellipsizes, the age stays. */
+.tb-polaroid-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--tb-font-display);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--tb-ink-2);
+}
+.tb-polaroid-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tb-polaroid-age { flex-shrink: 0; }
 
 /* ---------- Stepper ---------- */
 

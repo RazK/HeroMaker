@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, CreationResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { playUrl } from '../../config/play';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
-import { Dialog, Header, NavButton, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
+import { Dialog, Header, NavButton, Polaroid, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
 import { STEP_UI, currentStep, etaText, heroName, heroState, remainingCost, stepViews } from './pipeline';
 import './HeroScreen.css';
 
@@ -39,6 +39,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
+  const stageRef = useRef<HTMLDivElement>(null);
   useFitScreen();
 
   // The estimate counts down between polls.
@@ -54,6 +55,7 @@ export function HeroScreen(props: HeroScreenProps) {
   // What the user sees grow: the drawing until it is painted, then the painting.
   const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
   const art = painted ? file('rendered.png') : file('original.jpg');
+  useClearOfPolaroid(stageRef, `${state}:${art}`);
 
   const run = async (what: () => Promise<unknown>, failMsg: string) => {
     setBusy(true);
@@ -137,15 +139,10 @@ export function HeroScreen(props: HeroScreenProps) {
 
   // Being made, or failed: the picture so far. (Ready, HeroLive has the stage.)
   const stage = (
-    <div className="tb-stage tb-hero-stage">
+    <div ref={stageRef} className="tb-stage tb-hero-stage">
       <img className={`tb-stage-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
       {state === 'making' && !painted && <div className="tb-scanline" />}
-      {painted && (
-        <div className="tb-polaroid">
-          <img src={file('thumb_original.jpg')} alt="The drawing" />
-          <div>{creation.name ? `${creation.name}${creation.age ? `, ${creation.age}` : ''}` : 'The drawing'}</div>
-        </div>
-      )}
+      {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
     </div>
   );
 
