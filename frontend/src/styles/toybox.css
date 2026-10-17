@@ -51,6 +51,7 @@ html { font-synthesis: none; }
   --tb-depth-sm: 4px;
   --tb-btn-h: 58px;
   --tb-btn-sm-h: 48px;
+  --tb-header-ctl: 40px;
   --tb-stack: 18px;
   --tb-radius-card: 28px;
   --tb-radius-input: 18px;
@@ -189,12 +190,13 @@ h1, h2, h3, h4 {
 .tb-btn--with-trail { justify-content: space-between; }
 
 /* Round navigation button: the same in every header. Everything that sits in
-   a header (this, the credits pill, a sm pill) is --tb-btn-sm-h tall with
+   a header (this, the credits pill, a sm pill) is --tb-header-ctl tall with
    --tb-depth-sm of depth, so the row lines up: same top, same bottom, same
-   shadow. Box-sizing is border-box, so the 2.5px border is inside the 48. */
+   shadow. 40px keeps the header light next to the logo; the tap layer (see
+   "Touch") still reaches 48px. Box-sizing is border-box: the border is inside. */
 .tb-nav {
-  width: var(--tb-btn-sm-h);
-  height: var(--tb-btn-sm-h);
+  width: var(--tb-header-ctl);
+  height: var(--tb-header-ctl);
   flex-shrink: 0;
   padding: 0;
   display: inline-flex;
@@ -203,11 +205,12 @@ h1, h2, h3, h4 {
   border-radius: 999px;
   background: var(--tb-white);
   color: var(--tb-ink);
-  border: 2.5px solid var(--tb-ink);
+  border: 2px solid var(--tb-ink);
   box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
   cursor: pointer;
   text-decoration: none;
 }
+.tb-nav svg { width: 20px; height: 20px; }
 .tb-nav:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
 
 .tb-chip {
@@ -228,9 +231,10 @@ h1, h2, h3, h4 {
 
 /* Header credits pill: the nav button's height and depth (see .tb-nav). */
 .tb-credits {
-  height: var(--tb-btn-sm-h);
+  position: relative;
+  height: var(--tb-header-ctl);
   flex-shrink: 0;
-  padding: 0 16px;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -241,10 +245,12 @@ h1, h2, h3, h4 {
   box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-sun-deep);
   font-family: var(--tb-font-body);
   font-weight: 800;
-  font-size: 17px;
+  font-size: 15px;
   white-space: nowrap;
   cursor: pointer;
 }
+.tb-credits svg { width: 18px; height: 18px; }
+.tb-header .tb-btn--sm { height: var(--tb-header-ctl); font-size: 16px; padding: 0 14px; }
 .tb-credits:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-sun-deep); }
 
 .tb-link {
@@ -586,3 +592,9 @@ button, a, [role='button'], [role='tab'] { -webkit-user-select: none; user-selec
   inset: 0 0 calc(-1 * var(--tb-depth) - 2px);
 }
 .tb-btn:active::after, .tb-nav:active::after, .buy-credits-pack:active::after { top: -4px; }
+/* Header controls are drawn at 40px; their tap area stays 48px. */
+.tb-header .tb-nav::after, .tb-header .tb-btn::after, .tb-credits::after {
+  content: '';
+  position: absolute;
+  inset: -4px -4px calc(-1 * var(--tb-depth-sm) - 4px);
+}
