@@ -15,6 +15,14 @@ on:
         description: 'Comma-separated subset (landing,gallery,signup,buy,create,profile,game). Empty = all.'
         required: false
         default: ''
+      login_as:
+        description: 'Sign in as an earlier robot account (robot_<stamp>) instead of signing up; with steps=landing,signup,buy this tops it up'
+        required: false
+        default: ''
+      pack:
+        description: 'Credit pack the buy step purchases (starter, maker, studio)'
+        required: false
+        default: 'starter'
       demo:
         description: 'Record a demo video of the run: a ~30s highlight reel plus the full recording'
         type: boolean
@@ -51,6 +59,8 @@ jobs:
         env:
           BASE_URL: ${{ steps.url.outputs.frontend }}
           STEPS: ${{ inputs.steps }}
+          LOGIN_AS: ${{ inputs.login_as }}
+          PACK: ${{ inputs.pack }}
           DEMO: ${{ inputs.demo && '1' || '' }}
         run: |
           if [ -z "$STEPS" ]; then unset STEPS; fi

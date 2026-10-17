@@ -302,7 +302,15 @@ page.setDefaultTimeout(30000);
 page.on('pageerror', (e) => console.log(`  [page error] ${e.message}`));
 
 const stamp = Date.now().toString(36);
-const user = { username: `robot_${stamp}`, email: `robot+${stamp}@example.com`, password: `robot-${stamp}-pw` };
+// LOGIN_AS=robot_<stamp> signs in to an earlier robot account instead of
+// making a new one (its password follows the same pattern), e.g. to top up a
+// test account with PACK=maker.
+const LOGIN_AS = (process.env.LOGIN_AS || '').trim();
+const PACK = (process.env.PACK || 'starter').trim();
+const loginStamp = LOGIN_AS.replace(/^robot_/, '');
+const user = LOGIN_AS
+  ? { username: LOGIN_AS, email: `robot+${loginStamp}@example.com`, password: `robot-${loginStamp}-pw` }
+  : { username: `robot_${stamp}`, email: `robot+${stamp}@example.com`, password: `robot-${stamp}-pw` };
 let heroName = null;
 
 let exitCode = 0;
@@ -348,6 +356,13 @@ try {
   await step(page, 'signup', async () => {
     mark('signup_start');
     await page.locator('.header-auth-button').click();
+    if (LOGIN_AS) {
+      await type(page, '#username', user.username);
+      await type(page, '#password', user.password);
+      await page.locator('button.auth-modal-submit').click();
+      await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
+      return `signed in as ${user.username}, balance ${await creditsShown(page)}`;
+    }
     await page.locator('button.auth-modal-tab').click(); // "Create an account"
     await type(page, '#username', user.username);
     await type(page, '#email', user.email);
@@ -366,7 +381,7 @@ try {
     mark('buy_start');
     await page.locator('.header-auth-user-button').click();
     await page.getByRole('button', { name: /buy credits/i }).click();
-    const pack = page.locator('.buy-credits-pack[data-pack="starter"]');
+    const pack = page.locator(`.buy-credits-pack[data-pack="${PACK}"]`);
     await pack.waitFor({ timeout: 20000 });
     if (DEMO) { await pack.hover(); await page.waitForTimeout(2500); }
     const price = await pack.locator('.buy-credits-pack-price').innerText();
@@ -544,8 +559,11 @@ try {
 } finally {
   // Leave no trace: every run makes the same hero from the same drawing, and
   // ten identical robots in the public gallery is exactly what a visitor
-  // should never see. Deletes only this run's user's own heroes.
+  // should never see. Deletes only this run's user's own heroes, and never
+  // when signed in to an existing account (LOGIN_AS): those heroes are a
+  // person's, not this run's.
   try {
+    if (LOGIN_AS) throw new Error('skipped: signed in to an existing account');
     const state = await context.storageState();
     const origin = state.origins.find((o) => BASE_URL.startsWith(o.origin));
     const token = origin?.localStorage.find((e) => e.name === 'heromaker_jwt_token')?.value;
