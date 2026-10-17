@@ -6,6 +6,7 @@ import { PipelineProgress } from './components/PipelineProgress';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
+import { Privacy, PRIVACY_PATH } from './components/tb/Privacy';
 import { Gallery } from './components/tb/Gallery';
 import { HeroScreen } from './components/tb/HeroScreen';
 import { Icon } from './components/tb/Icon';
@@ -17,13 +18,13 @@ import { loadStepConfig, getTotalCost } from './config/steps';
 import './styles/toybox.css';
 import './App.css';
 
-type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset';
+type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | 'privacy';
 
 // The only URL the app routes on: the link in a "Forgot password?" email.
 const isResetUrl = () => window.location.pathname === RESET_PASSWORD_PATH;
 
 function App() {
-  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : 'gallery');
+  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : window.location.pathname === PRIVACY_PATH ? 'privacy' : 'gallery');
   const [resetToken] = useState(() => (isResetUrl() ? new URLSearchParams(window.location.search).get('token') ?? '' : ''));
   const [creation, setCreation] = useState<CreationResponse | null>(null);
   const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
@@ -141,7 +142,7 @@ function App() {
   }, []);
 
   const goHome = () => {
-    if (isResetUrl()) window.history.replaceState(null, '', '/');
+    if (isResetUrl() || window.location.pathname === PRIVACY_PATH) window.history.replaceState(null, '', '/');
     setView('gallery');
     setCreation(null);
     setError(null);
@@ -260,7 +261,9 @@ function App() {
   );
 
   let screen;
-  if (view === 'reset') {
+  if (view === 'privacy') {
+    screen = <Privacy onBack={goHome} />;
+  } else if (view === 'reset') {
     screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
   } else if (view === 'admin' && userInfo) {
     screen = (
@@ -335,7 +338,7 @@ function App() {
             </section>
           )}
           <Gallery key={galleryKey} isLoggedIn={isLoggedIn} isAdmin={userInfo?.is_admin ?? false} onSelect={openHero} />
-          <footer className="tb-footer">Made by Raz Karl &amp; Elad Shikley</footer>
+          <footer className="tb-footer">Made by Raz Karl &amp; Elad Shikley · <a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a></footer>
         </div>
         <div className="tb-bar">
           <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-new-hero" disabled={isUploading} onClick={startNewHero}>

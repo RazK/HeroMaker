@@ -1,0 +1,5 @@
+/* A legal page: the one screen that is running text and scrolls. */
+.tb-legal { max-width: 640px; margin: 0 auto; padding-bottom: calc(var(--tb-space) * 2); }
+.tb-legal h2 { font-family: var(--tb-font-display); font-weight: 400; font-size: 22px; margin: var(--tb-space) 0 4px; }
+.tb-legal p, .tb-legal li { font-size: 16px; line-height: 1.55; color: var(--tb-ink); margin: 0 0 8px; }
+.tb-legal ul { margin: 0; padding-inline-start: 20px; }
