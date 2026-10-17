@@ -329,6 +329,14 @@ h1, h2, h3, h4 {
   .tb-screen--fit > .tb-screen-body { padding-right: 8px; }
   .tb-screen--fit > .tb-bar { padding-left: 8px; justify-content: flex-end; box-shadow: none; }
 }
+/* A screen whose list scrolls inside it, never the page (with NoPageScroll).
+   When the page scrolls, iPhone Safari shrinks its toolbar, and then a tap
+   near the bottom edge -- where the bottom bar and every sheet's buttons
+   sit -- only brings the toolbar back: the button looks pressed and nothing
+   happens. A page that never scrolls never shrinks the toolbar. */
+.tb-screen--app { height: 100svh; height: 100dvh; min-height: 0; }
+html.tb-no-scroll .tb-screen--app { height: 100%; }
+.tb-screen--app > .tb-screen-body { overflow-y: auto; overscroll-behavior: contain; }
 .tb-screen-body {
   flex-grow: 1;
   min-height: 0;

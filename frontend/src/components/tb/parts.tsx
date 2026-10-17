@@ -101,3 +101,9 @@ export function useFitScreen() {
     };
   }, []);
 }
+
+/** useFitScreen for a screen built inline, where a hook cannot go. */
+export function NoPageScroll() {
+  useFitScreen();
+  return null;
+}
