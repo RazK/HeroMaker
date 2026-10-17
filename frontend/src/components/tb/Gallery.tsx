@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, CreationResponse } from '../../api/client';
 import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState } from './pipeline';
@@ -115,8 +115,24 @@ function Tile({ creation, index, onClick }: { creation: CreationResponse; index:
 
 /** One full cycle of the cross-fade, in seconds. Must match `.tb-tile-fade--on` in Gallery.css. */
 const FADE_CYCLE_S = 4;
-/** Neighbouring tiles start this far apart in the cycle, so the gallery never blinks in unison. */
-const FADE_STAGGER_S = 0.35;
+/** Each tile runs this far behind the one before it: a wave across the gallery. */
+const FADE_STAGGER_S = 0.3;
+
+/**
+ * Where tile `index` should be in its cycle right now, on ONE clock shared by
+ * every tile (the page's performance.now()), as a negative animation-delay.
+ *
+ * A tile starts animating only once its images load, and they load at random
+ * times; a plain per-tile delay was measured from that moment, so the wave
+ * broke up into tiles flipping together or out of order. Measuring from the
+ * shared clock puts a tile straight into its slot in the wave whenever it
+ * starts, so neighbours always stay exactly FADE_STAGGER_S apart.
+ */
+function wavePhaseDelay(index: number): string {
+  const now = performance.now() / 1000;
+  const phase = (((now - index * FADE_STAGGER_S) % FADE_CYCLE_S) + FADE_CYCLE_S) % FADE_CYCLE_S;
+  return `${(-phase).toFixed(3)}s`;
+}
 
 /**
  * A ready tile: the kid's drawing and the hero render stacked, cross-fading
@@ -139,10 +155,11 @@ function TileFade({ drawing, hero, name, index }: { drawing: string; hero: strin
   }, []);
 
   const fading = loaded.drawing && loaded.hero && !drawingFailed;
-  const delay = ((index * FADE_STAGGER_S) % FADE_CYCLE_S).toFixed(1);
+  // Computed once, at the moment the tile joins the wave.
+  const delay = useMemo(() => (fading ? wavePhaseDelay(index) : '0s'), [fading, index]);
 
   return (
-    <span className={`tb-tile-fade${loaded.drawing && !drawingFailed ? ' tb-tile-fade--drawn' : ''}${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: `${delay}s` }}>
+    <span className={`tb-tile-fade${loaded.drawing && !drawingFailed ? ' tb-tile-fade--drawn' : ''}${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: delay }}>
       <span className="tb-tile-drawing" aria-hidden="true">
         {!drawingFailed && (
           <img ref={drawingRef} src={drawing} alt="" loading="lazy" decoding="async" onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />
