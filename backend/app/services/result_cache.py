@@ -279,3 +279,58 @@ def begin(step_name: str, user_id: str, creation_id: str, version: Dict[str, Any
     logger.info("[%s] result cache: HIT %s %s - provider not called (saved %s)",
                 creation_id, step_name, attempt.key[:12], pricing.micros_to_usd_str(avoided))
     return attempt
+
+
+# ---------------------------------------------------------------------------
+# Small JSON values, for provider calls that are not pipeline steps (the hero
+# name). Same switch, same key recipe, same storage owner; the value lives in
+# the manifest itself, so there are no files to copy. Never raises.
+# ---------------------------------------------------------------------------
+
+def get_value(kind: str, input_bytes: bytes, version: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The cached value for this input+version, or None (miss, or cache off)."""
+    if not enabled():
+        return None
+    try:
+        key = compute_key(kind, input_bytes, version)
+        storage = get_storage()
+        eid = entry_id(kind, key)
+        if not storage.file_exists(CACHE_OWNER, eid, MANIFEST):
+            return None
+        manifest = json.loads(storage.download_file(CACHE_OWNER, eid, MANIFEST))
+        if manifest.get("key") != key or manifest.get("step") != kind:
+            return None
+        value = manifest.get("value")
+        return value if isinstance(value, dict) else None
+    except Exception:
+        logger.warning("result cache: lookup failed for %s; calling the provider",
+                       kind, exc_info=True)
+        return None
+
+
+def put_value(kind: str, input_bytes: bytes, version: Dict[str, Any],
+              value: Dict[str, Any], source_creation_id: Optional[str] = None) -> bool:
+    """Store a value for this input+version. No-op when the cache is off."""
+    if not enabled():
+        return False
+    try:
+        key = compute_key(kind, input_bytes, version)
+        manifest = {
+            "format": CACHE_FORMAT,
+            "step": kind,
+            "key": key,
+            "input_sha256": _sha256(input_bytes),
+            "version_sha256": version_hash(version),
+            "files": [],
+            "value": value,
+            "source_creation_id": source_creation_id,
+            "created_at": datetime.utcnow().isoformat() + "Z",
+        }
+        get_storage().upload_file(
+            CACHE_OWNER, entry_id(kind, key), MANIFEST,
+            json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"),
+        )
+        return True
+    except Exception:
+        logger.warning("result cache: could not store %s; carrying on", kind, exc_info=True)
+        return False
