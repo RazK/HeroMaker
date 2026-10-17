@@ -98,6 +98,8 @@
 .adm-row-label { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-weight: 700; overflow-wrap: anywhere; }
 .adm-row-label small { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }
 .adm-row-value { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The total's own dark rule replaces the hairline of the row above it. */
+.adm-row:has(+ .adm-row--total) { border-block-end: none; }
 .adm-row--total { border-block-start: 2px solid var(--tb-ink); border-block-end: none; margin-block-start: 2px; }
 .adm-row--total .adm-row-label, .adm-row--total .adm-row-value { font-weight: 800; font-size: 17px; }
 .adm-row--tap {
