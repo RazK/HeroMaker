@@ -52,6 +52,27 @@ PROVIDERS = (PROVIDER_OPENAI, PROVIDER_MESHY, PROVIDER_INTERNAL)
 # quality in that call changes, this number is wrong.
 OPENAI_IMAGE_USD_MICROS = 167_000
 
+# Hero naming: one small vision chat call per hero (app/services/openai.py::
+# suggest_hero_name, model HERO_NAME_MODEL there). Booked at the ACTUAL token
+# count the response reports, at gpt-4.1-mini's list rates of $0.40 per 1M
+# input tokens and $1.60 per 1M output tokens (OpenAI price page as known in
+# 2026-10; not yet checked against an invoice). A typical call is a
+# low-detail image plus the prompt, ~600 tokens in and ~10 out: well under
+# $0.001. When the response carries no token counts the call is booked at
+# the flat ceiling below, so it is never recorded as free.
+OPENAI_HERO_NAME_USD_MICROS_PER_1M_INPUT_TOKENS = 400_000
+OPENAI_HERO_NAME_USD_MICROS_PER_1M_OUTPUT_TOKENS = 1_600_000
+OPENAI_HERO_NAME_USD_MICROS = 1_000  # $0.001 per call, the flat ceiling
+
+
+def hero_name_cost_usd_micros(input_tokens: int, output_tokens: int) -> int:
+    """What one naming call cost, from its token counts. Integer maths, rounded up."""
+    numerator = (
+        int(input_tokens) * OPENAI_HERO_NAME_USD_MICROS_PER_1M_INPUT_TOKENS
+        + int(output_tokens) * OPENAI_HERO_NAME_USD_MICROS_PER_1M_OUTPUT_TOKENS
+    )
+    return -(-numerator // 1_000_000)
+
 # --------------------------------------------------------------------------
 # Meshy
 # --------------------------------------------------------------------------
@@ -110,6 +131,9 @@ BILL_FAILED_CALLS = False
 # --------------------------------------------------------------------------
 
 OP_OPENAI_IMAGE_EDIT = "images.edit"
+# The vision call that names a new hero from its drawing. Not a pipeline step
+# and not charged to the user in credits; recorded so finance sees it.
+OP_OPENAI_HERO_NAME = "chat.hero_name"
 OP_MESHY_IMAGE_TO_3D = "image-to-3d"
 OP_MESHY_RIGGING = "rigging"
 OP_MESHY_REMESH = "remesh"
@@ -149,6 +173,8 @@ def unit_cost_usd_micros(provider: str, operation: str) -> int:
     if provider == PROVIDER_OPENAI:
         if operation == OP_OPENAI_IMAGE_EDIT:
             return OPENAI_IMAGE_USD_MICROS
+        if operation == OP_OPENAI_HERO_NAME:
+            return OPENAI_HERO_NAME_USD_MICROS
         return 0
     if provider == PROVIDER_MESHY:
         return meshy_credits_to_usd_micros(MESHY_OPERATION_CREDITS.get(operation, 0))
@@ -167,6 +193,7 @@ def price_table_snapshot() -> dict:
         "last_checked": LAST_CHECKED,
         "bill_failed_calls": BILL_FAILED_CALLS,
         "openai_image_usd_micros": OPENAI_IMAGE_USD_MICROS,
+        "openai_hero_name_usd_micros": OPENAI_HERO_NAME_USD_MICROS,
         "meshy_usd_micros_per_credit": MESHY_USD_MICROS_PER_CREDIT,
         "meshy_image_to_3d_credits": MESHY_IMAGE_TO_3D_CREDITS,
         "meshy_image_to_3d_usd_micros": meshy_credits_to_usd_micros(MESHY_IMAGE_TO_3D_CREDITS),

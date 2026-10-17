@@ -75,6 +75,9 @@ class UsageHandle:
     event_id: Optional[str] = None
     provider_ref: Optional[str] = None
     units: Optional[int] = None
+    # The actual charge, when the provider's answer tells us (e.g. token
+    # counts). Left None, the list price booked at submission stands.
+    cost_usd_micros: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -291,6 +294,7 @@ def track(
             status="succeeded" if finalize_on_success else "submitted",
             provider_ref=handle.provider_ref,
             metadata=handle.metadata,
+            cost_usd_micros=handle.cost_usd_micros,
         )
 
 

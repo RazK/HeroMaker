@@ -33,6 +33,7 @@ from app.services import openai as openai_service
 from app.services import meshy
 from app.services import vrm_conversion
 from app.services import result_cache
+from app.services import hero_naming
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
 from app.config import pricing
@@ -382,11 +383,50 @@ def execute_meshy_rig_sync(
 # Step Coroutines (Async)
 # ============================================================================
 
+# Hero naming calls in flight, by creation id. Held so the task is not
+# garbage-collected mid-call, and so tests can wait for it.
+_HERO_NAMING: Dict[str, "asyncio.Future"] = {}
+
+
+def start_hero_naming(creation_id: str, user_id: str, db: Session) -> None:
+    """
+    Name the hero from its drawing, in the background (app/services/hero_naming.py).
+
+    Fire-and-forget: the step does not wait, so naming can never slow or fail
+    the pipeline. Skipped outright when the hero already has a name.
+    """
+    try:
+        creation = db.query(Creation).filter(Creation.id == creation_id).first()
+        if creation is None or hero_naming.has_name(creation.character_name):
+            return
+        loop = asyncio.get_event_loop()
+        future = loop.run_in_executor(None, hero_naming.name_creation, creation_id, user_id)
+        _HERO_NAMING[creation_id] = future
+
+        def _done(f, cid=creation_id):
+            if _HERO_NAMING.get(cid) is f:
+                del _HERO_NAMING[cid]
+
+        future.add_done_callback(_done)
+    except Exception:
+        logger.warning("[%s] hero name: could not start; leaving it unnamed",
+                       creation_id, exc_info=True)
+
+
+async def wait_for_hero_naming(creation_id: str) -> None:
+    """Wait for this creation's naming call, if one is running. Never raises."""
+    future = _HERO_NAMING.get(creation_id)
+    if future is not None:
+        await asyncio.wait({future})
+
+
 async def step_image_processing(creation_id: str, user_id: str, db: Session) -> None:
-    """Process image: original.jpg → processed.jpg"""
+    """Process image: original.jpg → processed.jpg. Also starts hero naming."""
     storage = get_storage()
     loop = asyncio.get_event_loop()
-    
+
+    start_hero_naming(creation_id, user_id, db)
+
     with _get_file_path_for_processing(creation_id, user_id, "original.jpg", "r") as input_path:
         with _get_file_path_for_processing(creation_id, user_id, "processed.jpg", "w") as output_path:
             await loop.run_in_executor(

@@ -5,7 +5,11 @@ Uses OpenAI's GPT-Image-1 model to transform child drawings into 3D renders opti
 """
 
 import base64
+import io
+import json
 import logging
+import re
+import unicodedata
 from pathlib import Path
 from typing import Optional
 from openai import OpenAI
@@ -383,4 +387,179 @@ def render_image(
         error_msg = f"Unexpected error during OpenAI API call: {error_str}"
         logger.error(error_msg, exc_info=True)
         raise Exception(error_msg) from e
+
+
+# ---------------------------------------------------------------------------
+# Hero naming: one cheap vision call that names a new hero from its drawing.
+#
+# Runs alongside the free image_processing step (see
+# app/services/hero_naming.py), is never charged to the user in credits, and
+# is recorded as a usage_event so finance sees it. Everything here may fail;
+# the caller swallows it and the hero keeps the UI's "Your hero".
+#
+# The prompt is generic on purpose: nothing in it describes a particular
+# drawing. The example names show the KIND of name; the prompt says not to
+# reuse them.
+# ---------------------------------------------------------------------------
+
+HERO_NAME_MODEL = "gpt-4.1-mini"
+
+# A hard ceiling on the HTTP call, with no SDK retries: a name is a nicety and
+# must never hold anything up.
+HERO_NAME_TIMEOUT_S = 10.0
+
+# The drawing is shrunk before it is sent: "low" detail is all a name needs,
+# and a phone photo of a page is megabytes that would only slow the upload.
+HERO_NAME_IMAGE_MAX_PX = 512
+HERO_NAME_IMAGE_DETAIL = "low"
+
+HERO_NAME_MAX_WORDS = 3
+HERO_NAME_MAX_CHARS = 24
+
+HERO_NAME_PROMPT = """You give names to characters that children draw. Look at this drawing and name the character in it.
+
+How to choose the name:
+- Base it on what is visibly drawn: what the character is (for example an animal, a robot, a monster, a person, a creature or an object), what it looks like, and its main colours.
+- Make it fun and kid-friendly: an alliterative or playful name of 1 to 3 words that a child would love. These show the kind of name only; do not reuse them: "Prickle Pete", "Brick Bo", "Ruby Rocket".
+- If the child wrote a name for the character in the drawing, prefer that name. If it is only a first name, add one playful word to it.
+- English only, each word starting with a capital letter.
+
+Never use:
+- a real person's name on its own, or the name of a famous person or of a character from a film, show, game or book
+- a brand, company, product or trademark name
+- anything scary, rude or mean, or anything that mocks how the drawing looks
+- numbers, emoji, quotation marks or other symbols
+
+Answer with JSON only, in the form {"name": "..."}."""
+
+# Structured Outputs: the model can only answer {"name": "<string>"}.
+HERO_NAME_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "hero_name",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+# Straight, curly and angle quotes. All are dropped from a name.
+_QUOTES = "\"'`‘’‚‛“”„‟«»‹›"
+
+
+def hero_name_cache_version() -> dict:
+    """What a cached name depends on besides the drawing (result_cache key)."""
+    return {
+        "prompt": HERO_NAME_PROMPT,
+        "model": HERO_NAME_MODEL,
+        "image_max_px": HERO_NAME_IMAGE_MAX_PX,
+        "detail": HERO_NAME_IMAGE_DETAIL,
+    }
+
+
+def sanitize_hero_name(raw) -> Optional[str]:
+    """
+    Make whatever the model said safe to show as a hero's name, or None.
+
+    Trimmed; quotes, emoji, digits and other symbols removed (letters, spaces
+    and inner hyphens survive); at most HERO_NAME_MAX_WORDS words and
+    HERO_NAME_MAX_CHARS characters, cut at a word boundary where possible.
+    """
+    if not isinstance(raw, str):
+        return None
+    text = unicodedata.normalize("NFKC", raw)
+    text = "".join(" " if ch in _QUOTES else ch for ch in text)
+    text = "".join(ch if (ch.isalpha() or ch in " -") else " " for ch in text)
+    words = [re.sub(r"-{2,}", "-", w.strip("-")) for w in text.split()]
+    words = [w for w in words if w][:HERO_NAME_MAX_WORDS]
+    while len(words) > 1 and len(" ".join(words)) > HERO_NAME_MAX_CHARS:
+        words.pop()
+    name = " ".join(words)[:HERO_NAME_MAX_CHARS].strip(" -")
+    return name or None
+
+
+def _hero_name_image_data_url(image_bytes: bytes) -> str:
+    """The drawing as a small JPEG data URL."""
+    from PIL import Image, ImageOps
+
+    with Image.open(io.BytesIO(image_bytes)) as opened:
+        img = ImageOps.exif_transpose(opened)
+        if img.mode in ("RGBA", "LA", "P"):
+            img = img.convert("RGBA")
+            flat = Image.new("RGB", img.size, (255, 255, 255))
+            flat.paste(img, mask=img.split()[-1])
+            img = flat
+        else:
+            img = img.convert("RGB")
+        img.thumbnail((HERO_NAME_IMAGE_MAX_PX, HERO_NAME_IMAGE_MAX_PX))
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=85)
+    return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
+
+
+def suggest_hero_name(image_bytes: bytes, usage: Optional[UsageContext] = None) -> Optional[str]:
+    """
+    Ask HERO_NAME_MODEL for a name for the character in this drawing.
+
+    Returns the sanitized name, or None if the answer had nothing usable in
+    it. RAISES on a missing key, an unreadable image, a timeout or any API
+    error: the caller (hero_naming.name_creation) turns every failure into
+    "no name" and logs it.
+
+    Every call that reaches OpenAI writes one usage_event (provider "openai",
+    operation pricing.OP_OPENAI_HERO_NAME), costed from the token counts the
+    response reports.
+    """
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY not set")
+
+    data_url = _hero_name_image_data_url(image_bytes)
+    client = OpenAI(api_key=OPENAI_API_KEY, timeout=HERO_NAME_TIMEOUT_S, max_retries=0)
+
+    with usage_service.track(
+        usage,
+        pricing.PROVIDER_OPENAI,
+        pricing.OP_OPENAI_HERO_NAME,
+        quantity=1,
+        metadata={"model": HERO_NAME_MODEL, "detail": HERO_NAME_IMAGE_DETAIL},
+    ) as call:
+        response = client.chat.completions.create(
+            model=HERO_NAME_MODEL,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": HERO_NAME_PROMPT},
+                    {"type": "image_url",
+                     "image_url": {"url": data_url, "detail": HERO_NAME_IMAGE_DETAIL}},
+                ],
+            }],
+            response_format=HERO_NAME_RESPONSE_FORMAT,
+            max_completion_tokens=40,
+            temperature=0.9,
+            timeout=HERO_NAME_TIMEOUT_S,
+        )
+        call.provider_ref = getattr(response, "_request_id", None) or getattr(response, "id", None)
+        tokens = getattr(response, "usage", None)
+        if tokens is not None:
+            prompt_tokens = int(getattr(tokens, "prompt_tokens", 0) or 0)
+            completion_tokens = int(getattr(tokens, "completion_tokens", 0) or 0)
+            call.metadata["prompt_tokens"] = prompt_tokens
+            call.metadata["completion_tokens"] = completion_tokens
+            call.cost_usd_micros = pricing.hero_name_cost_usd_micros(
+                prompt_tokens, completion_tokens
+            )
+
+    content = response.choices[0].message.content or ""
+    try:
+        raw = json.loads(content).get("name")
+    except (ValueError, AttributeError):
+        # Not the JSON we asked for: let the sanitizer judge the raw text.
+        raw = content
+    name = sanitize_hero_name(raw)
+    logger.info("Hero name suggested: %r (raw %r)", name, raw)
+    return name
 
