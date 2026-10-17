@@ -40,6 +40,8 @@ export interface CreationResponse {
   error_message: string | null;
   /** The painting's style, a key of GET /api/styles. Older heroes read "pixar". */
   style?: string;
+  /** Starred by an admin: shown under Editors' choice. */
+  featured?: boolean;
 }
 
 /** A look the painting can be made in. The first one is the default. */
@@ -249,12 +251,15 @@ export const api = {
   /**
    * List all creations
    */
-  async listCreations(limit: number = 50, offset: number = 0, mineOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
+  async listCreations(limit: number = 50, offset: number = 0, mineOnly: boolean = false, featuredOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
     const params = new URLSearchParams();
     params.append('limit', String(limit));
     params.append('offset', String(offset));
     if (mineOnly) {
       params.append('mine_only', 'true');
+    }
+    if (featuredOnly) {
+      params.append('featured_only', 'true');
     }
     const result = await fetchJson<CreationResponse[]>(
       `${API_BASE_URL}/api/creations/?${params.toString()}`
@@ -368,6 +373,20 @@ export const api = {
     );
     console.log('[API] updateAge result:', result);
     return result;
+  },
+
+  /**
+   * Star or unstar a hero for Editors' choice (admins only).
+   */
+  async setFeatured(creationId: string, featured: boolean): Promise<CreationResponse> {
+    return fetchJson<CreationResponse>(
+      `${API_BASE_URL}/api/creations/${creationId}/featured`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ featured }),
+      }
+    );
   },
 
   /**

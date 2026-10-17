@@ -332,6 +332,12 @@ try {
     const items = page.locator('.creation-gallery-item');
     await items.first().waitFor({ timeout: 45000 });
     const n = await items.count();
+    // Signed out the gallery is Editors' choice alone: no chips, and the
+    // public listing holds only starred heroes (All heroes is admin-only).
+    if (await page.locator('.tb-gallery-chips').count()) throw new Error('signed-out gallery shows filter chips');
+    const pub = await (await page.request.get(BASE_URL + '/api/creations/')).json();
+    const leaked = (Array.isArray(pub) ? pub : pub.creations || []).filter((c) => !c.featured);
+    if (leaked.length) throw new Error(`public listing shows ${leaked.length} hero(es) not in Editors' choice`);
     if (DEMO) {
       await page.mouse.move(640, 400);
       for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 260); await page.waitForTimeout(700); }
@@ -350,7 +356,7 @@ try {
     }
     await page.locator('.tb-back').click();
     await items.first().waitFor();
-    return `${n} heroes shown; opened one and returned`;
+    return `${n} Editors' choice heroes shown, no chips signed out; opened one and returned`;
   });
 
   await step(page, 'signup', async () => {
@@ -459,6 +465,8 @@ try {
 
   await step(page, 'profile', async () => {
     await page.locator('.tb-back').click();
+    // A fresh hero is not starred, so it is not in Editors' choice (the
+    // default view): it is found under My heroes.
     await page.locator('.tb-chip-mine').click();
     const mine = page.locator('.creation-gallery-item');
     await mine.first().waitFor({ timeout: 30000 });

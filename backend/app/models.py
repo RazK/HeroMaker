@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, date
 from typing import Optional
-from sqlalchemy import Column, String, Boolean, DateTime, Date, Text, JSON, ForeignKey, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Date, Text, JSON, ForeignKey, Integer, false
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -61,6 +61,10 @@ class Creation(Base):
     # the default ("pixar"), which every hero made before styles existed is.
     # See m011_creation_style.
     style = Column(String, nullable=True)
+    # Starred by an admin: shown under "Editors' choice", the gallery's default
+    # view. New heroes start unstarred; m013_creation_featured starred every
+    # finished hero that existed when it ran.
+    featured = Column(Boolean, nullable=False, default=False, server_default=false(), index=True)
 
     user = relationship("User", back_populates="creations")
     steps = relationship("CreationStep", back_populates="creation", cascade="all, delete-orphan", lazy="select")

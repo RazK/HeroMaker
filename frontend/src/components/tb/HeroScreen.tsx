@@ -120,6 +120,14 @@ export function HeroScreen(props: HeroScreenProps) {
       ready && <SheetRow key="vrm" icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />,
       // The per-step admin view is a debugging tool, not designed for users.
       isAdmin && <SheetRow key="steps" icon="grid" label="Admin: every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />,
+      isAdmin && ready && (
+        <SheetRow
+          key="featured"
+          icon="star"
+          label={creation.featured ? 'Remove from Editors’ choice' : 'Add to Editors’ choice'}
+          onClick={() => run(() => api.setFeatured(creation.id, !creation.featured), 'Could not update Editors’ choice')}
+        />
+      ),
       <div key="div" className="tb-sheet-divider" />,
       <SheetRow key="delete" icon="trash" label="Delete hero" danger onClick={() => setSheet('delete')} />,
     ] : []),
