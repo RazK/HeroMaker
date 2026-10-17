@@ -36,6 +36,9 @@ jobs:
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
       short: ${{ steps.resolve.outputs.short }}
+      # Of the promoted commit, not this run: production shows the same
+      # version the staging build of that commit showed.
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,6 +70,12 @@ jobs:
 
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "short=${sha:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Version of the promoted commit
+        id: version
+        env:
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: echo "version=$(./devops/scripts/app-version.sh "$SHA")" >> "$GITHUB_OUTPUT"
 
       - name: Summarize what is up for approval
         env:
@@ -120,6 +129,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.verify.outputs.sha }}
+
+      # `railway up` uploads files, not .git: the version travels as a file.
+      - name: Stamp the app version
+        env:
+          APP_VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          printf '%s\n' "$APP_VERSION" > frontend/VERSION
+          cp frontend/VERSION backend/app/VERSION
+          cat backend/app/VERSION
 
       - name: Deploy Backend
         run: railway up --service=${{ needs.config.outputs.backend }} --environment=${{ needs.config.outputs.production }} --detach

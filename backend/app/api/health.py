@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.database import engine
 from app.config.settings import VRM_CONVERTER_SERVICE_URL
+from app.version import get_version
 import requests
 import logging
 
@@ -20,7 +21,16 @@ async def health_check():
     Basic health check endpoint.
     Returns 200 if the service is running.
     """
-    return {"status": "healthy", "service": "HeroMaker API"}
+    return {"status": "healthy", "service": "HeroMaker API", "version": get_version()}
+
+
+@router.get("/api/version")
+async def version():
+    """The deployed backend version, "v<N> · <short sha>" ("dev" locally).
+
+    The frontend shows its own in the footer; the two differ only mid-deploy.
+    """
+    return {"version": get_version()}
 
 
 @router.get("/health/detailed")

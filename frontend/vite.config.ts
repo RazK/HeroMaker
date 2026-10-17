@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -7,8 +8,14 @@ export default defineConfig(({ mode }) => {
   // Load env vars - loadEnv only reads from .env files, so also check process.env for Docker
   const env = { ...loadEnv(mode, process.cwd(), ''), ...process.env }
   const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000'
+  // "v<N> · <short sha>" (devops/scripts/app-version.sh), shown in the footer.
+  // Deploys write ./VERSION before `railway up`; VITE_APP_VERSION overrides it.
+  const appVersion = (env.VITE_APP_VERSION || readVersionFile() || 'dev').trim()
   
   return {
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   plugins: [
     react(),
     VitePWA({
@@ -48,13 +55,33 @@ export default defineConfig(({ mode }) => {
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // /play/ is the game, a separate app copied in beside this one. Without
-        // this the service worker answers every navigation there with the
-        // React shell, and the Play button opens HeroMaker instead of a game.
-        navigateFallbackDenylist: [/^\/play\//, /^\/api\//],
+        // No html: the page itself is never precached. A precached index.html
+        // is served by the OLD worker on the first refresh after a deploy, so
+        // that refresh shows the previous version (the new worker only takes
+        // over in the background). Pages go network-first below instead; their
+        // hashed js/css stay precached.
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
         globIgnores: ['play/**'],
+        navigateFallback: null,
         runtimeCaching: [
+          {
+            // Every page load asks the server first, so one refresh always
+            // shows the deployed version (the footer's v<N>). The cached copy
+            // is only for when the network is down or slow.
+            // /play/ is the game, a separate app copied in beside this one, and
+            // /api/ is the backend: neither is this app's page.
+            urlPattern: ({ request, url }) =>
+              request.mode === 'navigate' &&
+              !url.pathname.startsWith('/play/') &&
+              !url.pathname.startsWith('/api/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 20 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
@@ -152,4 +179,10 @@ export default defineConfig(({ mode }) => {
   }
 })
 
-
+function readVersionFile(): string {
+  try {
+    return readFileSync(new URL('./VERSION', import.meta.url), 'utf8')
+  } catch {
+    return ''
+  }
+}
