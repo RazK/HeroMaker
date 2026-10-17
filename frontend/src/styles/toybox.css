@@ -188,7 +188,10 @@ h1, h2, h3, h4 {
 }
 .tb-btn--with-trail { justify-content: space-between; }
 
-/* Round navigation button: the same in every header. */
+/* Round navigation button: the same in every header. Everything that sits in
+   a header (this, the credits pill, a sm pill) is --tb-btn-sm-h tall with
+   --tb-depth-sm of depth, so the row lines up: same top, same bottom, same
+   shadow. Box-sizing is border-box, so the 2.5px border is inside the 48. */
 .tb-nav {
   width: var(--tb-btn-sm-h);
   height: var(--tb-btn-sm-h);
@@ -201,7 +204,7 @@ h1, h2, h3, h4 {
   background: var(--tb-white);
   color: var(--tb-ink);
   border: 2.5px solid var(--tb-ink);
-  box-shadow: 0 4px 0 var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
   cursor: pointer;
   text-decoration: none;
 }
@@ -223,9 +226,11 @@ h1, h2, h3, h4 {
 }
 .tb-chip--on { background: var(--tb-ink); border-color: var(--tb-ink); color: var(--tb-white); }
 
+/* Header credits pill: the nav button's height and depth (see .tb-nav). */
 .tb-credits {
-  height: 36px;
-  padding: 0 12px;
+  height: var(--tb-btn-sm-h);
+  flex-shrink: 0;
+  padding: 0 16px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -233,13 +238,14 @@ h1, h2, h3, h4 {
   border: none;
   background: var(--tb-sun);
   color: var(--tb-ink);
-  box-shadow: 0 3px 0 var(--tb-sun-deep);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-sun-deep);
   font-family: var(--tb-font-body);
   font-weight: 800;
-  font-size: 15px;
+  font-size: 17px;
   white-space: nowrap;
   cursor: pointer;
 }
+.tb-credits:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-sun-deep); }
 
 .tb-link {
   color: var(--tb-grape-text);
