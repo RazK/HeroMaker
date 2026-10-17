@@ -4,6 +4,49 @@
 @media (min-width: 720px) { .tb-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
 @media (min-width: 1100px) { .tb-gallery-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .tb-gallery-empty { padding: 48px 0; text-align: center; color: var(--tb-ink-2); }
+.tb-gallery-note { text-align: center; font-weight: 700; color: var(--tb-red); }
+
+/* A grid cell: the tile, plus (admins) the Editors' choice star beside it. */
+.tb-tile-wrap { position: relative; min-width: 0; transition: opacity 200ms ease, transform 200ms ease; }
+/* Unstarred while viewing Editors' choice: it fades for a beat, then leaves. */
+.tb-tile-wrap--leaving { opacity: 0.45; transform: scale(0.97); }
+/* The star sits in the picture's top leading corner, away from play (bottom
+   trailing). 44px tap target around a 36px dot. */
+.tb-tile-star {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-start: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--tb-ink-2);
+}
+.tb-tile-star-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  box-shadow: 0 3px 0 var(--tb-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 120ms ease;
+}
+.tb-tile-star:active .tb-tile-star-dot { transform: translateY(3px); box-shadow: none; }
+.tb-tile-star:focus-visible { outline: none; }
+.tb-tile-star:focus-visible .tb-tile-star-dot { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.35); }
+.tb-tile-star--on { color: var(--tb-ink); }
+.tb-tile-star--on .tb-tile-star-dot { background: var(--tb-sun); box-shadow: 0 3px 0 var(--tb-sun-deep); }
+.tb-tile-star--on svg path { fill: currentColor; }
+@media (prefers-reduced-motion: reduce) {
+  .tb-tile-wrap, .tb-tile-star-dot { transition: none; }
+}
 
 .tb-tile {
   position: relative;

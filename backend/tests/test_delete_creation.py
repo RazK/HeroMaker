@@ -45,7 +45,7 @@ def test_owner_can_delete_a_paid_hero(db, make_user, make_creation, completed_st
 
     # Gone from everything the app shows...
     assert client.get(f"/api/creations/{hero.id}", headers=auth).status_code == 404
-    listed = client.get("/api/creations/?limit=50", headers=auth).json()
+    listed = client.get("/api/creations/?mine_only=true", headers=auth).json()
     ids = [c["id"] for c in (listed["creations"] if isinstance(listed, dict) else listed)]
     assert hero.id not in ids
 
