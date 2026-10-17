@@ -180,8 +180,19 @@ backBtn.hidden = !OWN_HERO
 if (OWN_HERO) { app.append(backBtn); app.classList.add('has-back') }
 
 // ---- menu ------------------------------------------------------------------
+/**
+ * The lobby is one question and one button: "can it see you?" and Start.
+ *
+ * It used to show every setting at once — players, round length, stance and six
+ * stages around a camera strip so short it showed a forehead — and it was
+ * rejected as dense and ugly. Every setting has a default that is right for the
+ * child holding the phone (one player, a normal round, the theatre, standing
+ * unless the camera sees a desk), so they all moved behind one labelled
+ * Settings pill and the space went to the preview, which is the only thing on
+ * the card a player has to look at before dancing.
+ */
 const countRow = el('div', { class: 'segmented' })
-const stanceRow = el('div', { class: 'segmented' })
+const stanceRow = el('div', { class: 'segmented stance' })
 const stageRow = el('div', { class: 'stage-row' })
 const whoRow = el('div', { class: 'pick-who' })
 /**
@@ -190,89 +201,91 @@ const whoRow = el('div', { class: 'pick-who' })
  * `data-scroll` is the single entry in tools/screenaudit.mjs's rule-1
  * allowlist. Everything else in the card has to be on screen at all times; the
  * gallery is a list of six characters with the next row peeking out under the
- * fold, which is an affordance a player reads. Nothing else gets that licence,
- * which is why the stage picker could not stay where it was.
+ * fold, which is an affordance a player reads. Nothing else gets that licence.
  */
 const gallery = el('div', { class: 'gallery' })
 gallery.dataset.scroll = 'hero-gallery'
 const lengthRow = el('div', { class: 'segmented' })
-const menuCam = el('canvas', { width: 480, height: 270, class: 'menu-cam' }) as HTMLCanvasElement
-const camHint = el('p', { class: 'hint' }, '')
-const startBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'START DANCING')
+const menuCam = el('canvas', { width: 480, height: 360, class: 'menu-cam' }) as HTMLCanvasElement
+const camHint = el('p', { class: 'cam-hint' }, '')
+const startBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'Start dancing')
 /**
  * The camera comes on in the lobby, not at the whistle.
  *
- * Everything the lobby is for — is it seeing me, are all three lanes filled,
- * am I standing or sitting — needs the camera on to answer, and finding out
- * after the music has started is finding out too late.
+ * Everything the lobby is for — is it seeing me, are all three lanes filled —
+ * needs the camera on to answer, and finding out after the music has started is
+ * finding out too late. Secondary, not grape: Start turns the camera on too,
+ * and a screen gets one grape button.
  */
 const camBtn = el('button', { class: 'cam-btn', onclick: () => void ensureCamera() },
   'Turn the camera on')
 /**
- * Standing or sitting rides on the camera preview rather than in the settings
- * row, because that is where the evidence for it is: the game guesses from
- * what it can see of you, and the place to disagree with a guess is next to
- * the thing that made it.
+ * The preview keeps the camera's own shape: a phone held upright gives a tall
+ * picture and gets a tall box, a laptop gives a wide one. fitPreview() sizes it.
  */
-const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, stanceRow, camBtn, camHint)
-// The stance switch, the camera button and the hint all sit *on* the preview
-// picture on purpose — that is where the evidence for the guess is.
-stanceRow.dataset.overlay = 'preview-chip'
+const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, camBtn, camHint)
 camBtn.dataset.overlay = 'preview-chip'
 camHint.dataset.overlay = 'preview-chip'
 
+/** A line icon in the app's style: 24 viewBox, stroke 2.4, round caps. */
+const SLIDERS_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
 /**
- * The foot of the lobby card: pick a set, then start.
- *
- * One fixed block holding everything a round cannot start without, outside the
- * only part of the card that scrolls. It needs no overlap licence because it
- * never covers anything — which is the point of the card no longer scrolling.
+ * The way into the settings. Labelled, not a bare icon: the brand book keeps
+ * icon-only buttons for back, close, more and play.
  */
-const menuFoot = el('div', { class: 'menu-foot' },
-  el('div', { class: 'reel-label' }, 'Stage'),
-  stageRow,
-  el('div', { class: 'actions' }, startBtn))
+const settingsBtn = el('button', { class: 'menu-gear', onclick: () => openSettings(true) })
+settingsBtn.innerHTML = SLIDERS_ICON
+settingsBtn.append(el('span', {}, 'Settings'))
 
-menuLayer.append(
-  el('div', { class: 'card' },
-    OWN_HERO
-      ? el('h1', {}, el('em', {}, OWN_NAME), 'Dance party')
-      : el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves'),
-    camWrap,
-    // Two settings, one row. Both are three-way switches, and stacking them
-    // pushed the hero gallery off the bottom of the card.
-    el('div', { class: 'setting-pair' },
-      el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Players'), countRow),
-      el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
-    whoRow,
-    gallery,
-    // The set picker and the start button are the foot of the card together.
-    //
-    // The picker used to sit loose between the gallery and a sticky footer, in
-    // the part of the card that scrolled. Measured at 385x560, that put it 103
-    // pixels past the bottom of the card — and, scrolled all the way down, in
-    // the sliver behind START DANCING. It is technically draggable into view;
-    // nothing on screen suggests there is anything below the button that starts
-    // the game, which is why six stages went unfound on a real phone. Anything
-    // a round cannot start without belongs where the card cannot hide it.
-    menuFoot,
-  ),
+const menuTitle = OWN_HERO
+  ? el('h1', {}, el('em', {}, OWN_NAME), 'Dance party')
+  : el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves')
+
+/** What the lobby shows: title, preview, (the gallery, without an own hero), Start. */
+const menuMain = el('div', { class: 'menu-main' },
+  el('div', { class: 'menu-head' }, menuTitle, settingsBtn),
+  camWrap,
+  whoRow,
+  gallery,
+  el('div', { class: 'actions' }, startBtn),
 )
+
+/** Everything that has a sensible default, in one compact sheet. */
+const menuSettings = el('div', { class: 'menu-settings', hidden: true },
+  el('h2', {}, 'Settings'),
+  el('div', { class: 'setting-pair' },
+    el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Players'), countRow),
+    el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
+  el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'How you dance'), stanceRow),
+  el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Stage'), stageRow),
+  el('div', { class: 'actions' },
+    el('button', { class: 'btn', onclick: () => openSettings(false) }, 'Done')),
+)
+
+const menuCard = el('div', { class: `card${OWN_HERO ? ' own' : ' roster'}` }, menuMain, menuSettings)
+menuLayer.append(menuCard)
+
+/** Swap the lobby for the settings sheet and back, in the same card. */
+function openSettings(open: boolean) {
+  audio.uiClick()
+  menuSettings.hidden = !open
+  menuMain.hidden = open
+  menuCard.classList.toggle('settings-open', open)
+  // The card changes height, and the stage is framed against its top edge.
+  reframe()
+}
 
 function renderMenu() {
   countRow.replaceChildren(...[1, 2, 3].map((n) =>
     el('button', {
       class: `seg${n === playerCount ? ' on' : ''}`,
       onclick: () => { playerCount = n; audio.uiClick(); applyCount(); renderMenu() },
-      // Short labels: the row is half a card wide now, and the heading over it
-      // already says these are players.
     }, `${n}P`)))
 
   // Standing or sitting. Guessed from what the camera can see of you, because
   // nobody reads a settings row before they dance, but always overridable —
   // the guess is about a desk edge, and a desk edge is not always where the
   // player wants the line drawn.
-  stanceRow.className = `segmented stance${tracker.state === 'ready' ? '' : ' hide'}`
   stanceRow.replaceChildren(...([[false, 'Standing'], [true, 'Sitting']] as const).map(([v, label]) =>
     el('button', {
       class: `seg${v === seated ? ' on' : ''}`,
@@ -288,23 +301,13 @@ function renderMenu() {
     el('button', {
       class: `seg${l.id === lengthId ? ' on' : ''}`,
       onclick: () => { lengthId = l.id; audio.uiClick(); renderMenu() },
-      // The same rounded number the chip shows, or the tooltip and the label
-      // disagree about the same round by two seconds.
       title: `${l.moves} calls, about ${lengthBlurb(l.id, seated)}`,
     },
       el('span', { class: 'seg-name' }, l.label),
       el('span', { class: 'seg-sub num' }, lengthBlurb(l.id, seated)))))
 
   // One big gallery for everybody, and a row saying who is choosing.
-  //
-  // A grid per player meant six heroes each in a scroller, at forty-four
-  // pixels — small enough that you could not tell the bear from the star, on
-  // the one screen whose whole job is choosing between them. Sharing the
-  // gallery buys back two thirds of the space and spends it on the artwork.
   activeLane = Math.min(activeLane, playerCount - 1)
-  // Three chips across the card leave about 40px for a name, which renders
-  // "Crayon Kid" as "Cra…" — the thumbnail already says who it is and the
-  // gallery underneath spells it out. Two chips have room, so they keep it.
   whoRow.className = `pick-who n${playerCount}`
   // With the player's own hero there is one hero and nothing to choose.
   whoRow.hidden = playerCount < 2 || !!OWN_HERO
@@ -321,7 +324,7 @@ function renderMenu() {
     return b
   }))
 
-  // The set changes behind the card as you tap, so the menu is its own preview.
+  // The set changes behind the card as you tap, so the sheet is its own preview.
   stageRow.replaceChildren(...BACKDROPS.map((b) =>
     el('button', {
       class: `stage-pick${b.id === backdropId ? ' on' : ''}`,
@@ -351,8 +354,6 @@ function renderMenu() {
     const thumb = thumbFor(r.id)
     if (thumb) b.append(el('img', { src: thumb, alt: r.name, loading: 'lazy' }))
     b.append(el('span', { class: 'gname' }, r.name))
-    // Whoever else already has this hero, said out loud rather than by a
-    // colour a player would have to learn.
     for (const j of others) {
       const badge = el('span', { class: `gbadge lane-${j}` }, `P${j + 1}`)
       badge.dataset.overlay = 'tile-badge'
@@ -360,8 +361,8 @@ function renderMenu() {
     }
     return b
   }))
+  fitPreview()
 }
-
 const thumbFor = (id?: string) =>
   (id ? Object.entries(thumbFiles).find(([t]) => t.includes(`${id}.thumb`))?.[1] : undefined)
 
@@ -434,6 +435,12 @@ function showMenu() {
 
 game.onPhase = (p: PartyPhase) => {
   menuLayer.hidden = p !== 'menu'
+  // A round never starts with the settings sheet left open behind it.
+  if (p !== 'menu' && !menuSettings.hidden) {
+    menuSettings.hidden = true
+    menuMain.hidden = false
+    menuCard.classList.remove('settings-open')
+  }
   backBtn.hidden = !OWN_HERO || (p !== 'menu' && p !== 'results')
   pauseLayer.hidden = p !== 'paused'
   resultsLayer.hidden = p !== 'results'
@@ -472,6 +479,7 @@ function togglePause() {
 addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' && e.key !== ' ') return
   const phase = game.state.phase
+  if (e.key === 'Escape' && phase === 'menu' && !menuSettings.hidden) { openSettings(false); return }
   if (phase === 'dancing' || phase === 'countdown' || phase === 'paused') {
     e.preventDefault()
     togglePause()
@@ -804,35 +812,41 @@ renderer.setAnimationLoop(() => {
 })
 
 /**
- * The menu preview. Its whole job is to answer "does it see all of us yet",
+ * The menu preview. Its whole job is to answer "can it see all of us yet",
  * which is the question a lane game gets asked before every single round.
  */
 /**
- * Give the preview the camera's own shape.
+ * Give the preview the camera's own shape, as big as the card allows.
  *
- * It used to be a fixed 300x84 canvas with whatever the webcam produced drawn
- * into it corner to corner, which stretched every face sideways. A preview
- * whose whole job is "does this look right to the tracker" cannot be the one
- * thing on screen that lies about the picture, so the box is measured from the
- * stream instead — capped, so it cannot take over the card.
+ * It was a fixed-height strip with the picture stretched or cut to fit, which on
+ * a phone held upright showed a forehead — useless for a game about your whole
+ * body. Now the box is the stream's aspect ratio, contain-fitted into the
+ * card's width and the height the stylesheet allows (`max-height` on
+ * .menu-camwrap, which differs by orientation). Before there is a stream it
+ * takes the whole slot, which is the height an upright phone's camera will
+ * fill, so on a phone the card does not jump when the picture arrives — and the
+ * button inside it has the room it needs.
  */
-const CAM_MAX_H = 190
-let camAspect = 0
+let fitKey = ''
 function fitPreview() {
+  if (menuMain.hidden || menuLayer.hidden) return
   const vw = tracker.video.videoWidth, vh = tracker.video.videoHeight
-  if (!vw || !vh) return
-  const aspect = vw / vh
-  const width = camWrap.clientWidth
-  if (aspect === camAspect && menuCam.width === Math.round(width)) return
-  camAspect = aspect
-  // Portrait has far less to spare, and the preview must not push the hero
-  // gallery — the reason anyone is on this screen — below the fold.
-  const cap = Math.min(CAM_MAX_H, innerHeight * (innerHeight > innerWidth ? 0.17 : 0.28))
-  const h = Math.max(64, Math.min(cap, Math.round(width / aspect)))
-  camWrap.style.height = `${h}px`
-  menuCam.width = Math.round(h * aspect)
-  menuCam.height = h
+  const aspect = vw && vh ? vw / vh : 0
+  const availW = menuMain.clientWidth
+  const maxH = parseFloat(getComputedStyle(camWrap).maxHeight) || 240
+  const key = `${aspect.toFixed(4)}:${availW}:${maxH}`
+  if (key === fitKey || !availW) return
+  fitKey = key
+  let w = availW, h = aspect ? w / aspect : maxH
+  if (h > maxH) { h = maxH; w = h * aspect }
+  camWrap.style.width = `${Math.round(w)}px`
+  camWrap.style.height = `${Math.round(h)}px`
+  const dpr = Math.min(devicePixelRatio || 1, 2)
+  menuCam.width = Math.round(w * dpr)
+  menuCam.height = Math.round(h * dpr)
+  reframe()
 }
+addEventListener('resize', () => { fitKey = ''; fitPreview() })
 
 /**
  * Standing or sitting, read off the camera.
@@ -863,8 +877,27 @@ function senseStance() {
   if (guess !== seated) { seated = guess; renderMenu() }
 }
 
-/** Wall-clock ms each lane was last confidently occupied; see below. */
+/**
+ * Is all of the body this round needs in the picture?
+ *
+ * The same parts the stance guess reads: a seated round needs shoulders and
+ * hips, a standing one needs the feet too, because half its calls are kicks,
+ * squats and jumps. `none` is an empty lane; `back` is somebody too close.
+ */
+type Framed = 'ok' | 'back' | 'none'
+function framing(sk: Skeleton | null): Framed {
+  if (!sk) return 'none'
+  const seen = (k: { score: number }) => k.score > 0.3
+  const points = Object.values(sk).filter(seen).length
+  if (points < 3) return 'none'
+  const torso = seen(sk.leftShoulder) && seen(sk.rightShoulder) && seen(sk.leftHip) && seen(sk.rightHip)
+  const feet = seated || seen(sk.leftAnkle) || seen(sk.rightAnkle)
+  return torso && feet ? 'ok' : 'back'
+}
+
+/** Wall-clock ms each lane was last fully in view; see below. */
 const menuSeenAt = [0, 0, 0]
+const lastFramed: Framed[] = ['none', 'none', 'none']
 function drawMenuCamera() {
   const g = menuCam.getContext('2d')
   if (!g || tracker.video.readyState < 2) return
@@ -875,35 +908,49 @@ function drawMenuCamera() {
   g.save(); g.translate(w, 0); g.scale(-1, 1)
   g.drawImage(tracker.video, 0, 0, w, h)
   g.restore()
+  // Canvas pixels per CSS pixel, so the labels are the same size as the type around them.
+  const scale = h / Math.max(1, camWrap.clientHeight)
+  let allOk = true
   for (let i = 0; i < n; i++) {
-    const x0 = (i / n) * w, lw = w / n
-    const sk = liveLanes[i]
+    const f = framing(liveLanes[i])
     // One lane is inferred per frame, so at three players a lane's answer is a
     // second old by the time the next one arrives. Without a grace period the
-    // three boxes take turns flashing red, which reads as the game losing
-    // people it can see perfectly well.
-    if (sk && sk.leftShoulder.score > 0.3 && sk.rightHip.score > 0.3) menuSeenAt[i] = now
-    const ok = now - menuSeenAt[i] < 2000
-    g.strokeStyle = ok ? '#3ddc97' : 'rgba(255,77,141,.9)'
-    g.lineWidth = 3
-    g.strokeRect(x0 + 2, 2, lw - 4, h - 4)
-    // The label sits on whatever the room happens to look like, so it carries
-    // its own dark ground rather than hoping for one.
-    const label = ok ? `P${i + 1} ✓` : `P${i + 1} — step in`
-    g.font = 'bold 12px system-ui'
+    // boxes take turns flashing red, which reads as the game losing people it
+    // can see perfectly well.
+    if (f === 'ok') menuSeenAt[i] = now
+    else lastFramed[i] = f
+    const ok = now - menuSeenAt[i] < 1500
+    if (!ok) allOk = false
+    // One player owns the whole picture and gets a sentence under it instead of
+    // a box around it. More than one share it, so each lane is drawn and named.
+    if (n === 1) continue
+    const x0 = (i / n) * w, lw = w / n
+    g.strokeStyle = ok ? '#3ddc97' : 'rgba(255,255,255,.75)'
+    g.lineWidth = 3 * scale
+    g.setLineDash(ok ? [] : [8 * scale, 6 * scale])
+    g.strokeRect(x0 + 2 * scale, 2 * scale, lw - 4 * scale, h - 4 * scale)
+    g.setLineDash([])
+    const label = ok ? `P${i + 1} ready` : lastFramed[i] === 'back' ? `P${i + 1} step back` : `P${i + 1} step in`
+    g.font = `800 ${Math.round(13 * scale)}px Nunito, system-ui`
     g.textAlign = 'center'
     const tw = g.measureText(label).width
-    g.fillStyle = 'rgba(18,12,32,.78)'
+    g.fillStyle = ok ? 'rgba(61,220,151,.95)' : 'rgba(18,12,32,.8)'
     g.beginPath()
-    g.roundRect(x0 + lw / 2 - tw / 2 - 7, h - 22, tw + 14, 18, 9)
+    g.roundRect(x0 + lw / 2 - tw / 2 - 8 * scale, h - 28 * scale, tw + 16 * scale, 22 * scale, 11 * scale)
     g.fill()
-    g.fillStyle = ok ? '#5ff0b3' : '#ff85b3'
-    g.fillText(label, x0 + lw / 2, h - 9)
+    g.fillStyle = ok ? '#17101f' : '#fff6e9'
+    g.fillText(label, x0 + lw / 2, h - 12.5 * scale)
   }
-  camHint.textContent = ''
+  if (n === 1) {
+    camHint.textContent = allOk ? 'We can see you!'
+      : lastFramed[0] === 'back' ? 'Step back so we can see you'
+      : 'Step into the picture'
+  } else {
+    camHint.textContent = ''
+  }
+  camWrap.classList.toggle('seen', n === 1 && allOk)
   camWrap.classList.remove('off')
 }
-
 // ---------------------------------------------------------------- model
 let announceModelBlock: (() => void) | null = null
 const modelBlockReady = new Promise<void>((resolve) => { announceModelBlock = resolve })

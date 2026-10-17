@@ -58,10 +58,20 @@ h1 { letter-spacing: 0; }
 /* Buttons draw their depth below their box, so the column leaves room for it. */
 .actions { gap: calc(var(--space-2) + var(--tb-depth)); padding-bottom: var(--tb-depth); }
 
-.cam-btn {
-  background: var(--tb-grape); color: var(--tb-white); border-radius: 20px;
-  box-shadow: 0 var(--tb-depth) 0 var(--tb-deep);
+/* Secondary on purpose: Start is the screen's one grape button, and it turns
+   the camera on too. */
+.cam-btn, .menu-gear {
+  background: var(--tb-white); color: var(--tb-grape);
+  box-shadow: 0 0 0 2px var(--tb-line) inset, 0 var(--tb-depth) 0 var(--tb-line);
+  transition: transform .08s ease, box-shadow .08s ease;
 }
+.cam-btn:active, .menu-gear:active {
+  box-shadow: 0 0 0 2px var(--tb-line) inset, 0 0 0 var(--tb-line);
+}
+.cam-btn:active { transform: translate(-50%, calc(-50% + var(--tb-depth))); }
+.menu-gear:active { transform: translateY(var(--tb-depth)); }
+.menu-gear:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 3px; }
+.menu-settings .actions, .menu-main .actions { margin-top: auto; }
 .seg.on { color: var(--tb-grape); }
 .stage-pick.on { background: var(--tb-grape); color: var(--tb-white); }
 .gtile.on { background: rgba(91, 61, 245, .08); }
@@ -87,9 +97,16 @@ h1 { letter-spacing: 0; }
  * hugs the left edge, right under the button, so it steps down a row.
  */
 @media (orientation: landscape) {
-  .has-back #title, .has-back #results {
+  .has-back #results {
     padding-top: calc(var(--tb-nav) + 2 * var(--tb-space));
     padding-bottom: var(--tb-space);
+  }
+  /* The lobby steps right of the button instead, so the camera preview keeps
+     the full height of the screen. */
+  .has-back #title {
+    padding-top: var(--tb-space); padding-bottom: var(--tb-space);
+    padding-left: calc(var(--tb-nav) + 2 * var(--tb-space) + env(safe-area-inset-left, 0px));
+    justify-content: center;
   }
   .has-back .card { max-height: 100%; }
 }

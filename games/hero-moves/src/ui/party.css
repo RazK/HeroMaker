@@ -30,84 +30,95 @@
   color: rgba(23, 16, 31, .62); text-align: left;
 }
 
-/* ---------------------------------------------------------------- menu cam */
+/* ---------------------------------------------------------------- lobby */
 /*
- * The menu preview answers one question — "can it see all of us yet" — and it
- * has to answer it before the round starts, because a lane game that discovers
- * an empty lane mid-song has already wasted the song.
- */
-/*
- * The menu is compact on purpose. Six heroes at a size you can actually see
- * them is what the screen is for, and everything above the gallery is paying
- * rent for that space.
- */
-/*
- * The lobby card does not scroll. Exactly one thing inside it does.
+ * The lobby is a title, the camera preview and Start. Everything else has a
+ * default and lives in the settings sheet, which takes the card's place rather
+ * than stacking on it.
  *
- * It used to be one long scrolling column, and the last thing in that column —
- * the stage picker — sat below the START button, past the end of everything a
- * player could see. Nothing hinted it was there, so on a phone six of the
- * game's stages effectively did not exist. A scrolling card hides whatever it
- * runs out of room for, silently, and what it hides is whatever was added last.
- *
- * So the card is a fixed head, one declared scrolling list (the hero gallery,
- * which is a list and reads as one), and a fixed foot holding everything a
- * round cannot start without. tools/screenaudit.mjs rule 1 fails the build for
- * any control clipped by anything that is not that one declared list.
+ * The card does not scroll. Exactly one thing inside it may (the hero gallery,
+ * when there is no hero of your own to dance), and tools/screenaudit.mjs rule 1
+ * fails the build for any control clipped by anything else.
  */
-#title .card { padding: var(--space-4); gap: var(--space-2); overflow: hidden; }
-#title h1 { font-size: clamp(26px, 4.6vmin, 42px); }
-#title h1 em { font-size: .42em; letter-spacing: .14em; margin-bottom: .3em; }
+#title .card { padding: var(--space-3) var(--space-4); gap: 0; overflow: hidden; }
+.menu-main, .menu-settings {
+  display: flex; flex-direction: column; gap: 12px;
+  min-height: 0; flex: 1 1 auto;
+}
+.menu-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  text-align: start;
+}
+#title h1 { font-size: clamp(26px, 4.6vmin, 36px); text-align: start; min-width: 0; }
+#title h1 em {
+  font-size: .5em; letter-spacing: .04em; margin-bottom: .15em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
+/* The way into the settings: a small labelled pill at the head of the card. */
+.menu-gear {
+  pointer-events: auto; cursor: pointer; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 0 14px 0 11px;
+  border: 0; border-radius: 999px;
+  font: inherit; font-weight: 800; font-size: 14px;
+}
+.menu-gear svg { flex: 0 0 auto; }
+
+/*
+ * The preview.
+ *
+ * Its only job is "can it see me", which needs the player's whole body, so it
+ * is as big as the card can make it and always the camera's own shape: main.ts
+ * contain-fits the stream's aspect ratio into the card's width and this
+ * max-height, so nothing is stretched and nothing is cropped. A phone held
+ * upright gets a tall box; a laptop gets a wide one.
+ */
 .menu-camwrap {
-  position: relative;
-  /* Its only content is absolutely positioned, so in a scrolling flex column
-     it has no natural height to defend and collapses to nothing. */
-  flex: 0 0 auto;
-  border-radius: 12px; overflow: hidden;
+  --cam-max: min(40vh, 400px);
+  position: relative; flex: 0 0 auto; align-self: center;
+  width: 100%; height: var(--cam-max); max-height: var(--cam-max);
+  border-radius: 22px; overflow: hidden;
   background: #1b1430;
-  aspect-ratio: 16 / 5;
   display: grid; place-items: center;
 }
+/* With a hero gallery to fit as well, the preview gives up most of its room. */
+.roster .menu-camwrap { --cam-max: min(20vh, 190px); }
 .menu-cam { width: 100%; height: 100%; display: block; }
-.menu-camwrap .hint {
-  position: absolute; left: 8px; right: 8px; bottom: 6px; margin: 0;
-  color: var(--paper); opacity: .92; text-shadow: 0 2px 8px rgba(0, 0, 0, .9);
+/* A ring that turns mint once the whole body is in the picture. */
+.menu-camwrap::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  box-shadow: inset 0 0 0 3px rgba(253, 247, 236, .14);
+  pointer-events: none; transition: box-shadow .2s ease;
 }
-/*
- * The stance switch lives on the preview: the game reads it off the camera, so
- * the place to disagree is next to the picture it read.
- */
-.stance {
-  position: absolute; right: 6px; top: 6px; z-index: 2;
-  width: auto; padding: 3px;
-  background: rgba(18, 12, 32, .72);
-  backdrop-filter: blur(4px);
+.menu-camwrap.seen::after { box-shadow: inset 0 0 0 4px var(--mint); }
+/* One short sentence on the picture: step back, step in, or we can see you. */
+.cam-hint {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  width: max-content; max-width: calc(100% - 24px); margin: 0;
+  padding: .4em .95em; border-radius: 999px;
+  font-weight: 800; font-size: 13px; line-height: 1.25; text-align: center;
+  background: rgba(18, 12, 32, .82); color: var(--paper);
 }
-.stance .seg {
-  flex: 0 0 auto; min-height: 26px; padding: .2em .7em;
-  color: rgba(253, 247, 236, .82); font-size: clamp(10px, 1.5vmin, 12px);
-}
-.stance .seg.on { background: var(--paper); color: var(--ink); }
-.stance.hide { display: none; }
+.cam-hint:empty { display: none; }
+.menu-camwrap.seen .cam-hint { background: var(--mint); color: var(--ink); }
 
 /* The one control that turns the camera on, sitting in the empty preview. */
 .cam-btn {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  pointer-events: auto; cursor: pointer;
-  min-height: 40px; padding: .5em 1.1em; border: 0; border-radius: 999px;
-  font: inherit; font-weight: 800; font-size: clamp(12px, 1.9vmin, 15px);
-  background: var(--gold); color: var(--ink);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+  pointer-events: auto; cursor: pointer; white-space: nowrap;
+  min-height: 44px; padding: .5em 1.2em; border: 0; border-radius: 999px;
+  font: inherit; font-weight: 800; font-size: 15px;
 }
 .cam-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
 .menu-camwrap:not(.off) .cam-btn { display: none; }
 
-/* Before the camera is allowed there is nothing behind the text, so it moves
-   to the middle rather than hugging the bottom of an empty black box. */
-.menu-camwrap.off { background: rgba(23, 16, 31, .9); }
-.menu-camwrap.off .hint { top: auto; bottom: 8px; }
-
+/* ---------------------------------------------------------------- settings */
+.menu-settings h2 { text-align: start; font-size: clamp(22px, 3.4vmin, 28px); }
+.menu-settings .segmented .seg { min-height: 40px; font-size: 12px; }
+.menu-settings .stance .seg { font-size: 14px; }
+/* "1P" needs less room than "Normal / 40s", so the round length gets more of it. */
+.menu-settings .setting-pair { grid-template-columns: 2fr 3fr; }
 
 /* ---------------------------------------------------------------- picker */
 /*
@@ -230,26 +241,18 @@
  * postage stamps would have cost the hero gallery its size to say less.
  */
 /*
- * Six sets, all six on screen, one row.
- *
- * This was a horizontal scroller, which put three of them past the right edge
- * of a phone inside a card that was itself scrolled past — two scrollers deep,
- * for a control with no affordance at either level. A grid has no hidden state.
- * One row rather than two because the second row cost the hero gallery 39px it
- * did not have, and the sets have one-word names for exactly this.
+ * Six sets, all six on screen, in a grid: a grid has no hidden state. It is
+ * three across now that it lives in the settings sheet, where it no longer
+ * competes with the hero gallery for height, so the names are readable.
  */
 .stage-row {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
 }
 .stage-pick {
   pointer-events: auto; cursor: pointer; min-width: 0;
-  min-height: 34px; padding: .4em .35em; border: 0; border-radius: 999px;
+  min-height: 40px; padding: .4em .35em; border: 0; border-radius: 999px;
   overflow: hidden; text-overflow: ellipsis;
-  /* Six chips share a card that is never wider than 500px however wide the
-     screen is, so the type is capped low: a viewport-sized clamp put 13px type
-     in a 48px column on a 1440px desktop and truncated "Theatre" there and
-     nowhere else. */
-  font: inherit; font-weight: 800; font-size: clamp(9px, 2.3vw, 10.5px);
+  font: inherit; font-weight: 800; font-size: 13px;
   white-space: nowrap;
   background: rgba(23, 16, 31, .07); color: rgba(23, 16, 31, .66);
 }
@@ -383,64 +386,39 @@
   padding-bottom: var(--space-1);
   background: linear-gradient(rgba(253, 247, 236, 0), var(--paper) 32%);
 }
-/*
- * Everything a round cannot start without lives down here, outside the scroller.
- */
-#title .menu-foot {
-  flex: 0 0 auto;
-  display: flex; flex-direction: column; gap: 4px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(23, 16, 31, .1);
-}
 
 @media (orientation: portrait) {
-  #title .card { padding: var(--space-3) var(--space-4); gap: 6px; max-height: 68vh; }
+  #title .card { max-height: 68vh; }
   #title h1 { font-size: clamp(22px, 5vmin, 34px); }
   /* Three columns of 100px images is 250px of gallery on a 380px card. The
-     artwork stays legible well under that, and the height buys back the rows
-     the picker used to hide. */
+     artwork stays legible well under that. */
   .gtile img { max-height: clamp(52px, 8.5vh, 92px); }
-  .menu-camwrap { aspect-ratio: auto; height: clamp(52px, 8.5vh, 92px); }
-  .stance .seg { padding: .2em .5em; }
   /* Three chips across a phone leave no room for a name; the thumbnail says
      who it is, and the gallery underneath spells it out. */
   .who-name { display: none; }
   .who img { width: 30px; height: 30px; }
   #camStrip canvas { width: clamp(120px, 46vw, 240px); }
 }
+/*
+ * Landscape: the card is a column beside the heroes, as tall as the screen, so
+ * the preview gets whatever height the title and Start leave it.
+ */
+@media (orientation: landscape) {
+  .menu-camwrap { --cam-max: clamp(100px, calc(100vh - 190px), 420px); }
+  .roster .menu-camwrap { --cam-max: min(22vh, 190px); }
+}
 @media (max-height: 620px) {
-  /* The base sheet drops hints to save height; this one is not a hint, it is
-     the only thing explaining an empty black box. */
-  .menu-camwrap .hint { display: block; font-size: 11px; }
   .who img { width: 26px; height: 26px; }
   .who-name { display: none; }
   .gname { font-size: 9px; }
-  .menu-camwrap { height: clamp(40px, 8.5vh, 70px); }
   /*
-   * The lobby card cannot scroll any more, so on a short screen every pixel it
-   * wants has to come from somewhere it is not needed. Measured on a 320x480
-   * phone, where the head and foot wanted 53px more than the card has and the
-   * hero gallery was paying for all of it:
-   *
-   *  - the presenter line over the title, and a smaller title
-   *  - the headings over the two switches: "1P 2P 3P" and "Short 25s" say what
-   *    they are, and the headings were 16px of saying it twice
-   *  - tighter card padding, gaps and portraits
-   *
-   * The last ten come from the stage, in the portrait rule at the foot of this
-   * file, which still keeps the 30% the fit rule holds it to.
+   * The lobby card cannot scroll, so on a short screen every pixel it wants has
+   * to come from somewhere it is not needed: a smaller title and tighter gaps.
    */
-  #title .card { gap: 4px; padding: 10px 16px; }
-  #title h1 em { display: none; }
-  #title h1 { font-size: clamp(18px, 4vmin, 24px); }
-  .setting .reel-label { display: none; }
-  .setting .seg { padding: .3em .2em; }
-  #title .menu-foot { padding-top: 5px; }
-  /* 52px is the floor a hero portrait stops being a smudge at — measured, and
-     the number the fit rule holds every viewport to. The cap above it exists to
-     stop a 100px-wide column becoming a 100px-tall one on a phone. */
+  #title .card { padding: 10px 16px; }
+  .menu-main, .menu-settings { gap: 8px; }
+  #title h1 { font-size: clamp(20px, 4.4vmin, 26px); }
   .gtile img { max-height: clamp(52px, 8.5vh, 72px); }
-  .stage-pick { min-height: 28px; padding: .3em .2em; }
   .who { min-height: 38px; }
   /* The results card holds a podium of three and two buttons, and on a 320x480
      phone that left the celebrating heroes 28% of the screen — under the 30%
@@ -451,14 +429,20 @@
   .podium-row img { width: 34px; height: 34px; }
   #results h1 { font-size: clamp(20px, 4.4vmin, 30px); }
 }
+/* A landscape phone: the presenter line goes, the title shares a row with Settings. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .roster h1 em { display: none; }
+  .menu-settings .segmented .seg, .stage-pick { min-height: 34px; }
+  .menu-settings h2 { font-size: 20px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .p-grade.show { animation: none; opacity: 1; }
+  .menu-camwrap::after { transition: none; }
 }
 
 /*
  * Only portrait gives the stage its height back. In landscape the card is a
- * column beside the heroes, so capping its height there just shrinks the hero
- * gallery for nothing — measured, it took a 900x430 card from 386px to 301px.
+ * column beside the heroes, so capping its height there shrinks it for nothing.
  */
 @media (orientation: portrait) and (max-height: 620px) {
   #title .card { max-height: 70vh; }
@@ -466,30 +450,22 @@
 
 /*
  * The last stop: a 320x480 phone, where one full row of hero portraits at the
- * size they stop being smudges needs eleven pixels the head of the card is
- * holding. Measured, not guessed — the head gives them back in fives and ones.
+ * size they stop being smudges needs every pixel the head of the card holds.
  */
 @media (orientation: portrait) and (max-height: 500px) {
-  #title h1 { font-size: 15px; }
-  /* The preview can be a thin strip once there is a picture in it, but while
-     it is empty it is holding a 40px button, and a box shorter than its own
-     control is exactly what rule 1 fails a build for. */
-  .menu-camwrap { height: clamp(34px, 7.4vh, 70px); }
-  .menu-camwrap.off { height: 46px; }
+  #title h1 { font-size: 18px; }
+  .roster h1 em { display: none; }
+  .roster .menu-camwrap { --cam-max: 64px; }
   .who { min-height: 34px; }
   .who img { width: 24px; height: 24px; }
-  #title .menu-foot { padding-top: 4px; }
   .gname { font-size: 8px; }
 }
 
 /*
- * Below 360px the card is 294px wide, which is 37px per round-length segment
- * and 40px per stage chip. At that width the horizontal padding is the only
- * thing standing between "Normal" and "Norma…", so it goes: a chip that has to
- * truncate its own one-word label is worse than a chip with tight shoulders.
+ * Below 360px the card is 294px wide, which is 37px per round-length segment.
+ * At that width the horizontal padding is the only thing standing between
+ * "Normal" and "Norma…", so it goes.
  */
 @media (max-width: 360px) {
   .setting .seg { padding: .45em .1em; letter-spacing: -.01em; }
-  /* "Theatre" is the longest of the six and the one that decides the column. */
-  .stage-pick { padding: .3em .1em; letter-spacing: -.01em; font-size: 8.5px; }
 }
