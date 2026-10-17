@@ -75,7 +75,7 @@ MINECRAFT_PROMPT = """Transform this drawing into a blocky voxel-game 3D charact
 
 Requirements:
 - One single character, built from the drawing: keep its colors, clothing, accessories and features, rebuilt from cubes
-- Faithful to the drawing: every color, marking and piece of clothing comes from the drawing. Add nothing it does not show: no default game outfit, no extra clothing, letters, symbols, logos or patterns. A part drawn plainly stays plain, in the drawing's own color
+- Faithful to the drawing: every color, marking and piece of clothing comes from the drawing. Add nothing it does not show: no default game outfit, no extra clothing, letters, symbols, logos or patterns. A part drawn plainly stays plain, in the drawing's own color; white or uncolored areas inside the character, such as the whites of eyes, count as colors and stay white
 - A cube-shaped head, a rectangular box body, box-shaped arms and box-shaped legs, all with sharp square edges
 - Pixel-art skin on every face of every block: flat squares of color, no smooth gradients, no curves
 - Hair and accessories as small blocks attached to the body
