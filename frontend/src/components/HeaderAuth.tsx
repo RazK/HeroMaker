@@ -1,12 +1,67 @@
 import { useState, useEffect } from 'react';
-import { api, getAuthToken } from '../api/client';
+import { api, getAuthToken, ApiError } from '../api/client';
 import { AuthModal, type AuthMode } from './AuthModal';
 import { CouponRedeem } from './CouponRedeem';
 import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
 import { Icon } from './tb/Icon';
-import { NavButton, Sheet, SheetRow } from './tb/parts';
+import { Dialog, NavButton, Sheet, SheetRow } from './tb/parts';
 import './HeaderAuth.css';
+
+/**
+ * Confirm deleting the whole account. The danger button only wakes up once the
+ * username is typed, the same check the backend makes (DELETE /api/auth/me).
+ */
+function DeleteAccountDialog({ username, onClose, onDeleted }: { username: string; onClose: () => void; onDeleted: () => void }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const matches = typed.trim() === username;
+
+  const remove = async () => {
+    if (!matches || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteAccount(typed.trim());
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof ApiError && err.status !== 400
+        ? err.message
+        : 'Your account could not be deleted right now.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog label="Delete your account?" onClose={busy ? () => {} : onClose}>
+      <div className="tb-h2">Delete your account?</div>
+      <div className="tb-muted">All your heroes and credits are deleted. This can’t be undone.</div>
+      <div className="tb-field">
+        <label htmlFor="tb-delete-account-confirm">Type <strong>{username}</strong> to confirm</label>
+        <input
+          id="tb-delete-account-confirm"
+          className="tb-input"
+          value={typed}
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder={username}
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') remove(); }}
+        />
+      </div>
+      {error && <div className="tb-notice tb-notice--error header-auth-delete-error" role="alert">{error}</div>}
+      <div className="tb-stack">
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" disabled={busy} onClick={onClose}>Keep it</button>
+        <button type="button" className="tb-btn tb-btn--danger tb-btn--full" disabled={!matches || busy} onClick={remove}>
+          <Icon name="trash" />{busy ? 'Deleting…' : 'Delete account'}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
 
 interface User {
   id: string;
@@ -31,6 +86,7 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
   // Check auth status on mount
   useEffect(() => {
@@ -114,6 +170,11 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
     setShowProfileModal(true);
   };
 
+  const handleOpenDeleteAccount = () => {
+    setShowUserMenu(false);
+    setShowDeleteAccount(true);
+  };
+
   const handleOpenAdmin = () => {
     setShowUserMenu(false);
     if (onOpenAdmin) {
@@ -163,7 +224,16 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
           {user.is_admin && <SheetRow icon="gear" label="Admin" onClick={handleOpenAdmin} />}
           <div className="tb-sheet-divider" />
           <SheetRow icon="logout" label="Sign out" onClick={handleLogout} />
+          <SheetRow icon="trash" label="Delete account" danger onClick={handleOpenDeleteAccount} />
         </Sheet>
+      )}
+
+      {showDeleteAccount && (
+        <DeleteAccountDialog
+          username={user.username}
+          onClose={() => setShowDeleteAccount(false)}
+          onDeleted={() => { setShowDeleteAccount(false); setUser(null); }}
+        />
       )}
 
       <BuyCredits isOpen={showBuyModal} onClose={() => setShowBuyModal(false)} />

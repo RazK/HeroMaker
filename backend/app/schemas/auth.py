@@ -101,6 +101,10 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class DeleteAccountRequest(BaseModel):
+    confirm: str  # must equal the account's username
+
+
 class UpdateProfileRequest(BaseModel):
     """Request to update own profile (self-service)."""
     name: Optional[str] = None

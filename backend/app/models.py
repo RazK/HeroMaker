@@ -22,6 +22,11 @@ class User(Base):
     subscription_tier = Column(String, default='free')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Set when the person deletes their account. The row stays, emptied of
+    # everything that identifies them, because payments and the credit ledger
+    # point at it and are kept for tax. A deleted user cannot sign in. See
+    # app/services/account_deletion.py and m012_user_soft_delete.
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     creations = relationship("Creation", back_populates="user")
     
@@ -216,6 +221,9 @@ CREDIT_REASONS = (
     # know where those credits came from. Labelling them "opening_balance" is
     # honest; labelling them "signup_grant" would be inventing history.
     "opening_balance",
+    # The person deleted their account; the balance left is forfeited, as the
+    # delete dialog says. A row, so sum(delta) == users.credits still holds.
+    "account_deleted",
 )
 
 
