@@ -42,6 +42,7 @@ from app.models import (  # noqa: E402
     CreditTransaction,
     PasswordResetToken,
     Payment,
+    RecurringExpense,
     UsageEvent,
     User,
 )
@@ -57,6 +58,7 @@ _WIPE_ORDER = (
     CreationStep,
     Creation,
     PasswordResetToken,
+    RecurringExpense,
     User,
 )
 

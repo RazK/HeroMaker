@@ -708,7 +708,7 @@ export const api = {
     },
 
     async createCoupon(data: {
-      code: string;
+      code?: string;
       credit_amount: number;
       max_uses?: number;
       allow_multiple_per_user?: boolean;
@@ -749,8 +749,99 @@ export const api = {
       );
       console.log('[API] admin.deleteCoupon success');
     },
+
+    // Money: income, costs, net, provider balances, monthly bills
+    moneySummary(period: MoneyPeriod): Promise<MoneySummary> {
+      return fetchJson<MoneySummary>(`${API_BASE_URL}/api/admin/money/summary?period=${period}`);
+    },
+
+    async providerBalances(refresh = false): Promise<ProviderBalance[]> {
+      const r = await fetchJson<{ providers: ProviderBalance[] }>(
+        `${API_BASE_URL}/api/admin/money/providers${refresh ? '?refresh=true' : ''}`
+      );
+      return r.providers;
+    },
+
+    createRecurring(data: { name: string; amount_usd: number; started_on?: string }): Promise<RecurringExpense> {
+      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/admin/money/recurring`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    },
+
+    updateRecurring(id: string, data: { name?: string; amount_usd?: number; started_on?: string; is_active?: boolean }): Promise<RecurringExpense> {
+      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/admin/money/recurring/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    },
+
+    deleteRecurring(id: string): Promise<void> {
+      return fetchJson<void>(`${API_BASE_URL}/api/admin/money/recurring/${id}`, { method: 'DELETE' });
+    },
   },
 };
+
+export type MoneyPeriod = 'month' | '30d' | 'all';
+
+export interface IncomeTotals {
+  gross_usd_micros: number;
+  fee_usd_micros: number;
+  net_usd_micros: number;
+  count: number;
+}
+
+export interface RecurringExpense {
+  id: string;
+  name: string;
+  amount_usd_micros: number;
+  started_on: string;
+  is_active: boolean;
+  next_charge_on: string | null;
+}
+
+export interface MoneySummary {
+  period: MoneyPeriod;
+  range: { start: string | null; end: string };
+  income: { live: IncomeTotals; test: IncomeTotals; refunds: IncomeTotals; fee_is_estimated: boolean };
+  costs: {
+    providers: { provider: string; cost_usd_micros: number; calls: number }[];
+    providers_total_usd_micros: number;
+    recurring_usd_micros: number;
+    total_usd_micros: number;
+    prices_last_checked: string | null;
+  };
+  net_usd_micros: number;
+  recurring: {
+    monthly_total_usd_micros: number;
+    items: RecurringExpense[];
+    upcoming: { id: string; name: string; amount_usd_micros: number; on: string }[];
+    upcoming_total_usd_micros: number;
+  };
+  credits_held: { credits: number; cost_per_credit_usd_micros: number | null; cost_to_serve_usd_micros: number | null };
+}
+
+export interface ProviderBalance {
+  provider: 'meshy' | 'openai' | 'railway' | string;
+  status: 'ok' | 'not_configured' | 'error';
+  hint: string | null;
+  checked_at: string;
+  cached?: boolean;
+  // meshy
+  credits?: number;
+  value_usd_micros?: number;
+  monthly_resets_at?: string | null;
+  // openai
+  month_to_date_usd_micros?: number;
+  // railway
+  workspace?: string | null;
+  current_usage_usd_micros?: number | null;
+  projected_usage_usd_micros?: number | null;
+  credit_balance_usd_micros?: number | null;
+  period_end?: string | null;
+}
 
 // Admin types
 export interface AuthConfig {

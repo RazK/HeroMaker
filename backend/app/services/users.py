@@ -109,15 +109,6 @@ def update_user(
     return user
 
 
-def delete_user(user_id: str, db: Session) -> bool:
-    """
-    Delete a user and all their creations.
-    Returns True if deleted, False if user not found.
-    """
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        return False
-    
-    db.delete(user)
-    db.commit()
-    return True
+# Deleting an account: app/services/account_deletion.py, used by both the
+# person themselves and the admin console. A plain db.delete(user) cannot work:
+# payments and the credit ledger hold NOT NULL references to the row.

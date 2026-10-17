@@ -12,9 +12,16 @@ from app.schemas.admin import (
     AdminCouponUpdate,
     CreationStats,
 )
+import logging
+import secrets
+
+from app.services import account_deletion
 from app.services.auth import get_current_user
-from app.services.users import list_users_with_stats, update_user, delete_user
-from app.api import finance
+from app.services.task_manager import get_task_manager
+from app.services.users import list_users_with_stats, update_user
+from app.api import finance, money
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -22,6 +29,16 @@ router = APIRouter()
 # audit views. Kept in its own module because it is a different concern from
 # user/coupon CRUD, but mounted here so everything admin lives under one prefix.
 router.include_router(finance.router, prefix="/finance", tags=["admin-finance"])
+# Money: the admin console's company view - income, costs, net, provider
+# balances and the monthly bills.
+router.include_router(money.router, prefix="/money", tags=["admin-money"])
+
+# Unambiguous: no 0/O, 1/I/L.
+_COUPON_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def _new_coupon_code() -> str:
+    return "HERO-" + "".join(secrets.choice(_COUPON_ALPHABET) for _ in range(6))
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
@@ -108,23 +125,37 @@ def admin_update_user(
 def admin_delete_user(
     user_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    admin: User = Depends(require_admin),
+    task_manager=Depends(get_task_manager),
 ):
-    """Delete a user and all their creations."""
-    # Prevent self-deletion
+    """
+    Delete a user's account, exactly as they could themselves: heroes and files
+    removed, the row kept anonymous because payments and the ledger point at it.
+    See app/services/account_deletion.py. (A plain db.delete here used to fail
+    on those foreign keys.)
+    """
     if user_id == admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete yourself"
         )
-    
-    success = delete_user(user_id, db)
-    if not success:
+
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+    try:
+        account_deletion.delete_account(db, user, task_manager)
+    except Exception:
+        db.rollback()
+        logger.exception("Admin could not delete account %s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The account could not be deleted right now. Please try again.",
+        )
+
     return {"message": "User deleted successfully"}
 
 
@@ -147,8 +178,8 @@ def create_coupon(
     admin: User = Depends(require_admin)
 ):
     """Create a new coupon."""
-    # Normalize code
-    code = coupon_data.code.strip().upper()
+    # Normalize code; none given means "make one up".
+    code = (coupon_data.code or "").strip().upper() or _new_coupon_code()
     
     # Check if code already exists
     existing = db.query(Coupon).filter(Coupon.code == code).first()
