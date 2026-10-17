@@ -164,8 +164,8 @@ export function HeroScreen(props: HeroScreenProps) {
     bar = (
       <>
         {owns
-          ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full tb-share" onClick={share}><Icon name="share" />Share</button>
-          : <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full tb-make-own" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
+          ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-share" onClick={share}><Icon name="share" />Share</button>
+          : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-make-own" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
         <a className="tb-btn tb-btn--primary tb-btn--full tb-play" href={playUrl(creation)}><Icon name="camera" />Dance party</a>
       </>
     );
