@@ -1,0 +1,221 @@
+name: CI
+
+# What every pull request into main has to pass. It checks the code; it never
+# builds anything to ship. Shipping is build-images.yml (merge to main ->
+# staging) and promote-production.yml (a human approves -> production).
+#
+# Each check runs only when its part of the tree changed, and `summary` is the
+# one job that always reports, so a single required status check covers every
+# PR whatever it touched. A new push to a PR cancels the run it supersedes.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      game: ${{ steps.filter.outputs.game }}
+      vrm-converter: ${{ steps.filter.outputs.vrm-converter }}
+      backend-image: ${{ steps.filter.outputs.backend-image }}
+      frontend-image: ${{ steps.filter.outputs.frontend-image }}
+    steps:
+      # No checkout: on pull_request the filter asks the GitHub API for the
+      # changed files. A change to this workflow runs every check, so editing
+      # CI proves CI.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ci: &ci
+              - '.github/workflows/ci.yml'
+            backend:
+              - *ci
+              - 'backend/**'
+            frontend:
+              - *ci
+              - 'frontend/**'
+            game:
+              - *ci
+              - 'games/hero-moves/**'
+              - 'devops/scripts/bundle-game.sh'
+            vrm-converter:
+              - *ci
+              - 'vrm-converter-service/**'
+            backend-image:
+              - *ci
+              - 'backend/Dockerfile'
+              - 'backend/.dockerignore'
+            frontend-image:
+              - *ci
+              - 'frontend/Dockerfile'
+              - 'frontend/.dockerignore'
+              - 'frontend/nginx.conf'
+              - 'frontend/start-nginx.sh'
+
+  # The backend's unit suite (backend/tests). No network, no API keys. Postgres
+  # runs alongside so the one test that needs it — the ledger's SELECT ... FOR
+  # UPDATE path, which production uses and SQLite cannot exercise — runs too.
+  backend-tests:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same Python as backend/Dockerfile.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # At .venv/ because the tests run the backend's scripts as a user would,
+      # with .venv/bin/python (see CLAUDE.md).
+      - name: Install backend dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet -r backend/requirements.txt
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          # Explicit driver, as app/config/settings.py makes production's URL:
+          # SQLAlchemy 2.1 would otherwise pick psycopg 3, which is not installed.
+          TEST_POSTGRES_URL: postgresql+psycopg2://test:test@localhost:5432/test
+        # Failures are also raised as annotations, so they show on the PR's
+        # Checks tab without opening the log.
+        run: |
+          set -o pipefail
+          ../.venv/bin/python -m pytest -q -rfE 2>&1 | tee pytest.out || {
+            grep -E '^(FAILED|ERROR) ' pytest.out | sed 's/^/::error title=pytest::/'
+            exit 1
+          }
+
+  # `npm run build` is `tsc && vite build`: the type check and the production
+  # bundle, which is everything the frontend Docker image's build stage does.
+  frontend-build:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+  # Hero Moves, which the frontend serves at /play/. Its build is
+  # `tsc --noEmit && vite build`.
+  game-build:
+    needs: changes
+    if: needs.changes.outputs.game == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: games/hero-moves/package-lock.json
+      - run: ./devops/scripts/bundle-game.sh
+
+  # Docker images are built on a PR only when the image recipe itself changed;
+  # the code inside them is covered by the jobs above. The VRM converter has no
+  # other check, so its image is built whenever it changes. Nothing is pushed,
+  # and the layer cache is read, never written, so PRs do not evict main's.
+  backend-image:
+    needs: changes
+    if: needs.changes.outputs.backend-image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          cache-from: type=gha
+
+  frontend-image:
+    needs: changes
+    if: needs.changes.outputs.frontend-image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          cache-from: type=gha
+
+  vrm-converter-image:
+    needs: changes
+    if: needs.changes.outputs.vrm-converter == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./vrm-converter-service
+          file: ./vrm-converter-service/Dockerfile
+          push: false
+          cache-from: type=gha
+
+  # The one status check to require. Skipped jobs (nothing of theirs changed)
+  # pass; a failed or cancelled one fails it.
+  summary:
+    needs: [changes, backend-tests, frontend-build, game-build, backend-image, frontend-image, vrm-converter-image]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "- \(.key): \(.value.result)"' | tee -a "$GITHUB_STEP_SUMMARY"
+          if echo "$RESULTS" | jq -e '[.[].result] | any(. == "failure" or . == "cancelled")' >/dev/null; then
+            echo "::error::A CI check failed."
+            exit 1
+          fi

@@ -11,7 +11,7 @@ One branch. Two environments. Production is never reached by accident.
 
 | Event | What happens |
 |---|---|
-| PR opened | builds + lints run; **nothing deploys** |
+| PR opened | `ci.yml` tests and builds what the PR touched; **nothing deploys** |
 | merged to `main` | all three services deploy to **staging**, automatically |
 | you're happy with staging | run **Promote to production**, approve it, production deploys |
 | production is broken | promote the previous good SHA — rollback is the same button |
@@ -186,7 +186,8 @@ Environment variables are separate and documented in
 
 | File | Trigger | Does |
 |---|---|---|
-| `build-images.yml` | PR, push to main, tags | builds/pushes images; on main, deploys to staging |
+| `ci.yml` | PR | backend tests (with Postgres), frontend and game builds, Docker builds only when a Dockerfile changed; `summary` is the one check to require |
+| `build-images.yml` | push to main, tags | builds/pushes images; on main, deploys to staging |
 | `promote-production.yml` | manual | the gated path to production |
 | `railway-config.yml` | called by the others | resolves service/environment IDs |
 | `backup.yml` | daily 02:00 UTC | backs up the **production** database; deletes backups older than 30 days (newest 7 always kept) |
