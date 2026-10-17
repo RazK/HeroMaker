@@ -188,7 +188,10 @@ h1, h2, h3, h4 {
 }
 .tb-btn--with-trail { justify-content: space-between; }
 
-/* Round navigation button: the same in every header. */
+/* Round navigation button: the same in every header. Everything that sits in
+   a header (this, the credits pill, a sm pill) is --tb-btn-sm-h tall with
+   --tb-depth-sm of depth, so the row lines up: same top, same bottom, same
+   shadow. Box-sizing is border-box, so the 2.5px border is inside the 48. */
 .tb-nav {
   width: var(--tb-btn-sm-h);
   height: var(--tb-btn-sm-h);
@@ -201,7 +204,7 @@ h1, h2, h3, h4 {
   background: var(--tb-white);
   color: var(--tb-ink);
   border: 2.5px solid var(--tb-ink);
-  box-shadow: 0 4px 0 var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
   cursor: pointer;
   text-decoration: none;
 }
@@ -223,9 +226,11 @@ h1, h2, h3, h4 {
 }
 .tb-chip--on { background: var(--tb-ink); border-color: var(--tb-ink); color: var(--tb-white); }
 
+/* Header credits pill: the nav button's height and depth (see .tb-nav). */
 .tb-credits {
-  height: 36px;
-  padding: 0 12px;
+  height: var(--tb-btn-sm-h);
+  flex-shrink: 0;
+  padding: 0 16px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -233,13 +238,14 @@ h1, h2, h3, h4 {
   border: none;
   background: var(--tb-sun);
   color: var(--tb-ink);
-  box-shadow: 0 3px 0 var(--tb-sun-deep);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-sun-deep);
   font-family: var(--tb-font-body);
   font-weight: 800;
-  font-size: 15px;
+  font-size: 17px;
   white-space: nowrap;
   cursor: pointer;
 }
+.tb-credits:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-sun-deep); }
 
 .tb-link {
   color: var(--tb-grape-text);
@@ -329,6 +335,14 @@ h1, h2, h3, h4 {
   .tb-screen--fit > .tb-screen-body { padding-right: 8px; }
   .tb-screen--fit > .tb-bar { padding-left: 8px; justify-content: flex-end; box-shadow: none; }
 }
+/* A screen whose list scrolls inside it, never the page (with NoPageScroll).
+   When the page scrolls, iPhone Safari shrinks its toolbar, and then a tap
+   near the bottom edge -- where the bottom bar and every sheet's buttons
+   sit -- only brings the toolbar back: the button looks pressed and nothing
+   happens. A page that never scrolls never shrinks the toolbar. */
+.tb-screen--app { height: 100svh; height: 100dvh; min-height: 0; }
+html.tb-no-scroll .tb-screen--app { height: 100%; }
+.tb-screen--app > .tb-screen-body { overflow-y: auto; overscroll-behavior: contain; }
 .tb-screen-body {
   flex-grow: 1;
   min-height: 0;
@@ -548,3 +562,25 @@ h1, h2, h3, h4 {
 }
 .tb-notice--error { color: var(--tb-red); }
 .tb-notice button { margin-left: auto; }
+
+/* ---------- Touch: every tap lands ----------
+   Three ways a phone browser eats a tap that looked pressed:
+   1. Two quick taps read as "double-tap to zoom", so the second never
+      clicks, and every single tap waits to find out. `manipulation` keeps
+      pinch-zoom and scrolling and drops only that gesture.
+   2. A press that slides the button down (translateY) moves it out from
+      under a finger near its top edge, and the 3D lip below a button is
+      only a shadow, so a tap on it hits nothing. The ::after layer keeps
+      the hit box where the button was and covers the lip.
+   3. A held press on a button's text starts a text selection or the
+      callout menu instead of a click. */
+html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button, a, [role='button'], [role='tab'] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+.tb-btn, .tb-nav { position: relative; }
+.tb-btn::after, .tb-nav::after, .buy-credits-pack::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 calc(-1 * var(--tb-depth) - 2px);
+}
+.tb-btn:active::after, .tb-nav:active::after, .buy-credits-pack:active::after { top: -4px; }

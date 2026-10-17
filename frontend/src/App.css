@@ -9,7 +9,7 @@
 .tb-screen--wide { max-width: 1200px; }
 .tb-screen--wide .tb-bar { max-width: 560px; width: 100%; margin: 0 auto; }
 
-.tb-intro { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 8px; }
+.tb-intro { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
 .tb-intro-title { font-size: 40px; line-height: 42px; letter-spacing: -0.5px; }
 
 .tb-footer { padding: 24px 0 0; text-align: center; font-size: 13px; color: var(--tb-ink-2); }

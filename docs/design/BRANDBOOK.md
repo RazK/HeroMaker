@@ -35,7 +35,7 @@ One theme. No dark mode.
 | `--tb-gutter` | `20px` | Side margins |
 | `--tb-stack` | `18px` | Between stacked buttons |
 | `--tb-depth` / `--tb-depth-sm` | `6px` / `4px` | Primary / secondary button depth |
-| `--tb-btn-h` / `--tb-btn-sm-h` | `58px` / `48px` | Button heights; 48 is also the nav button |
+| `--tb-btn-h` / `--tb-btn-sm-h` | `58px` / `48px` | Button heights; 48 is also the nav button and the credits pill — everything in a header is 48 tall with `--tb-depth-sm` depth |
 | `--tb-radius-card` / `--tb-radius-input` | `28px` / `18px` | Cards, tiles, sheets / inputs, notices |
 
 Contrast: ink on cream 15.2, ink-2 on cream 6.5, grape-text on white 7.5, white on grape 6.1, ink on sun 10.1, red on white 5.6.

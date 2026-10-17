@@ -1,6 +1,4 @@
-.tb-gallery { display: flex; flex-direction: column; gap: 16px; }
-.tb-gallery-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 36px; }
-.tb-gallery-count { flex-shrink: 0; }
+.tb-gallery { display: flex; flex-direction: column; gap: var(--tb-space); }
 .tb-gallery-chips { display: flex; gap: 8px; overflow-x: auto; min-width: 0; scrollbar-width: none; }
 .tb-gallery-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 720px) { .tb-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }

@@ -49,16 +49,14 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect }: GalleryProps) {
 
   return (
     <div className="tb-gallery creation-gallery">
-      <div className="tb-gallery-head">
-        {isLoggedIn ? (
-          <div className="tb-gallery-chips" role="tablist" aria-label="Show">
-            <button type="button" role="tab" aria-selected={filter === 'all'} className={`tb-chip${filter === 'all' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('all')}>All heroes</button>
-            <button type="button" role="tab" aria-selected={filter === 'mine'} className={`tb-chip tb-chip-mine${filter === 'mine' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('mine')}>My heroes</button>
-            {isAdmin && <button type="button" role="tab" aria-selected={filter === 'failed'} className={`tb-chip${filter === 'failed' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('failed')}>Failed</button>}
-          </div>
-        ) : <span />}
-        {creations && <span className="tb-muted tb-gallery-count">{shown.length}</span>}
-      </div>
+      {/* Filters only exist signed in; signed out the grid follows the intro directly. */}
+      {isLoggedIn && (
+        <div className="tb-gallery-chips" role="tablist" aria-label="Show">
+          <button type="button" role="tab" aria-selected={filter === 'all'} className={`tb-chip${filter === 'all' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('all')}>All heroes</button>
+          <button type="button" role="tab" aria-selected={filter === 'mine'} className={`tb-chip tb-chip-mine${filter === 'mine' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('mine')}>My heroes</button>
+          {isAdmin && <button type="button" role="tab" aria-selected={filter === 'failed'} className={`tb-chip${filter === 'failed' ? ' tb-chip--on' : ''}`} onClick={() => setFilter('failed')}>Failed</button>}
+        </div>
+      )}
 
       {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setFilter(filter)}>Try again</button></div>}
       {!creations && !error && <div className="tb-gallery-grid">{Array.from({ length: 6 }, (_, i) => <div key={i} className={`tb-tile tb-tile--skeleton tb-plate-${(i % 6) + 1}`} />)}</div>}

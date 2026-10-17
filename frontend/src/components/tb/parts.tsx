@@ -193,3 +193,9 @@ export function useClearOfPolaroid(stage: RefObject<HTMLElement>, key: unknown) 
     return () => { ro.disconnect(); el.removeEventListener('load', fit, true); };
   }, [stage, key]);
 }
+
+/** useFitScreen for a screen built inline, where a hook cannot go. */
+export function NoPageScroll() {
+  useFitScreen();
+  return null;
+}
