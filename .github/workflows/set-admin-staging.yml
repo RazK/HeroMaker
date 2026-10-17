@@ -1,0 +1,57 @@
+name: Set admin (staging)
+
+# Makes an existing staging account an admin, by email
+# (backend/scripts/set_admin.py). STAGING ONLY: it uses RAILWAY_STAGING_TOKEN,
+# which cannot reach production. Production gets its own run only with Raz's
+# explicit yes.
+#
+# Runs on the GitHub runner with the backend's staging variables injected by
+# `railway run`; the database is reached through its public TCP proxy, as in
+# backup.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Email of an account that has signed in at least once'
+        required: true
+      revoke:
+        description: 'Take admin away instead'
+        type: boolean
+        default: false
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  set-admin:
+    needs: config
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+      SERVICE: ${{ needs.config.outputs.backend }}
+      ENVIRONMENT: ${{ needs.config.outputs.staging }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: npm install -g @railway/cli
+      - name: Resolve the staging database's public URL
+        run: |
+          set -euo pipefail
+          url=$(railway variables --service Postgres --environment "$ENVIRONMENT" --json | jq -r '.DATABASE_PUBLIC_URL // empty')
+          if [ -z "$url" ]; then echo "::error::No DATABASE_PUBLIC_URL on staging Postgres."; exit 1; fi
+          echo "::add-mask::$url"
+          echo "PUBLIC_DB=$url" >> "$GITHUB_ENV"
+      - name: Set admin
+        env:
+          EMAIL: ${{ inputs.email }}
+          REVOKE: ${{ inputs.revoke }}
+        run: |
+          args=(--database-url "$PUBLIC_DB" "$EMAIL")
+          [ "$REVOKE" = "true" ] && args+=(--revoke)
+          railway run --service="$SERVICE" --environment="$ENVIRONMENT" -- python backend/scripts/set_admin.py "${args[@]}"
