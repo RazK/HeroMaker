@@ -577,7 +577,9 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 button, a, [role='button'], [role='tab'] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
-.tb-btn, .tb-nav { position: relative; }
+/* Each hit layer is anchored to its own button: without a positioned box it
+   would stretch over the nearest positioned ancestor -- a whole sheet. */
+.tb-btn, .tb-nav, .buy-credits-pack { position: relative; }
 .tb-btn::after, .tb-nav::after, .buy-credits-pack::after {
   content: '';
   position: absolute;
