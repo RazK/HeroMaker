@@ -237,8 +237,14 @@ const settingsBtn = el('button', { class: 'menu-gear', onclick: () => openSettin
 settingsBtn.innerHTML = SLIDERS_ICON
 settingsBtn.append(el('span', {}, 'Settings'))
 
+/**
+ * The hero is the star of the card, so its name is the title and the game is
+ * the small line above it. One line, cut with an ellipsis: a child's hero can
+ * be called anything, and a wrapped name would push Start off a phone.
+ */
 const menuTitle = OWN_HERO
-  ? el('h1', {}, el('em', {}, OWN_NAME), 'Dance party')
+  ? el('h1', { class: 'hero-title', title: OWN_NAME },
+    el('em', {}, 'Dance party'), el('span', { class: 'hero-name' }, OWN_NAME))
   : el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves')
 
 /** What the lobby shows: title, preview, (the gallery, without an own hero), Start. */

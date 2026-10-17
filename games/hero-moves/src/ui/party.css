@@ -55,6 +55,20 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* With your own hero, the hero's name is the title and the game is the eyebrow. */
+#title h1.hero-title { flex: 1 1 auto; font-size: clamp(30px, 5.4vmin, 40px); line-height: 1; }
+#title h1.hero-title em {
+  font-family: 'Nunito', system-ui, sans-serif; font-weight: 800;
+  font-size: 13px; letter-spacing: .04em; margin-bottom: .3em;
+  color: #4b2fe0;
+}
+.hero-name {
+  display: block; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* Barriecito's flourishes overhang its box; keep them from being clipped. */
+  padding-block: .06em;
+}
+
 /* The way into the settings: a small labelled pill at the head of the card. */
 .menu-gear {
   pointer-events: auto; cursor: pointer; flex: 0 0 auto;
@@ -468,4 +482,9 @@
  */
 @media (max-width: 360px) {
   .setting .seg { padding: .45em .1em; letter-spacing: -.01em; }
+}
+
+/* Short screens (a landscape phone): a smaller hero name, still the biggest type on the card. */
+@media (max-height: 620px) {
+  #title h1.hero-title { font-size: 28px; }
 }
