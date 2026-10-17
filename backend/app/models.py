@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, date
 from typing import Optional
-from sqlalchemy import Column, String, Boolean, DateTime, Date, Text, JSON, ForeignKey, Integer, false
+from sqlalchemy import Column, String, Boolean, DateTime, Date, Text, JSON, ForeignKey, Integer, BigInteger, false
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -390,3 +390,28 @@ class PasswordResetToken(Base):
     expires_at = Column(DateTime, nullable=False)
     used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class RecurringExpense(Base):
+    """
+    A bill that arrives every month whatever happens: the Railway plan, the
+    domain, an email service. Edited from the admin console's Money section,
+    and part of its net figure.
+
+    A charge falls on `started_on`'s day of the month, every month from
+    `started_on` on, while the row is active. That is enough to answer "what did
+    these cost in this period" and "what is due in the next 30 days" without
+    pretending to be an accounting system. See app/services/company_finance.py
+    and m014_recurring_expenses.
+    """
+    __tablename__ = "recurring_expenses"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(200), nullable=False)
+    # Integer USD micros like every other amount here. BIGINT: a Postgres
+    # INTEGER of micros tops out at $2,147.
+    amount_usd_micros = Column(BigInteger, nullable=False)
+    started_on = Column(Date, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

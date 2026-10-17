@@ -1,0 +1,220 @@
+/* The admin console, in Toy Box. Phone-first: one column, 640px at most on a
+   desktop. Logical properties only (RTL-ready). Tokens: styles/toybox.css. */
+
+.adm {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tb-space);
+  flex-grow: 1;
+}
+
+/* ---- Section switcher: three equal pills ---------------------------------- */
+
+.adm-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
+}
+.adm-tab {
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--tb-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--tb-font-display);
+  font-size: 18px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.adm-tab--on { background: var(--tb-grape); color: var(--tb-white); }
+.adm-tab:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
+
+.adm-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.adm-chips .tb-chip { flex: 1 1 0; min-height: 44px; }
+.adm-chips--tight .tb-chip { min-height: 40px; }
+
+/* ---- Cards ------------------------------------------------------------- */
+
+.adm-card {
+  background: var(--tb-white);
+  border-radius: var(--tb-radius-card);
+  box-shadow: var(--tb-shadow-card);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.adm-title { font-family: var(--tb-font-display); font-weight: 400; font-size: 22px; line-height: 26px; margin: 0 0 4px; }
+.adm-title-row { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin-block-end: 4px; }
+.adm-title-row .adm-title { margin: 0; }
+.adm-title-trail { font-weight: 800; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; }
+.adm-eyebrow { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+
+.adm-big {
+  font-family: var(--tb-font-display);
+  font-size: 44px;
+  line-height: 48px;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adm-big--sm { font-size: 34px; line-height: 38px; color: var(--tb-ink); }
+.adm-big--sm svg { color: var(--tb-sun-deep); }
+
+/* Net: the one number that matters, on a plate. */
+.adm-net { align-items: center; text-align: center; padding-block: 20px; }
+.adm-net--pos { background: var(--tb-plate-3); }
+.adm-net--pos .adm-big, .adm-net--pos .adm-eyebrow { color: #0b6b55; }
+.adm-net--neg { background: var(--tb-plate-6); }
+.adm-net--neg .adm-big, .adm-net--neg .adm-eyebrow { color: var(--tb-red); }
+.adm-net-line { display: flex; gap: 16px; font-weight: 800; color: var(--tb-ink); font-variant-numeric: tabular-nums; }
+
+/* ---- Rows: label on the start, number on the end ------------------------- */
+
+.adm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding-block: 4px;
+  border-block-end: 2px solid #f6eee1;
+  font-size: 16px;
+}
+.adm-row:last-of-type { border-block-end: none; }
+.adm-row-label { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-weight: 700; overflow-wrap: anywhere; }
+.adm-row-label small { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }
+.adm-row-value { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.adm-row--total { border-block-start: 2px solid var(--tb-ink); border-block-end: none; margin-block-start: 2px; }
+.adm-row--total .adm-row-label, .adm-row--total .adm-row-value { font-weight: 800; font-size: 17px; }
+.adm-row--tap {
+  width: 100%;
+  background: none;
+  border-inline: none;
+  border-block-start: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  min-height: 52px;
+}
+.adm-row--tap > svg { color: var(--tb-ink-2); flex-shrink: 0; }
+.adm-row--off .adm-row-value, .adm-row--off .adm-row-label { opacity: 0.55; }
+.adm-row--provider { min-height: 56px; }
+
+.adm-note { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); padding-block-start: 4px; }
+.adm-note--bad, .adm-bad { color: var(--tb-red) !important; }
+.adm-summary-line { font-weight: 800; color: var(--tb-ink-2); padding-inline: 4px; }
+.adm-error {
+  padding: 12px 16px;
+  border-radius: var(--tb-radius-input);
+  background: var(--tb-white);
+  box-shadow: var(--tb-shadow-card);
+  color: var(--tb-red);
+  font-weight: 700;
+}
+
+.adm-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--tb-plate-1);
+  color: var(--tb-grape-text);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.adm-pill--bad { background: #fde3e3; color: var(--tb-red); }
+.adm-pill--active { background: var(--tb-plate-3); color: #0b6b55; }
+.adm-pill--off, .adm-pill--expired, .adm-pill--used { background: var(--tb-track); color: var(--tb-ink-2); }
+
+/* A small 3D pill for in-card actions (Copy, Refresh, New). */
+.adm-btn-xs { height: 40px; padding: 0 14px; font-size: 16px; gap: 6px; box-shadow: 0 3px 0 var(--tb-ink); border-width: 2px; }
+.adm-btn-xs:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--tb-ink); }
+.adm-nav-sm { width: 44px; height: 44px; box-shadow: 0 3px 0 var(--tb-ink); border-width: 2px; }
+
+/* ---- Coupons and users ---------------------------------------------------- */
+
+.adm-coupon { gap: 8px; }
+.adm-coupon-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; }
+.adm-coupon-foot .adm-coupon-meta { flex: 1 1 140px; }
+.adm-user {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px 12px;
+}
+.adm-user-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.adm-coupon-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: 1px;
+  overflow-wrap: anywhere;
+}
+.adm-coupon-code--big { font-size: 28px; }
+.adm-coupon-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }
+.adm-coupon-credits { display: inline-flex; align-items: center; gap: 4px; color: var(--tb-ink); font-weight: 800; }
+.adm-coupon-credits svg { color: var(--tb-sun-deep); }
+.adm-coupon-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.adm-coupon-actions { display: flex; align-items: center; gap: 10px; margin-inline-start: auto; }
+.adm-coupon--off .adm-coupon-code, .adm-coupon--expired .adm-coupon-code, .adm-coupon--used .adm-coupon-code { color: var(--tb-ink-2); text-decoration: line-through; text-decoration-thickness: 2px; }
+
+.adm-user-name { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: 800; font-size: 17px; overflow-wrap: anywhere; }
+.adm-user-email { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); overflow-wrap: anywhere; }
+
+.adm-empty { align-items: center; text-align: center; padding-block: 32px; color: var(--tb-ink-2); font-weight: 800; }
+.adm-empty svg { color: var(--tb-grape); }
+
+/* ---- Forms in sheets --------------------------------------------------- */
+
+.adm-form { display: flex; flex-direction: column; gap: var(--tb-space); }
+.adm-form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.adm-form-pair .tb-input { min-width: 0; }
+.adm-code-field { display: flex; gap: 10px; align-items: center; }
+.adm-code-input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.adm-check { display: flex; align-items: center; gap: 12px; min-height: 44px; font-weight: 700; }
+.adm-check input { width: 22px; height: 22px; accent-color: var(--tb-grape); flex-shrink: 0; }
+.adm-made { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: var(--tb-radius-card); background: var(--tb-plate-2); text-align: center; }
+.adm-sheet-sub { padding: 0 4px 4px; }
+
+/* ---- The bar sits flush with the screen's edges, under the scroll -------- */
+
+.adm-bar,
+.tb-screen--wide .tb-bar.adm-bar {
+  width: auto;
+  max-width: none;
+  margin-inline: calc(-1 * var(--tb-gutter));
+  margin-block-end: calc(-1 * var(--tb-space));
+  margin-block-start: auto;
+}
+/* The console is one 640px column, so the bar (its width plus the gutters)
+   covers everything that scrolls under it, on a phone and on a desktop. */
+.adm .adm-bar > * { width: 100%; }
+
+/* ---- Loading: never an empty card --------------------------------------- */
+
+.adm-skel {
+  background: linear-gradient(90deg, #f6eee1 0%, #fbf5ea 50%, #f6eee1 100%);
+  background-size: 200% 100%;
+  animation: adm-shimmer 1.2s linear infinite;
+  box-shadow: none;
+}
+.adm-skel-row { height: 44px; border-radius: 12px; margin-block: 4px; }
+@keyframes adm-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .adm-skel { animation: none; } }

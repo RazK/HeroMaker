@@ -235,4 +235,8 @@ def test_migration_stars_every_finished_live_hero_once(tmp_path):
 
 def test_migration_is_registered_after_the_others():
     from app.migrations.registry import MIGRATIONS
-    assert MIGRATIONS[-1] == ("013_creation_featured", m013_creation_featured.migrate)
+    # Later migrations may follow it; it must come after everything before it.
+    names = [name for name, _ in MIGRATIONS]
+    i = names.index("013_creation_featured")
+    assert MIGRATIONS[i] == ("013_creation_featured", m013_creation_featured.migrate)
+    assert names[:i] == sorted(names[:i]) and all(n < "013" for n in names[:i])

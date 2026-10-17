@@ -1,7 +1,7 @@
 """Admin API schemas."""
 from datetime import datetime, date
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ============ User Schemas ============
@@ -52,10 +52,10 @@ class AdminCouponResponse(BaseModel):
 
 
 class AdminCouponCreate(BaseModel):
-    """Request to create a coupon."""
-    code: str
-    credit_amount: int
-    max_uses: int = 1
+    """Request to create a coupon. Omit `code` to have one generated."""
+    code: Optional[str] = Field(None, max_length=64)
+    credit_amount: int = Field(..., gt=0, le=100_000)
+    max_uses: int = Field(1, ge=1, le=1_000_000)
     allow_multiple_per_user: bool = False
     expires_at: Optional[datetime] = None
 

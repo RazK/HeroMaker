@@ -40,6 +40,9 @@ const PATHS: Record<string, JSX.Element> = {
   fly: <><circle cx="18.5" cy="6" r="1.8" /><path d="M16 8.5L7 12.5" /><path d="M15 9l6 1.5" /><path d="M7 12.5l-4 .5" /><path d="M7 12.5L4 10" /><path d="M13.5 10.5c-1 3.5-4.5 5.5-9 5.5" /></>,
   victory: <><path d="M8 4h8v5a4 4 0 01-8 0z" /><path d="M8 5.5H5.5a2.5 2.5 0 002.7 4" /><path d="M16 5.5h2.5a2.5 2.5 0 01-2.7 4" /><path d="M12 13v4" /><path d="M8.5 20.5h7" /><path d="M10 17h4v3.5h-4z" /></>,
   gear:<><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></>,
+  wallet: <><path d="M4 7.5A2.5 2.5 0 016.5 5H18v3" /><rect x="4" y="8" width="16" height="11" rx="2.5" /><path d="M16 13.5h1.5" /></>,
+  copy: <><rect x="8.5" y="8.5" width="11" height="11" rx="2" /><path d="M15.5 8.5V6a1.5 1.5 0 00-1.5-1.5H6A1.5 1.5 0 004.5 6v8A1.5 1.5 0 006 15.5h2.5" /></>,
+  calendar: <><rect x="4" y="5.5" width="16" height="14" rx="2" /><path d="M4 10h16" /><path d="M8.5 3.5v4" /><path d="M15.5 3.5v4" /></>,
 };
 
 export type IconName = keyof typeof PATHS;
