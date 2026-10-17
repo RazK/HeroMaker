@@ -129,7 +129,12 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     });
     throw new ApiError(response.status, errorMessage);
   }
-  
+
+  // 204 No Content has no body to parse.
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   const data = await response.json();
   
   // Log all responses except polling (to reduce spam)
@@ -512,6 +517,21 @@ export const api = {
     clearAuthToken();
     window.dispatchEvent(new CustomEvent('auth:logout'));
     console.log('[API] logout success');
+  },
+
+  /**
+   * Delete the signed-in account. `confirm` must be the username.
+   * On success the token is dropped and `auth:account-deleted` is announced.
+   */
+  async deleteAccount(confirm: string): Promise<void> {
+    await fetchJson<void>(`${API_BASE_URL}/api/auth/me`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm }),
+    });
+    clearAuthToken();
+    window.dispatchEvent(new CustomEvent('auth:account-deleted'));
+    window.dispatchEvent(new CustomEvent('auth:logout'));
   },
 
   async getMe(): Promise<any> {

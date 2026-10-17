@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.schemas.auth import (
     TokenResponse,
     MessageResponse,
     UpdateProfileRequest,
+    DeleteAccountRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
     AuthConfigResponse,
@@ -26,7 +27,8 @@ from app.services.auth import (
 )
 from app.services import google_auth
 from app.services.users import update_user
-from app.services import mailer, password_reset
+from app.services import account_deletion, mailer, password_reset
+from app.services.task_manager import get_task_manager
 from app.config.settings import get_frontend_url
 
 logger = logging.getLogger(__name__)
@@ -229,6 +231,37 @@ def update_me(
         return UserResponse.from_user(updated_user)
     
     return UserResponse.from_user(user)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    data: DeleteAccountRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    task_manager=Depends(get_task_manager),
+):
+    """
+    Delete the signed-in user's account, now.
+
+    The body must repeat the username, {"confirm": "<username>"}, so a stray
+    request cannot do this by accident. Heroes, files and personal details are
+    deleted; purchase records stay, anonymised. See app/services/account_deletion.py.
+    """
+    if data.confirm.strip() != user.username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Type your username to confirm.",
+        )
+    try:
+        account_deletion.delete_account(db, user, task_manager)
+    except Exception:
+        db.rollback()
+        logger.exception("Could not delete account %s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Your account could not be deleted right now. Please try again.",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/logout", response_model=MessageResponse)

@@ -5,6 +5,7 @@ Automatically switches based on environment variables.
 """
 import datetime
 import os
+import shutil
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -110,6 +111,26 @@ class StorageBackend(ABC):
         """Get the local file path (for local storage) or raise NotImplementedError (for S3)."""
         pass
 
+    def delete_user_files(self, user_id: str) -> int:
+        """Delete everything stored under ``user_id``, every creation and every
+        cached ``thumb_``/``opt_`` copy. Returns how many files were removed.
+
+        Raises if anything could not be deleted, so a caller never reports an
+        account as gone while its files remain.
+        """
+        raise NotImplementedError(f"{type(self).__name__} cannot delete a user's files")
+
+
+def _checked_user_prefix(user_id: str) -> str:
+    """A user id that is safe to use as a whole-directory / key prefix.
+
+    Deleting "everything under the user" must never widen to everything under
+    the root because an id was empty or carried a path separator.
+    """
+    if not user_id or not user_id.strip() or "/" in user_id or "\\" in user_id or user_id in (".", ".."):
+        raise ValueError(f"Refusing to delete files for user id {user_id!r}")
+    return user_id
+
 
 class LocalFileStorage(StorageBackend):
     """Local filesystem storage implementation."""
@@ -165,6 +186,15 @@ class LocalFileStorage(StorageBackend):
     def get_file_path(self, user_id: str, creation_id: str, filename: str) -> Path:
         """Get the local file path."""
         return self._get_file_path(user_id, creation_id, filename)
+
+    def delete_user_files(self, user_id: str) -> int:
+        """Remove the user's whole directory."""
+        user_dir = self.files_root / _checked_user_prefix(user_id)
+        if not user_dir.exists():
+            return 0
+        count = sum(1 for p in user_dir.rglob("*") if p.is_file())
+        shutil.rmtree(user_dir)
+        return count
 
 
 # How long one presigned URL is handed out for. See S3FileStorage.get_cacheable_url.
@@ -358,6 +388,28 @@ class S3FileStorage(StorageBackend):
             logger.error(f"Failed to delete file from S3: {s3_key}, error: {e}")
             raise
     
+    def delete_user_files(self, user_id: str) -> int:
+        """Delete every object under ``<user_id>/``, a page of up to 1000 at a time."""
+        prefix = f"{_checked_user_prefix(user_id)}/"
+        deleted = 0
+        paginator = self.s3_client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
+            keys = [{"Key": obj["Key"]} for obj in page.get("Contents", [])]
+            if not keys:
+                continue
+            response = self.s3_client.delete_objects(
+                Bucket=self.bucket_name, Delete={"Objects": keys, "Quiet": True},
+            )
+            errors = response.get("Errors") or []
+            if errors:
+                raise RuntimeError(
+                    f"S3 refused to delete {len(errors)} of {len(keys)} objects under {prefix}: "
+                    f"{errors[0].get('Code')} {errors[0].get('Message')}"
+                )
+            deleted += len(keys)
+        logger.info(f"Deleted {deleted} files under {prefix}")
+        return deleted
+
     def get_file_path(self, user_id: str, creation_id: str, filename: str) -> Path:
         """S3 storage doesn't have local file paths."""
         raise NotImplementedError("S3 storage doesn't support local file paths. Use download_file() instead.")

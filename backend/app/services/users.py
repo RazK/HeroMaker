@@ -11,7 +11,7 @@ def list_users_with_stats(db: Session) -> List[Dict[str, Any]]:
     List all users with creation statistics.
     Returns users with counts of completed/failed/in-progress creations.
     """
-    users = db.query(User).order_by(User.created_at.desc()).all()
+    users = db.query(User).filter(User.deleted_at.is_(None)).order_by(User.created_at.desc()).all()
     
     result = []
     for user in users:

@@ -75,17 +75,34 @@ function App() {
     }
   };
 
+  // Shown on the signed-out gallery right after the account is deleted.
+  const [accountNotice, setAccountNotice] = useState<string | null>(null);
+
   useEffect(() => {
     refreshCreditBalance();
     const handleAuthChange = () => refreshCreditBalance();
     const handleUnauthorized = () => setCreditBalance(undefined);
+    let noticeTimer: number | undefined;
+    const handleAccountDeleted = () => {
+      setView('gallery');
+      setCreation(null);
+      setError(null);
+      setGalleryKey((k) => k + 1);
+      window.scrollTo({ top: 0 });
+      setAccountNotice('Account deleted');
+      window.clearTimeout(noticeTimer);
+      noticeTimer = window.setTimeout(() => setAccountNotice(null), 6000);
+    };
     window.addEventListener('auth:login', handleAuthChange);
     window.addEventListener('auth:logout', handleAuthChange);
     window.addEventListener('auth:unauthorized', handleUnauthorized);
+    window.addEventListener('auth:account-deleted', handleAccountDeleted);
     return () => {
       window.removeEventListener('auth:login', handleAuthChange);
       window.removeEventListener('auth:logout', handleAuthChange);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      window.removeEventListener('auth:account-deleted', handleAccountDeleted);
+      window.clearTimeout(noticeTimer);
     };
   }, []);
 
@@ -227,6 +244,12 @@ function App() {
   const notices = (
     <>
       {purchaseNotice && <div className="tb-notice app-purchase-notice" role="status"><Icon name="coin" />{purchaseNotice}</div>}
+      {accountNotice && (
+        <div className="tb-notice app-account-notice" role="status">
+          <Icon name="check" />{accountNotice}
+          <button type="button" className="tb-link" onClick={() => setAccountNotice(null)}>OK</button>
+        </div>
+      )}
       {error && (
         <div className="tb-notice tb-notice--error app-error" role="alert">
           {error}
