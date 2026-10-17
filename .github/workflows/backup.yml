@@ -21,7 +21,10 @@ name: Database Backup
 # backend, so the dump lands where the app's files do (_backups/database/).
 #
 # Everything here only READS production: variables, and the database via
-# pg_dump. The one write is the dump file into the backup bucket.
+# pg_dump. The writes are to the backup bucket's _backups/database/ only: the
+# new dump, then deleting dumps older than BACKUP_RETENTION_DAYS (default 30,
+# the privacy policy's promise), always keeping the newest 7. Nothing is
+# deleted if the upload fails. Deleted keys are listed in the job summary.
 
 on:
   schedule:

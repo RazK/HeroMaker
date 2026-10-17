@@ -2,12 +2,16 @@
 """
 Simple database backup script.
 Backs up PostgreSQL database to storage (local or S3 based on config).
+
+After a successful upload to S3 it expires old backups: the privacy policy
+promises that deleted data's backup copies are erased within 30 days. See
+expire_old_backups for exactly what is and is not deleted.
 """
 
 import os
 import sys
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from urllib.parse import unquote, urlparse
 
 # Add parent directory to path for imports
@@ -22,6 +26,81 @@ from app.utils.storage import S3FileStorage, get_storage
 DATABASE_URL = with_explicit_postgres_driver(
     os.getenv("BACKUP_DATABASE_URL") or DATABASE_URL
 )
+
+# Where backups live in the bucket, and the only prefix expiry may ever touch.
+BACKUP_PREFIX = "_backups/database/"
+# How long a backup is kept. The privacy policy promises 30 days.
+DEFAULT_RETENTION_DAYS = 30
+# Never fall below this many backups, however old: a run of failed nights must
+# not expire the last good copy. Nightly runs keep producing new backups, so in
+# practice this never holds one past the retention window.
+MIN_BACKUPS_KEPT = 7
+
+
+def retention_days() -> int:
+    raw = os.getenv("BACKUP_RETENTION_DAYS", "").strip()
+    if not raw:
+        return DEFAULT_RETENTION_DAYS
+    days = int(raw)
+    if days < 1:
+        raise ValueError(f"BACKUP_RETENTION_DAYS must be at least 1, got {days}")
+    return days
+
+
+def expire_old_backups(s3_client, bucket, keep_key, *, now=None,
+                       days=None, min_keep=MIN_BACKUPS_KEPT):
+    """Delete backups under BACKUP_PREFIX older than ``days``.
+
+    Never deletes ``keep_key`` (the backup just made), never deletes the newest
+    ``min_keep`` backups, and never deletes anything outside BACKUP_PREFIX.
+    Returns [(key, last_modified)] of what was deleted, oldest first.
+    """
+    now = now or datetime.now(timezone.utc)
+    days = retention_days() if days is None else days
+    cutoff = now - timedelta(days=days)
+
+    backups = []
+    paginator = s3_client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=BACKUP_PREFIX):
+        for obj in page.get("Contents", []):
+            # Belt and braces: the listing is already prefixed, but a deletion
+            # outside the backup folder must be impossible, not just unlikely.
+            if obj["Key"].startswith(BACKUP_PREFIX) and obj["Key"] != BACKUP_PREFIX:
+                backups.append((obj["Key"], obj["LastModified"]))
+
+    backups.sort(key=lambda b: b[1], reverse=True)
+    protected = {key for key, _ in backups[:min_keep]} | {keep_key}
+
+    expired = sorted(
+        ((key, modified) for key, modified in backups
+         if key not in protected and modified < cutoff),
+        key=lambda b: b[1],
+    )
+    for key, _ in expired:
+        s3_client.delete_object(Bucket=bucket, Key=key)
+    return expired
+
+
+def write_job_summary(lines):
+    """Append to the GitHub Actions job summary, when running in one."""
+    path = os.getenv("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    with open(path, "a") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def report_expiry(expired, days):
+    lines = [f"### Backup expiry ({days}-day retention, newest {MIN_BACKUPS_KEPT} always kept)"]
+    if expired:
+        lines.append(f"Deleted {len(expired)} backup(s):")
+        lines += [f"- `{key}` (last modified {modified:%Y-%m-%d %H:%M UTC})"
+                  for key, modified in expired]
+    else:
+        lines.append("Nothing old enough to delete.")
+    for line in lines:
+        print(f"   {line}")
+    write_job_summary(lines)
 
 
 def backup_database():
@@ -109,11 +188,12 @@ def backup_database():
             backup_data = f.read()
         
         # Store in "_backups" pseudo-user directory
-        storage.upload_file("_backups", "database", backup_filename, backup_data)
+        backup_key = storage.upload_file("_backups", "database", backup_filename, backup_data)
         
         print(f"✅ Backup saved: _backups/database/{backup_filename}")
         
     except Exception as e:
+        # Upload failed: expire nothing, so the existing backups stay put.
         print(f"❌ Storage upload failed: {e}")
         sys.exit(1)
     
@@ -121,6 +201,23 @@ def backup_database():
         # Clean up local backup file
         if os.path.exists(backup_path):
             os.remove(backup_path)
+    
+    if isinstance(storage, S3FileStorage):
+        print("🧹 Expiring old backups...")
+        try:
+            days = retention_days()
+            expired = expire_old_backups(
+                storage.s3_client, storage.bucket_name, backup_key, days=days
+            )
+            report_expiry(expired, days)
+        except Exception as e:
+            # The backup itself is safe, but the retention promise is not being
+            # kept: go red so someone looks.
+            print(f"❌ Backup saved, but expiring old backups failed: {e}")
+            write_job_summary([f"❌ Backup saved, but expiring old backups failed: {e}"])
+            sys.exit(1)
+    else:
+        print("   Local storage: backup expiry applies to S3 only, skipped")
     
     print("✅ Database backup completed successfully!")
 
