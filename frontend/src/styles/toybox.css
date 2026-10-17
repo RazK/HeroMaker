@@ -150,9 +150,11 @@ h1, h2, h3, h4 {
   background: var(--tb-white);
   color: var(--tb-ink);
   border: 2.5px solid var(--tb-ink);
-  box-shadow: 0 4px 0 var(--tb-ink);
+  /* The same depth as every other big button, so a secondary above a primary
+     (Share over Dance party) reads as the same size. */
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-ink);
 }
-.tb-btn--secondary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
+.tb-btn--secondary:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-ink); }
 
 .tb-btn--sun {
   background: var(--tb-sun);
