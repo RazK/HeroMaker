@@ -27,14 +27,15 @@
 .tb-tile--skeleton { cursor: default; opacity: 0.6; }
 @media (min-width: 720px) { .tb-tile { height: 280px; } }
 
+/* The picture's box: 16px clear of the tile's edges and 8px above the card
+   (bottom 72 = card 56 + its 8 + 8). The hero and the drawing share it, so
+   the cross-fade swaps one for the other in place. */
+.tb-tile { --tb-tile-pic: 16px 16px 72px; }
 .tb-tile-img {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  top: 12px;
-  bottom: 72px;
-  width: calc(100% - 16px);
-  height: calc(100% - 84px);
+  inset: var(--tb-tile-pic);
+  width: calc(100% - 32px);
+  height: calc(100% - 88px);
   object-fit: contain;
   object-position: center bottom;
 }
@@ -59,10 +60,13 @@
 .tb-tile-status--failed { color: var(--tb-red); }
 .tb-tile-progress { height: 6px; border-radius: 3px; background: var(--tb-track); overflow: hidden; }
 .tb-tile-progress span { display: block; height: 100%; background: var(--tb-grape); }
+/* Play sits in the picture's lower trailing corner, just above the card. A painting
+   is a T-pose: arms and head fill the top of the picture, and that corner,
+   beside the feet, is the only part of it that is always empty. */
 .tb-tile-play {
   position: absolute;
-  right: 12px;
-  top: 12px;
+  inset-inline-end: 12px;
+  bottom: 72px;
   width: 36px;
   height: 36px;
   border-radius: 999px;
@@ -86,8 +90,7 @@
 .tb-tile-fade { position: absolute; inset: 0; display: block; }
 .tb-tile-drawing {
   position: absolute;
-  inset-block: 18px 80px;
-  inset-inline: 18px;
+  inset: var(--tb-tile-pic);
   display: flex;
   align-items: center;
   justify-content: center;

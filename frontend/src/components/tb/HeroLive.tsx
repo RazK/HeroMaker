@@ -2,7 +2,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { api, CreationResponse } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
-import { Stepper } from './parts';
+import { Polaroid, Stepper } from './parts';
 import { HeroStageInstance, StageModule, loadStage } from './stage';
 import './HeroLive.css';
 
@@ -189,10 +189,7 @@ export function HeroLive({ creation, introRequest, notice }: {
             </div>
           )}
           {!intro && (
-            <button type="button" className="tb-polaroid tb-polaroid--button" onClick={startIntro} aria-label="How it was made">
-              <img src={file('thumb_original.jpg')} alt="The drawing" />
-              <div>{creation.name ? `${creation.name}${creation.age ? `, ${creation.age}` : ''}` : 'The drawing'}</div>
-            </button>
+            <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} onClick={startIntro} label="How it was made" />
           )}
         </div>
       </div>
