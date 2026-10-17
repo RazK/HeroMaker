@@ -134,3 +134,28 @@
 @media (prefers-reduced-motion: reduce) {
   .tb-layer, .tb-live-canvas, .tb-live-stage .tb-stage-sun { transition: none; }
 }
+
+/* The drawing in the intro sits in the same polaroid frame as on the gallery
+   tiles: a white frame hugging the picture (never cropped), soft shadow,
+   slight tilt, over the plate and the sun. */
+.tb-live-drawing {
+  position: absolute;
+  inset: 72px 24px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tb-live-drawing-img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  box-sizing: border-box;
+  padding: 8px;
+  object-fit: contain;
+  background: var(--tb-white);
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(35, 25, 66, 0.2);
+  transform: rotate(-3deg);
+}

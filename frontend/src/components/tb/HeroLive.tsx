@@ -177,7 +177,7 @@ export function HeroLive({ creation, introRequest, notice }: {
         >
           <div className="tb-stage-sun" />
           {/* Full-size pictures only for the intro, or if the 3D cannot load. */}
-          {intro && <Layer on={phase === 'drawing'}><Picture thumb={file('thumb_original.jpg')} full={file('original.jpg')} alt="The drawing" onShown={pictureShown('drawing')} /></Layer>}
+          {intro && <Layer on={phase === 'drawing'}><div className="tb-live-drawing"><Picture thumb={file('thumb_original.jpg')} full={file('original.jpg')} alt="The drawing" onShown={pictureShown('drawing')} className="tb-live-drawing-img" /></div></Layer>}
           {(intro || failed) && <Layer on={phase === 'painting' || (failed && phase !== 'drawing')}><Picture thumb={file(`thumb_${painting}`)} full={file(painting)} alt="Painted" onShown={pictureShown('painting')} /></Layer>}
           <div ref={host} className={`tb-live-canvas${ready3d ? ' tb-layer--on' : ''}`} />
           <Layer on={waiting && !failed}>
@@ -236,7 +236,7 @@ function Loading({ image, progress }: { image: string; progress: number }) {
 }
 
 /** The small thumbnail at once (cached from the gallery), the full picture when it lands. */
-function Picture({ thumb, full, alt, onShown }: { thumb: string; full: string; alt: string; onShown?: () => void }) {
+function Picture({ thumb, full, alt, onShown, className = 'tb-stage-img' }: { thumb: string; full: string; alt: string; onShown?: () => void; className?: string }) {
   const [src, setSrc] = useState(thumb);
   useEffect(() => {
     setSrc(thumb);
@@ -245,5 +245,5 @@ function Picture({ thumb, full, alt, onShown }: { thumb: string; full: string; a
     img.src = full;
   }, [thumb, full]);
   // A picture that cannot load still lets the intro move on.
-  return <img className="tb-stage-img" src={src} alt={alt} onLoad={onShown} onError={onShown} />;
+  return <img className={className} src={src} alt={alt} onLoad={onShown} onError={onShown} />;
 }
