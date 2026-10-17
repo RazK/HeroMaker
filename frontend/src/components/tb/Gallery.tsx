@@ -194,7 +194,6 @@ function Tile({ creation, index, onClick }: { creation: CreationResponse; index:
         {state === 'failed' && <span className="tb-tile-status tb-tile-status--failed">Didn’t finish</span>}
         {state === 'idle' && <span className="tb-tile-status">Not started</span>}
       </span>
-      {state === 'ready' && <span className="tb-tile-play" aria-hidden="true"><Icon name="play" size={16} /></span>}
     </button>
   );
 }
