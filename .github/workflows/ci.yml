@@ -106,7 +106,9 @@ jobs:
       - name: Run backend tests
         working-directory: backend
         env:
-          TEST_POSTGRES_URL: postgresql://test:test@localhost:5432/test
+          # Explicit driver, as app/config/settings.py makes production's URL:
+          # SQLAlchemy 2.1 would otherwise pick psycopg 3, which is not installed.
+          TEST_POSTGRES_URL: postgresql+psycopg2://test:test@localhost:5432/test
         # Failures are also raised as annotations, so they show on the PR's
         # Checks tab without opening the log.
         run: |
