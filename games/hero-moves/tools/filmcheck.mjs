@@ -29,6 +29,12 @@ const flag = (n, d) => {
 const base = flag('url', 'http://127.0.0.1:4192')
 const files = flag('files', ''), fontsDir = flag('fonts', '')
 const FFMPEG = process.env.FFMPEG ?? 'ffmpeg'
+const STEPS = flag('steps', 'film,greeting,viewports').split(',')
+/** ffmpeg's own description of a file's streams: a recording without a Video line failed. */
+const streams = (file) => {
+  try { execFileSync(FFMPEG, ['-hide_banner', '-i', file], { stdio: 'pipe' }) } catch (e) { return String(e.stderr).split('\n').filter((l) => /Stream #|Duration/.test(l)).join('\n') }
+  return ''
+}
 fs.mkdirSync(outDir, { recursive: true })
 const q = (extra) => new URLSearchParams({ vrm: flag('vrm', ''), name: flag('name', ''), artist: flag('artist', ''), age: flag('age', ''), ...extra })
 
@@ -58,7 +64,7 @@ async function open(viewport, url) {
 const shot = (page, name) => page.screenshot({ path: path.join(outDir, name) }).then(() => console.log('  ', name))
 
 // 1. The film, through the fake door.
-{
+if (STEPS.includes('film')) {
   const { ctx, page } = await open({ width: 390, height: 844 }, `${base}/film.html?${q({ story: flag('story', 'birthday') })}`)
   await shot(page, 'film-ready-390x844.png')
   const t0 = Date.now()
@@ -78,11 +84,11 @@ const shot = (page, name) => page.screenshot({ path: path.join(outDir, name) }).
 }
 
 // 2. A greeting, saved as a real video file by the browser.
-{
+if (STEPS.includes('greeting')) {
   const { ctx, page } = await open({ width: 390, height: 844 }, `${base}/greeting.html?${q({ occasion: flag('occasion', 'birthday'), to: flag('to', 'Savta') })}`)
   await shot(page, 'greeting-ready-390x844.png')
   const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 180000 }),
+    page.waitForEvent('download', { timeout: 2400000 }),
     page.click('.tb-btn--secondary'),
   ])
   const saved = path.join(outDir, download.suggestedFilename())
@@ -90,17 +96,19 @@ const shot = (page, name) => page.screenshot({ path: path.join(outDir, name) }).
   console.log('browser saved', saved, fs.statSync(saved).size, 'bytes', JSON.stringify(await page.evaluate(() => window.__saved)))
   await page.waitForTimeout(500)
   await shot(page, 'greeting-saved-390x844.png')
-  if (!saved.endsWith('.mp4')) {
-    const mp4 = saved.replace(/\.[^.]+$/, '.mp4')
-    execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', saved, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', '30',
-      '-c:a', 'aac', '-movflags', '+faststart', mp4])
-    console.log('transcoded', mp4, fs.statSync(mp4).size, 'bytes')
-  }
+  const info = streams(saved)
+  console.log(info)
+  if (!/Video:/.test(info)) { console.error('FAIL: the saved file has no video track'); process.exitCode = 1 }
+  // The server's half: whatever the browser recorded becomes an H.264 MP4.
+  const mp4 = saved.replace(/\.[^.]+$/, '') + '.h264.mp4'
+  execFileSync(FFMPEG, ['-y', '-loglevel', 'error', '-i', saved, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', '30',
+    '-c:a', 'aac', '-movflags', '+faststart', mp4])
+  console.log('transcoded', mp4, fs.statSync(mp4).size, 'bytes')
   await ctx.close()
 }
 
 // 3. The brand book's viewports.
-for (const [w, h] of [[360, 640], [390, 844], [844, 390], [1280, 800]]) {
+if (STEPS.includes('viewports')) for (const [w, h] of [[360, 640], [390, 844], [844, 390], [1280, 800]]) {
   for (const p of ['film', 'greeting']) {
     const { ctx, page } = await open({ width: w, height: h }, `${base}/${p}.html?${q({})}`)
     await shot(page, `${p}-${w}x${h}.png`)

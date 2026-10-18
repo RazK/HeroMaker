@@ -51,12 +51,13 @@ html body { background: var(--tb-cream); color: var(--tb-ink); }
 .film-bigplay:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-grape-deep); }
 .film-bigplay:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 6px 0 var(--tb-grape-deep); }
 
-.film-chips .tb-chips { justify-content: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-.film-chips .tb-chip { flex-shrink: 0; }
+.film-chips .tb-chips { justify-content: safe center; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.film-chips .tb-chip { flex-shrink: 0; padding: 0 12px; font-size: 14px; }
 .tb-bar-note[hidden] { display: none; }
 
 /* The fake door: the app's bottom sheet, primary last. */
-.film-paywall-sheet { gap: 12px; text-align: center; align-items: stretch; }
+.film-paywall-sheet { gap: 8px; text-align: center; align-items: stretch; }
+.film-paywall-sheet p, .film-paywall-sheet h2 { margin: 0; }
 .film-paywall-sheet .tb-eyebrow, .film-paywall-sheet .tb-h1 { white-space: normal; }
 .film-paywall-actions { display: flex; flex-direction: column; gap: var(--tb-stack); margin-top: 8px; }
 .film-thanks { color: var(--tb-green); font-weight: 800; }

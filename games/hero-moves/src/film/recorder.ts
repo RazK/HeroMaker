@@ -5,12 +5,18 @@
  * WebM, which a server-side `ffmpeg -c:v libx264` turns into the MP4 WhatsApp
  * and iOS want (tools/render-film.mjs does the same offline).
  */
+/**
+ * WebM first. Chromium builds without the proprietary codecs answer yes to
+ * `isTypeSupported('video/mp4')` and then write an MP4 holding only the audio
+ * track — measured, not guessed (tools/filmcheck.mjs). Safari cannot record
+ * WebM at all, so it falls through to MP4, which it does record properly.
+ */
 const TYPES = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-  'video/mp4',
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
   'video/webm',
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+  'video/mp4',
 ]
 
 export function recorderType(): string | null {

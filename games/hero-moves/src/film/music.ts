@@ -319,10 +319,14 @@ export function scheduleScore(ctx: BaseAudioContext, out: AudioNode, plan: Score
 
 /** Render the whole score offline and hand back a 16-bit stereo WAV. */
 export async function renderWav(plan: ScorePlan, sampleRate = 44100): Promise<Blob> {
+  return new Blob([encodeWav(await renderAudio(plan, sampleRate))], { type: 'audio/wav' })
+}
+
+/** The whole score as samples, faster than real time. */
+export function renderAudio(plan: ScorePlan, sampleRate = 48000): Promise<AudioBuffer> {
   const ctx = new OfflineAudioContext(2, Math.ceil(plan.duration * sampleRate), sampleRate)
   scheduleScore(ctx, ctx.destination, plan, 0, 0)
-  const buf = await ctx.startRendering()
-  return new Blob([encodeWav(buf)], { type: 'audio/wav' })
+  return ctx.startRendering()
 }
 
 function encodeWav(buf: AudioBuffer): ArrayBuffer {

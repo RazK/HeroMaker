@@ -23,6 +23,7 @@ import { Film } from './film/director'
 import { OCCASIONS, STORIES, fill, type Names, type Script } from './film/script'
 import { renderWav, scheduleScore } from './film/music'
 import { deliver, recorderType, startRecording, type Recording } from './film/recorder'
+import { canExport, exportFilm } from './film/exporter'
 
 const params = new URLSearchParams(location.search)
 const MODE: 'film' | 'greeting' = document.body.dataset.mode === 'greeting' ? 'greeting' : 'film'
@@ -144,6 +145,7 @@ function boot() {
   let playing = false
   let unlocked = params.get('paywall') === '0' || MODE === 'greeting'
   let recording: Recording | null = null
+  let exporting = false
   let stopAt = Infinity
 
   const setPlayLabel = (label: string, ic: 'play' | 'pause' | 'redo') => {
@@ -151,6 +153,8 @@ function boot() {
   }
 
   const now = () => (playing && audio ? from + (audio.currentTime - started) : at)
+  /** The frame shown while nothing plays: the title card, or the greeting mid-dance. */
+  const poster = () => Math.min((film?.duration ?? 1) - 0.1, MODE === 'greeting' ? 2.2 : 1.9)
 
   async function load() {
     playing = false
@@ -164,7 +168,7 @@ function boot() {
     title.textContent = MODE === 'greeting' ? fill(script.title, names) : film.title
     document.title = title.textContent
     frame.prepend(film.canvas)
-    at = Math.min(film.duration - 0.1, MODE === 'greeting' ? 2.2 : 1.9)
+    at = poster()
     film.render(at)
     at = 0
     loading.hidden = true
@@ -252,9 +256,32 @@ function boot() {
 
   // ------------------------------------------------------------ save video
   async function record() {
-    if (!film || recording) return
-    if (!recorderType()) { flash('This browser cannot save video yet.'); return }
+    if (!film || recording || exporting) return
     if (playing) pause()
+    if (canExport()) {
+      // Frame-stepped into the browser's encoders: smooth on any device.
+      exporting = true
+      save.disabled = true
+      play.disabled = true
+      const end = unlocked ? film.duration : (script.paywallAt ?? film.duration)
+      try {
+        const out = await exportFilm(film, { end, onProgress: (f) => { note.hidden = false; note.textContent = `Making your video... ${Math.round(f * 100)}%` } })
+        film.render(at > 0.5 && at < film.duration - 0.6 ? at : poster())
+        const slug = `${names.hero}-${script.id}`.replace(/[^A-Za-z0-9]+/g, '-')
+        ;(window as any).__saved = { type: out.blob.type, size: out.blob.size, frames: out.frames, seconds: out.seconds }
+        const how = await deliver(out.blob, slug)
+        flash(how === 'shared' ? 'Shared!' : `Saved ${(out.blob.size / 1e6).toFixed(1)} MB video`)
+      } catch (e) {
+        console.error(e)
+        flash('This browser cannot save video yet.')
+      } finally {
+        exporting = false
+        save.disabled = false
+        play.disabled = false
+      }
+      return
+    }
+    if (!recorderType()) { flash('This browser cannot save video yet.'); return }
     const Ctor = window.AudioContext ?? (window as any).webkitAudioContext
     const ctx: AudioContext | null = Ctor ? new Ctor() : null
     const tap = ctx ? ctx.createMediaStreamDestination() : null
