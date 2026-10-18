@@ -15,11 +15,10 @@
 .tb-layer--on { opacity: 1; }
 .tb-live-canvas canvas { display: block; width: 100%; height: 100%; }
 .tb-live-stage .tb-polaroid { z-index: 2; }
-/* During the intro everything sits 30px lower, centred in the band below its
-   stepper (the 3D does the same: HeroStage.setInsetTop). */
-.tb-live-stage .tb-stage-sun { transition: top 300ms ease; }
-.tb-live-stage--intro .tb-stage-sun { top: calc(50% + 30px); }
-.tb-live-stage--intro .tb-stage-img { top: 76px; height: calc(100% - 92px); }
+/* The sun never moves. During the intro the hero shrinks in place, centred on
+   it, with the same margin top and bottom so it stays clear of the stepper
+   (the 3D does the same: HeroStage.setInsetTop). */
+.tb-live-stage--intro .tb-stage-img { top: 76px; bottom: 76px; height: calc(100% - 152px); }
 
 /* The painting, dimmed, under a ring that fills as the 3D file arrives. */
 .tb-live-loading { position: absolute; inset: 0; display: grid; place-items: center; }
@@ -134,7 +133,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tb-layer, .tb-live-canvas, .tb-live-stage .tb-stage-sun { transition: none; }
+  .tb-layer, .tb-live-canvas { transition: none; }
 }
 
 /* The drawing in the intro sits in the same polaroid frame as on the gallery
@@ -142,7 +141,7 @@
    slight tilt, over the plate and the sun. */
 .tb-live-drawing {
   position: absolute;
-  inset: 72px 24px 24px;
+  inset: 72px 24px;
   display: flex;
   align-items: center;
   justify-content: center;
