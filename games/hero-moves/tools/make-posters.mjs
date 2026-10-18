@@ -4,7 +4,10 @@
  * in frontend/public/games/.
  *
  *   npx vite preview --port 4188 --strictPort &
- *   node tools/make-posters.mjs /path/Violet_Volt.vrm out/ [rumble:t=0.42] [dance:t=1.2]
+ *   node tools/make-posters.mjs /path/Violet_Volt.vrm out/ [rumble] [dance]
+ *
+ * A job can override the frame, e.g. `dance:t=0.7,yaw=-0.1` (written as
+ * dance-t_0.7_yaw_0.1.png), to compare candidates before changing a default.
  */
 import fs from 'node:fs'
 import path from 'node:path'
