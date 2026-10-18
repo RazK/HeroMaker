@@ -1,4 +1,4 @@
-import { ReactNode, RefObject, useEffect } from 'react';
+import { ReactNode, RefObject, useEffect, useRef, useState } from 'react';
 import { Icon, IconName } from './Icon';
 import '../../styles/toybox.css';
 
@@ -198,4 +198,59 @@ export function useClearOfPolaroid(stage: RefObject<HTMLElement>, key: unknown) 
 export function NoPageScroll() {
   useFitScreen();
   return null;
+}
+
+/**
+ * Pull down at the top of an app screen's list to reload the page.
+ *
+ * App screens never scroll the page itself (see NoPageScroll: that keeps the
+ * phone's toolbar from shrinking and eating taps), so the browser's own
+ * pull-to-refresh has nothing to pull. This puts it back on the list that
+ * does scroll: drag down from the top past the threshold and let go.
+ */
+/** How far (after the 0.5 drag resistance) the list must be pulled to reload. */
+const PULL_READY_PX = 60;
+export function PullToRefresh() {
+  const [pull, setPull] = useState(0);
+  const [reloading, setReloading] = useState(false);
+  const pullRef = useRef(0);
+  useEffect(() => {
+    const list = document.querySelector<HTMLElement>('.tb-screen--app > .tb-screen-body');
+    if (!list) return;
+    let startY: number | null = null;
+    const set = (v: number) => { pullRef.current = v; setPull(v); };
+    const onStart = (e: TouchEvent) => { startY = list.scrollTop <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null; };
+    const onMove = (e: TouchEvent) => {
+      if (startY === null) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy <= 0 || list.scrollTop > 0) { set(0); return; }
+      set(Math.min(120, dy * 0.5));
+    };
+    const onEnd = () => {
+      if (startY !== null && pullRef.current >= PULL_READY_PX) {
+        setReloading(true);
+        window.location.reload();
+      } else set(0);
+      startY = null;
+    };
+    list.addEventListener('touchstart', onStart, { passive: true });
+    list.addEventListener('touchmove', onMove, { passive: true });
+    list.addEventListener('touchend', onEnd);
+    list.addEventListener('touchcancel', onEnd);
+    return () => {
+      list.removeEventListener('touchstart', onStart);
+      list.removeEventListener('touchmove', onMove);
+      list.removeEventListener('touchend', onEnd);
+      list.removeEventListener('touchcancel', onEnd);
+    };
+  }, []);
+  if (!pull && !reloading) return null;
+  const ready = reloading || pull >= PULL_READY_PX;
+  return (
+    <div className="tb-ptr" style={{ transform: `translate(-50%, ${reloading ? 60 : pull}px)` }} aria-hidden="true">
+      <span className={`tb-ptr-dot${ready ? ' tb-ptr-dot--ready' : ''}${reloading ? ' tb-ptr-dot--spin' : ''}`} style={{ transform: reloading ? undefined : `rotate(${pull * 3}deg)` }}>
+        <Icon name="redo" size={20} />
+      </span>
+    </div>
+  );
 }

@@ -170,6 +170,9 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
     if (user) {
       setUser({ ...user, credits: newBalance });
     }
+    // The header is not the only place that knows the balance: the "Make this
+    // hero?" sheet reads App's copy. Tell it, or it keeps saying "you have 0".
+    window.dispatchEvent(new CustomEvent('credits:changed'));
   };
 
   const handleOpenBuyModal = () => {

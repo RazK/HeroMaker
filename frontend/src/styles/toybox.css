@@ -600,3 +600,30 @@ button, a, [role='button'], [role='tab'] { -webkit-user-select: none; user-selec
   position: absolute;
   inset: -4px -4px calc(-1 * var(--tb-depth-sm) - 4px);
 }
+
+/* ---------- Pull to refresh (PullToRefresh) ----------
+   A round button-style dot that follows the finger down from under the
+   header; grape once letting go will reload, spinning while it does. */
+.tb-ptr {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 72px);
+  z-index: 50;
+  pointer-events: none;
+}
+.tb-ptr-dot {
+  width: var(--tb-header-ctl);
+  height: var(--tb-header-ctl);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  border: 2px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
+  transition: background 120ms ease, color 120ms ease;
+}
+.tb-ptr-dot--ready { background: var(--tb-grape); color: var(--tb-white); border-color: var(--tb-grape-deep); box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
+.tb-ptr-dot--spin { animation: tb-ptr-spin 700ms linear infinite; }
+@keyframes tb-ptr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tb-ptr-dot--spin { animation: none; } }
