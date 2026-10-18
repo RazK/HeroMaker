@@ -18,7 +18,8 @@ import { Audio } from './core/audio'
 import { el } from './ui/dom'
 import { clamp, damp } from './core/math'
 import { bodyConfidence, type Skeleton } from './pose/keypoints'
-import { classify } from './pose/vocab'
+import { classify, POSE_BY_ID } from './pose/vocab'
+import { onScreen } from './pose/mirror'
 import { OWN_HERO, OWN_NAME, goBack, BACK_ICON } from './ownhero'
 
 /**
@@ -720,6 +721,8 @@ let clock = 0
 let stallClamp = 2
 let lastBeat = Number.NEGATIVE_INFINITY
 let liveLanes: Array<Skeleton | null> = [null, null, null]
+/** Set by __api.puppet: camera-space skeletons standing in for the tracker's. */
+let puppet: Array<Skeleton | null> | null = null
 
 /** Rolling frame cost, and whether the expensive things have been given up. */
 let slowFrames = 0
@@ -758,6 +761,8 @@ renderer.setAnimationLoop(() => {
     liveLanes = tracker.state === 'ready'
       ? tracker.lanes.slice(0, playerCount)
       : [null, null, null]
+    // Harness: a fixed body per lane instead of the camera's (see __api.puppet).
+    if (puppet) liveLanes = puppet.slice(0, playerCount)
   }
   game.update(clock, liveLanes)
 
@@ -769,7 +774,11 @@ renderer.setAnimationLoop(() => {
     lane.anim?.update(dt)
     // Each hero mirrors its own player and nothing else. A clip owns the rig
     // while it runs, so the two never fight over the same bones.
-    const sk = i < playerCount ? liveLanes[i] : null
+    // The hero is drawn on the screen, so it moves like the mirrored preview:
+    // the player's right arm raises the hero's left, which faces them on the
+    // same side of the screen. Judging stays in camera space. See pose/mirror.ts.
+    const raw = i < playerCount ? liveLanes[i] : null
+    const sk = raw ? onScreen(raw) : null
     if (sk && lane.solver && !lane.anim?.active && s.phase !== 'menu') {
       lane.solver.apply(sk, dt)
     }
@@ -1102,6 +1111,15 @@ function startLoadingTracker() {
       at: tracker.laneAt[i],
     }
   }),
+  /**
+   * Harness: make each lane report a vocabulary pose, in camera space, exactly
+   * as the tracker reports a player making it — for checking what the hero and
+   * the preview do with a known body (the mirror screenshots). null hands the
+   * lanes back to the camera.
+   */
+  puppet: (ids: string[] | null) => {
+    puppet = ids ? ids.map((id) => POSE_BY_ID.get(id)?.skeleton ?? null) : null
+  },
   ready: () => tracker.state,
   wake: () => ensureCamera(),
   /** Milliseconds of camera playback, for lining a recording up with a feed. */

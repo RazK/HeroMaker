@@ -344,7 +344,7 @@ const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
  * question — how close is this to the shape — and its answer is capped below
  * what a named pose can earn, because it is the weaker instrument.
  */
-function shapeScore(sk: Skeleton, move: Move, seated = false): number {
+export function shapeScore(sk: Skeleton, move: Move, seated = false): number {
   const c = classify(sk, { seated })
   if (c.pose) return c.pose.id === move.id ? 0.62 + 0.38 * clamp01(1 - c.distance / 0.52) : 0
   return 0.8 * scorePose(sk, move.skeleton, move, seated)
