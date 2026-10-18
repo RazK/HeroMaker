@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { ClassView, Student, teacherApi } from '../../api/classes';
 import { Icon } from '../tb/Icon';
@@ -156,7 +156,13 @@ function Live({ c, roster, busy, onAction }: {
         <div className="tb-eyebrow">Join the class</div>
         <div className="cls-qr-frame"><Qr text={url} size={208} label="Scan to join the class" /></div>
         <div className="cls-or">or go to</div>
-        <div className="cls-join-url">{host}<span>/join</span></div>
+        <div className="cls-join-url">
+          {/* Breaks only after a dot, and keeps the domain whole:
+              "heromaker.up." / "railway.app/join", never "railw|ay". */}
+          {host.split('.').map((part, i, all) => (
+            <Fragment key={i}>{part}{i < all.length - 2 ? <>.<wbr /></> : i === all.length - 2 ? '.' : null}</Fragment>
+          ))}<span>/join</span>
+        </div>
         <PinDigits pin={session.pin} />
       </section>
       <section className="cls-roster cls-live-grid" aria-label="Students">
