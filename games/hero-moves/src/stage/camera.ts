@@ -23,10 +23,11 @@ const FILL_PORTRAIT = 0.52
 const FILL_WIDTH = 0.78
 const FILL_WIDTH_PORTRAIT = 1.0
 /**
- * With a card down the left of a landscape screen the line only owns what is
- * left of the frame, and it has to be *centred in that*, not in the window.
- * Both numbers are fractions of the full frame: how much width is free, and how
- * far right the middle of that free space sits, in NDC.
+ * With a panel down the right of a landscape screen (where the HeroMaker app
+ * puts its bar beside the stage) the line only owns what is left of the frame,
+ * and it has to be *centred in that*, not in the window. Both numbers are
+ * fractions of the full frame: how much width is free, and how far left the
+ * middle of that free space sits, in NDC.
  */
 const FILL_WIDTH_CARD = 0.46
 const CARD_SHIFT_NDC = 0.34
@@ -167,7 +168,7 @@ export class PlayCamera {
     // Step the line sideways by however much world one third of a frame is at
     // this distance, so three heroes clear the card as reliably as one does.
     this.offsetTarget = cardLand
-      ? -CARD_SHIFT_NDC * this.distance * halfHeight * f.aspect
+      ? CARD_SHIFT_NDC * this.distance * halfHeight * f.aspect
       : 0
     // Eye a little below the chest: the line is seen from the stalls.
     this.eyeY = f.heroHeight * 0.46
