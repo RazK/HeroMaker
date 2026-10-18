@@ -294,7 +294,8 @@
 .cls-moment { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; min-height: 0; }
 .cls-moment-art {
   position: relative;
-  width: min(62vw, 260px);
+  width: min(62vw, 260px, 38vh);
+  flex-shrink: 0;
   aspect-ratio: 1;
   border-radius: 999px;
   background: var(--tb-plate-3);
@@ -310,6 +311,20 @@
 .cls-wobble { animation: cls-wobble 2.6s ease-in-out infinite; }
 @keyframes cls-wobble { 50% { transform: rotate(-4deg) scale(1.03); } }
 .cls-ready-line { text-align: center; font-family: var(--tb-font-display); font-size: 24px; line-height: 28px; color: var(--tb-ink); }
+
+/* A short phone (360 x 640) or one on its side: the keypad and the forms
+   shrink, and what still does not fit scrolls inside the body, never the page. */
+.cls-kid-screen > .tb-screen-body { overflow-y: auto; overscroll-behavior: contain; }
+@media (max-height: 700px) {
+  .cls-kid-title { font-size: 28px; line-height: 32px; }
+  .cls-keypad { gap: 8px; max-width: 300px; }
+  .cls-key { height: 50px; font-size: 26px; border-radius: 16px; }
+  .cls-pin--md .cls-pin-box { width: 40px; height: 54px; font-size: 32px; }
+  .cls-pin-error { min-height: 0; }
+  .cls-form { gap: 14px; }
+  .cls-name-input { height: 56px; }
+  .cls-age { height: 46px; }
+}
 
 /* Show your parents. */
 .cls-parents { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding: 0 4px; }
