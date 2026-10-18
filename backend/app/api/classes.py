@@ -23,7 +23,8 @@ from app.database import get_db
 from app.models import ClassGuest, ClassRoom, Creation, User
 from app.config import packs as packs_config
 from app.services import classes, demo_library, lemonsqueezy
-from app.services.auth import get_current_user_required
+from app.schemas.creation import file_versions
+from app.services.auth import get_current_user_required, verify_access_token
 from app.services.task_manager import get_task_manager
 
 logger = logging.getLogger(__name__)
@@ -398,23 +399,47 @@ def _step_index(name: str) -> int:
 # Parent
 # ---------------------------------------------------------------------------
 
-def _claim_view(db: Session, guest: ClassGuest) -> dict:
+def _claim_view(db: Session, guest: ClassGuest, viewer_id: Optional[str] = None) -> dict:
+    """What the claim link shows. The token is its only credential, so this
+    holds the child's first name and age, the class's title, and this one
+    hero's summary and public files. Nothing about the class, the teacher,
+    other children or the account that kept it."""
     creation = db.query(Creation).filter(Creation.id == guest.creation_id).first()
+    hero = classes.hero_view(creation)
+    if hero is not None:
+        # The page shows the hero live, as its own page does (HeroLive): which
+        # of its files exist, each with the version its URL carries.
+        hero["file_versions"] = file_versions(creation)
     return {
         "first_name": guest.first_name,
         "age": guest.age,
         "class_title": guest.classroom.title,
-        "hero": classes.hero_view(creation),
+        "hero": hero,
         "claimed": guest.claimed_by is not None,
+        # Lets the parent who kept it, opening the link again, see that it is
+        # theirs rather than "already has a home".
+        "kept_by_you": viewer_id is not None and guest.claimed_by == viewer_id,
     }
 
 
+def _viewer_id(request: Request) -> Optional[str]:
+    """The signed-in account looking at a claim link, if any. Never refuses:
+    a stale token on a parent's phone must not hide the child's hero."""
+    auth = request.headers.get("authorization") or ""
+    if not auth.lower().startswith("bearer "):
+        return None
+    try:
+        return verify_access_token(auth.split(" ", 1)[1].strip())
+    except Exception:
+        return None
+
+
 @student_router.get("/claim/{token}")
-def see_claim(token: str, db: Session = Depends(get_db)):
+def see_claim(token: str, request: Request, db: Session = Depends(get_db)):
     with _refusals():
         guest = classes.guest_by_claim(db, token)
     classes.funnel("parent_link_opened", class_id=guest.class_id, guest=guest.id)
-    return _claim_view(db, guest)
+    return _claim_view(db, guest, _viewer_id(request))
 
 
 @student_router.post("/claim/{token}")
@@ -423,4 +448,4 @@ def claim_hero(token: str, db: Session = Depends(get_db), user: User = Depends(g
         guest = classes.guest_by_claim(db, token)
         classes.claim(db, guest, user)
     db.refresh(guest)
-    return _claim_view(db, guest)
+    return _claim_view(db, guest, user.id)

@@ -353,7 +353,19 @@ function MainApp() {
 
   let screen;
   if (view === 'claim' && claim) {
-    screen = <ClaimScreen token={claim} onSeeHeroes={() => { setGalleryFilter('mine'); setTeacherBrowsing(true); goHome(); }} />;
+    screen = (
+      <ClaimScreen
+        token={claim}
+        onSeeHeroes={() => { setGalleryFilter('mine'); setTeacherBrowsing(true); goHome(); }}
+        // The kept hero on its own page; Back from it lands on My heroes.
+        onOpenHero={(id) => api.getCreation(id).then((c) => {
+          window.history.replaceState(null, '', '/');
+          setGalleryFilter('mine');
+          setTeacherBrowsing(true);
+          openHero(c);
+        }).catch(() => setError('Could not open that hero'))}
+      />
+    );
   } else if (view === 'class' && classId && userInfo) {
     screen = (
       <ClassScreen

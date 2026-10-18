@@ -535,6 +535,59 @@ def test_a_parent_keeps_the_hero_with_name_and_age(db, make_user, api, steps_suc
     assert client.post(f"/api/class/claim/{token}", headers=_auth(make_user())).status_code == 409
 
 
+def test_the_claim_link_gives_the_live_hero_and_nothing_more(db, make_user, api, steps_succeed):
+    """The parent's page shows the hero live (HeroLive): it needs to know which
+    of the hero's files exist, and their versions. The token is the only
+    credential, so the view holds this hero's public files and nothing else."""
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c, maya, me = _ready_hero(client, tasks, teacher, make_user)
+    token = me["claim_path"].rsplit("/", 1)[1]
+
+    seen = client.get(f"/api/class/claim/{token}").json()
+    assert set(seen) == {"first_name", "age", "class_title", "hero", "claimed", "kept_by_you"}
+    hero = seen["hero"]
+    assert set(hero) == {"creation_id", "user_id", "character_name", "state", "step", "steps_done",
+                         "steps_total", "file_versions"}
+    assert hero["state"] == "ready" and seen["kept_by_you"] is False
+    # Everything the live stage loads: the rigged avatar (served as
+    # opt_avatar.vrm), the 3D sculpt (opt_model.glb), the painting, the drawing.
+    assert {"avatar.vrm", "model.glb", "rendered.png", "original.jpg"} <= set(hero["file_versions"])
+    for name in hero["file_versions"]:
+        r = client.get(f"/api/files/{hero['user_id']}/{hero['creation_id']}/{name}")
+        assert r.status_code == 200, name
+    # No teacher, class id, roster or provider detail.
+    text = client.get(f"/api/class/claim/{token}").text
+    assert teacher.id not in text and teacher.email not in text and c["id"] not in text
+    assert "task-1" not in text and "metadata" not in text
+
+    # Kept: the same link knows its keeper, and only its keeper.
+    parent = make_user(credits=0)
+    kept = client.post(f"/api/class/claim/{token}", headers=_auth(parent)).json()
+    assert kept["claimed"] is True and kept["kept_by_you"] is True
+    assert kept["hero"]["user_id"] == parent.id and "avatar.vrm" in kept["hero"]["file_versions"]
+    assert client.get(f"/api/class/claim/{token}", headers=_auth(parent)).json()["kept_by_you"] is True
+    assert client.get(f"/api/class/claim/{token}", headers=_auth(make_user())).json()["kept_by_you"] is False
+    assert client.get(f"/api/class/claim/{token}").json()["kept_by_you"] is False
+    # A stale token never hides the hero from the page.
+    stale = client.get(f"/api/class/claim/{token}", headers={"Authorization": "Bearer not-a-jwt"})
+    assert stale.status_code == 200 and stale.json()["kept_by_you"] is False
+
+
+def test_a_hero_being_made_lists_only_the_files_it_has(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher)
+    pin = _start(client, teacher, c["id"])
+    maya = Student()
+    maya.join(pin)
+    maya.make()                        # pipeline not run yet
+    token = maya.me().json()["claim_path"].rsplit("/", 1)[1]
+    hero = client.get(f"/api/class/claim/{token}").json()["hero"]
+    assert hero["state"] == "making"
+    assert set(hero["file_versions"]) == {"original.jpg"}
+
+
 def test_a_hero_still_being_made_cannot_be_claimed(db, make_user, api, steps_succeed):
     client, tasks = api
     teacher = make_user(credits=100)

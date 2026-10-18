@@ -89,6 +89,8 @@
   line-height: 18px;
 }
 .tb-move span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+/* A few moves (a parent's first look): they share the row equally, no swiping. */
+.tb-moves--few .tb-move { flex: 1 1 0; }
 .tb-move:nth-child(4n + 1) { scroll-snap-align: start; scroll-snap-stop: always; }
 .tb-move[aria-pressed='true'],
 .tb-move[aria-pressed='true']:active:not(:disabled) {
