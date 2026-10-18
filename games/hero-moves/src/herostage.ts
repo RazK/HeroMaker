@@ -332,7 +332,8 @@ export class HeroStage {
   private last = performance.now()
   private observer: ResizeObserver
   private size = { w: 1, h: 1 }
-  /** Pixels at the top of the stage covered by something (the intro's stepper). */
+  /** Pixels at the top of the stage covered by something (the intro's stepper),
+   *  kept clear at the bottom too so the hero stays centred. */
   private insetTarget = 0
   private inset = 0
 
@@ -383,7 +384,8 @@ export class HeroStage {
     return true
   }
 
-  /** Keep the top `px` of the stage clear, easing there. */
+  /** Keep the top `px` of the stage clear, easing there: the hero shrinks in
+   *  place, keeping the same margin at the bottom, so it never moves off centre. */
   setInsetTop(px: number) {
     this.insetTarget = Math.max(0, px)
   }
@@ -443,12 +445,18 @@ export class HeroStage {
     this.aim()
   }
 
-  /** Fit the room the shown thing needs, centred below any inset, with a margin. */
+  /**
+   * Fit the room the shown thing needs, with a margin, always centred on the
+   * middle of the stage (where the page's sun is). An inset shrinks the hero
+   * in place rather than moving it: the same band is kept clear at the top and
+   * the bottom, so the sun and the hero never part.
+   */
   private aim() {
-    const { w, h } = this.size
-    const inset = Math.min(this.inset, h * 0.4)
-    // Vertically, only the stage below the inset is ours; across, all of it.
-    const tanV = Math.tan((camera.fov * Math.PI) / 360) * (h - inset) / h
+    const { h } = this.size
+    // A short stage still gives the hero at least 40% of its height.
+    const inset = Math.min(this.inset, h * 0.3)
+    // Vertically, only the stage between the two insets is ours; across, all of it.
+    const tanV = Math.tan((camera.fov * Math.PI) / 360) * (h - 2 * inset) / h
     const tanH = Math.tan((camera.fov * Math.PI) / 360) * camera.aspect
     const { lo, hi, half } = this.room
     const tall = hi - lo
@@ -456,9 +464,6 @@ export class HeroStage {
     const mid = (lo + hi) / 2
     camera.position.set(0, mid + tall * 0.06, dist)
     camera.lookAt(0, mid, 0)
-    // Slide the picture down into the clear band.
-    if (inset > 0.5) camera.setViewOffset(w, h, 0, -inset / 2, w, h)
-    else if (camera.view?.enabled) camera.clearViewOffset()
   }
 
   private frame() {
