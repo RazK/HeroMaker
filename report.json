@@ -1,0 +1,111 @@
+{
+  "calls": 8,
+  "renders": [
+    {
+      "label": "sketch-man",
+      "style": "anime",
+      "variant": "before",
+      "calls": 1,
+      "edges": {
+        "top": 221,
+        "bottom": 265
+      },
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {
+        "top": 221,
+        "bottom": 265
+      },
+      "first_touched_edges": {
+        "top": 221,
+        "bottom": 265
+      }
+    },
+    {
+      "label": "sketch-man",
+      "style": "anime",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "sketch-man",
+      "style": "pixar",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "sketch-man",
+      "style": "original",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "tall-knight",
+      "style": "anime",
+      "variant": "before",
+      "calls": 1,
+      "edges": {
+        "top": 64,
+        "bottom": 83
+      },
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {
+        "top": 64,
+        "bottom": 83
+      },
+      "first_touched_edges": {
+        "top": 64,
+        "bottom": 83
+      }
+    },
+    {
+      "label": "tall-knight",
+      "style": "anime",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "tall-knight",
+      "style": "pixar",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "tall-knight",
+      "style": "original",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    }
+  ]
+}
