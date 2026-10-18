@@ -931,6 +931,10 @@ def roster(db: Session, classroom: ClassRoom) -> List[dict]:
     return out
 
 
+# The class card shows this many of its heroes (frontend class/MyClasses.tsx).
+PREVIEW_HEROES = 4
+
+
 def class_view(db: Session, classroom: ClassRoom, now: Optional[datetime] = None,
                with_roster: bool = False) -> dict:
     now = now or datetime.utcnow()
@@ -948,11 +952,13 @@ def class_view(db: Session, classroom: ClassRoom, now: Optional[datetime] = None
     }
     r = roster(db, classroom)
     view["heroes_ready"] = sum(1 for g in r if g["hero"] and g["hero"]["state"] == "ready")
-    # A few finished heroes for the class card on the teacher's home.
+    # Up to four finished heroes for the class card on the gallery's My
+    # classes tab, versioned like the gallery's tiles so their thumbnails cache.
     view["preview"] = [
-        {"creation_id": g["hero"]["creation_id"], "user_id": g["hero"]["user_id"], "label": g["label"]}
+        {"creation_id": g["hero"]["creation_id"], "user_id": g["hero"]["user_id"], "label": g["label"],
+         "file_versions": g["hero"]["file_versions"]}
         for g in r if g["hero"] and g["hero"]["state"] == "ready"
-    ][:5]
+    ][:PREVIEW_HEROES]
     if with_roster:
         view["roster"] = r
     return view

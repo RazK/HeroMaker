@@ -112,8 +112,9 @@ export const kidLabel = (s: Pick<Student, 'label' | 'age'>) => (s.age ? `${s.lab
 
 /** A class hero's file, versioned like the gallery's (api.heroFileUrl), so a
  * thumbnail is fetched once and then comes from the browser's cache. */
-const studentFile = (h: HeroSummary, f: string) =>
+export const heroThumb = (h: Pick<HeroSummary, 'creation_id' | 'user_id' | 'file_versions'>, f: string) =>
   api.heroFileUrl({ id: h.creation_id, user_id: h.user_id, file_versions: h.file_versions }, f);
+const studentFile = heroThumb;
 
 /**
  * One student on the roster or in the class gallery, as a gallery tile (the
