@@ -131,13 +131,15 @@ except Exception as e:
     # This allows the app to start even if database is temporarily unavailable
 
 # Run database migrations on startup
+# A failure stops the process: a backend whose models are ahead of its schema
+# would fail every request that touches the missing column while still passing
+# /health. Exiting keeps the previous deploy serving; Railway restarts this one.
 try:
     run_migrations()
     logger.info("Database migrations completed")
 except Exception as e:
-    logger.error(f"Failed to run migrations: {e}")
-    # Don't fail startup - migrations will retry on next restart
-    # This allows the app to start even if migrations fail temporarily
+    logger.error(f"Failed to run migrations, refusing to start: {e}")
+    raise SystemExit(1)
 
 # Import routers after lifespan is defined (but before app creation)
 # This avoids circular imports since routers import get_task_manager from task_manager module

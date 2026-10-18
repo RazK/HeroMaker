@@ -4,6 +4,10 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
+# Log lines reach Railway as they happen, not when a buffer fills: the last
+# line before a hang is the one that says where it hung.
+ENV PYTHONUNBUFFERED=1
+
 # Install system dependencies (gcc for building, postgresql-client for backups)
 RUN apt-get update && apt-get install -y \
     gcc \

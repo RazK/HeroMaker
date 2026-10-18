@@ -81,24 +81,87 @@ def run_migration(db: Session, name: str, migration_func: Callable[[Session], No
         raise
 
 
+LOCK_TIMEOUT = "2s"
+LOCK_ATTEMPTS = 30
+
+
+def run_ddl(db: Session, sql: str) -> None:
+    """Run one DDL statement in its own short transaction, retrying on lock waits.
+
+    During a deploy the previous backend keeps serving, and any of its open
+    transactions holds a lock on the tables it read. ALTER TABLE then waits for
+    that lock - silently, for as long as it takes - and every query behind it
+    queues too, while Railway's health check gives up on the new container.
+    That is how 015_classes hung staging on its second statement.
+
+    So each statement waits at most LOCK_TIMEOUT for its lock, gives the old
+    backend's transaction a moment to finish, and tries again; it holds the lock
+    only for its own statement, never across the whole migration.
+    """
+    if db.get_bind().dialect.name != "postgresql":
+        db.execute(text(sql))
+        db.commit()
+        return
+
+    from sqlalchemy.exc import OperationalError
+    for attempt in range(1, LOCK_ATTEMPTS + 1):
+        try:
+            db.execute(text(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'"))
+            db.execute(text(sql))
+            db.commit()
+            return
+        except OperationalError as e:
+            db.rollback()
+            if getattr(e.orig, "pgcode", None) != "55P03":
+                raise
+            if attempt in (1, LOCK_ATTEMPTS):
+                _log_open_transactions(db)
+            if attempt == LOCK_ATTEMPTS:
+                raise
+            logger.warning(
+                f"Lock busy (attempt {attempt}/{LOCK_ATTEMPTS}), retrying: {sql.split('(')[0].strip()[:80]}"
+            )
+
+
+def _log_open_transactions(db: Session) -> None:
+    """Name the transactions that could be holding the lock, so a failed deploy says who."""
+    try:
+        rows = db.execute(text("""
+            SELECT pid, state, now() - xact_start AS age, left(query, 120)
+            FROM pg_stat_activity
+            WHERE datname = current_database()
+              AND pid <> pg_backend_pid()
+              AND xact_start IS NOT NULL
+            ORDER BY xact_start
+            LIMIT 10
+        """)).all()
+        db.rollback()
+        for pid, state, age, query in rows:
+            logger.warning(f"Open transaction: pid={pid} state={state} age={age} query={query!r}")
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Could not list open transactions: {e}")
+
+
 def run_all_migrations(migrations: List[tuple[str, Callable[[Session], None]]]):
     """
     Run all migrations in order.
     
     Args:
         migrations: List of (migration_name, migration_function) tuples
+
+    A failed migration raises. The models already describe the new schema, so
+    a backend that starts without it fails every query touching the missing
+    column - and passes /health, so Railway would swap it in. Failing here
+    keeps the previous deploy serving instead.
     """
+    db = SessionLocal()
     try:
-        db = SessionLocal()
-        try:
-            ensure_migrations_table(db)
-            
-            for name, migration_func in migrations:
-                run_migration(db, name, migration_func)
-                
-        finally:
-            db.close()
-    except Exception as e:
-        # Don't fail startup if migrations fail (e.g., database not accessible)
-        logger.warning(f"Migrations skipped: {e}")
+        ensure_migrations_table(db)
+
+        for name, migration_func in migrations:
+            run_migration(db, name, migration_func)
+
+    finally:
+        db.close()
 
