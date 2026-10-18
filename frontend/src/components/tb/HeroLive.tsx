@@ -44,8 +44,10 @@ function markIntroSeen(id: string) {
  * as siblings so the screen grid can put the moves beside the stage on a
  * phone held sideways.
  */
-export function HeroLive({ creation, introRequest, notice }: {
+export function HeroLive({ creation, introRequest, notice, onMakeReal }: {
   creation: CreationResponse;
+  /** The Hero Statue offer (prototype): a pill on the stage opens it. */
+  onMakeReal?: () => void;
   /** Bumped by the ⋯ sheet's "How it was made": play the intro again. */
   introRequest: number;
   notice?: ReactNode;
@@ -190,6 +192,9 @@ export function HeroLive({ creation, introRequest, notice }: {
           )}
           {!intro && (
             <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} onClick={startIntro} label="How it was made" />
+          )}
+          {!intro && onMakeReal && (
+            <button type="button" className="tb-statue-pill" onClick={onMakeReal}><Icon name="statue" />Make it real</button>
           )}
         </div>
       </div>
