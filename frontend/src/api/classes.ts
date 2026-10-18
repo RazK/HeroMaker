@@ -22,6 +22,8 @@ export interface HeroSummary {
   step: string | null;
   steps_done: number;
   steps_total: number;
+  /** File name -> version, as on CreationResponse: versioned thumbnails cache. */
+  file_versions?: Record<string, string>;
 }
 
 export interface Student {

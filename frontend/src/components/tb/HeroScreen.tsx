@@ -20,6 +20,8 @@ interface HeroScreenProps {
   onShowSteps: () => void;
   onMakeOwn: () => void;
   onCreditsChanged: () => void;
+  /** Opened by a teacher from their class: read-only, back goes to the class. */
+  fromClass?: boolean;
 }
 
 /**
@@ -33,6 +35,9 @@ export function HeroScreen(props: HeroScreenProps) {
   const { creation, isLoggedIn, currentUserId, isAdmin, creditBalance } = props;
   const state = heroState(creation);
   const owns = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
+  // A teacher looking at a student's hero shares it, never "makes their own".
+  const shares = owns || !!props.fromClass;
+  const backLabel = props.fromClass ? 'Back to class' : 'Back to heroes';
   const name = heroName(creation);
   const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'games' | null>(null);
   const [introRequest, setIntroRequest] = useState(0);
@@ -144,7 +149,7 @@ export function HeroScreen(props: HeroScreenProps) {
   // watching a hero being made) the end keeps its width, empty.
   const header = (
     <Header
-      left={<NavButton icon="back" label="Back to heroes" onClick={props.onBack} className="tb-back" />}
+      left={<NavButton icon="back" label={backLabel} onClick={props.onBack} className="tb-back" />}
       title={name}
       titleClassName="hero-name"
       right={moreRows.length > 0 && <NavButton icon="more" label="More" onClick={() => setSheet('more')} className="tb-more" />}
@@ -171,7 +176,7 @@ export function HeroScreen(props: HeroScreenProps) {
     // looking. Only the secondary differs.
     bar = (
       <>
-        {owns
+        {shares
           ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-share" onClick={share}><Icon name="share" />Share</button>
           : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-make-own" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
         <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('games')}><Icon name="play" />Play</button>
@@ -216,7 +221,7 @@ export function HeroScreen(props: HeroScreenProps) {
         <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>Back to my heroes</button>
       </>
     ) : (
-      <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>Back to heroes</button>
+      <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>{backLabel}</button>
     );
   }
 

@@ -427,6 +427,7 @@ function MainApp() {
         onShowSteps={() => setView('steps')}
         onMakeOwn={startNewHero}
         onCreditsChanged={refreshCreditBalance}
+        fromClass={heroFrom === 'class'}
       />
     );
   } else {

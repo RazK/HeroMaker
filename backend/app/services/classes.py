@@ -45,6 +45,7 @@ from app.config.packs import CLASS_MAX_SEATS, creation_credit_price
 from app.config.settings import get_jwt_secret_key
 from app.config.steps import get_all_step_names
 from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreationStep, User
+from app.schemas.creation import file_versions
 from app.services import ledger
 from app.utils.storage import OPT_PREFIX, THUMB_PREFIX, get_storage
 
@@ -881,6 +882,9 @@ def hero_view(creation: Optional[Creation]) -> Optional[dict]:
         "step": current,
         "steps_done": done,
         "steps_total": len(order),
+        # The same versions a CreationResponse carries, so a roster tile's
+        # thumbnail URL is the gallery's and the hero page's: cached once.
+        "file_versions": file_versions(creation),
     }
 
 

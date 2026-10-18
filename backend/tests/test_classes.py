@@ -560,6 +560,110 @@ def test_stage_lists_the_finished_heroes(db, make_user, api, steps_succeed):
 
 
 # ---------------------------------------------------------------------------
+# The teacher opens a student's hero: the gallery's hero page, read-only
+# ---------------------------------------------------------------------------
+#
+# The hero page reads a hero through GET /api/creations/{id}, its steps and
+# /api/files/<owner>/<id>/<file>. Those reads take a hero's id and nothing else
+# (every hero's page is a link that can be shared, and an <img> cannot carry a
+# bearer token), so the class's teacher reaches a student's hero by the id their
+# roster gives them. What keeps another teacher out is that only the class's
+# own teacher is given the roster; and nobody but the hero's owner may change it.
+
+def _roster_hero(client, teacher, class_id):
+    roster = client.get(f"/api/classes/{class_id}", headers=_auth(teacher)).json()["roster"]
+    assert len(roster) == 1
+    return roster[0]["hero"]
+
+
+def _reads_hero_page(client, user, hero, *, file="original.jpg", body=DRAWING):
+    """Everything the hero page (tb/HeroScreen.tsx) loads, as `user`."""
+    headers = _auth(user)
+    page = client.get(f"/api/creations/{hero['creation_id']}", headers=headers)
+    assert page.status_code == 200, page.text
+    assert client.get(f"/api/creations/{hero['creation_id']}/steps/openai_render", headers=headers).status_code == 200
+    f = client.get(f"/api/files/{hero['user_id']}/{hero['creation_id']}/{file}", headers=headers)
+    assert f.status_code == 200 and f.content == body
+    return page.json()
+
+
+def _cannot_change_hero(client, user, creation_id):
+    """Rename, delete, run, retry, star, download: all refused to `user`."""
+    headers = _auth(user)
+    assert client.patch(f"/api/creations/{creation_id}", json={"character_name": "Mine now"},
+                        headers=headers).status_code == 403
+    assert client.post(f"/api/creations/{creation_id}/steps/openai_render/run", headers=headers).status_code == 403
+    assert client.post(f"/api/creations/{creation_id}/run-pipeline", headers=headers).status_code == 403
+    assert client.put(f"/api/creations/{creation_id}/featured", json={"featured": True},
+                      headers=headers).status_code == 403
+    assert client.delete(f"/api/creations/{creation_id}", headers=headers).status_code == 403
+
+
+def test_the_teacher_opens_a_students_hero_read_only(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher, other_teacher = make_user(credits=100), make_user(credits=100)
+    c = _new_class(client, teacher, seats=3)
+    _new_class(client, other_teacher, seats=1, title="Grade 3A")
+    maya = Student()
+    maya.join(_start(client, teacher, c["id"]), "Maya", 7)
+    maya.make()
+
+    # While it is made: its steps, from the roster's id.
+    hero = _roster_hero(client, teacher, c["id"])
+    assert hero["state"] == "making"
+    page = _reads_hero_page(client, teacher, hero)
+    assert page["in_class"] is True and page["status"] != "completed"
+    # The roster's versions are the hero page's: one cached thumbnail for both.
+    assert hero["file_versions"] == page["file_versions"]
+    assert "original.jpg" in hero["file_versions"]
+
+    tasks.run_all()                                       # the real pipeline, to the end
+    hero = _roster_hero(client, teacher, c["id"])
+    assert hero["state"] == "ready"
+    page = _reads_hero_page(client, teacher, hero, file="avatar.vrm", body=b"out:convert_vrm")
+    assert page["status"] == "completed"
+    assert hero["file_versions"] == page["file_versions"] and "rendered.png" in hero["file_versions"]
+
+    # Read-only: the class pays for the hero, the teacher only looks.
+    _cannot_change_hero(client, teacher, hero["creation_id"])
+    # Another teacher is never given the roster, nor finds the hero in a list.
+    assert client.get(f"/api/classes/{c['id']}", headers=_auth(other_teacher)).status_code == 404
+    assert client.get(f"/api/classes/{c['id']}/stage", headers=_auth(other_teacher)).status_code == 404
+    for listing in ("/api/creations/?mine_only=true", "/api/creations/", "/api/creations/?featured_only=true"):
+        assert hero["creation_id"] not in {x["id"] for x in client.get(listing, headers=_auth(other_teacher)).json()}
+    _cannot_change_hero(client, other_teacher, hero["creation_id"])
+
+    db.expire_all()
+    creation = db.query(Creation).filter_by(id=hero["creation_id"]).one()
+    assert creation.character_name != "Mine now" and creation.deleted_at is None and not creation.featured
+
+
+def test_the_teacher_still_opens_a_hero_a_parent_kept(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher, other_teacher = make_user(credits=100), make_user(credits=100)
+    c, maya, me = _ready_hero(client, tasks, teacher, make_user)
+    parent = make_user()
+    assert client.post(f"/api/class/claim/{me['claim_path'].rsplit('/', 1)[1]}",
+                       headers=_auth(parent)).status_code == 200
+
+    # The roster points at the parent's copy now, and the hero page reads it.
+    hero = _roster_hero(client, teacher, c["id"])
+    assert hero["user_id"] == parent.id and hero["state"] == "ready"
+    page = _reads_hero_page(client, teacher, hero, file="avatar.vrm", body=b"out:convert_vrm")
+    assert page["user_id"] == parent.id and page["in_class"] is False
+    assert hero["file_versions"] == page["file_versions"]
+
+    # Still read-only for the teacher; still nothing for another teacher.
+    _cannot_change_hero(client, teacher, hero["creation_id"])
+    assert client.get(f"/api/classes/{c['id']}", headers=_auth(other_teacher)).status_code == 404
+    _cannot_change_hero(client, other_teacher, hero["creation_id"])
+    # The parent owns it: they may rename it.
+    r = client.patch(f"/api/creations/{hero['creation_id']}", json={"character_name": "Sky Dragon"},
+                     headers=_auth(parent))
+    assert r.status_code == 200 and r.json()["character_name"] == "Sky Dragon"
+
+
+# ---------------------------------------------------------------------------
 # Account deletion
 # ---------------------------------------------------------------------------
 
