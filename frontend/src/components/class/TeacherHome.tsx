@@ -1,9 +1,9 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
-import { ClassView, heroFile, teacherApi } from '../../api/classes';
+import { ClassView, SeatPrice, dollars, heroFile, seatsCents, teacherApi } from '../../api/classes';
 import { Icon } from '../tb/Icon';
 import { Dialog, NoPageScroll, Sheet } from '../tb/parts';
-import { Stepper } from './parts';
+import { PaySeatsDialog, Stepper } from './parts';
 import './class.css';
 
 /**
@@ -19,11 +19,12 @@ export function TeacherHome({ header, credits, onOpen, footer }: {
 }) {
   const [classes, setClasses] = useState<ClassView[] | null>(null);
   const [heroCost, setHeroCost] = useState(10);
+  const [seatPrice, setSeatPrice] = useState<SeatPrice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const load = () => teacherApi.list()
-    .then((r) => { setClasses(r.classes); setHeroCost(r.hero_cost); setError(null); })
+    .then((r) => { setClasses(r.classes); setHeroCost(r.hero_cost); setSeatPrice(r.seat_price ?? null); setError(null); })
     .catch(() => setError('Could not load your classes.'));
   useEffect(() => {
     load();
@@ -66,6 +67,7 @@ export function TeacherHome({ header, credits, onOpen, footer }: {
         <NewClassSheet
           credits={credits}
           heroCost={heroCost}
+          seatPrice={seatPrice}
           onClose={() => setCreating(false)}
           onCreated={(c) => { setCreating(false); load(); onOpen(c); }}
         />
@@ -97,19 +99,23 @@ function ClassCard({ c, index, onOpen }: { c: ClassView; index: number; onOpen: 
 }
 
 /** "How many students?" and the price, then the confirm. */
-function NewClassSheet({ credits, heroCost, onClose, onCreated }: {
+function NewClassSheet({ credits, heroCost, seatPrice, onClose, onCreated }: {
   credits: number | undefined;
   heroCost: number;
+  seatPrice: SeatPrice | null;
   onClose: () => void;
   onCreated: (c: ClassView) => void;
 }) {
   const [title, setTitle] = useState('');
   const [seats, setSeats] = useState(25);
   const [confirm, setConfirm] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cost = seats * heroCost;
   const short = credits !== undefined && cost > credits;
+  // Short of credits: pay money at the teacher price, for exactly these seats.
+  const cents = seatPrice ? seatsCents(seatPrice, seats) : 0;
 
   const pay = async () => {
     setBusy(true);
@@ -124,6 +130,11 @@ function NewClassSheet({ credits, heroCost, onClose, onCreated }: {
       setBusy(false);
     }
   };
+
+  if (paying && seatPrice) {
+    return <PaySeatsDialog seats={seats} cents={cents} title={title.trim()} seatsBefore={0} onClose={() => setPaying(false)}
+      open={() => teacherApi.buyNew(title.trim(), seats)} />;
+  }
 
   if (confirm) {
     return (
@@ -161,8 +172,17 @@ function NewClassSheet({ credits, heroCost, onClose, onCreated }: {
         <div className="tb-bar-note">
           {short ? `You need ${cost} credits. You have ${credits}.` : `${heroCost} credits a hero, paid now`}
         </div>
-        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Cancel</button>
-        {short ? (
+        {short && seatPrice ? (
+          <>
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}>
+              <Icon name="coin" />Buy credits
+            </button>
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-pay-seats" disabled={!title.trim()} onClick={() => setPaying(true)}>
+              Pay {dollars(cents)} for {seats} {seats === 1 ? 'seat' : 'seats'}
+            </button>
+          </>
+        ) : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Cancel</button>}
+        {short && seatPrice ? null : short ? (
           <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}>
             <Icon name="coin" />Buy credits
           </button>

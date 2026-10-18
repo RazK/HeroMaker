@@ -1,9 +1,9 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
-import { ClassView, Student, teacherApi } from '../../api/classes';
+import { ClassView, SeatPrice, Student, dollars, seatsCents, teacherApi } from '../../api/classes';
 import { Icon } from '../tb/Icon';
 import { Dialog, Header, NavButton, NoPageScroll, Sheet, SheetRow } from '../tb/parts';
-import { PinDigits, Qr, Stepper, StudentTile, clock, useSecondsLeft } from './parts';
+import { PaySeatsDialog, PinDigits, seatsBeforeCheckout, Qr, Stepper, StudentTile, clock, useSecondsLeft } from './parts';
 import './class.css';
 
 const DURATIONS = [30, 45, 60];
@@ -13,25 +13,44 @@ const DURATIONS = [30, 45, 60];
  * students made, kept) and Start class. Live: the screen to project, with the
  * code, the QR, the time left and the roster filling with heroes.
  */
-export function ClassScreen({ classId, credits, onBack, onOpenHero }: {
+export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
   classId: string;
   credits: number | undefined;
+  /** Back from paying for seats: they arrive by webhook, so watch for them. */
+  paid?: boolean;
   onBack: () => void;
   onOpenHero: (creationId: string) => void;
 }) {
   const [c, setC] = useState<ClassView | null>(null);
+  const [seatPrice, setSeatPrice] = useState<SeatPrice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'more' | 'start' | 'seats' | 'end' | null>(null);
   const [busy, setBusy] = useState(false);
+  const [waitingSeats, setWaitingSeats] = useState<'waiting' | 'in' | null>(paid ? 'waiting' : null);
+  const [seatsBefore] = useState(() => (paid ? seatsBeforeCheckout(classId) : 0));
 
-  const load = useCallback(() => teacherApi.get(classId).then((v) => { setC(v); setError(null); })
-    .catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load the class.')), [classId]);
+  const load = useCallback(() => teacherApi.get(classId).then((v) => {
+    setC(v);
+    if (v.seat_price !== undefined) setSeatPrice(v.seat_price);
+    setError(null);
+  }).catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load the class.')), [classId]);
   const live = !!c?.live?.open;
   useEffect(() => {
     load();
-    const t = window.setInterval(load, live ? 2000 : 8000);
+    const t = window.setInterval(load, live || waitingSeats === 'waiting' ? 2000 : 8000);
     return () => window.clearInterval(t);
-  }, [load, live]);
+  }, [load, live, waitingSeats]);
+
+  // The webhook usually lands within a second or two of the checkout. Say so
+  // once the seat count moves (or stop saying anything after a minute).
+  useEffect(() => {
+    if (waitingSeats === 'waiting' && c && c.seats > seatsBefore) setWaitingSeats('in');
+  }, [c, waitingSeats, seatsBefore]);
+  useEffect(() => {
+    if (!waitingSeats) return;
+    const t = window.setTimeout(() => setWaitingSeats(null), waitingSeats === 'in' ? 6000 : 60000);
+    return () => window.clearTimeout(t);
+  }, [waitingSeats]);
 
   const act = async (what: () => Promise<ClassView>, fail: string) => {
     setBusy(true);
@@ -53,7 +72,17 @@ export function ClassScreen({ classId, credits, onBack, onOpenHero }: {
       right={<NavButton icon="more" label="More" onClick={() => setSheet('more')} />}
     />
   );
-  const notice = error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>;
+  const notice = (
+    <>
+      {error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>}
+      {waitingSeats && (
+        <div className="tb-notice cls-seats-notice" role="status">
+          <Icon name={waitingSeats === 'in' ? 'check' : 'coin'} />
+          {waitingSeats === 'in' ? 'Thanks! Your seats are in.' : 'Thanks! Adding your seats…'}
+        </div>
+      )}
+    </>
+  );
 
   if (!c) {
     return <div className="tb-screen tb-screen--wide tb-screen--app"><NoPageScroll />{header}{notice}<div className="tb-screen-body" /></div>;
@@ -83,7 +112,7 @@ export function ClassScreen({ classId, credits, onBack, onOpenHero }: {
           </>
         ) : (
           <>
-            <div className="tb-bar-note">Every seat has a hero</div>
+            <div className="tb-bar-note">{c.seats === 0 ? (waitingSeats === 'waiting' ? 'Your seats are on the way' : 'No seats yet') : 'Every seat has a hero'}</div>
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => setSheet('seats')}><Icon name="plus" />Add seats</button>
           </>
         )}
@@ -92,7 +121,7 @@ export function ClassScreen({ classId, credits, onBack, onOpenHero }: {
       {sheet === 'more' && (
         <Sheet title={c.title} onClose={() => setSheet(null)}>
           <div className="tb-muted" style={{ padding: '0 4px 8px' }}>{c.seats_used} of {c.seats} seats used · {c.sessions} {c.sessions === 1 ? 'session' : 'sessions'}</div>
-          <SheetRow icon="plus" label="Add seats" trail={`${c.hero_cost} credits each`} onClick={() => setSheet('seats')} />
+          <SheetRow icon="plus" label="Add seats" trail={seatPrice ? `${c.hero_cost} credits or ${dollars(seatPrice.seat_cents)}` : `${c.hero_cost} credits each`} onClick={() => setSheet('seats')} />
         </Sheet>
       )}
       {sheet === 'start' && <StartDialog c={c} busy={busy} onClose={() => setSheet(null)}
@@ -107,7 +136,7 @@ export function ClassScreen({ classId, credits, onBack, onOpenHero }: {
           </div>
         </Dialog>
       )}
-      {sheet === 'seats' && <AddSeats c={c} credits={credits} onClose={() => setSheet(null)}
+      {sheet === 'seats' && <AddSeats c={c} credits={credits} seatPrice={seatPrice} onClose={() => setSheet(null)}
         onPaid={(v) => { setC(v); setSheet(null); window.dispatchEvent(new CustomEvent('credits:changed')); }} />}
     </div>
   );
@@ -219,13 +248,21 @@ function StartDialog({ c, busy, onClose, onStart }: {
   );
 }
 
-function AddSeats({ c, credits, onClose, onPaid }: { c: ClassView; credits: number | undefined; onClose: () => void; onPaid: (v: ClassView) => void }) {
-  const [seats, setSeats] = useState(1);
+function AddSeats({ c, credits, seatPrice, onClose, onPaid }: {
+  c: ClassView;
+  credits: number | undefined;
+  seatPrice: SeatPrice | null;
+  onClose: () => void;
+  onPaid: (v: ClassView) => void;
+}) {
+  const [seats, setSeats] = useState(c.seats === 0 ? 25 : 1);
   const [confirm, setConfirm] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cost = seats * c.hero_cost;
   const short = credits !== undefined && cost > credits;
+  const cents = seatPrice ? seatsCents(seatPrice, seats) : 0;
   const pay = async () => {
     setBusy(true);
     try {
@@ -236,6 +273,10 @@ function AddSeats({ c, credits, onClose, onPaid }: { c: ClassView; credits: numb
       setBusy(false);
     }
   };
+  if (paying && seatPrice) {
+    return <PaySeatsDialog seats={seats} cents={cents} title={c.title} seatsBefore={c.seats} onClose={() => setPaying(false)}
+      open={() => teacherApi.buySeats(c.id, seats)} />;
+  }
   if (confirm) {
     return (
       <Dialog label={`Pay ${cost} credits?`} onClose={() => setConfirm(false)}>
@@ -259,8 +300,14 @@ function AddSeats({ c, credits, onClose, onPaid }: { c: ClassView; credits: numb
       </div>
       <div className="tb-stack cls-sheet-bar">
         <div className="tb-bar-note">{short ? `You need ${cost} credits. You have ${credits}.` : `${c.hero_cost} credits a seat, paid now`}</div>
-        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Cancel</button>
-        {short
+        {short && seatPrice
+          ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>
+          : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Cancel</button>}
+        {short && seatPrice
+          ? <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-pay-seats" onClick={() => setPaying(true)}>
+              Pay {dollars(cents)} for {seats} {seats === 1 ? 'seat' : 'seats'}
+            </button>
+          : short
           ? <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>
           : <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail" onClick={() => setConfirm(true)}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="plus" />Add seats</span>

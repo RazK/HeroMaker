@@ -244,6 +244,10 @@ CREDIT_REASONS = (
     # teacher when they pay for a class's seats, positive on the class.
     # app/services/classes.py.
     "class_seats",
+    # Bought seats taken back off a class because Lemon Squeezy refunded the
+    # order that paid for them (only the seats no child has used yet).
+    # app/services/classes.py, refund_class_seats.
+    "purchase_refunded",
 )
 
 

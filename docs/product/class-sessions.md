@@ -185,10 +185,23 @@ and 5% under Studio. It keeps a 52% margin, above the 50% floor. We need that
 floor in a class, because a class's failed steps are refunded to the class while
 the provider still billed us.
 
-The cleanest way to ship it is a Lemon Squeezy discount code, or the existing
-coupon system, for teachers on the Studio variant. A new SKU would break the
-"bigger pack is cheaper per credit" guard against Studio. The UI calls Studio
-"Class 30" on the teacher's screens.
+**Shipped as seats bought for one class (approved by Raz).** A teacher short of
+credits sees **Pay $35.50 for 28 seats** on the New class and Add seats sheets.
+The price is **$0.50 per order + $1.25 per seat**, so 30 seats cost $38.00 and
+every size from 1 to 60 seats clears the 50% floor (the $0.50 is Lemon
+Squeezy's fixed fee passed through; without it 1 to 6 seats fall to 20–49%).
+The numbers and their proof live in `packs.py` (`check_class_seats`).
+
+- The checkout uses `custom_price` on the class-seats variant
+  (`LEMONSQUEEZY_VARIANT_CLASS_SEATS`; unset hides the option).
+- The signed webhook re-prices the seats and grants them only if the order's
+  pre-tax subtotal paid that much. They go **straight to the class wallet**,
+  never to the teacher's balance, so a self-declared teacher gains nothing
+  outside a live class session. One order grants once (`external_ref`).
+- **A full refund takes back the seats no child has used yet**, with their
+  credits, in one transaction. Seats already used stay used: those heroes are
+  made and their provider cost is spent. A partial refund is logged for an
+  admin, like a refunded pack.
 
 ## 6. One hero per student: the mechanism
 
