@@ -23,6 +23,10 @@ export interface CreationStepResponse {
   estimated_completion_time: string | null;
   error_message: string | null;
   metadata_json?: { [key: string]: any } | null;
+  /** 0-100 as the provider reported it (Meshy); null when the provider reports nothing. */
+  progress?: number | null;
+  /** The step's typical length, seconds. */
+  estimated_duration?: number | null;
 }
 
 export interface CreationResponse {

@@ -530,6 +530,53 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 .tb-status-name { font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; line-height: 28px; }
 .tb-status-eta { font-size: 15px; font-weight: 800; color: var(--tb-grape-text); white-space: nowrap; }
 
+/* ---------- Progress bar (ProgressBar in parts.tsx) ---------- */
+
+.tb-progress { display: flex; align-items: center; gap: 12px; }
+.tb-progress-track {
+  position: relative;
+  flex-grow: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--tb-track);
+  overflow: hidden;
+}
+/* Never narrower than it is tall, so it always reads as a rounded toy bar.
+   A gloss sweeps along the fill, so it is alive between readings. */
+.tb-progress-fill {
+  position: relative;
+  height: 100%;
+  min-width: 14px;
+  border-radius: inherit;
+  background: var(--tb-grape);
+  overflow: hidden;
+  transition: width 1s ease-out;
+}
+.tb-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: tb-progress-gloss 2.2s ease-in-out infinite;
+}
+@keyframes tb-progress-gloss { 70%, 100% { transform: translateX(100%); } }
+.tb-progress-pct {
+  flex-shrink: 0;
+  min-width: 3ch;
+  font-family: var(--tb-font-display);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--tb-grape-text);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-progress-fill { transition: none; }
+  .tb-progress-fill::after { display: none; }
+  .tb-step-now .tb-step-dot--now { animation: none; }
+}
+
 /* ---------- Plates (gallery tiles) ---------- */
 
 .tb-plate-1 { background: var(--tb-plate-1); }

@@ -10,8 +10,7 @@
 
 .tb-scanline {
   position: absolute;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   top: 40%;
   height: 4px;
   background: var(--tb-grape);
@@ -19,6 +18,25 @@
   animation: tb-scan 2.4s ease-in-out infinite alternate;
 }
 @keyframes tb-scan { from { top: 12%; } to { top: 88%; } }
+
+/* Over the painting while it becomes 3D: a soft gloss that sweeps across, like
+   light on a toy's blister pack, then rests. Under the polaroid. */
+.tb-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.55) 50%, transparent 60%);
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  animation: tb-shimmer 3.2s ease-in-out infinite;
+}
+@keyframes tb-shimmer {
+  from { background-position: 100% 0; }
+  60%, to { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-scanline, .tb-shimmer { display: none; }
+}
 
 /* The bar's two secondary buttons share a row on a 320px phone, so on narrow
    screens (and beside the stage on a phone on its side) they drop their

@@ -4,8 +4,8 @@ import { getTotalCost } from '../../config/steps';
 import { playUrl } from '../../config/play';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
-import { Dialog, Header, NavButton, Polaroid, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
-import { STEP_UI, currentStep, etaText, heroName, heroState, remainingCost, stepViews } from './pipeline';
+import { Dialog, Header, NavButton, Polaroid, ProgressBar, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
+import { STEP_UI, StepProgress, currentStep, etaText, heroName, heroState, holdSteady, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
 
 interface HeroScreenProps {
@@ -40,17 +40,23 @@ export function HeroScreen(props: HeroScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
+  const shown = useRef<(StepProgress & { key: string }) | null>(null);
   useFitScreen();
 
-  // The estimate counts down between polls.
+  // The bar and the time left move every second, between the 2 s polls.
   useEffect(() => {
     if (state !== 'making') return;
-    const t = setInterval(() => tick((n) => n + 1), 5000);
+    const t = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [state]);
 
   const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
   const step = currentStep(creation);
+  const now = Date.now();
+  const measured = stepProgress(step, now);
+  const stepKey = `${step?.step_name}:${step?.started_at}`;
+  // Per run of a step: never backwards, and the time left never jumps up.
+  const progress = measured ? (shown.current = holdSteady(shown.current, stepKey, measured)) : null;
   const stepIndex = step ? creation.steps.indexOf(step) : creation.steps.length;
   // What the user sees grow: the drawing until it is painted, then the painting.
   const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
@@ -149,7 +155,9 @@ export function HeroScreen(props: HeroScreenProps) {
   const stage = (
     <div ref={stageRef} className="tb-stage tb-hero-stage">
       <img className={`tb-stage-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
-      {state === 'making' && !painted && <div className="tb-scanline" />}
+      {/* Something on the stage always moves while the hero is made: a scan
+          over the drawing, then a gloss over the painting. */}
+      {state === 'making' && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
       {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
     </div>
   );
@@ -171,6 +179,7 @@ export function HeroScreen(props: HeroScreenProps) {
     );
   } else {
     const label = state === 'failed' && step ? `${STEP_UI[step.step_name]?.label ?? step.step_name} failed` : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
+    const eta = progress ? etaText(progress.endsAt, now) : '';
     body = (
       <>
         {stage}
@@ -178,8 +187,19 @@ export function HeroScreen(props: HeroScreenProps) {
           <Stepper steps={stepViews(creation)} />
           <div className="tb-status">
             <div className={`tb-status-name${state === 'failed' ? ' tb-status-name--failed' : ''}`}>{label}</div>
-            <div className="tb-status-eta">{state === 'failed' ? 'Credits returned' : etaText(step)}</div>
+            <div className="tb-status-eta">{state === 'failed' ? 'Credits returned' : eta}</div>
           </div>
+          {state !== 'failed' && (
+            // Keyed by the step's run, so a new step starts its bar from empty
+            // instead of sliding backwards from the last one.
+            <ProgressBar
+              key={stepKey}
+              pct={progress?.pct ?? 0}
+              showPct={progress?.real}
+              label={label}
+              valueText={progress ? `${Math.floor(progress.pct)}%${eta ? `, ${eta}` : ''}` : undefined}
+            />
+          )}
           {state === 'failed' && step?.error_message && isAdmin && <div className="tb-muted tb-error-detail">{step.error_message}</div>}
         </div>
       </>

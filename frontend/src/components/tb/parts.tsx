@@ -82,6 +82,31 @@ export function Stepper({ steps }: { steps: StepView[] }) {
 }
 
 /**
+ * A toy progress bar: a rounded track with a grape fill that glides to each
+ * new value. `showPct` prints the number, for a value someone measured; an
+ * estimate shows the bar alone.
+ */
+export function ProgressBar({ pct, label, valueText, showPct }: { pct: number; label: string; valueText?: string; showPct?: boolean }) {
+  const value = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="tb-progress">
+      <div
+        className="tb-progress-track"
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(value)}
+        aria-valuetext={valueText}
+      >
+        <div className="tb-progress-fill" style={{ width: `${value}%` }} />
+      </div>
+      {showPct && <span className="tb-progress-pct" aria-hidden="true">{Math.floor(value)}%</span>}
+    </div>
+  );
+}
+
+/**
  * For screens that fit the viewport exactly (`.tb-screen--fit`): while one is
  * mounted the document itself cannot scroll. Without this, anything in the
  * page that is a pixel taller than the visible area -- on mobile Chrome, any
