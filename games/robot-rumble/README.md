@@ -211,23 +211,34 @@ and every sound is synthesised (`src/arena/sfx.ts`).
 
 ## Performance
 
-The player's skinned VRM (plus its drawn outline), up to three rival VRMs (no
-outline: it would double each one), the room, and every toy as one merged
-vertex-coloured mesh with a painted blob shadow; all particles in one
-`Points` call; no shadow maps. Clips are parsed once per page and bound per
-hero. Measured with `tools/arena-perf.mjs` at 390x844, panda as the player:
+The player's skinned VRM (plus its drawn outline), up to six fans in the
+stands (no outline, humanoid only, culled when out of shot), the room, and
+every toy as one merged vertex-coloured mesh with a painted blob shadow; all
+particles in one `Points` call; the fans' plates one instanced call; no
+shadow maps. Clips are parsed once per page and bound per hero.
 
-| | Draw calls | Triangles | JS per frame | SwiftShader fps |
-|---|---|---|---|---|
-| Robots only (before rivals) | 26-28 | ~64k | 1.6-1.9 ms | 6-8 |
-| With rival heroes on screen | 43-53 | ~190k | 3.2-3.3 ms | 4.6-4.9 |
+Measured with `tools/arena-perf.mjs` at **4x CPU throttling** (DevTools'
+mid-tier phone), Crayon Kid as the player and five sample heroes as the
+gallery. *Before* is the rival-hero build (up to three rivals in the room),
+*after* is this one (five fans):
 
-The JavaScript stays a fifth of a 60 fps budget. The triangles roughly treble
-with rivals, which is the real cost on a phone GPU; this sandbox has no GPU, so
-**phone frame rate is still unmeasured**. If a device averages under ~40 fps
-for two seconds of play, the page drops its pixel ratio once. If phones
-struggle, the levers are: two rivals instead of three, or decimated rival
-meshes.
+| | Viewport | Draw calls | Triangles | JS per frame (4x) | SwiftShader fps |
+|---|---|---|---|---|---|
+| Before (rivals) | 390x844 | 52-55 | ~187k | 14.5-15.9 ms | 1.7 |
+| After (crowd of 5, 2-3 in shot) | 390x844 | 50-57 | 130-164k | 13.3-14.5 ms | 1.5-2.1 |
+| After (crowd capped at 4) | 390x844 | 51 | ~130k | 14.1 ms | 3.4 |
+| Before (rivals) | 844x390 | 73 | ~193k | 16.3 ms | 2.9 |
+| After (all 5 in shot) | 844x390 | 80 | ~230k | 14.8 ms | 2.2 |
+
+The JavaScript per frame is the same or a little lower than with rivals: a
+fan has no path-finding, no spring bones and no updates out of shot. In
+portrait fewer triangles reach the GPU, because the camera sees two or three
+fans at a time; in landscape all five are in shot and it is ~20% more than
+with rivals. This sandbox has no GPU (SwiftShader renders every frame on the
+CPU, so its fps is a floor dominated by rasterising, not a phone), so
+**phone frame rate is still unmeasured on a real device**. If a device
+averages under ~40 fps for two seconds of play, the page drops its pixel
+ratio once. Levers if phones struggle: `?crowd=4`, or decimated fan meshes.
 
 ## Harnesses
 
