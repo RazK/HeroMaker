@@ -3,7 +3,8 @@ name: Staging robot
 # Drives the deployed staging site end to end, as a customer would: landing
 # page, gallery, sign up, buy credits (Lemon Squeezy test mode), make a hero
 # through every pipeline stage, find it under My Creations, play a game with
-# it. Screenshots of every step are uploaded as an artifact.
+# it, then as a teacher buy a class's seats with money (test mode) and start
+# and end that class. Screenshots of every step are uploaded as an artifact.
 #
 # It runs here rather than anywhere else because it needs the open internet:
 # Lemon Squeezy's checkout is a third-party page.
@@ -12,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       steps:
-        description: 'Comma-separated subset (landing,gallery,signup,buy,create,profile,game). Empty = all.'
+        description: 'Comma-separated subset (landing,gallery,signup,buy,create,profile,game,class). Empty = all.'
         required: false
         default: ''
       login_as:
@@ -36,7 +37,7 @@ concurrency:
 jobs:
   robot:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
