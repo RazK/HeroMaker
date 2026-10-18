@@ -341,3 +341,13 @@
 @media (prefers-reduced-motion: reduce) {
   .cls-pop, .cls-tile-wrap, .cls-wobble, .cls-live-dot { animation: none; }
 }
+
+/* ---- Your school: one phone screen, mostly taps ------------------------- */
+.cls-school-types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cls-school-types .tb-chip { width: 100%; padding: 0 8px; }
+.cls-school-where { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cls-school-where .tb-field { min-width: 0; }
+
+/* ---- A class's ages: five equal chips in one row ------------------------ */
+.cls-ages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.cls-ages .tb-chip { width: 100%; padding: 0; height: 44px; }

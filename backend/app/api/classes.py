@@ -51,6 +51,14 @@ def _refusals():
 class CreateClassRequest(BaseModel):
     title: str
     seats: int
+    ages: Optional[str] = None
+
+
+class SchoolRequest(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
 
 
 class SeatsRequest(BaseModel):
@@ -69,14 +77,28 @@ class ExtendRequest(BaseModel):
 @teacher_router.get("")
 def list_classes(db: Session = Depends(get_db), user: User = Depends(get_current_user_required)):
     rows = db.query(ClassRoom).filter(ClassRoom.owner_id == user.id).order_by(ClassRoom.created_at.desc()).all()
-    return {"classes": [classes.class_view(db, c) for c in rows], "hero_cost": classes.hero_cost()}
+    return {"classes": [classes.class_view(db, c) for c in rows], "hero_cost": classes.hero_cost(),
+            "school": classes.school_view(user)}
+
+
+@teacher_router.get("/school")
+def get_school(user: User = Depends(get_current_user_required)):
+    return {"school": classes.school_view(user)}
+
+
+@teacher_router.put("/school")
+def put_school(body: SchoolRequest, db: Session = Depends(get_db),
+               user: User = Depends(get_current_user_required)):
+    """The teacher's school: name and type required, city and country not."""
+    with _refusals():
+        return {"school": classes.set_school(db, user, body.name, body.type, body.city, body.country)}
 
 
 @teacher_router.post("", status_code=201)
 def create_class(body: CreateClassRequest, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user_required)):
     with _refusals():
-        classroom = classes.create_class(db, user, body.title, body.seats)
+        classroom = classes.create_class(db, user, body.title, body.seats, body.ages)
     return classes.class_view(db, classroom, with_roster=True)
 
 

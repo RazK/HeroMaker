@@ -1,9 +1,10 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
-import { ClassView, heroFile, teacherApi } from '../../api/classes';
+import { AGE_BANDS, ClassView, School, heroFile, teacherApi } from '../../api/classes';
 import { Icon } from '../tb/Icon';
 import { Dialog, NoPageScroll, Sheet } from '../tb/parts';
 import { Stepper } from './parts';
+import { SchoolSheet } from './SchoolSheet';
 import './class.css';
 
 /**
@@ -21,9 +22,12 @@ export function TeacherHome({ header, credits, onOpen, footer }: {
   const [heroCost, setHeroCost] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // Asked once, before the first class: 'first' then goes on to New class.
+  const [school, setSchool] = useState<School | null | undefined>(undefined);
+  const [askSchool, setAskSchool] = useState<'first' | 'edit' | null>(null);
 
   const load = () => teacherApi.list()
-    .then((r) => { setClasses(r.classes); setHeroCost(r.hero_cost); setError(null); })
+    .then((r) => { setClasses(r.classes); setHeroCost(r.hero_cost); setSchool(r.school); setError(null); })
     .catch(() => setError('Could not load your classes.'));
   useEffect(() => {
     load();
@@ -47,7 +51,9 @@ export function TeacherHome({ header, credits, onOpen, footer }: {
           <>
             <div className="cls-home-title">
               <div className="tb-h2">My classes</div>
-              {classes && <div className="tb-muted">{classes.length} {classes.length === 1 ? 'class' : 'classes'}</div>}
+              {school
+                ? <button type="button" className="tb-link cls-school-link" dir="auto" onClick={() => setAskSchool('edit')}>{school.name}</button>
+                : classes && <div className="tb-muted">{classes.length} {classes.length === 1 ? 'class' : 'classes'}</div>}
             </div>
             <div className="cls-cards">
               {!classes && Array.from({ length: 3 }, (_, i) => <div key={i} className={`cls-card tb-tile--skeleton`} style={{ height: 220 }} />)}
@@ -58,10 +64,18 @@ export function TeacherHome({ header, credits, onOpen, footer }: {
         {footer}
       </div>
       <div className="tb-bar">
-        <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-new-class" onClick={() => setCreating(true)}>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-new-class"
+          onClick={() => (school === null ? setAskSchool('first') : setCreating(true))}>
           <Icon name="plus" />New class
         </button>
       </div>
+      {askSchool && (
+        <SchoolSheet
+          school={school ?? null}
+          onClose={() => setAskSchool(null)}
+          onSaved={(s) => { setSchool(s); if (askSchool === 'first') setCreating(true); setAskSchool(null); }}
+        />
+      )}
       {creating && (
         <NewClassSheet
           credits={credits}
@@ -105,6 +119,7 @@ function NewClassSheet({ credits, heroCost, onClose, onCreated }: {
 }) {
   const [title, setTitle] = useState('');
   const [seats, setSeats] = useState(25);
+  const [ages, setAges] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +130,7 @@ function NewClassSheet({ credits, heroCost, onClose, onCreated }: {
     setBusy(true);
     setError(null);
     try {
-      const c = await teacherApi.create(title.trim(), seats);
+      const c = await teacherApi.create(title.trim(), seats, ages);
       window.dispatchEvent(new CustomEvent('credits:changed'));
       onCreated(c);
     } catch (err) {
@@ -154,6 +169,16 @@ function NewClassSheet({ credits, heroCost, onClose, onCreated }: {
             <div className="tb-muted">One hero each</div>
           </div>
           <Stepper value={seats} min={1} max={60} onChange={setSeats} label="Students" />
+        </div>
+        <div className="tb-field">
+          <label id="cls-ages-label">Ages</label>
+          <div className="cls-ages" role="radiogroup" aria-labelledby="cls-ages-label">
+            {AGE_BANDS.map((a) => (
+              <button key={a} type="button" role="radio" aria-checked={ages === a}
+                className={`tb-chip${ages === a ? ' tb-chip--on' : ''}`}
+                onClick={() => setAges(ages === a ? null : a)}>{a.replace('-', '–')}</button>
+            ))}
+          </div>
         </div>
         {error && <div className="tb-muted" role="alert" style={{ color: 'var(--tb-red)' }}>{error}</div>}
       </div>

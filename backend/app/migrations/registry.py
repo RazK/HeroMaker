@@ -15,6 +15,7 @@ from app.migrations import m012_user_soft_delete
 from app.migrations import m013_creation_featured
 from app.migrations import m014_recurring_expenses
 from app.migrations import m015_classes
+from app.migrations import m016_school_details
 
 
 # Register all migrations in order
@@ -35,6 +36,7 @@ MIGRATIONS = [
     ("013_creation_featured", m013_creation_featured.migrate),
     ("014_recurring_expenses", m014_recurring_expenses.migrate),
     ("015_classes", m015_classes.migrate),
+    ("016_school_details", m016_school_details.migrate),
 ]
 
 

@@ -109,6 +109,7 @@ def delete_account(db: Session, user: User, task_manager: Optional[object] = Non
     user.google_id = None
     user.name = None
     user.date_of_birth = None
+    user.school_name = user.school_city = user.school_country = user.school_type = None
     user.password_hash = None
     user.is_admin = False
     user.deleted_at = datetime.utcnow()

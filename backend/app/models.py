@@ -34,6 +34,14 @@ class User(Base):
     # holds its prepaid seats in: no email, no password, it can never sign in,
     # and it owns the class's heroes until a parent claims one. See m015_classes.
     kind = Column(String(20), nullable=False, default="person", server_default="person", index=True)
+    # A teacher's school, asked once, before their first class (m016). Only
+    # the name and the type are required; city and country help us see where
+    # classes happen. Shown in the admin console's Schools list.
+    school_name = Column(String(80), nullable=True)
+    school_city = Column(String(60), nullable=True)
+    school_country = Column(String(60), nullable=True)
+    # One of app.services.classes.SCHOOL_TYPES.
+    school_type = Column(String(20), nullable=True)
 
     creations = relationship("Creation", back_populates="user")
     
@@ -455,6 +463,8 @@ class ClassRoom(Base):
     # it only moves through one conditional UPDATE (classes._take_seat).
     seats = Column(Integer, nullable=False, default=0)
     seats_used = Column(Integer, nullable=False, default=0)
+    # The children's ages, one of app.services.classes.AGE_BANDS, or None (m016).
+    ages = Column(String(8), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     owner = relationship("User", foreign_keys=[owner_id])
