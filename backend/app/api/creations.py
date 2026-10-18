@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db, SessionLocal
 from app.models import User, Creation, CreationStep
@@ -156,7 +156,10 @@ def list_creations(
     # public gallery and not in its paying teacher's "My heroes": it is on the
     # class roster and the child's own page. Only an admin's "All heroes" (and
     # so "Failed") lists it, marked in_class. docs/product/class-sessions.md.
-    live = db.query(Creation).filter(Creation.deleted_at.is_(None))
+    # Each hero's steps and owner in two queries for the whole list, not two per hero.
+    live = (db.query(Creation)
+            .options(selectinload(Creation.steps), selectinload(Creation.user))
+            .filter(Creation.deleted_at.is_(None)))
     personal = live.filter(Creation.class_id.is_(None))
     if mine_only and user:
         creations = personal.filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()

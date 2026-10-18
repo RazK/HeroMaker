@@ -7,7 +7,7 @@ import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Privacy, PRIVACY_PATH } from './components/tb/Privacy';
-import { Gallery, Filter } from './components/tb/Gallery';
+import { Gallery, Filter, forgetGallery, resetGalleryScroll } from './components/tb/Gallery';
 import { TeacherHome } from './components/class/TeacherHome';
 import { ClassScreen } from './components/class/ClassScreen';
 import { JoinFlow, JOIN_PATH } from './components/class/JoinFlow';
@@ -53,7 +53,9 @@ function MainApp() {
   const [heroFrom, setHeroFrom] = useState<'gallery' | 'class'>('gallery');
   // A teacher looking at the public gallery instead of their classes.
   const [teacherBrowsing, setTeacherBrowsing] = useState(false);
-  const [galleryFilter, setGalleryFilter] = useState<Filter>('featured');
+  // Asked-for filter (a parent who just kept a hero sees My heroes); otherwise
+  // the gallery opens on whatever it showed last.
+  const [galleryFilter, setGalleryFilter] = useState<Filter | undefined>(undefined);
   const [resetToken] = useState(() => (isResetUrl() ? new URLSearchParams(window.location.search).get('token') ?? '' : ''));
   const [creation, setCreation] = useState<CreationResponse | null>(null);
   const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
@@ -117,6 +119,7 @@ function MainApp() {
       setView('gallery');
       setCreation(null);
       setError(null);
+      forgetGallery();
       setGalleryKey((k) => k + 1);
       window.scrollTo({ top: 0 });
       setAccountNotice('Account deleted');
@@ -181,7 +184,11 @@ function MainApp() {
     return () => { cancelled = true; };
   }, []);
 
+  // Back to the gallery. From another screen it comes back as it was left
+  // (Gallery remembers its list and scroll, and refreshes behind the scenes);
+  // the logo on the gallery itself starts it over from the top.
   const goHome = () => {
+    if (view === 'gallery') resetGalleryScroll();
     if (isResetUrl() || window.location.pathname === PRIVACY_PATH || claimToken()) window.history.replaceState(null, '', '/');
     setView('gallery');
     setCreation(null);
@@ -421,7 +428,7 @@ function MainApp() {
               <p className="tb-muted">Snap a photo of any drawing. In a few minutes it is a 3D hero that moves, and your kid can play with it.</p>
             </section>
           )}
-          <Gallery key={`${galleryKey}:${galleryFilter}`} initialFilter={galleryFilter} isLoggedIn={isLoggedIn} isAdmin={userInfo?.is_admin ?? false} onSelect={(c) => openHero(c)} />
+          <Gallery key={`${galleryKey}:${galleryFilter ?? ''}`} initialFilter={galleryFilter} isLoggedIn={isLoggedIn} isAdmin={userInfo?.is_admin ?? false} userId={userInfo?.id} onSelect={(c) => openHero(c)} />
           {footer(userInfo?.is_teacher ? <div><button type="button" className="tb-link" onClick={() => setTeacherBrowsing(false)}>Back to my classes</button></div> : undefined)}
         </div>
         <div className="tb-bar">

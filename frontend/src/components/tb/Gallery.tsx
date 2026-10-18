@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api, CreationResponse } from '../../api/client';
 import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState } from './pipeline';
@@ -9,11 +9,47 @@ export type Filter = 'featured' | 'all' | 'mine' | 'failed';
 /** How long an unstarred hero stays in Editors' choice before it leaves, in ms. */
 const LEAVE_MS = 700;
 
+/** Tiles this close to the top load first and at once; the rest wait until scrolled near. */
+const EAGER_TILES = 6;
+
+/**
+ * What the gallery last showed, kept for the life of the page. The gallery
+ * unmounts whenever a hero opens, and coming back used to start from nothing:
+ * skeleton plates while the list reloaded, then every picture fetched again,
+ * scrolled back to the top. Now it comes back exactly as it was left (same
+ * filter, same list, same scroll) and refreshes the list behind the scenes,
+ * changing only the tiles that actually changed.
+ */
+const memory = {
+  filter: 'featured' as Filter,
+  lists: new Map<string, CreationResponse[]>(),
+  scrollTop: 0,
+};
+
+/** Next time, start the gallery at the top (the logo was tapped). */
+export function resetGalleryScroll() {
+  memory.scrollTop = 0;
+}
+
+/** Forget everything the gallery remembers (the account is gone). */
+export function forgetGallery() {
+  memory.filter = 'featured';
+  memory.lists.clear();
+  memory.scrollTop = 0;
+}
+
+/** Editors' choice is the same for everyone; every other list is the viewer's own. */
+const listKey = (filter: Filter, userId?: string) => (filter === 'featured' ? filter : `${filter}:${userId ?? ''}`);
+
+const sameList = (a: CreationResponse[], b: CreationResponse[]) =>
+  a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
+
 interface GalleryProps {
   isLoggedIn: boolean;
   isAdmin: boolean;
+  userId?: string;
   onSelect: (c: CreationResponse) => void;
-  /** Where it opens: Editors' choice unless asked (a parent who just kept a hero opens on My heroes). */
+  /** Where it opens when asked (a parent who just kept a hero opens on My heroes); otherwise where it was left. */
   initialFilter?: Filter;
 }
 
@@ -23,10 +59,19 @@ interface GalleryProps {
  * still being made and the ones that failed, because those are the owner's
  * to finish. Admins get a star on every tile to curate Editors' choice.
  */
-export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featured' }: GalleryProps) {
-  const [filter, setFilter] = useState<Filter>(initialFilter);
-  const [creations, setCreations] = useState<CreationResponse[] | null>(null);
+export function Gallery({ isLoggedIn, isAdmin, userId, onSelect, initialFilter }: GalleryProps) {
+  const [filter, setFilter] = useState<Filter>(initialFilter ?? memory.filter);
+  const key = listKey(filter, userId);
+  // The list this gallery holds, and which filter+viewer it is for. Until the
+  // first answer for a key arrives, the remembered list for it stands in.
+  const [data, setData] = useState<{ key: string; list: CreationResponse[] } | null>(() => {
+    const list = memory.lists.get(key);
+    return list ? { key, list } : null;
+  });
+  const creations = data?.key === key ? data.list : memory.lists.get(key) ?? null;
   const [error, setError] = useState(false);
+  const [reload, setReload] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
   // Unstarred while viewing Editors' choice: still shown for a beat, then gone.
   const [leaving, setLeaving] = useState<Set<string>>(() => new Set());
   const [pending, setPending] = useState<Set<string>>(() => new Set());
@@ -36,15 +81,42 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featur
     if ((!isLoggedIn && filter === 'mine') || (!isAdmin && (filter === 'all' || filter === 'failed'))) setFilter('featured');
   }, [isLoggedIn, isAdmin, filter]);
 
+  useEffect(() => { memory.filter = filter; }, [filter]);
+  useEffect(() => { if (data) memory.lists.set(data.key, data.list); }, [data]);
+
+  // A new list replaces the old one only if something in it changed, so a
+  // refresh that finds nothing new re-renders nothing.
+  const receive = (forKey: string, list: CreationResponse[]) =>
+    setData((d) => (d && d.key === forKey && sameList(d.list, list) ? d : { key: forKey, list }));
+
+  // Stale-while-revalidate: whatever is remembered shows at once (above), and
+  // the list is always asked for again. An error only shows with nothing to show.
   useEffect(() => {
     let cancelled = false;
-    setCreations(null);
     setError(false);
     api.listCreations(0, 0, filter === 'mine', filter === 'featured')
-      .then((r) => { if (!cancelled) setCreations(r.creations); })
-      .catch(() => { if (!cancelled) setError(true); });
+      .then((r) => { if (!cancelled) receive(key, r.creations); })
+      .catch(() => { if (!cancelled && !memory.lists.has(key)) setError(true); });
     return () => { cancelled = true; };
-  }, [filter, isLoggedIn]);
+  }, [key, filter, reload]);
+
+  // Back where it was left. The screen body is the gallery's scroller (the
+  // page itself never scrolls, see NoPageScroll). Restored once the tiles are
+  // there to scroll to, before the first paint, so it never visibly jumps.
+  const restored = useRef(false);
+  useLayoutEffect(() => {
+    const list = rootRef.current?.closest<HTMLElement>('.tb-screen-body');
+    if (!list || restored.current || !creations) return;
+    restored.current = true;
+    list.scrollTop = memory.scrollTop;
+  }, [creations]);
+  useEffect(() => {
+    const list = rootRef.current?.closest<HTMLElement>('.tb-screen-body');
+    if (!list) return;
+    const onScroll = () => { memory.scrollTop = list.scrollTop; };
+    list.addEventListener('scroll', onScroll, { passive: true });
+    return () => list.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     if (!starError) return;
@@ -55,7 +127,10 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featur
   const mark = (set: typeof setLeaving, id: string, on: boolean) =>
     set((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
   const setStar = (id: string, featured: boolean) =>
-    setCreations((cs) => cs && cs.map((c) => (c.id === id ? { ...c, featured } : c)));
+    setData((d) => {
+      const list = d?.key === key ? d.list : memory.lists.get(key);
+      return list ? { key, list: list.map((c) => (c.id === id ? { ...c, featured } : c)) } : d;
+    });
 
   // Optimistic: the star flips at once and flips back if the server says no.
   const toggleStar = async (c: CreationResponse) => {
@@ -82,10 +157,10 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featur
   useEffect(() => {
     if (filter !== 'mine' || !creations?.some((c) => heroState(c) === 'making')) return;
     const t = setInterval(() => {
-      api.listCreations(0, 0, true).then((r) => setCreations(r.creations)).catch(() => {});
+      api.listCreations(0, 0, true).then((r) => receive(key, r.creations)).catch(() => {});
     }, 10000);
     return () => clearInterval(t);
-  }, [filter, creations]);
+  }, [filter, key, creations]);
 
   const shown = (creations ?? [])
     .filter((c) => {
@@ -106,7 +181,7 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featur
   ];
 
   return (
-    <div className="tb-gallery creation-gallery">
+    <div className="tb-gallery creation-gallery" ref={rootRef}>
       {chips.length > 1 && (
         <div className="tb-gallery-chips" role="tablist" aria-label="Show">
           {chips.map((c) => (
@@ -116,7 +191,7 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featur
       )}
 
       {starError && <div className="tb-gallery-note" role="status">Could not save that. Try again.</div>}
-      {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setFilter(filter)}>Try again</button></div>}
+      {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setReload((n) => n + 1)}>Try again</button></div>}
       {!creations && !error && <div className="tb-gallery-grid">{Array.from({ length: 6 }, (_, i) => <div key={i} className={`tb-tile tb-tile--skeleton tb-plate-${(i % 6) + 1}`} />)}</div>}
       {creations && shown.length === 0 && (
         <div className="tb-gallery-empty">
@@ -129,7 +204,7 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featur
         <div className="tb-gallery-grid">
           {shown.map((c, i) => (
             <div key={c.id} className={`tb-tile-wrap${leaving.has(c.id) ? ' tb-tile-wrap--leaving' : ''}`}>
-              <Tile creation={c} index={i} onClick={() => onSelect(c)} />
+              <Tile creation={c} index={i} eager={i < EAGER_TILES} onClick={() => onSelect(c)} />
               {isAdmin && c.status === 'completed' && !c.in_class && (
                 <StarToggle on={!!c.featured} busy={pending.has(c.id)} onToggle={() => toggleStar(c)} />
               )}
@@ -162,10 +237,24 @@ function StarToggle({ on, busy, onToggle }: { on: boolean; busy: boolean; onTogg
   );
 }
 
-function Tile({ creation, index, onClick }: { creation: CreationResponse; index: number; onClick: () => void }) {
+/**
+ * How a tile's pictures load. The first rows load at once, the drawing (what
+ * the tile shows first) at high priority; the rest are left to the browser
+ * until they are scrolled near. Decoding never holds up the page.
+ * (fetchpriority in lower case: React 18 does not know the attribute yet.)
+ */
+function imgLoading(eager: boolean, first: boolean) {
+  return {
+    loading: eager ? 'eager' : 'lazy',
+    decoding: 'async',
+    ...(eager && first ? { fetchpriority: 'high' } : {}),
+  } as const;
+}
+
+function Tile({ creation, index, eager, onClick }: { creation: CreationResponse; index: number; eager: boolean; onClick: () => void }) {
   const state = heroState(creation);
   const name = heroName(creation);
-  const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
+  const file = (f: string) => api.heroFileUrl(creation, f);
   const step = currentStep(creation);
   const done = creation.steps.filter((s) => s.status === 'completed').length;
   const pct = creation.steps.length ? Math.round(((done + 0.5) / creation.steps.length) * 100) : 0;
@@ -180,9 +269,9 @@ function Tile({ creation, index, onClick }: { creation: CreationResponse; index:
       onClick={onClick}
     >
       {state === 'ready' ? (
-        <TileFade drawing={file('thumb_original.jpg')} hero={file('thumb_rendered.png')} name={name} index={index} />
+        <TileFade drawing={file('thumb_original.jpg')} hero={file('thumb_rendered.png')} name={name} index={index} eager={eager} />
       ) : (
-        <img className={`tb-tile-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={file(painted ? 'thumb_rendered.png' : 'thumb_original.jpg')} alt={name} loading="lazy" />
+        <img className={`tb-tile-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={file(painted ? 'thumb_rendered.png' : 'thumb_original.jpg')} alt={name} {...imgLoading(eager, true)} />
       )}
       <span className="tb-tile-card">
         <span className="tb-tile-name">{name}</span>
@@ -225,10 +314,11 @@ function wavePhaseDelay(index: number): string {
  * A ready tile: the kid's drawing and the hero render stacked, cross-fading
  * between the two. The animation is pure CSS (Gallery.css); this only starts
  * it once BOTH images have loaded, so a tile never fades to a blank plate.
- * The drawing shows as soon as it loads (the story starts there); if it
- * fails, the tile shows the render for good.
+ * Neither waits for the other: whichever loads first shows at once, the
+ * drawing preferred (the story starts there, and it is asked for first); if
+ * it fails, the tile shows the render for good.
  */
-function TileFade({ drawing, hero, name, index }: { drawing: string; hero: string; name: string; index: number }) {
+function TileFade({ drawing, hero, name, index, eager }: { drawing: string; hero: string; name: string; index: number; eager: boolean }) {
   const [loaded, setLoaded] = useState({ drawing: false, hero: false });
   const [drawingFailed, setDrawingFailed] = useState(false);
   const drawingRef = useRef<HTMLImageElement>(null);
@@ -236,7 +326,9 @@ function TileFade({ drawing, hero, name, index }: { drawing: string; hero: strin
   const done = (k: 'drawing' | 'hero') => setLoaded((l) => (l[k] ? l : { ...l, [k]: true }));
 
   // An image already in the cache can finish before React attaches onLoad.
-  useEffect(() => {
+  // Checked before the first paint, so a gallery coming back shows its
+  // pictures (and joins the wave) in its very first frame.
+  useLayoutEffect(() => {
     if (drawingRef.current?.complete && drawingRef.current.naturalWidth) done('drawing');
     if (heroRef.current?.complete && heroRef.current.naturalWidth) done('hero');
   }, []);
@@ -249,10 +341,10 @@ function TileFade({ drawing, hero, name, index }: { drawing: string; hero: strin
     <span className={`tb-tile-fade${loaded.drawing && !drawingFailed ? ' tb-tile-fade--drawn' : ''}${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: delay }}>
       <span className="tb-tile-drawing" aria-hidden="true">
         {!drawingFailed && (
-          <img ref={drawingRef} src={drawing} alt="" loading="lazy" decoding="async" onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />
+          <img ref={drawingRef} src={drawing} alt="" {...imgLoading(eager, true)} onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />
         )}
       </span>
-      <img ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} loading="lazy" decoding="async" onLoad={() => done('hero')} />
+      <img ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
     </span>
   );
 }

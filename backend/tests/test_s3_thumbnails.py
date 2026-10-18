@@ -4,7 +4,12 @@ Gallery thumbnails on S3 storage.
 Staging and production store files in S3. A thumb_<name> request used to
 redirect to the full-size original (~1.5 MB per gallery tile). It must instead
 generate a bounded thumbnail once, store it in S3 next to the original, and
-redirect to that from then on.
+serve that from then on.
+
+It is served as bytes, in one hop: a redirect to S3 cost every gallery tile a
+second round trip, to a presigned URL that changes hourly and that S3 sends as
+`no-cache`, so nothing stayed cached. With ?v=<version> the URL names one
+version of the file and is cacheable for a year.
 """
 import io
 
@@ -69,7 +74,9 @@ class FakeS3Storage(StorageBackend):
 def s3(monkeypatch):
     fake = FakeS3Storage()
     monkeypatch.setattr(files_api, "get_storage", lambda: fake)
-    return fake
+    files_api._thumb_memory.clear()
+    yield fake
+    files_api._thumb_memory.clear()
 
 
 @pytest.fixture
@@ -104,11 +111,12 @@ def test_first_request_generates_and_stores_a_thumbnail(s3, client):
 
     r = client.get(f"/api/files/{USER}/{CREATION}/thumb_original.jpg")
 
-    assert r.status_code == 302
-    assert r.headers["location"].startswith(f"https://bucket.example/{USER}/{CREATION}/thumb_original.jpg")
+    assert r.status_code == 200, "the bytes themselves, no second hop to S3"
+    assert r.headers["content-type"] == "image/jpeg"
     img, content_type, _ = s3.thumb("thumb_original.jpg")
     assert img.format == "JPEG" and content_type == "image/jpeg"
     assert max(img.size) == max(files_api.THUMBNAIL_SIZE)
+    assert r.content == s3.objects[f"{USER}/{CREATION}/thumb_original.jpg"][0]
 
 
 def test_second_request_reuses_the_stored_thumbnail(s3, client):
@@ -120,9 +128,10 @@ def test_second_request_reuses_the_stored_thumbnail(s3, client):
     s3.uploads.clear()
     second = client.get(url)
 
-    assert first.status_code == second.status_code == 302
-    assert second.headers["location"] == first.headers["location"]
-    assert s3.downloads == [], "a cached thumbnail must not download the original again"
+    assert first.status_code == second.status_code == 200
+    assert second.content == first.content
+    assert second.headers["content-type"] == "image/webp"
+    assert s3.downloads == ["thumb_rendered.png"], "a cached thumbnail must not download the original again"
     assert s3.uploads == [], "a cached thumbnail must not be regenerated"
 
 
@@ -163,6 +172,70 @@ def test_unreadable_original_falls_back_to_the_original(s3, client):
     assert r.status_code == 302
     assert "/rendered.png?" in r.headers["location"]
     assert not s3.file_exists(USER, CREATION, "thumb_rendered.png")
+
+
+def test_unversioned_thumbnail_is_revalidated_with_an_etag(s3, client):
+    s3.upload_file(USER, CREATION, "original.jpg", _encode(_noisy("RGB"), "JPEG"))
+    url = f"/api/files/{USER}/{CREATION}/thumb_original.jpg"
+
+    r = client.get(url)
+
+    assert r.headers["cache-control"] == "no-cache"
+    etag = r.headers["etag"]
+    again = client.get(url, headers={"If-None-Match": etag})
+    assert again.status_code == 304 and again.content == b""
+
+
+def test_versioned_thumbnail_is_cacheable_for_a_year(s3, client):
+    s3.upload_file(USER, CREATION, "original.jpg", _encode(_noisy("RGB"), "JPEG"))
+
+    r = client.get(f"/api/files/{USER}/{CREATION}/thumb_original.jpg?v=18f2a")
+
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert r.headers["etag"]
+
+
+def test_versioned_thumbnail_is_served_from_memory_after_the_first_request(s3, client):
+    s3.upload_file(USER, CREATION, "original.jpg", _encode(_noisy("RGB"), "JPEG"))
+    url = f"/api/files/{USER}/{CREATION}/thumb_original.jpg?v=1"
+    first = client.get(url)
+    s3.downloads.clear()
+
+    second = client.get(url)
+
+    assert second.content == first.content
+    assert s3.downloads == [], "a warm gallery must not touch S3"
+
+
+def test_a_new_version_is_read_afresh(s3, client):
+    """Re-running a step replaces the original and drops the stored thumbnail;
+    the hero's new file_versions give the new picture a URL nothing has cached."""
+    s3.upload_file(USER, CREATION, "rendered.png", _encode(_noisy("RGB"), "PNG"))
+    old = client.get(f"/api/files/{USER}/{CREATION}/thumb_rendered.png?v=1").content
+
+    new_render = _encode(Image.new("RGB", (600, 600), "red"), "PNG")
+    s3.upload_file(USER, CREATION, "rendered.png", new_render)
+    s3.delete_file(USER, CREATION, "thumb_rendered.png")  # what upload_file does on S3
+    new = client.get(f"/api/files/{USER}/{CREATION}/thumb_rendered.png?v=2").content
+
+    assert new != old
+    red, green, _ = Image.open(io.BytesIO(new)).convert("RGB").getpixel((10, 10))
+    assert red > 240 and green < 15, "the new render, not the old one"
+
+
+def test_memory_is_bounded_by_bytes():
+    memory = files_api._ThumbMemory(max_bytes=10)
+    memory.put(("a",), (b"12345", "image/jpeg", '"a"'))
+    memory.put(("b",), (b"12345", "image/jpeg", '"b"'))
+    memory.get(("a",))  # a is now the most recently used
+    memory.put(("c",), (b"123", "image/jpeg", '"c"'))
+
+    assert memory.get(("b",)) is None, "the least recently used goes first"
+    assert memory.get(("a",)) and memory.get(("c",))
+    assert memory.size == 8
+    memory.put(("huge",), (b"x" * 11, "image/jpeg", '"h"'))
+    assert memory.get(("huge",)) is None
 
 
 def test_non_thumbnail_requests_still_redirect_to_the_file(s3, client):
@@ -247,3 +320,27 @@ def test_local_thumbnail_is_served_with_its_real_content_type(tmp_path, monkeypa
     assert r.status_code == 200
     assert r.headers["content-type"] == "image/webp"
     assert Image.open(io.BytesIO(r.content)).getpixel((0, 0))[3] == 0
+
+
+def test_file_versions_change_when_a_step_runs_again():
+    """The version the client puts in a thumbnail URL comes from the hero."""
+    from datetime import datetime
+    from types import SimpleNamespace
+    from app.schemas.creation import file_versions
+
+    def hero(render_done):
+        steps = [SimpleNamespace(step_name="image_processing", status="completed",
+                                 completed_at=datetime(2026, 1, 1, 10, 0, 1)),
+                 SimpleNamespace(step_name="openai_render",
+                                 status="completed" if render_done else "processing",
+                                 completed_at=render_done)]
+        return SimpleNamespace(created_at=datetime(2026, 1, 1, 10, 0, 0), steps=steps)
+
+    first = file_versions(hero(datetime(2026, 1, 1, 10, 1, 0)))
+    again = file_versions(hero(datetime(2026, 1, 2, 9, 0, 0)))
+    running = file_versions(hero(None))
+
+    assert set(first) == {"original.jpg", "processed.jpg", "rendered.png"}
+    assert first["original.jpg"] == again["original.jpg"]
+    assert first["rendered.png"] != again["rendered.png"]
+    assert "rendered.png" not in running, "a step still running has no version yet"

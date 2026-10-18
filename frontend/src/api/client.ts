@@ -48,6 +48,8 @@ export interface CreationResponse {
   featured?: boolean;
   /** Made in a class, not yet kept by a parent: private, never featured. */
   in_class?: boolean;
+  /** File name -> a token that changes whenever that file does (see heroFileUrl). */
+  file_versions?: Record<string, string>;
 }
 
 /** A look the painting can be made in. The first one is the default. */
@@ -286,6 +288,20 @@ export const api = {
     const user_id = userId || 'debug-user-uuid';
     const url = `${API_BASE_URL}/api/files/${user_id}/${creationId}/${filename}`;
     return url;
+  },
+
+  /**
+   * URL of one of a hero's files, carrying the file's version when the hero
+   * has one for it. A versioned thumbnail (thumb_*) is served as its bytes and
+   * cached by the browser for a year: re-running a step changes the version,
+   * hence the URL. Use this for every thumbnail, so the gallery, the hero
+   * page and the polaroid all share one cached copy.
+   */
+  heroFileUrl(creation: Pick<CreationResponse, 'id' | 'user_id' | 'file_versions'>, filename: string): string {
+    const url = api.getFileUrl(creation.id, filename, creation.user_id);
+    if (!filename.startsWith('thumb_')) return url;
+    const version = creation.file_versions?.[filename.slice('thumb_'.length)];
+    return version ? `${url}?v=${encodeURIComponent(version)}` : url;
   },
 
   /**
