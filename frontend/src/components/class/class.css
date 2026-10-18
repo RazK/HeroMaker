@@ -205,7 +205,7 @@
   text-align: center;
 }
 @media (min-width: 900px) { .cls-join-card { position: sticky; top: 0; } }
-.cls-join-url { font-family: var(--tb-font-display); font-size: 24px; line-height: 28px; overflow-wrap: anywhere; }
+.cls-join-url { font-family: var(--tb-font-display); font-size: clamp(19px, 6vw, 24px); line-height: 1.2; overflow-wrap: anywhere; }
 .cls-join-url span { color: var(--tb-grape-text); }
 .cls-qr-frame { padding: 10px; border-radius: 22px; background: var(--tb-plate-1); }
 .cls-qr { display: block; border-radius: 12px; }
@@ -216,10 +216,14 @@
 
 /* ---------- PIN ---------- */
 
-.cls-pin { display: flex; justify-content: center; gap: 8px; direction: ltr; }
+/* Six boxes and a gap never fit a phone at full size (the teacher's join card
+   has ~280px, the student's screen ~328px), so every box shrinks to fit with
+   air on both sides and never grows past its full size. */
+.cls-pin { display: flex; justify-content: center; gap: 8px; direction: ltr; width: 100%; padding-inline: 8px; box-sizing: border-box; }
 .cls-pin-box {
-  width: 48px;
-  height: 64px;
+  flex: 0 1 48px;
+  min-width: 0;
+  aspect-ratio: 48 / 64;
   border-radius: 16px;
   background: var(--tb-white);
   border: 2.5px solid var(--tb-line);
@@ -227,15 +231,15 @@
   align-items: center;
   justify-content: center;
   font-family: var(--tb-font-display);
-  font-size: 40px;
+  font-size: clamp(24px, 9vw, 40px);
   color: var(--tb-ink);
   font-variant-numeric: tabular-nums;
 }
 .cls-pin-box--on { border-color: var(--tb-ink); box-shadow: 0 4px 0 var(--tb-ink); }
 .cls-pin-box--gap { margin-inline-end: 10px; }
 .cls-pin--lg { gap: 6px; }
-.cls-pin--lg .cls-pin-box { width: 46px; height: 64px; font-size: 42px; }
-@media (min-width: 900px) { .cls-pin--lg .cls-pin-box { width: 54px; height: 78px; font-size: 54px; } }
+.cls-pin--lg .cls-pin-box { flex-basis: 46px; aspect-ratio: 46 / 64; font-size: clamp(24px, 8.5vw, 42px); }
+@media (min-width: 900px) { .cls-pin--lg .cls-pin-box { flex-basis: 54px; aspect-ratio: 54 / 78; font-size: 54px; } }
 
 /* ---------- The student ---------- */
 
@@ -319,7 +323,7 @@
   .cls-kid-title { font-size: 28px; line-height: 32px; }
   .cls-keypad { gap: 8px; max-width: 300px; }
   .cls-key { height: 50px; font-size: 26px; border-radius: 16px; }
-  .cls-pin--md .cls-pin-box { width: 40px; height: 54px; font-size: 32px; }
+  .cls-pin--md .cls-pin-box { flex-basis: 40px; aspect-ratio: 40 / 54; font-size: clamp(22px, 8vw, 32px); }
   .cls-pin-error { min-height: 0; }
   .cls-form { gap: 14px; }
   .cls-name-input { height: 56px; }
