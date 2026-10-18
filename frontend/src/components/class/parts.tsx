@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import qrcode from 'qrcode-generator';
 import { ApiError } from '../../api/client';
 import { HeroSummary, SeatsCheckout, Student, dollars, heroFile } from '../../api/classes';
@@ -7,8 +7,15 @@ import { Icon } from '../tb/Icon';
 import { Dialog } from '../tb/parts';
 import './class.css';
 
-/** A QR code as crisp SVG: ink on white, a quiet zone of four modules. */
-export function Qr({ text, size = 220, label }: { text: string; size?: number; label: string }) {
+/**
+ * A QR code as crisp SVG: ink on white, a quiet zone of four modules.
+ *
+ * With `fit` (its largest size in px) it is as big as its box allows instead,
+ * on its plate (`.cls-qr-frame`). The size snaps to a whole number of DEVICE
+ * pixels per module, so every module is the same size and nothing is
+ * resampled: sharp edges from across a room.
+ */
+export function Qr({ text, size = 220, label, fit }: { text: string; size?: number; label: string; fit?: number }) {
   const svg = useMemo(() => {
     const qr = qrcode(0, 'M');
     qr.addData(text);
@@ -19,12 +26,44 @@ export function Qr({ text, size = 220, label }: { text: string; size?: number; l
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + q} ${r + q}h1v1h-1z`;
     return { d, view: n + q * 2 };
   }, [text]);
-  return (
-    <svg className="cls-qr" width={size} height={size} viewBox={`0 0 ${svg.view} ${svg.view}`} role="img" aria-label={label} shapeRendering="crispEdges">
+  const box = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const [fitted, setFitted] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!fit || !el) return;
+    const measure = () => {
+      const f = frame.current ? getComputedStyle(frame.current) : null;
+      const plate = f ? parseFloat(f.paddingLeft) + parseFloat(f.paddingRight) : 0;
+      // The layout says what bounds the box (class.css, --qr-bound). Only a
+      // side the layout sets can be read: a side the QR itself sizes would
+      // only ever measure the QR back, and it could never grow.
+      const s = getComputedStyle(el);
+      const bound = s.getPropertyValue('--qr-bound').trim() || 'width';
+      const maxW = parseFloat(s.maxWidth) || Infinity;
+      const w = bound === 'height' ? maxW : el.clientWidth;
+      const h = bound === 'width' ? Infinity : el.clientHeight;
+      const room = Math.min(w, h, fit) - plate;
+      const dpr = window.devicePixelRatio || 1;
+      const perModule = Math.max(1, Math.floor((room * dpr) / svg.view));
+      setFitted((perModule * svg.view) / dpr);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    // Dragged from the laptop's screen to the projector: a new pixel ratio.
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [fit, svg.view]);
+  const px = fit ? fitted : size;
+  const image = (
+    <svg className="cls-qr" width={px} height={px} viewBox={`0 0 ${svg.view} ${svg.view}`} role="img" aria-label={label} shapeRendering="crispEdges">
       <rect width={svg.view} height={svg.view} fill="#fff" />
       <path d={svg.d} fill="var(--tb-ink)" />
     </svg>
   );
+  if (!fit) return image;
+  return <div ref={box} className="cls-qr-fit"><div ref={frame} className="cls-qr-frame">{image}</div></div>;
 }
 
 /** The class code, one big digit per box: what a child copies off the board. */

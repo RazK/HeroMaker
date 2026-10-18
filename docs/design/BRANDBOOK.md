@@ -29,7 +29,7 @@ One theme. No dark mode.
 | `--tb-green` | `#15997A` | Done |
 | `--tb-red` | `#C62828` | Danger, failure |
 | `--tb-plate-1..6` | `#E9E3FF` `#FFE9A8` `#CFF5EA` `#FFDCC7` `#D6ECFF` `#FFD6E7` | Plates heroes stand on; gallery tiles cycle 1 to 6 |
-| `--tb-font-display` | Barriecito 400 (Fredoka fallback, and for Hebrew) | The wordmark, names, titles, buttons, numbers. One weight only: `font-synthesis: none`, never fake bold |
+| `--tb-font-display` | Barriecito 400 (Fredoka fallback, and for Hebrew) | The wordmark, names, titles, buttons, numbers (never ones people copy, below). One weight only: `font-synthesis: none`, never fake bold |
 | `--tb-font-body` | Nunito 600/700/800 | Text. Never weight 400 |
 | `--tb-space` | `16px` | THE visible gap, everywhere |
 | `--tb-gutter` | `20px` | Side margins |
@@ -37,6 +37,8 @@ One theme. No dark mode.
 | `--tb-depth` / `--tb-depth-sm` | `6px` / `4px` | Primary / secondary button depth |
 | `--tb-btn-h` / `--tb-btn-sm-h` | `58px` / `48px` | Button heights; 48 is also the nav button and the credits pill — everything in a header is 48 tall with `--tb-depth-sm` depth |
 | `--tb-radius-card` / `--tb-radius-input` | `28px` / `18px` | Cards, tiles, sheets / inputs, notices |
+
+Text people must copy exactly (addresses, codes) is never Barriecito: its letters and digits come out unevenly bold and thin. Set it in Nunito 800 (`--tb-font-body`), whose figures are all one width (the class code, the join address, the code keypad).
 
 Contrast: ink on cream 15.2, ink-2 on cream 6.5, grape-text on white 7.5, white on grape 6.1, ink on sun 10.1, red on white 5.6.
 
