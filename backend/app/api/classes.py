@@ -52,6 +52,14 @@ def _refusals():
 class CreateClassRequest(BaseModel):
     title: str
     seats: int
+    ages: Optional[str] = None
+
+
+class SchoolRequest(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
 
 
 class SeatsRequest(BaseModel):
@@ -61,6 +69,7 @@ class SeatsRequest(BaseModel):
 class BuySeatsRequest(BaseModel):
     seats: int
     title: Optional[str] = None
+    ages: Optional[str] = None
     redirect_url: Optional[str] = None
 
 
@@ -77,7 +86,20 @@ class ExtendRequest(BaseModel):
 def list_classes(db: Session = Depends(get_db), user: User = Depends(get_current_user_required)):
     rows = db.query(ClassRoom).filter(ClassRoom.owner_id == user.id).order_by(ClassRoom.created_at.desc()).all()
     return {"classes": [classes.class_view(db, c) for c in rows], "hero_cost": classes.hero_cost(),
-            "seat_price": seat_price()}
+            "school": classes.school_view(user), "seat_price": seat_price()}
+
+
+@teacher_router.get("/school")
+def get_school(user: User = Depends(get_current_user_required)):
+    return {"school": classes.school_view(user)}
+
+
+@teacher_router.put("/school")
+def put_school(body: SchoolRequest, db: Session = Depends(get_db),
+               user: User = Depends(get_current_user_required)):
+    """The teacher's school: name and type required, city and country not."""
+    with _refusals():
+        return {"school": classes.set_school(db, user, body.name, body.type, body.city, body.country)}
 
 
 def seat_price() -> Optional[dict]:
@@ -131,7 +153,7 @@ def buy_new_class(body: BuySeatsRequest, db: Session = Depends(get_db),
     if seat_price() is None:
         raise HTTPException(status_code=503, detail="Payments are unavailable right now.")
     with _refusals():
-        classroom = classes.create_class_to_buy(db, user, body.title or "", body.seats)
+        classroom = classes.create_class_to_buy(db, user, body.title or "", body.seats, body.ages)
     try:
         return _open_seats_checkout(db, user, classroom, body.seats, body.redirect_url)
     except HTTPException:
@@ -143,7 +165,7 @@ def buy_new_class(body: BuySeatsRequest, db: Session = Depends(get_db),
 def create_class(body: CreateClassRequest, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user_required)):
     with _refusals():
-        classroom = classes.create_class(db, user, body.title, body.seats)
+        classroom = classes.create_class(db, user, body.title, body.seats, body.ages)
     return classes.class_view(db, classroom, with_roster=True)
 
 

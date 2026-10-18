@@ -47,9 +47,24 @@ export interface LiveSession {
   approve_first: boolean;
 }
 
+export type SchoolType = 'kindergarten' | 'primary' | 'after_school' | 'other';
+
+/** A teacher's school, asked once before the first class. */
+export interface School {
+  name: string;
+  type: SchoolType;
+  city: string | null;
+  country: string | null;
+}
+
+/** The children's ages, picked on the class sheet (backend AGE_BANDS). */
+export const AGE_BANDS = ['3-4', '5-6', '7-8', '9-10', '11+'] as const;
+export const agesLabel = (ages: string) => `Ages ${ages.replace('-', '–')}`;
+
 export interface ClassView {
   id: string;
   title: string;
+  ages: string | null;
   seats: number;
   seats_used: number;
   seats_left: number;
@@ -117,13 +132,16 @@ const json = (body: unknown): RequestInit => ({
 });
 
 export const teacherApi = {
-  list: () => fetchJson<{ classes: ClassView[]; hero_cost: number; seat_price: SeatPrice | null }>(`${BASE}/api/classes`),
+  list: () => fetchJson<{ classes: ClassView[]; hero_cost: number; school: School | null; seat_price: SeatPrice | null }>(`${BASE}/api/classes`),
+  saveSchool: (school: { name: string; type: SchoolType; city: string; country: string }) =>
+    fetchJson<{ school: School }>(`${BASE}/api/classes/school`, { ...json(school), method: 'PUT' }),
   get: (id: string) => fetchJson<ClassView>(`${BASE}/api/classes/${id}`),
-  create: (title: string, seats: number) => fetchJson<ClassView>(`${BASE}/api/classes`, json({ title, seats })),
+  create: (title: string, seats: number, ages: string | null = null) =>
+    fetchJson<ClassView>(`${BASE}/api/classes`, json({ title, seats, ages })),
   addSeats: (id: string, seats: number) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/seats`, json({ seats })),
   /** A checkout at the class price; the webhook adds the seats when paid. */
-  buyNew: (title: string, seats: number) =>
-    fetchJson<SeatsCheckout>(`${BASE}/api/classes/buy`, json({ title, seats, redirect_url: seatsReturnUrl() })),
+  buyNew: (title: string, seats: number, ages: string | null = null) =>
+    fetchJson<SeatsCheckout>(`${BASE}/api/classes/buy`, json({ title, seats, ages, redirect_url: seatsReturnUrl() })),
   buySeats: (id: string, seats: number) =>
     fetchJson<SeatsCheckout>(`${BASE}/api/classes/${id}/buy`, json({ seats, redirect_url: seatsReturnUrl() })),
   start: (id: string, minutes: number, approveFirst: boolean) =>

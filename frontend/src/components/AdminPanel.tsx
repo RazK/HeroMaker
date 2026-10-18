@@ -3,6 +3,7 @@ import { Icon, IconName } from './tb/Icon';
 import { MoneySection } from './admin/MoneySection';
 import { CouponsSection } from './admin/CouponsSection';
 import { UsersSection } from './admin/UsersSection';
+import { SchoolsSection } from './admin/SchoolsSection';
 import './admin/admin.css';
 
 interface AdminPanelProps {
@@ -10,12 +11,13 @@ interface AdminPanelProps {
   currentUserId: string;
 }
 
-type Section = 'money' | 'coupons' | 'users';
+type Section = 'money' | 'coupons' | 'users' | 'schools';
 
 const SECTIONS: { id: Section; label: string; icon: IconName }[] = [
   { id: 'money', label: 'Money', icon: 'wallet' },
   { id: 'coupons', label: 'Coupons', icon: 'ticket' },
   { id: 'users', label: 'Users', icon: 'user' },
+  { id: 'schools', label: 'Schools', icon: 'school' },
 ];
 
 const KEY = 'heromaker.admin.section';
@@ -23,14 +25,15 @@ const KEY = 'heromaker.admin.section';
 function initialSection(): Section {
   try {
     const saved = localStorage.getItem(KEY);
-    if (saved === 'money' || saved === 'coupons' || saved === 'users') return saved;
+    if (saved === 'money' || saved === 'coupons' || saved === 'users' || saved === 'schools') return saved;
   } catch { /* private mode: default */ }
   return 'money';
 }
 
 /**
  * The admin console: Money (is the company net positive, what is left at each
- * provider, what is due), Coupons (give people credits) and Users. Rendered
+ * provider, what is due), Coupons (give people credits), Users, and Schools
+ * (teachers: where, what kind, classes, seats bought, heroes made). Rendered
  * under App's "Admin" header; this owns everything below it.
  */
 export function AdminPanel({ currentUserId }: AdminPanelProps) {
@@ -60,6 +63,7 @@ export function AdminPanel({ currentUserId }: AdminPanelProps) {
       {section === 'money' && <MoneySection />}
       {section === 'coupons' && <CouponsSection />}
       {section === 'users' && <UsersSection currentUserId={currentUserId} />}
+      {section === 'schools' && <SchoolsSection />}
     </div>
   );
 }

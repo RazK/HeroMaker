@@ -52,6 +52,21 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+# ============ Schools ============
+
+@router.get("/schools")
+def list_schools(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    """Teachers and their schools: where, what kind, and what they did with
+    us (classes, seats bought, heroes made). Busiest first."""
+    from app.services.classes import schools_report
+
+    rows = schools_report(db)
+    for r in rows:
+        r["last_class_at"] = r["last_class_at"].isoformat() if r["last_class_at"] else None
+        r["teacher_since"] = r["teacher_since"].isoformat() if r["teacher_since"] else None
+    return {"teachers": rows}
+
+
 # ============ User Endpoints ============
 
 @router.get("/users", response_model=List[AdminUserResponse])

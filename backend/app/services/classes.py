@@ -44,7 +44,7 @@ from sqlalchemy.orm import Session
 from app.config.packs import CLASS_MAX_SEATS, creation_credit_price
 from app.config.settings import get_jwt_secret_key
 from app.config.steps import get_all_step_names
-from app.models import ClassGuest, ClassRoom, ClassSession, Creation, User
+from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreationStep, User
 from app.services import ledger
 from app.utils.storage import OPT_PREFIX, THUMB_PREFIX, get_storage
 
@@ -121,6 +121,102 @@ def clean_age(raw) -> Optional[int]:
     if not 3 <= age <= 14:
         raise ClassError(400, "Age is from 3 to 14", "age_range")
     return age
+
+
+# ---------------------------------------------------------------------------
+# The teacher's school, and a class's ages: asked once, short, mostly taps
+# ---------------------------------------------------------------------------
+
+SCHOOL_TYPES = ("kindergarten", "primary", "after_school", "other")
+AGE_BANDS = ("3-4", "5-6", "7-8", "9-10", "11+")
+
+
+def _short_text(raw: Optional[str], limit: int) -> Optional[str]:
+    text = " ".join((raw or "").split())[:limit].strip()
+    return text or None
+
+
+def school_view(user: User) -> Optional[dict]:
+    """The teacher's school, or None if they have not told us yet."""
+    if not user.school_name:
+        return None
+    return {"name": user.school_name, "city": user.school_city, "country": user.school_country,
+            "type": user.school_type}
+
+
+def set_school(db: Session, user: User, name: Optional[str], kind: Optional[str],
+               city: Optional[str] = None, country: Optional[str] = None) -> dict:
+    """Store the teacher's school. Only the name and the type are required."""
+    school_name = _short_text(name, 80)
+    if not school_name:
+        raise ClassError(400, "Type the school's name", "school_name")
+    if kind not in SCHOOL_TYPES:
+        raise ClassError(400, "Pick what kind of place it is", "school_type")
+    user.school_name = school_name
+    user.school_type = kind
+    user.school_city = _short_text(city, 60)
+    user.school_country = _short_text(country, 60)
+    if not user.is_teacher:
+        user.is_teacher = True
+    db.commit()
+    funnel("school_set", teacher=user.id, type=kind, has_city=bool(user.school_city),
+           country=user.school_country)
+    return school_view(user)
+
+
+def clean_ages(raw: Optional[str]) -> Optional[str]:
+    if raw in (None, ""):
+        return None
+    if raw not in AGE_BANDS:
+        raise ClassError(400, "Pick the children's ages", "ages")
+    return raw
+
+
+def schools_report(db: Session) -> List[dict]:
+    """Every teacher with what they have done: the admin console's Schools list.
+
+    A teacher is anyone who said so or who has a class. Seats bought counts
+    every seat put on their classes; heroes made counts the class heroes that
+    finished, whoever keeps them now.
+    """
+    from sqlalchemy import func, or_
+
+    # Finished = its last pipeline step completed (Creation.status is computed
+    # in Python from the steps, so this asks the steps table directly).
+    last_step = get_all_step_names()[-1]
+    per_class = dict(
+        db.query(ClassGuest.class_id, func.count(ClassGuest.id))
+        .join(Creation, Creation.id == ClassGuest.creation_id)
+        .join(CreationStep, and_(CreationStep.creation_id == Creation.id, CreationStep.step_name == last_step))
+        .filter(CreationStep.status == "completed", Creation.deleted_at.is_(None))
+        .group_by(ClassGuest.class_id).all()
+    )
+    rooms: Dict[str, List[ClassRoom]] = defaultdict(list)
+    for room in db.query(ClassRoom).all():
+        rooms[room.owner_id].append(room)
+    teachers = (
+        db.query(User)
+        .filter(User.deleted_at.is_(None), User.kind != WALLET_KIND,
+                or_(User.is_teacher.is_(True), User.id.in_(list(rooms) or [""])))
+        .all()
+    )
+    out = []
+    for t in teachers:
+        mine = rooms.get(t.id, [])
+        out.append({
+            "user_id": t.id,
+            "username": t.username,
+            "email": t.email,
+            "name": t.name,
+            "school": school_view(t),
+            "classes": len(mine),
+            "seats_bought": sum(r.seats for r in mine),
+            "heroes_made": sum(per_class.get(r.id, 0) for r in mine),
+            "last_class_at": max((r.created_at for r in mine), default=None),
+            "teacher_since": t.created_at,
+        })
+    out.sort(key=lambda r: (r["heroes_made"], r["seats_bought"], r["classes"]), reverse=True)
+    return out
 
 
 def clean_title(raw: Optional[str]) -> str:
@@ -221,12 +317,13 @@ def check_seats(seats, already: int = 0) -> int:
     return seats
 
 
-def create_class(db: Session, teacher: User, title: str, seats: int) -> ClassRoom:
+def create_class(db: Session, teacher: User, title: str, seats: int, ages: Optional[str] = None) -> ClassRoom:
     """A class with `seats` paid for now, from the teacher's credits."""
     title = clean_title(title)
+    ages = clean_ages(ages)
     seats = check_seats(seats)
     need = _need_credits(db, teacher, seats)
-    classroom = _new_class(db, teacher, title)
+    classroom = _new_class(db, teacher, title, ages)
     try:
         _transfer(db, teacher.id, classroom.wallet_user_id, need, classroom.id, f"{seats} seats")
     except ledger.InsufficientCreditsError:
@@ -238,13 +335,15 @@ def create_class(db: Session, teacher: User, title: str, seats: int) -> ClassRoo
     return classroom
 
 
-def create_class_to_buy(db: Session, teacher: User, title: str, seats: int) -> ClassRoom:
+def create_class_to_buy(db: Session, teacher: User, title: str, seats: int,
+                        ages: Optional[str] = None) -> ClassRoom:
     """A class with no seats yet, for a teacher about to pay for them at the
     class price (Lemon Squeezy). The webhook adds the seats when the money
     arrives; until then the class is there with nothing to start."""
     title = clean_title(title)
+    ages = clean_ages(ages)
     check_seats(seats)
-    classroom = _new_class(db, teacher, title)
+    classroom = _new_class(db, teacher, title, ages)
     funnel("class_created", class_id=classroom.id, teacher=teacher.id, seats=0, credits=0, paying=int(seats))
     return classroom
 
@@ -261,7 +360,7 @@ def discard_unpaid_class(db: Session, classroom: ClassRoom) -> None:
     db.commit()
 
 
-def _new_class(db: Session, teacher: User, title: str) -> ClassRoom:
+def _new_class(db: Session, teacher: User, title: str, ages: Optional[str] = None) -> ClassRoom:
     """The class row and its wallet, with no seats on it."""
     wallet = User(
         username=f"class-wallet-{uuid.uuid4().hex[:16]}", email=None, name=title,
@@ -269,7 +368,8 @@ def _new_class(db: Session, teacher: User, title: str) -> ClassRoom:
     )
     db.add(wallet)
     db.flush()
-    classroom = ClassRoom(owner_id=teacher.id, wallet_user_id=wallet.id, title=title, seats=0, seats_used=0)
+    classroom = ClassRoom(owner_id=teacher.id, wallet_user_id=wallet.id, title=title, seats=0, seats_used=0,
+                          ages=ages)
     db.add(classroom)
     if not teacher.is_teacher:
         teacher.is_teacher = True
@@ -833,6 +933,7 @@ def class_view(db: Session, classroom: ClassRoom, now: Optional[datetime] = None
     view = {
         "id": classroom.id,
         "title": classroom.title,
+        "ages": classroom.ages,
         "seats": classroom.seats,
         "seats_used": classroom.seats_used,
         "seats_left": max(0, classroom.seats - classroom.seats_used),
