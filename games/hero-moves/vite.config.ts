@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => ({
           input: { main: 'index.html', moveslab: 'moveslab.html', dancers: 'dancers.html', thumbs: 'thumbs.html',
                    posecheck: 'posecheck.html', animlab: 'animlab.html',
                    posegate: 'posegate.html', reel: 'reel.html', backdrops: 'backdrops.html',
+                   // Robot Rumble, the camera-free arena game (src/arena/).
+                   arena: 'arena.html',
                    // Not a page: the HeroMaker app imports it at run time from
                    // /play/herostage.js (see src/herostage.ts), so it keeps a
                    // fixed name and its exports, and shares three.js and the

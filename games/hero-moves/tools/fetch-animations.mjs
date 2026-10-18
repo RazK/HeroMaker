@@ -41,11 +41,17 @@ const PACKS = [
       // A superhero deck from the same CC0 library: the three-point landing
       // and the flying pose are the two motions this asset was drawn for.
       'Land_Three_Point', 'Flying Forward Super', 'Victory Fist Pump',
+      // Robot Rumble (arena.html): a fighter's stance, a two-hand jab combo,
+      // an anime run, a jump with a crouch in it and the ground pound.
+      'Fighting Idle', 'Fighting Left Jab', 'Fighting Right Jab', 'Run_Anime',
+      'Jump_2', 'Attack_Ground_Pound', 'Victory',
     ],
   },
   {
     url: `${CDN}/scottpetrovic/mesh2motion-app@main/static/animations/human-base-animations.glb`,
-    clips: ['Punch_Cross'],
+    clips: ['Punch_Cross',
+      // Robot Rumble: being bumped by a bouncy ball.
+      'Hit_Knockback'],
   },
 ]
 
