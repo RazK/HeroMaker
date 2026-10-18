@@ -212,7 +212,9 @@ function updatePops(dt: number) {
     const y = (-_v.y * 0.5 + 0.5) * size.h
     const grow = p.t < 0.12 ? 0.6 + 0.4 * (p.t / 0.12) * 1.15 : 1
     const fade = p.t > life - 0.25 ? (life - p.t) / 0.25 : 1
-    p.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${grow})`
+    // Kept clear of the stage edges, so a name never runs off the side.
+    const cx = Math.min(Math.max(x, p.el.offsetWidth / 2 + 8), size.w - p.el.offsetWidth / 2 - 8)
+    p.el.style.transform = `translate(${cx}px, ${y}px) translate(-50%, -100%) scale(${grow})`
     p.el.style.opacity = String(fade)
   }
 }
@@ -264,8 +266,8 @@ function finish() {
   app.querySelector('.rr-end-value')!.textContent = game.score.toLocaleString('en-US')
   app.querySelector('.rr-end-eyebrow')!.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
   app.querySelector('.rr-end-best')!.textContent = isBest
-    ? `${game.stats.robots} robots stopped`
-    : `Best ${best.toLocaleString('en-US')} · ${game.stats.robots} robots stopped`
+    ? `${game.stats.robots + game.stats.rivals} bopped`
+    : `Best ${best.toLocaleString('en-US')} · ${game.stats.robots + game.stats.rivals} bopped`
   // A thumb still hammering Punch when time runs out must not land on Back:
   // the card's buttons wake up a moment after it appears.
   // (Inert rather than disabled, so they do not flash grey.)
