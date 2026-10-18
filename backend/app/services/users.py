@@ -9,8 +9,10 @@ from app.services.account_kinds import is_test_account, sql_is_test_account
 
 def live_users(db: Session):
     """Accounts that still exist. A deleted account is an anonymous row kept
-    only for its payments and ledger (see account_deletion), never a user."""
-    return db.query(User).filter(User.deleted_at.is_(None))
+    only for its payments and ledger (see account_deletion), never a user.
+    Nor is a class's wallet (kind "class_wallet", app/services/classes.py):
+    it holds a class's prepaid seats and can never sign in."""
+    return db.query(User).filter(User.deleted_at.is_(None), User.kind == "person")
 
 
 def count_users(db: Session) -> Dict[str, int]:
@@ -75,6 +77,7 @@ def update_user(
     email: Optional[str] = None,
     date_of_birth: Optional[Any] = None,
     password_hash: Optional[str] = None,
+    is_teacher: Optional[bool] = None,
 ) -> Optional[User]:
     """
     Update a user's fields.
@@ -122,6 +125,8 @@ def update_user(
         user.date_of_birth = date_of_birth
     if password_hash is not None:
         user.password_hash = password_hash
+    if is_teacher is not None:
+        user.is_teacher = is_teacher
     
     db.commit()
     db.refresh(user)

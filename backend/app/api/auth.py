@@ -66,6 +66,7 @@ def signup(
         password_hash=hashed_password,
         name=signup_data.name,
         date_of_birth=signup_data.date_of_birth,
+        is_teacher=signup_data.is_teacher,
         credits=0  # New users start with 0 credits
     )
     
@@ -225,6 +226,8 @@ def update_me(
         update_kwargs["date_of_birth"] = update_data.date_of_birth
     if update_data.new_password:
         update_kwargs["password_hash"] = hash_password(update_data.new_password)
+    if update_data.is_teacher is not None:
+        update_kwargs["is_teacher"] = update_data.is_teacher
     
     if update_kwargs:
         updated_user = update_user(user.id, db, **update_kwargs)

@@ -152,7 +152,10 @@ def list_creations(
       never listed to a visitor. A hero's own page (GET /{id}) is unaffected,
       so a shared link keeps working.
     """
-    live = db.query(Creation).filter(Creation.deleted_at.is_(None))
+    # A class hero (made by a student, not yet claimed by a parent) is in no
+    # gallery, not even its paying teacher's: it is on the class roster and on
+    # the child's own page, and nowhere else. docs/product/class-sessions.md.
+    live = db.query(Creation).filter(Creation.deleted_at.is_(None), Creation.class_id.is_(None))
     if mine_only and user:
         creations = live.filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
     elif not featured_only and user is not None and user.is_admin:
@@ -244,35 +247,61 @@ async def create_creation(
     changed, when the pipeline is started.
     """
     style = _checked_style(style)
-    # Create creation record
+    contents = await image_file.read()
+    new_creation = create_with_drawing(
+        db, user.id, contents, character_name=character_name, name=user.name, style=style,
+    )
+    # Return creation response (no pipeline run - frontend will call /run separately)
+    return CreationResponse.from_creation(new_creation)
+
+
+def create_with_drawing(
+        db: Session,
+        owner_id: str,
+        contents: bytes,
+        *,
+        character_name: Optional[str] = None,
+        name: Optional[str] = None,
+        age: Optional[int] = None,
+        style: Optional[str] = None,
+        class_id: Optional[str] = None,
+        is_public: bool = True,
+) -> Creation:
+    """A new hero with its steps and its drawing stored as original.jpg.
+
+    The one way a hero comes into being: POST /create and a class student's
+    hero (app/api/class_sessions.py) both go through here. `owner_id` is who
+    pays for the pipeline and under whose prefix the files are stored.
+    """
     new_creation = Creation(
-        user_id=user.id,
+        user_id=owner_id,
         character_name=character_name,
-        name=user.name,  # Creator's name (default to user's name)
+        name=name,  # Creator's name, shown with the drawing
+        age=age,
         style=style,
+        class_id=class_id,
+        is_public=is_public,
     )
     db.add(new_creation)
     db.commit()
     db.refresh(new_creation)
-    
+
     # Initialize steps
     _initialize_creation_steps(new_creation.id, db)
-    
+
     # Upload image file
     try:
         storage = get_storage()
-        contents = await image_file.read()
-        storage.upload_file(user.id, new_creation.id, "original.jpg", contents)
+        storage.upload_file(owner_id, new_creation.id, "original.jpg", contents)
         logger.info(f"Uploaded image for creation {new_creation.id}")
     except Exception as e:
         logger.error(f"Error uploading image for creation {new_creation.id}: {e}")
         db.delete(new_creation)
         db.commit()
         raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
-    
-    # Return creation response (no pipeline run - frontend will call /run separately)
+
     db.refresh(new_creation)
-    return CreationResponse.from_creation(new_creation)
+    return new_creation
 
 
 # Note: run_creation endpoint removed - sequential pipeline removed
@@ -514,6 +543,35 @@ async def run_pipeline_endpoint(
         if from_step not in step_names:
             raise HTTPException(status_code=400, detail=f"Invalid step name: {from_step}")
     
+    from_label = start_pipeline(
+        creation, db, task_manager,
+        from_step=from_step, mock_creation_id=mock_creation_id, style=style,
+    )
+    return {
+        "message": "Pipeline started",
+        "creation_id": creation_id,
+        "from_step": from_label,
+    }
+
+
+def start_pipeline(
+        creation: Creation,
+        db: Session,
+        task_manager,
+        *,
+        from_step: Optional[str] = None,
+        mock_creation_id: Optional[str] = None,
+        style: Optional[str] = None,
+) -> str:
+    """Start the pipeline for a hero in the background. Returns the first step.
+
+    Used by POST /{id}/run-pipeline and by a class student's hero
+    (app/api/class_sessions.py), so both run the same pipeline.run_pipeline:
+    charged per step to creation.user_id, refunded by execute_step on failure.
+    Callers have checked permissions; `style` is already validated.
+    """
+    creation_id = creation.id
+
     # Already running? The DB alone cannot say: for the moment between this
     # endpoint answering and the first step starting, nothing is "processing".
     # A second tap in that window used to start a second run, and creating its
@@ -542,12 +600,13 @@ async def run_pipeline_endpoint(
 
     # Create a new DB session for the background task
     db_session = SessionLocal()
-    
+    owner_id = creation.user_id
+
     async def run_pipeline_task():
         try:
             await run_pipeline(
-                creation_id, 
-                creation.user_id, 
+                creation_id,
+                owner_id,
                 from_step=from_step,
                 mock_creation_id=mock_creation_id,
                 db=db_session
@@ -556,13 +615,8 @@ async def run_pipeline_endpoint(
             logger.error(f"[{creation_id}] Pipeline task error: {e}", exc_info=True)
         finally:
             db_session.close()
-    
+
     # Create pipeline task (no individual step timeout - each step has its own)
     # Use a long timeout for the entire pipeline (e.g., 2 hours)
     task_manager.create_task(creation_id, PIPELINE_KEY, run_pipeline_task(), timeout=7200)
-    
-    return {
-        "message": "Pipeline started",
-        "creation_id": creation_id,
-        "from_step": from_step or get_all_step_names()[0]
-    }
+    return from_step or get_all_step_names()[0]
