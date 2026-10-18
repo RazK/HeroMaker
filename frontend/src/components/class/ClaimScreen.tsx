@@ -24,8 +24,10 @@ interface Account { email: string }
  * tap, with "Switch account" for a phone someone else is signed in on. Kept,
  * it says where the hero is and how to find it on another device.
  */
-export function ClaimScreen({ token, onSeeHeroes, onOpenHero }: {
+export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
   token: string;
+  /** The logo: the gallery, as from every screen that shows it. */
+  onHome: () => void;
   onSeeHeroes: () => void;
   /** Open the kept hero on its own page, in the parent's account. */
   onOpenHero: (creationId: string) => void;
@@ -120,7 +122,14 @@ export function ClaimScreen({ token, onSeeHeroes, onOpenHero }: {
 
   return (
     <div className="tb-screen tb-screen--fit tb-hero-screen cls-claim" data-state={ready && live ? 'ready' : 'making'}>
-      <Header left={<img src="/logo-head-transparent.png" alt="HeroMaker" width={40} height={40} />} title={view ? heroName : 'HeroMaker'} />
+      <Header
+        left={(
+          <button type="button" className="tb-logo cls-claim-logo" onClick={onHome} aria-label="HeroMaker home">
+            <img src="/logo-head-transparent.png" alt="" width={40} height={40} />
+          </button>
+        )}
+        title={view ? heroName : 'HeroMaker'}
+      />
       {ready && live ? (
         <HeroLive
           key={live.id}

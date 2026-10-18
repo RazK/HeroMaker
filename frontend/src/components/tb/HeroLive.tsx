@@ -24,7 +24,10 @@ const PHASE_ICON: Record<Exclude<Phase, 'live'>, IconName> = { drawing: 'pencil'
 const PHASE_LABEL: Record<Exclude<Phase, 'live'>, string> = { drawing: 'The drawing', painting: 'Painted', sculpt: 'Sculpted in 3D', alive: 'Brought to life' };
 /** How long each phase of the intro holds once it is on screen. */
 const HOLD_MS = 1700;
-/** The intro's stepper: 12px from the top of the stage, 44px tall, 4px clear. */
+/** The intro's stepper: 12px from the top of the stage, 44px tall, 4px clear.
+ *  The hero keeps this margin at the top and the bottom, so it shrinks in place
+ *  on the sun rather than moving down (measured: 10px or more under the strip
+ *  on tall and T-posed heroes, at 360x640). */
 const INTRO_INSET = 60;
 
 // The intro plays the first time a hero is opened on this device. Storage can
@@ -131,7 +134,8 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
     };
   }, [mod, vrm]);
 
-  // The intro's stepper covers the top of the stage: frame the 3D below it.
+  // The intro's stepper covers the top of the stage: shrink the 3D clear of it,
+  // centred where it always is (on the sun), never shifted.
   useEffect(() => { stage.current?.setInsetTop(intro ? INTRO_INSET : 0); }, [intro, mod]);
 
   // What the 3D stage shows follows the phase.

@@ -37,6 +37,12 @@ html { font-synthesis: none; }
   --tb-plate-4: #ffdcc7;
   --tb-plate-5: #d6ecff;
   --tb-plate-6: #ffd6e7;
+  /* Each game owns a colour, so its card reads before its title does: the
+     poster (games/hero-moves/src/poster.ts) and the card footer share it. */
+  --tb-rumble: #ff7a1a;       /* Robot Rumble: tangerine; ink text on it, 6.9:1 */
+  --tb-rumble-deep: #d9480f;  /* its rays and depth */
+  --tb-dance: #d6247f;        /* Dance party: magenta; white text on it, 4.8:1 */
+  --tb-dance-deep: #1e0b3a;   /* its night-club dark */
 
   --tb-font-display: 'Barriecito', 'Fredoka', 'Nunito', system-ui, sans-serif;
   --tb-font-body: 'Nunito', system-ui, sans-serif;
@@ -650,7 +656,10 @@ button, a, [role='button'], [role='tab'] { -webkit-user-select: none; user-selec
 
 /* ---------- Pull to refresh (PullToRefresh) ----------
    A round button-style dot that follows the finger down from under the
-   header; grape once letting go will reload, spinning while it does. */
+   header; grape once letting go will reload, spinning while it does. It
+   works on every screen, so on the few whose page does scroll (admin) the
+   browser's own pull-to-refresh is turned off: one indicator, one reload. */
+html { overscroll-behavior-y: contain; }
 .tb-ptr {
   position: fixed;
   left: 50%;

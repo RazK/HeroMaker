@@ -264,6 +264,10 @@ def test_student_makes_one_hero_paid_by_the_class(db, make_user, api, steps_succ
     # ...but it is on the class's roster.
     roster = client.get(f"/api/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
     assert [(s["label"], s["age"], s["hero"]["state"]) for s in roster] == [("Maya", 7, "ready")]
+    # The class card shows it, with the versions its thumbnails cache by.
+    card = client.get("/api/classes", headers=_auth(teacher)).json()["classes"][0]
+    assert [(p["label"], p["creation_id"]) for p in card["preview"]] == [("Maya", creation.id)]
+    assert card["preview"][0]["file_versions"] == roster[0]["hero"]["file_versions"]
 
 
 def test_a_second_hero_is_refused_kindly(db, make_user, api, steps_succeed):

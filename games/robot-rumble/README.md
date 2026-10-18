@@ -179,12 +179,18 @@ the run without its legs freezing.
 The app's "Pick a game" sheet shows each game behind a poster, not a
 screenshot: key art rendered offline from a real gallery hero — Violet Volt
 (by Maya, 6), the girl from the HeroMaker logo. `poster.html` stages her at the
-best frame of a real clip (Robot Rumble: a flying cross punch with wind-up
-robots tumbling out of it; Dance party: a dance move under two spotlights with
-music notes), a low three-quarter-front camera, a hard warm rim light, brand
-rays and the app's sun behind her, a blurred far layer and a vignette. Both
-share the composition so they read as a set; the card itself carries the
-title in the display face.
+best frame of a real clip, with a low camera, a hard rim light, a blurred far
+layer and a vignette. The two share that craft and nothing else, because the
+first pair (same sun, same rays, near-identical pose) looked like one game:
+
+| | Robot Rumble | Dance party |
+|---|---|---|
+| Colour | `--tb-rumble` tangerine to `--tb-red` rays | `--tb-dance` magenta on `--tb-dance-deep` night |
+| World | comic impact burst, arena ring and ropes, robots marching in | spotlight beams, disco ball, lit LED floor |
+| Pose | `Punch_Cross` t=0.5, side-on, mid-air: a wide diagonal | `Victory` t=0.8: one arm to the sky, knee up, tall |
+
+No sun on either: the sun belongs to the hero page. The card footer takes the
+same token, so the two differ even at thumbnail size.
 
 ```bash
 node tools/make-posters.mjs /path/Violet_Volt.vrm out/ rumble dance

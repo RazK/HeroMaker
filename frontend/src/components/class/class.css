@@ -5,49 +5,114 @@
  * Logical properties only (BRANDBOOK.md, RTL).
  */
 
-/* ---------- The teacher's home: class cards ---------- */
+/* ---------- The gallery's My classes tab: class cards ---------- */
 
-.cls-home-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.cls-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tb-space); }
+.cls-tab { display: flex; flex-direction: column; gap: var(--tb-space); flex-grow: 1; }
+.cls-tab-school { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; }
+.cls-school-link { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cls-school-link svg { flex-shrink: 0; }
+.cls-tab-foot { display: flex; justify-content: center; padding-block: 8px; }
+/* The claim page's logo goes to the gallery, like the app header's. */
+.cls-claim-logo { min-width: 44px; min-height: 44px; justify-content: center; }
+.cls-claim-logo img { width: 40px; height: 40px; }
+/* Quiet: turning teacher mode off is rare, and not the tab's business. */
+.cls-stop-classes { color: var(--tb-ink-2); font-weight: 700; min-height: 44px; }
+
+/* Each card its own height: a live card's Open button does not stretch its row. */
+.cls-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tb-space); align-items: start; }
 @media (min-width: 720px) { .cls-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1100px) { .cls-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 .cls-card {
   display: flex;
   flex-direction: column;
-  padding: 0;
+  padding: 8px;
+  gap: 0;
   border: none;
   border-radius: var(--tb-radius-card);
   background: var(--tb-white);
   box-shadow: var(--tb-shadow-card);
-  overflow: hidden;
   text-align: start;
   font-family: inherit;
   color: var(--tb-ink);
   cursor: pointer;
   transition: transform 120ms ease;
 }
-.cls-card:active { transform: scale(0.98); }
+button.cls-card:active { transform: scale(0.98); }
 .cls-card:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.35); }
-/* The class's heroes standing in a row on one plate. */
+.cls-card--skeleton { height: 196px; background: var(--tb-plate-1); opacity: 0.6; box-shadow: none; cursor: default; }
+
+/* The class's heroes, four small gallery tiles side by side; a seat still to
+   be filled is an empty dashed plate. Same size, so the shelf never jumps. */
 .cls-card-shelf {
-  position: relative;
-  height: 132px;
-  margin: 8px 8px 0;
-  border-radius: 22px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 12px 12px 0;
-  gap: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
-.cls-card-shelf img { flex: 1 1 0; min-width: 0; height: 112px; object-fit: contain; object-position: center bottom; margin-inline: -6px; }
-.cls-card-shelf--empty { align-items: center; color: var(--tb-grape-text); padding: 0; }
-.cls-card-shelf--empty svg { width: 48px; height: 48px; }
-.cls-card-body { display: flex; align-items: center; gap: 12px; padding: 14px 18px 18px; }
+.cls-card-shelf--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 104px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--tb-ink-2);
+}
+.cls-card-shelf-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  color: var(--tb-grape);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (min-width: 720px) { .cls-card-shelf--empty { height: 120px; } }
+.cls-mini {
+  position: relative;
+  height: 104px;
+  border-radius: 20px;
+  overflow: hidden;
+  /* The gallery tile's picture box, smaller (Gallery.css .tb-tile-img). */
+  --tb-tile-pic: 8px;
+}
+.cls-mini .tb-tile-img {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  object-fit: contain;
+  object-position: center bottom;
+}
+.cls-mini .tb-tile-drawing img { padding: 3px; border-radius: 6px; }
+.cls-mini--seat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tb-cream);
+  border: 2px dashed var(--tb-line);
+  color: var(--tb-line);
+}
+.cls-mini--seat svg { width: 32px; height: 32px; }
+@media (min-width: 720px) { .cls-mini { height: 120px; } }
+
+.cls-card-body { display: flex; align-items: center; gap: 12px; padding: 12px 10px 8px; }
 .cls-card-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cls-card-title { font-family: var(--tb-font-display); font-size: 22px; line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cls-card-sub { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }
+.cls-card-go { flex-shrink: 0; color: var(--tb-ink-2); transform: scaleX(-1); }
+[dir='rtl'] .cls-card-go { transform: none; }
+
+/* A class running now: pinned first, ringed in grape ("what is happening
+   now"), the time left on top and one big Open, the screen's grape action. */
+.cls-card--live { cursor: default; box-shadow: 0 0 0 3px var(--tb-grape), var(--tb-shadow-card); }
+.cls-card-live { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 6px 12px; }
+.cls-card-left { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; color: var(--tb-grape-text); font-variant-numeric: tabular-nums; }
+.cls-open-live { margin: 4px 0 calc(var(--tb-depth) + 4px); }
+
 .cls-live {
   flex-shrink: 0;
   display: inline-flex;
@@ -65,8 +130,6 @@
 }
 .cls-live-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--tb-red); animation: cls-blink 1.4s ease-in-out infinite; }
 @keyframes cls-blink { 50% { opacity: 0.25; } }
-.cls-card-go { flex-shrink: 0; color: var(--tb-ink-2); transform: scaleX(-1); }
-[dir='rtl'] .cls-card-go { transform: none; }
 
 /* The empty home: one picture, one title, one line. */
 .cls-empty { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 24px 0; }
