@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, CreationResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
-import { playUrl } from '../../config/play';
+import { arenaUrl, playUrl } from '../../config/play';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, Polaroid, ProgressBar, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
@@ -34,7 +34,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const state = heroState(creation);
   const owns = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'games' | null>(null);
   const [introRequest, setIntroRequest] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,7 +174,7 @@ export function HeroScreen(props: HeroScreenProps) {
         {owns
           ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-share" onClick={share}><Icon name="share" />Share</button>
           : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-make-own" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
-        <a className="tb-btn tb-btn--primary tb-btn--full tb-play" href={playUrl(creation)}><Icon name="camera" />Dance party</a>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('games')}><Icon name="play" />Play</button>
       </>
     );
   } else {
@@ -231,6 +231,25 @@ export function HeroScreen(props: HeroScreenProps) {
       {sheet === 'more' && (
         <Sheet title={name} onClose={() => setSheet(null)}>
           {moreRows}
+        </Sheet>
+      )}
+      {sheet === 'games' && (
+        // Two games, side by side and the same size, each behind its poster
+        // (key art rendered from a gallery hero: games/hero-moves/tools/make-posters.mjs).
+        // One needs nothing but a thumb; the other turns the camera on, and its badge says so.
+        <Sheet title="Pick a game" onClose={() => setSheet(null)} className="tb-games-sheet">
+          <div className="tb-games">
+            <a className="tb-game" data-game="arena" href={arenaUrl(creation)}>
+              <span className="tb-game-pic"><img src="/games/robot-rumble.webp" srcSet="/games/robot-rumble.webp 1x, /games/robot-rumble@2x.webp 2x" alt="" width={400} height={500} /></span>
+              <span className="tb-game-name">Robot Rumble</span>
+              <span className="tb-game-line">Punch, jump, score!</span>
+            </a>
+            <a className="tb-game" data-game="dance" href={playUrl(creation)}>
+              <span className="tb-game-pic"><img src="/games/dance-party.webp" srcSet="/games/dance-party.webp 1x, /games/dance-party@2x.webp 2x" alt="" width={400} height={500} /><span className="tb-game-badge" aria-label="Uses the camera"><Icon name="camera" size={16} /></span></span>
+              <span className="tb-game-name">Dance party</span>
+              <span className="tb-game-line">Dance on camera</span>
+            </a>
+          </div>
         </Sheet>
       )}
       {sheet === 'rename' && <RenameSheet creation={creation} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}

@@ -24,7 +24,7 @@ npm test
 npm run build
 # Same pruning as the GitHub Pages publish (.github/workflows/pages.yml): the
 # pose-tracker weights and the developer harness pages are not the game.
-rm -rf dist/model dist/dancers.html dist/moveslab.html dist/posecheck.html dist/posegate.html
+rm -rf dist/model dist/dancers.html dist/moveslab.html dist/posecheck.html dist/posegate.html dist/poster.html
 
 rm -rf "$OUT"
 mkdir -p "$OUT"

@@ -69,6 +69,7 @@ npm run build        # dist/, multi-page
 |---|---|
 | `index.html` | **Hero Moves** — the webcam party game. One to three players, one hero and one lane each, scored on shape and timing. |
 | `reel.html` | **Hero Stunt Reel** — a camera-free prototype. Pick clips, arrange a routine, watch your hero perform it, discover combos. |
+| `arena.html` | **Robot Rumble** — the camera-free arena game the app offers beside Dance party. See `games/robot-rumble/README.md`. |
 | `animlab.html` | Retargeted animation clips playing on any hero, with their sources. |
 | `herostage.js` | Not a page: the live hero on the HeroMaker app's hero page (the intro, the idle dance, the eight moves). The app imports it at run time from `/play/herostage.js`, so it shares three.js, the clips and the hero's VRM with the Dance party page. See `src/herostage.ts`. |
 

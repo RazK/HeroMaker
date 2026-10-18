@@ -28,6 +28,10 @@ const PATHS = {
   star: '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />',
   play: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none" />',
   pause: '<path d="M8.5 5v14" /><path d="M15.5 5v14" />',
+  // Robot Rumble's two buttons: the app's own punch and jump move glyphs.
+  punch: '<rect x="9" y="7" width="11" height="10" rx="3.5" /><path d="M13 7v4" /><path d="M16.5 7v4" /><path d="M9 11.5h6" /><path d="M3 9h3" /><path d="M2 12h4" /><path d="M3 15h3" />',
+  jump: '<path d="M12 16V4" /><path d="M7 9l5-5 5 5" /><path d="M5 20.5h14" />',
+  clock: '<circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" />',
 } as const
 export type IconName = keyof typeof PATHS
 

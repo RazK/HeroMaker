@@ -1,0 +1,301 @@
+/*
+ * Robot Rumble on the app's own Toy Box sheet.
+ *
+ * The tokens and the parts (.tb-header, .tb-nav, .tb-btn, .tb-chip, .tb-bar,
+ * .tb-panel, .tb-eyebrow, .tb-h1) are the app's: main.ts imports ui/toybox.css,
+ * which imports frontend/src/styles/toybox.css, and builds them with ui/tb.ts —
+ * the same as Dance party. This file only adds what this game has and the app
+ * does not: the stage, the HUD, the thumb stick and the two big round buttons.
+ */
+html, html body {
+  margin: 0;
+  background: var(--tb-cream);
+  color: var(--tb-ink);
+  font-family: var(--tb-font-body);
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+*, *::before, *::after { box-sizing: border-box; }
+/* The app's fit screen is 100% of its parent under html.tb-no-scroll. */
+#app { height: 100%; }
+button { font: inherit; color: inherit; }
+
+.rr-screen { max-width: none; position: relative; }
+.rr-screen > .tb-header { position: relative; }
+
+/* ---------------------------------------------------------------- header */
+/*
+ * The app's header, unchanged: round back button at the start, and at the end
+ * the same pills the app shows its credits in (.tb-credits: 40px, sun, 4px
+ * depth, icon + number in Nunito 800). Score and time are two of them, on the
+ * header's centre line; nothing floats loose.
+ */
+.rr-pills { display: none; gap: 8px; }
+.rr-pill { cursor: default; font-variant-numeric: tabular-nums; pointer-events: none; }
+.rr-pill:active { transform: none; box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-sun-deep); }
+.rr-score { min-width: 76px; justify-content: center; }
+.rr-timer { min-width: 72px; justify-content: center; }
+.rr-timer.is-low { background: var(--tb-red); color: var(--tb-white); box-shadow: 0 var(--tb-depth-sm) 0 #8e1b1b; animation: rr-beat 1s ease-in-out infinite; }
+@keyframes rr-beat { 50% { transform: scale(1.06); } }
+.rr-screen[data-phase="play"] .rr-title,
+.rr-screen[data-phase="countdown"] .rr-title { display: none; }
+.rr-screen[data-phase="play"] .rr-pills,
+.rr-screen[data-phase="countdown"] .rr-pills { display: flex; }
+
+/* ---------------------------------------------------------------- stage */
+.rr-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--tb-cream);
+}
+.rr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.rr-pops { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.rr-pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 4px 0 var(--tb-ink);
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.15;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+.rr-pop--combo { background: var(--tb-sun); font-size: 24px; }
+.rr-pop--bonus { background: var(--tb-sun); }
+/* "Bopped Panda Pals!": the rival's name, small and friendly, grape on white. */
+.rr-pop--name { font-family: var(--tb-font-body); font-weight: 800; font-size: 15px; color: var(--tb-grape-text); border-color: var(--tb-grape); box-shadow: 0 3px 0 var(--tb-grape); }
+.rr-pop--bad { color: var(--tb-red); border-color: var(--tb-red); box-shadow: 0 4px 0 var(--tb-red); }
+
+/* The combo: a third pill of the same kind, centred under the header. */
+.rr-combo {
+  position: absolute;
+  top: var(--tb-space);
+  left: 50%;
+  transform: translate(-50%, -8px) scale(.9);
+  opacity: 0;
+  transition: transform 160ms cubic-bezier(.3, 1.6, .5, 1), opacity 120ms;
+}
+.rr-combo.is-on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+.rr-count {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 132px;
+  height: 132px;
+  margin: -66px 0 0 -66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--tb-sun);
+  color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-sun-deep);
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 60px;
+  opacity: 0;
+  transform: scale(.6);
+  transition: opacity 120ms, transform 200ms cubic-bezier(.3, 1.6, .5, 1);
+  pointer-events: none;
+}
+.rr-count.is-on { opacity: 1; transform: scale(1); }
+
+.rr-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tb-space);
+  background: var(--tb-cream);
+}
+.rr-screen:not([data-phase="loading"]):not([data-phase="error"]) .rr-loading { display: none; }
+.rr-ring { position: relative; width: 96px; height: 96px; }
+.rr-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.rr-ring circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+.rr-ring-track { stroke: var(--tb-track); }
+.rr-ring-fill { stroke: var(--tb-grape); transition: stroke-dashoffset 200ms; }
+.rr-ring-pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; }
+.rr-screen[data-phase="error"] .rr-ring { display: none; }
+
+/* ---------------------------------------------------------------- bar */
+.rr-bar { position: relative; z-index: 2; }
+/* Start and end are the app's docked bottom sheet (.tb-panel), as in Dance
+   party: the bar steps back and lets the white sheet sit on the stage. */
+.rr-screen[data-phase="menu"] .rr-bar,
+.rr-screen[data-phase="loading"] .rr-bar,
+.rr-screen[data-phase="error"] .rr-bar,
+.rr-screen[data-phase="end"] .rr-bar { padding: 0; background: none; box-shadow: none; margin-top: calc(-1 * var(--tb-radius-card)); }
+.rr-card { display: none; }
+.rr-card.tb-panel { gap: 12px; }
+.rr-screen[data-phase="menu"] .rr-card--start,
+.rr-screen[data-phase="loading"] .rr-card--start,
+.rr-screen[data-phase="end"] .rr-card--end { display: flex; }
+.rr-card .tb-eyebrow { text-align: center; }
+.rr-hero-name { text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr-line { text-align: center; font-size: 16px; color: var(--tb-ink-2); font-weight: 700; }
+.rr-chips { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.rr-chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; font-size: 15px; pointer-events: none; }
+.rr-chip svg { color: var(--tb-grape); }
+.rr-card .tb-btn--primary { margin-top: 6px; }
+.rr-card .tb-sheet-grip { align-self: center; }
+.rr-end-score { display: flex; align-items: baseline; justify-content: center; gap: 10px; }
+.rr-end-value { font-family: var(--tb-font-display); font-weight: 600; font-size: 56px; line-height: 1; }
+.rr-end-label { font-size: 18px; font-weight: 800; color: var(--tb-ink-2); }
+.rr-end-buttons { display: flex; flex-direction: column; gap: var(--tb-stack); margin-top: 6px; }
+
+/* ---------------------------------------------------------------- controls */
+/*
+ * One bar, three controls of one size on one centre line: the stick at the
+ * start gutter, Jump and Punch at the end gutter. They speak the app's button
+ * language — Jump is a secondary (white, 2.5px ink outline, 6px ink depth),
+ * Punch the primary (grape, 6px grape-deep depth), the stick's ring a
+ * secondary with a grape thumb — and both buttons carry an icon over a label
+ * in the display face. The bar itself is the app's .tb-bar: cream, hairline.
+ */
+.rr-controls {
+  --rr-d: 104px;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  height: calc(var(--rr-d) + var(--tb-depth));
+  padding-bottom: var(--tb-depth);
+}
+.rr-screen[data-phase="play"] .rr-controls,
+.rr-screen[data-phase="countdown"] .rr-controls { display: flex; }
+.rr-stick-zone {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: var(--rr-d);
+  touch-action: none;
+}
+.rr-stick {
+  position: absolute;
+  inset-inline-start: calc(var(--rr-d) / 2);
+  top: calc(var(--rr-d) / 2);
+  width: var(--rr-d);
+  height: var(--rr-d);
+  margin: calc(var(--rr-d) / -2) 0 0 calc(var(--rr-d) / -2);
+  border-radius: 50%;
+  background: var(--tb-white);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-ink), inset 0 0 0 12px var(--tb-plate-1);
+  pointer-events: none;
+}
+.rr-stick.is-active { box-shadow: 0 var(--tb-depth) 0 var(--tb-ink), inset 0 0 0 12px var(--tb-plate-2); }
+.rr-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46%;
+  height: 46%;
+  transform-origin: center;
+  translate: -50% calc(-50% - 2px);
+  border-radius: 50%;
+  background: var(--tb-grape);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep);
+}
+.rr-buttons { display: flex; align-items: center; gap: var(--tb-space); flex-shrink: 0; }
+.rr-btn {
+  position: relative;
+  width: var(--rr-d);
+  height: var(--rr-d);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  touch-action: none;
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1;
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.rr-btn svg { width: 30px; height: 30px; }
+.rr-btn--punch { background: var(--tb-grape); color: var(--tb-white); box-shadow: 0 var(--tb-depth) 0 var(--tb-grape-deep); }
+.rr-btn--punch.is-down { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-grape-deep); }
+.rr-btn--jump { background: var(--tb-white); color: var(--tb-ink); border: 2.5px solid var(--tb-ink); box-shadow: 0 var(--tb-depth) 0 var(--tb-ink); }
+.rr-btn--jump.is-down { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-ink); }
+.rr-btn:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, .25); }
+.rr-controls.is-off .rr-btn { opacity: .55; }
+
+/* ---------------------------------------------------------------- landscape phone */
+@media (orientation: landscape) and (max-height: 559px) {
+  .rr-screen.tb-screen--fit { display: flex; flex-direction: column; max-width: none; }
+  .rr-screen > .tb-header { padding-top: 8px; padding-bottom: calc(8px + var(--tb-depth-sm)); }
+  .rr-card.tb-panel { gap: 8px; }
+  .rr-card .tb-h1 { font-size: 28px; line-height: 32px; }
+  .rr-end-value { font-size: 44px; }
+  .rr-chips { display: none; }
+  /* Play: the controls float over the stage, one under each thumb. */
+  .rr-screen[data-phase="play"] .rr-bar,
+  .rr-screen[data-phase="countdown"] .rr-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .rr-controls { max-width: none; padding-inline: max(var(--tb-gutter), env(safe-area-inset-left, 0px)); }
+  .rr-stick-zone, .rr-btn { pointer-events: auto; }
+}
+
+/* Any landscape screen: the sheet docks to the right of the stage, as Dance
+   party's does (ui/toybox.css), and the stage keeps the rest. */
+@media (orientation: landscape) {
+  .rr-screen[data-phase="menu"] .rr-bar,
+  .rr-screen[data-phase="loading"] .rr-bar,
+  .rr-screen[data-phase="error"] .rr-bar,
+  .rr-screen[data-phase="end"] .rr-bar {
+    position: absolute; right: 0; top: 78px; bottom: 0; margin: 0;
+    width: min(400px, 46vw);
+  }
+  .rr-screen[data-phase="menu"] .rr-stage,
+  .rr-screen[data-phase="loading"] .rr-stage,
+  .rr-screen[data-phase="error"] .rr-stage,
+  .rr-screen[data-phase="end"] .rr-stage { margin-inline-end: min(400px, 46vw); }
+  .rr-screen > .tb-header { z-index: 3; }
+  .rr-card.tb-panel { height: 100%; }
+}
+@media (orientation: landscape) and (max-height: 559px) {
+  .rr-screen[data-phase] .rr-bar { top: 62px; }
+  .rr-screen[data-phase="play"] .rr-bar, .rr-screen[data-phase="countdown"] .rr-bar { top: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rr-timer.is-low { animation: none; }
+}
+
+/* A 360px phone: the same three, a size down, still on one line. */
+@media (max-width: 380px) {
+  .rr-controls { --rr-d: 92px; }
+}
