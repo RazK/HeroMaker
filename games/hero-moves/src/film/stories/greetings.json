@@ -1,0 +1,87 @@
+[
+  {
+    "id": "birthday", "label": "Birthday", "to": "Savta",
+    "script": {
+      "id": "greeting-birthday", "label": "Birthday", "title": "Happy birthday {to}!", "bpm": 116,
+      "beats": [
+        {
+          "dur": 7.0, "backdrop": "circus", "mood": "hbd", "transition": "cut",
+          "title": "Happy birthday {to}!", "sub": "Love, {from} & {hero}",
+          "acts": [{ "at": 0, "clip": "cheer" }, { "at": 1.5, "clip": "dance", "loop": true }, { "at": 4.9, "clip": "jacks", "loop": true }],
+          "camera": { "from": { "shot": "wide", "az": -14, "push": 0.92 }, "to": { "shot": "wide", "az": 14, "push": 0.92 } },
+          "fx": [{ "kind": "confetti", "at": 0.1 }, { "kind": "confetti", "at": 4.9, "palette": "light" }],
+          "sfx": [{ "at": 0.05, "kind": "pop" }]
+        },
+        {
+          "card": "greeting-end", "dur": 2.8, "backdrop": "circus", "mood": "hbd", "transition": "wipe",
+          "acts": [{ "at": 0, "clip": "victory" }],
+          "camera": { "from": { "shot": "wide", "az": 0 } }
+        }
+      ]
+    }
+  },
+  {
+    "id": "hanukkah", "label": "Hanukkah", "to": "Savta & Saba",
+    "script": {
+      "id": "greeting-hanukkah", "label": "Hanukkah", "title": "Happy Hanukkah {to}!", "bpm": 120,
+      "beats": [
+        {
+          "dur": 7.0, "backdrop": "space", "mood": "party", "transition": "cut",
+          "title": "Happy Hanukkah {to}!", "sub": "Love, {from} & {hero}",
+          "acts": [{ "at": 0, "clip": "wave", "speed": 1.4 }, { "at": 2.2, "clip": "hipdance", "loop": true }, { "at": 5.0, "clip": "cheer" }],
+          "camera": { "from": { "shot": "wide", "az": 14, "push": 0.92 }, "to": { "shot": "wide", "az": -12, "push": 0.92 } },
+          "fx": [{ "kind": "confetti", "at": 0.1, "palette": "hanukkah" }, { "kind": "stars", "at": 2.0 }],
+          "sfx": [{ "at": 0.05, "kind": "chime" }, { "at": 5.0, "kind": "sparkle" }]
+        },
+        {
+          "card": "greeting-end", "dur": 2.8, "backdrop": "space", "mood": "finale", "transition": "wipe",
+          "acts": [{ "at": 0, "clip": "victory" }],
+          "camera": { "from": { "shot": "wide", "az": 0 } },
+          "sfx": [{ "at": 0.05, "kind": "tada" }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "getwell", "label": "Get well", "to": "Grandpa",
+    "script": {
+      "id": "greeting-getwell", "label": "Get well", "title": "Get well soon, {to}!", "bpm": 100,
+      "beats": [
+        {
+          "dur": 7.0, "backdrop": "nature", "mood": "gentle", "transition": "cut",
+          "title": "Get well soon, {to}!", "sub": "Love, {from} & {hero}",
+          "acts": [{ "at": 0, "clip": "wave" }, { "at": 4.4, "clip": "powerup", "speed": 0.5 }, { "at": 5.9, "clip": "victory" }],
+          "camera": { "from": { "shot": "wide", "az": 10, "push": 0.92 }, "to": { "shot": "medium", "az": 0 } },
+          "fx": [{ "kind": "hearts", "at": 0.3 }],
+          "sfx": [{ "at": 0.1, "kind": "chime" }, { "at": 4.4, "kind": "sparkle" }]
+        },
+        {
+          "card": "greeting-end", "dur": 2.8, "backdrop": "nature", "mood": "gentle", "transition": "wipe",
+          "acts": [{ "at": 0, "clip": "nod" }],
+          "camera": { "from": { "shot": "wide", "az": 0 } }
+        }
+      ]
+    }
+  },
+  {
+    "id": "love", "label": "Love you", "to": "Mom",
+    "script": {
+      "id": "greeting-love", "label": "Love you", "title": "I love you, {to}!", "bpm": 108,
+      "beats": [
+        {
+          "dur": 7.0, "backdrop": "sunset", "mood": "calm", "transition": "cut",
+          "title": "I love you, {to}!", "sub": "Love, {from} & {hero}",
+          "acts": [{ "at": 0, "clip": "wave" }, { "at": 3.6, "clip": "dance", "loop": true }],
+          "camera": { "from": { "shot": "wide", "az": -10, "push": 0.92 }, "to": { "shot": "wide", "az": 10, "push": 0.92 } },
+          "fx": [{ "kind": "hearts", "at": 0.2 }],
+          "sfx": [{ "at": 0.1, "kind": "chime" }]
+        },
+        {
+          "card": "greeting-end", "dur": 2.8, "backdrop": "sunset", "mood": "calm", "transition": "wipe",
+          "acts": [{ "at": 0, "clip": "bow" }],
+          "camera": { "from": { "shot": "wide", "az": 0 } }
+        }
+      ]
+    }
+  }
+]

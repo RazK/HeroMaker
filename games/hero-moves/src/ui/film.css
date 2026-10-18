@@ -1,0 +1,73 @@
+/*
+ * The film player: the app's screen (header, body, bar), with the film as the
+ * body's one picture. The film is a 9:16 canvas, letterboxed into whatever the
+ * header and bar leave, never cropped.
+ */
+html body { background: var(--tb-cream); color: var(--tb-ink); }
+#app { position: fixed; inset: 0; }
+
+.film-body { align-items: center; justify-content: center; }
+.film-frame {
+  position: relative;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: var(--tb-radius-card);
+  overflow: hidden;
+  background: var(--tb-ink);
+  box-shadow: 0 0 0 2.5px var(--tb-ink), 0 var(--tb-depth) 0 2.5px var(--tb-ink);
+}
+.film-frame canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+.film-loading {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: var(--tb-cream); color: var(--tb-ink-2);
+  font-weight: 700; font-size: 15px;
+}
+.film-loading[hidden] { display: none; }
+.film-ring {
+  --p: 0;
+  width: 88px; height: 88px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: conic-gradient(var(--tb-grape) calc(var(--p) * 360deg), var(--tb-track) 0);
+  -webkit-mask: radial-gradient(circle, transparent 33px, #000 34px);
+          mask: radial-gradient(circle, transparent 33px, #000 34px);
+}
+.film-loading b { position: absolute; font-family: var(--tb-font-display); font-weight: 400; font-size: 22px; color: var(--tb-ink); margin-top: -34px; }
+.film-loading { position: absolute; }
+.film-loading .film-ring + span { margin-top: 4px; }
+
+.film-bigplay {
+  position: absolute; inset: 0; margin: auto;
+  width: 96px; height: 96px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--tb-white); background: var(--tb-grape);
+  border: none; box-shadow: 0 6px 0 var(--tb-grape-deep);
+  cursor: pointer;
+}
+.film-bigplay svg { margin-inline-start: 6px; }
+.film-bigplay[hidden] { display: none; }
+.film-bigplay:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-grape-deep); }
+.film-bigplay:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 6px 0 var(--tb-grape-deep); }
+
+.film-chips .tb-chips { justify-content: safe center; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.film-chips .tb-chip { flex-shrink: 0; padding: 0 12px; font-size: 14px; }
+.tb-bar-note[hidden] { display: none; }
+
+/* The fake door: the app's bottom sheet, primary last. */
+.film-paywall-sheet { gap: 8px; text-align: center; align-items: stretch; }
+.film-paywall-sheet p, .film-paywall-sheet h2 { margin: 0; }
+.film-paywall-sheet .tb-eyebrow, .film-paywall-sheet .tb-h1 { white-space: normal; }
+.film-paywall-actions { display: flex; flex-direction: column; gap: var(--tb-stack); margin-top: 8px; }
+.film-thanks { color: var(--tb-green); font-weight: 800; }
+.film-thanks[hidden] { display: none; }
+
+/* ?render=1: just the film, at its exact pixel size. */
+body.film-render { background: #000; }
+body.film-render #app { position: static; }
+body.film-render canvas { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .film-bigplay:active { transform: none; }
+}

@@ -1,0 +1,76 @@
+{
+  "id": "superhero",
+  "label": "Saves the day",
+  "title": "{hero} Saves the Day",
+  "bpm": 112,
+  "paywallAt": 14.4,
+  "beats": [
+    {
+      "card": "title", "dur": 3.8, "backdrop": "sunset", "mood": "calm", "transition": "cut",
+      "acts": [{ "at": 0, "clip": "idle", "loop": true }],
+      "camera": { "from": { "shot": "wide", "az": -14, "push": 1.15 }, "to": { "shot": "wide", "az": -4 } },
+      "sfx": [{ "at": 0.25, "kind": "chime" }]
+    },
+    {
+      "dur": 5.6, "backdrop": "sunset", "mood": "calm",
+      "text": "Every evening, {hero} watched over the city.",
+      "acts": [{ "at": 0, "clip": "idle", "loop": true }, { "at": 2.6, "clip": "nod" }],
+      "path": [{ "t": 0, "yaw": 28 }, { "t": 2.4, "yaw": 0 }],
+      "camera": { "from": { "shot": "wide", "az": 26 }, "to": { "shot": "medium", "az": 8 } }
+    },
+    {
+      "dur": 5.6, "backdrop": "space", "mood": "suspense",
+      "text": "Then one night... the stars began to go out!",
+      "acts": [{ "at": 0, "clip": "idle", "loop": true }, { "at": 1.0, "clip": "confused", "speed": 0.85 }],
+      "path": [{ "t": 0, "yaw": 18 }, { "t": 2.0, "yaw": -20 }, { "t": 4.0, "yaw": 0 }],
+      "camera": { "from": { "shot": "wide", "az": -10 }, "to": { "shot": "close", "az": -4 } },
+      "sfx": [{ "at": 4.5, "kind": "rise", "dur": 1.0 }]
+    },
+    {
+      "dur": 5.0, "backdrop": "space", "mood": "triumph",
+      "text": "{hero} took a deep breath and POWERED UP!",
+      "acts": [{ "at": 0, "clip": "powerup", "speed": 0.5 }, { "at": 1.6, "clip": "victory" }],
+      "camera": { "from": { "shot": "close", "az": 6 }, "to": { "shot": "low", "az": 0 } },
+      "fx": [{ "kind": "sparkle", "at": 0.3, "dur": 2.4 }],
+      "sfx": [{ "at": 0.3, "kind": "sparkle" }, { "at": 1.6, "kind": "crash" }]
+    },
+    {
+      "dur": 4.8, "backdrop": "space", "mood": "triumph",
+      "text": "Up, up and away!",
+      "acts": [{ "at": 0, "clip": "jump" }, { "at": 0.7, "clip": "fly", "loop": true }],
+      "path": [{ "t": 0, "y": 0, "z": 0, "pitch": 0 }, { "t": 0.7, "y": 0.35, "pitch": -72 }, { "t": 4.8, "y": 1.5, "z": -0.4, "pitch": -66 }],
+      "camera": { "from": { "shot": "wide", "az": 16 }, "to": { "shot": "wide", "az": 26, "push": 1.1 } },
+      "fx": [{ "kind": "stars", "at": 0.6 }],
+      "sfx": [{ "at": 0.6, "kind": "whoosh" }]
+    },
+    {
+      "dur": 5.6, "backdrop": "space", "mood": "party",
+      "text": "ZAP! ZAP! One by one, the stars came back on.",
+      "acts": [{ "at": 0, "clip": "idle", "loop": true }, { "at": 0.6, "clip": "blast", "speed": 0.55 }, { "at": 2.1, "clip": "blast", "speed": 0.55 }, { "at": 3.6, "clip": "cheer" }],
+      "camera": { "from": { "shot": "medium", "az": -18 }, "to": { "shot": "medium", "az": 10 } },
+      "fx": [{ "kind": "stars", "at": 0.8 }, { "kind": "stars", "at": 2.3 }],
+      "sfx": [{ "at": 0.75, "kind": "zap" }, { "at": 0.85, "kind": "sparkle" }, { "at": 2.25, "kind": "zap" }, { "at": 2.35, "kind": "sparkle" }]
+    },
+    {
+      "dur": 4.8, "backdrop": "sunset", "mood": "triumph",
+      "text": "{hero} landed like a real superhero.",
+      "acts": [{ "at": 0, "clip": "land" }, { "at": 1.9, "clip": "victory" }],
+      "path": [{ "t": 0, "y": 1.2 }, { "t": 0.35, "y": 0 }],
+      "camera": { "from": { "shot": "low", "az": 8 }, "to": { "shot": "low", "az": -4, "push": 0.9 } },
+      "sfx": [{ "at": 0.35, "kind": "crash" }]
+    },
+    {
+      "dur": 4.8, "backdrop": "circus", "mood": "party",
+      "text": "And the whole city cheered: Hooray for {hero}!",
+      "acts": [{ "at": 0, "clip": "cheer" }, { "at": 1.7, "clip": "bounce", "loop": true }],
+      "camera": { "from": { "shot": "wide", "az": -18 }, "to": { "shot": "medium", "az": 10 } },
+      "fx": [{ "kind": "confetti", "at": 0.1 }]
+    },
+    {
+      "card": "end", "dur": 6.4, "backdrop": "theatre", "mood": "finale",
+      "acts": [{ "at": 0, "clip": "bow" }, { "at": 3.6, "clip": "wave" }],
+      "camera": { "from": { "shot": "wide", "az": 6 }, "to": { "shot": "wide", "az": -4 } },
+      "sfx": [{ "at": 0.1, "kind": "tada" }]
+    }
+  ]
+}
