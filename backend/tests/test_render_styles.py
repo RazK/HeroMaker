@@ -38,11 +38,16 @@ except ImportError:   # pragma: no cover
 KEYS = ["pixar", "lego", "minecraft", "anime", "original"]
 LABELS = ["Pixar", "Lego", "Minecraft", "Anime", "Original"]
 
-# sha256 of RENDER_PROMPT and of the cache version it produced on main before
-# styles existed. Pixar must stay byte-identical to both, or every hero made so
-# far changes look on "Make it again" and every cached render misses.
+# sha256 of RENDER_PROMPT on main before styles existed. Pixar's look must stay
+# byte-identical to it, or every hero made so far changes look on "Make it again".
 PRE_STYLES_PROMPT_SHA256 = "9f065032cc5652819dcef9146e6c97894ae3057a6f58a500e8c225da469f1a52"
-PRE_STYLES_VERSION_SHA256 = "3315c5cdeccabe17158f0a596d91098e917ddca94e7aa77b4c0393cc78b555e6"
+# sha256 of Pixar's result-cache version. Until the framing fix this was
+# "3315c5cd..." (the pre-styles version, kept so old cache entries kept hitting).
+# It changed ON PURPOSE with the framing fix: those entries were made without
+# the framing and some are cropped, so they must miss. The look did not change:
+# the Pixar prompt above is still byte for byte the same, with the shared
+# FRAMING_PROMPT after it. Change this pin again only as deliberately.
+PIXAR_VERSION_SHA256 = "cee1068bef4297c16ea8d9d30fec94a760c2f1995a6a56d22e4791e5b42d955d"
 
 DRAWING = b"\xff\xd8\xff crayon kid drawing"
 
@@ -158,7 +163,9 @@ def test_the_heros_style_is_the_prompt_sent_to_openai(db, make_user, make_creati
 
     assert len(wire) == 1
     assert wire[0]["url"].endswith("/images/edits")
-    assert wire[0]["prompt"] == openai_service.STYLES[key]["prompt"]
+    assert wire[0]["prompt"] == openai_service.render_prompt(key)
+    # The style's own prompt, byte for byte, then the framing every style shares.
+    assert wire[0]["prompt"] == openai_service.STYLES[key]["prompt"] + "\n\n" + openai_service.FRAMING_PROMPT
     painted = get_storage().download_file(user.id, creation.id, "rendered.png")
     assert painted == PAINTING
 
@@ -168,7 +175,8 @@ def test_null_style_means_pixar(db, make_user, make_creation, wire):
     assert creation.style is None
     _paint(db, user, creation)
 
-    assert wire[0]["prompt"] == openai_service.RENDER_PROMPT
+    assert wire[0]["prompt"].startswith(openai_service.RENDER_PROMPT)
+    assert wire[0]["prompt"] == openai_service.render_prompt("pixar")
     db.refresh(creation)
     assert CreationResponse.from_creation(creation).style == "pixar"
     assert openai_service.render_cache_version(None) == openai_service.render_cache_version("pixar")
@@ -177,7 +185,7 @@ def test_null_style_means_pixar(db, make_user, make_creation, wire):
 def test_a_retired_style_on_an_old_hero_falls_back_to_pixar(db, make_user, make_creation, wire):
     user, creation = _hero(db, make_user, make_creation, style="watercolour")
     _paint(db, user, creation)
-    assert wire[0]["prompt"] == openai_service.RENDER_PROMPT
+    assert wire[0]["prompt"] == openai_service.render_prompt("pixar")
 
 
 # ---------------------------------------------------------------------------
@@ -190,11 +198,18 @@ def test_cache_keys_differ_per_style():
     assert len(set(keys.values())) == len(KEYS), keys
 
 
-def test_pixar_cache_version_is_unchanged_so_old_entries_still_hit():
+def test_pixar_cache_version_is_pinned():
     v = openai_service.render_cache_version("pixar")
-    assert set(v) == {"prompt", *openai_service.RENDER_PARAMS}, "no new key may enter pixar's version"
-    assert result_cache.version_hash(v) == PRE_STYLES_VERSION_SHA256
-    assert result_cache.version_hash(openai_service.render_cache_version(None)) == PRE_STYLES_VERSION_SHA256
+    assert set(v) == {"prompt", *openai_service.RENDER_PARAMS, "framing"}
+    assert v["prompt"] == openai_service.render_prompt("pixar")
+    assert result_cache.version_hash(v) == PIXAR_VERSION_SHA256
+    assert result_cache.version_hash(openai_service.render_cache_version(None)) == PIXAR_VERSION_SHA256
+
+
+def test_renders_cached_before_the_framing_fix_miss():
+    pre_fix = "3315c5cdeccabe17158f0a596d91098e917ddca94e7aa77b4c0393cc78b555e6"
+    for key in KEYS:
+        assert result_cache.version_hash(openai_service.render_cache_version(key)) != pre_fix
 
 
 # ---------------------------------------------------------------------------
@@ -303,7 +318,7 @@ def test_go_with_a_style_stores_it_and_make_it_again_keeps_it(
 
     # ...and that is what gets painted.
     _paint(db, user, creation)
-    assert wire[-1]["prompt"] == openai_service.STYLES["minecraft"]["prompt"]
+    assert wire[-1]["prompt"] == openai_service.render_prompt("minecraft")
 
 
 def test_every_style_costs_the_same(api):
@@ -359,7 +374,7 @@ def test_sample_maker_renders_every_style_with_its_own_prompt(tmp_path, wire):
 
     assert _samples_script().main(["--drawing", str(drawing), "--out-dir", str(out)]) == 0
 
-    assert [w["prompt"] for w in wire] == [openai_service.STYLES[k]["prompt"] for k in KEYS]
+    assert [w["prompt"] for w in wire] == [openai_service.render_prompt(k) for k in KEYS]
     for key in KEYS:
         thumb = Image.open(out / f"{key}.webp")
         assert thumb.size == (256, 256)

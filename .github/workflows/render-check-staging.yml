@@ -1,0 +1,98 @@
+name: Render check (staging)
+
+# Paints drawings in chosen styles through the REAL render path
+# (backend/scripts/render_check.py -> app.services.openai.render_image) and
+# pushes the paintings plus a contact sheet to the branch
+# `render-check-results/<run id>` (never main), so a change to the painting
+# step can be judged on real renders. Artifacts cannot be downloaded from
+# where agents work; a branch can.
+#
+# STAGING token only. It reads, never writes: one SELECT on the staging
+# database to find heroes by name (--find), and plain GETs of their drawings.
+# It never touches a hero or a user. Cost: ~$0.167 per OpenAI call, capped by
+# max_calls.
+#
+# Two ways to start it:
+#   - Actions -> Render check (staging) -> Run workflow, with the inputs below;
+#   - push a branch named render-check/<anything> that carries a file
+#     .github/render-check.args holding the script's arguments, one per line.
+#     (workflow_dispatch only sees workflows already on main; this lets a
+#     change be checked BEFORE it merges.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      args:
+        description: 'render_check.py arguments, e.g. --find "Captain Courage" --drawing kid=frontend/public/logo.png --styles anime,pixar --before'
+        required: true
+      max_calls:
+        description: 'Stop before this many OpenAI calls'
+        default: '30'
+  push:
+    branches: ['render-check/**']
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  render:
+    needs: config
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+      SERVICE: ${{ needs.config.outputs.backend }}
+      ENVIRONMENT: ${{ needs.config.outputs.staging }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: npm install -g @railway/cli
+      - name: Resolve the staging database's public URL
+        run: |
+          set -euo pipefail
+          url=$(railway variables --service Postgres --environment "$ENVIRONMENT" --json | jq -r '.DATABASE_PUBLIC_URL // empty')
+          if [ -z "$url" ]; then echo "::warning::No DATABASE_PUBLIC_URL on staging Postgres; --find will not work."; fi
+          echo "::add-mask::$url"
+          echo "PUBLIC_DB=$url" >> "$GITHUB_ENV"
+      - name: Paint
+        env:
+          ARGS: ${{ inputs.args }}
+          MAX_CALLS: ${{ inputs.max_calls || '30' }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            [ -f .github/render-check.args ] || { echo "::error::push needs .github/render-check.args"; exit 1; }
+            mapfile -t args < <(grep -v '^\s*#' .github/render-check.args | sed '/^\s*$/d')
+          else
+            eval "args=($ARGS)"
+          fi
+          args+=(--max-calls "$MAX_CALLS" --out-dir out/render-check)
+          [ -n "${PUBLIC_DB:-}" ] && args+=(--database-url "$PUBLIC_DB")
+          mkdir -p out/render-check
+          # The log goes to the review branch too: job logs are not readable
+          # from everywhere the results are.
+          railway run --service="$SERVICE" --environment="$ENVIRONMENT" -- python backend/scripts/render_check.py "${args[@]}" 2>&1 | tee out/render-check/log.txt
+      - name: Push the paintings to a review branch
+        if: always()
+        run: |
+          set -euo pipefail
+          [ -d out/render-check ] || exit 0
+          branch="render-check-results/${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mv out/render-check "$RUNNER_TEMP/render-check"
+          git checkout --orphan "$branch"
+          git rm -rq --cached .
+          git clean -fdxq
+          cp -r "$RUNNER_TEMP/render-check/." .
+          git add -A
+          git commit -qm "Render check ${GITHUB_RUN_ID} from ${GITHUB_SHA::7}"
+          git push origin "$branch"
+          echo "Pushed $branch" >> "$GITHUB_STEP_SUMMARY"
