@@ -1,0 +1,114 @@
+{
+  "calls": 9,
+  "renders": [
+    {
+      "label": "striped-dog",
+      "style": "anime",
+      "variant": "before",
+      "calls": 1,
+      "edges": {
+        "top": 249,
+        "bottom": 332
+      },
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {
+        "top": 249,
+        "bottom": 332
+      },
+      "first_touched_edges": {
+        "top": 249,
+        "bottom": 332
+      }
+    },
+    {
+      "label": "striped-dog",
+      "style": "anime",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "striped-dog",
+      "style": "pixar",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "striped-dog",
+      "style": "original",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "speedy-sister",
+      "style": "anime",
+      "variant": "before",
+      "calls": 1,
+      "edges": {
+        "top": 301,
+        "bottom": 142
+      },
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {
+        "top": 301,
+        "bottom": 142
+      },
+      "first_touched_edges": {
+        "top": 301,
+        "bottom": 142
+      }
+    },
+    {
+      "label": "speedy-sister",
+      "style": "anime",
+      "variant": "after",
+      "calls": 2,
+      "edges": {},
+      "attempts": 2,
+      "kept_attempt": 2,
+      "touched_edges": {},
+      "first_touched_edges": {
+        "top": 50,
+        "bottom": 211
+      }
+    },
+    {
+      "label": "speedy-sister",
+      "style": "pixar",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "speedy-sister",
+      "style": "original",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    }
+  ]
+}
