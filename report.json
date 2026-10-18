@@ -1,0 +1,56 @@
+{
+  "calls": 6,
+  "renders": [
+    {
+      "label": "tall-girl",
+      "style": "anime",
+      "variant": "after",
+      "error": "OpenAI service unavailable: our account is out of credits. Not a rate limit; it will not clear until the account is topped up. Provider said: Error code: 429 - {'error': {'message': 'You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.', 'type': 'insufficient_quota', 'param': None, 'code': 'credit_balance_exhausted'}}"
+    },
+    {
+      "label": "tall-girl",
+      "style": "lego",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "tall-girl",
+      "style": "minecraft",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    },
+    {
+      "label": "princess",
+      "style": "anime",
+      "variant": "after",
+      "error": "OpenAI service unavailable: our account is out of credits. Not a rate limit; it will not clear until the account is topped up. Provider said: Error code: 429 - {'error': {'message': 'You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.', 'type': 'insufficient_quota', 'param': None, 'code': 'credit_balance_exhausted'}}"
+    },
+    {
+      "label": "princess",
+      "style": "lego",
+      "variant": "after",
+      "error": "OpenAI service unavailable: our account is out of credits. Not a rate limit; it will not clear until the account is topped up. Provider said: Error code: 429 - {'error': {'message': 'You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.', 'type': 'insufficient_quota', 'param': None, 'code': 'credit_balance_exhausted'}}"
+    },
+    {
+      "label": "princess",
+      "style": "minecraft",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    }
+  ]
+}
