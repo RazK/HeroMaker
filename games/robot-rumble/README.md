@@ -1,25 +1,60 @@
 # Robot Rumble
 
-A camera-free mini-game starring the player's own hero. Other children's
-heroes from the gallery — and wind-up toy robots — come into a walled
-play-room and head for the toy chest at the back; the hero runs them down with
-a thumb stick and bops them, jumps the bouncy balls that roll across, and
-ground-pounds a crowd. 75 seconds, a score, a best score, a victory dance.
+A camera-free mini-game starring the player's own hero. Wind-up toy robots
+and springy mushrooms come into a walled play-room and head for the toy chest
+at the back; the hero runs them down with a thumb stick and bops them, knocks
+bouncy balls and wobbly crates about, jumps the balls that roll across, and
+ground-pounds a crowd of them — while other children's heroes cheer from the
+stands. 75 seconds, a score, a best score, a victory dance.
 
-## Rival heroes: tag, not a fight
+## Nothing you hit is another child's hero
 
-The characters you bop are real Editors' choice heroes
-(`GET /api/creations/?featured_only=true`, their `opt_avatar.vrm`, the same
-loader as the player's), so every round is a parade of what the gallery has
-made. They are other children's creations, so a bop is a game of tag: the
-rival tumbles onto its bottom (`Hit_Knockback`), sees stars turned toward the
-camera (`Dizzy`, three cartoon stars round its head), waves (`Greeting`) and
-runs off (`Run_Anime`) — never breaking, never "dying". Its name pops up
-small: "Bopped Panda Pals!". The player's own hero is never a rival. Up to
-four load in the background after the player's hero; until they arrive (or
-with no gallery, on GitHub Pages) the wind-up robots carry the round alone,
-and they stay in as fillers between rivals. Two rivals on screen at a time,
-three after the first half. `src/arena/rivals.ts`.
+The first version had other children's heroes walk in as rivals to bop. Raz,
+from a classroom: *"I got comments about hitting the other kids' drawings,
+which is bad. Characters from the class should be cheering from the sides of
+the arena, but inside the arena I shouldn't be hitting characters from other
+kids."* So:
+
+* **Every target is a generated toy** (`src/arena/things.ts`): tin robots,
+  mushrooms that hop toward the chest and squash flat with a boing, bouncy
+  star balls that boing in place until a punch sends them flying, wobbly star
+  crates, balloons. Primitives and canvas paint, a draw call or two each,
+  nothing downloaded. `TOY_KINDS` is the whole vocabulary of things the game
+  can hold, and `isToy` (no skinned mesh, no VRM) is checked when a thing is
+  added and again on every hit, which throws rather than score a non-toy.
+* **Other heroes are the crowd** (`src/arena/crowd.ts`), in their own group
+  outside the walls and never in `Game.things`, the only list the punch, the
+  auto-aim and the ground pound read. They stand on the big H E R O blocks
+  either side of the chest (in shot even in a phone's portrait view) and on
+  plates behind the side walls, facing the camera's side so the front the
+  child drew shows. Each loops two cheers out of step with its neighbours
+  (`Jumping_Jacks`, `Victory_Fist_Pump`, `Greeting`, `Dance_Simple`,
+  `Dance_Charleston`) and jumps with its arms up (`Victory` plus a hop) when
+  the player scores; a crate, a combo step or a smash brings everyone up, and
+  so does the end of the round.
+* **Proved, not promised.** `window.__arena.audit()` reports that every live
+  target is a toy, that no fan is in the game's tree, that every fan stands
+  outside the play area, and that the detector says "not a toy" when shown a
+  real hero. `tools/arena-crowdcheck.mjs` plays a round with full stands and
+  checks it every half second; the staging robot checks it in its game step.
+
+**Who is in the stands.** A class hero (made in a class session) is cheered
+by its classmates: the class's own finished heroes from
+`GET /api/classes/<id>/stage`, which only the class's teacher can read — and
+the teacher is who opens a class hero's game. The game learns the hero is a
+class hero from its public page (`in_class`), and finds which of the
+teacher's classes holds it (or takes `?class=<id>`). Every seat the class
+cannot fill, and every other player, gets Editors' choice
+(`GET /api/creations/?featured_only=true`). A class hero can never be starred
+(the API refuses), so a class's children only ever meet their own classmates
+or Editors' choice — never another class's child. With no API (GitHub Pages)
+the stands use the sample heroes; with nothing at all they stay empty and the
+game plays the same. The player's own hero is never in the stands.
+
+At most six fans (`?crowd=N` caps it, `0` for none), each an `opt_avatar.vrm`
+with no drawn outline, loaded one after another behind the player's hero. A
+fan updates only its humanoid (no spring bones), and a fan outside the camera
+is neither drawn nor animated.
 
 **The code is not in this folder.** It is a page of the `games/hero-moves`
 build — `games/hero-moves/arena.html` and `games/hero-moves/src/arena/` —
@@ -52,9 +87,8 @@ An arena on its own does not guarantee the face: run up the screen and you
 see the back. So the arena is built so that **the work comes toward the
 camera**:
 
-* Rivals and robots enter at the *front* edge (the camera's side) and walk
-  away toward the chest at the back, so the hero meets them face to face; a
-  bopped rival turns to the camera to see stars and wave.
+* Robots and mushrooms enter at the *front* edge (the camera's side) and walk
+  away toward the chest at the back, so the hero meets them face to face.
 * Balloons, crates and gold balloons only appear in the front half of the room.
 * Standing still, the hero turns to the nearest target *on the camera's side*,
   or settles three-quarters toward the camera.
@@ -73,8 +107,9 @@ real touch input (`tools/arena-record.mjs`); over three full 75 s rounds:
 | Panda Pals (wide, round) | **69%** | 43% | 26% | 29% | 3% |
 | Cuppy Penguin (blocky) | **67%** | 43% | 24% | 30% | 4% |
 
-That is the current game: a 9 m walled room, spawns spread wall to wall, and
-rival heroes. The small first room with robots only measured 74-81% facing the
+That was measured with rival heroes in the room (since replaced by
+mushrooms, which enter and walk the same way): a 9 m walled room, spawns
+spread wall to wall. The small first room with robots only measured 74-81% facing the
 camera's half, but 5-11% full back; the bigger room sends the hero running
 sideways and diagonally more, which moved time from "front" into "back
 three-quarter" (a profile turned slightly away, face still partly visible)
@@ -101,10 +136,19 @@ header; the combo is a third one, centred under it.
 
 | | Phone | Desktop |
 |---|---|---|
-| Run | Left thumb stick — re-centres where the thumb lands, dead zone, full speed at 70% throw | Arrows / WASD |
+| Run | Left thumb stick — floats to wherever the thumb lands in the lower-left (the bar or the stage above it), dead zone, full speed at 70% throw | Arrows / WASD |
 | Punch | Big grape button — a 3-hit combo (left jab, right jab, cross) when tapped in rhythm; auto-aims at the nearest target in reach | J or F |
 | Jump | White button — hop the bouncy balls (+50 "Nice jump!"), pop balloons in the air | K or Space |
 | Ground pound | Punch while in the air — shockwave smashes everything within 2.3 m | Jump, then J |
+
+**The stick explains itself.** Kids read a plain "circle in a circle" as a
+button (Raz, from a classroom), so the ring carries four chevrons (drag this
+way), the knob is a raised thumb pad (grape, its depth under it, a soft
+shadow, two grip rings) that sinks when held, and until the player first
+moves the knob drifts side to side under a pointing hand with "Drag to move".
+The first move dismisses the hint for good (`localStorage`, guarded; a private
+window shows it again next visit). `tools/arena-stick.mjs` checks all of that
+and photographs it.
 
 Pointer events with one capture per finger: the stick and a button work at
 the same time. `touch-action: none` everywhere, the document never scrolls,
@@ -127,7 +171,8 @@ the run without its legs freezing.
 | Hurt | `Hit_Knockback` | bumped by a ball: "Bonk!", a short knock-down, combo lost |
 | Victory | `Victory` | the round ends |
 | Dance | `Dance_Charleston` | the end card, until the player chooses |
-| Rival walk / dizzy / wave | `Walk`, `Dizzy`, `Greeting` | a rival hero waddles in; after a bop it sees stars and waves goodbye |
+| Crowd cheers | `Jumping_Jacks`, `Victory_Fist_Pump`, `Greeting`, `Dance_Simple`, `Dance_Charleston` | the fans in the stands, two loops each, out of step |
+| Crowd burst | `Victory` | a fan jumps with its arms up when the player scores |
 
 ## The chooser's posters
 
@@ -154,10 +199,10 @@ and every sound is synthesised (`src/arena/sfx.ts`).
 
 ## Rules
 
-* Rival hero bopped 150, robot 100, balloon 50, crate 25 a knock and 250 to break (3 knocks or one
+* Mushroom 150, robot 100, bouncy ball 75, balloon 50, crate 25 a knock and 250 to break (3 knocks or one
   ground pound), ball jumped 50. Gold balloon: +5 seconds.
 * Hits within 2.6 s keep a combo; every 5 hits raises the multiplier (max x5).
-* A robot that reaches the chest dives in ("Oh no!") and breaks the combo.
+* A robot or mushroom that reaches the chest dives in ("Oh no!") and breaks the combo.
   Being bumped by a ball breaks it too. Nothing ends the round early — kids
   always get their 75 seconds and their dance.
 * Spawns escalate over the round: robots every 1.7 s down to 0.8 s, often two
@@ -188,9 +233,11 @@ meshes.
 
 ```bash
 cd games/hero-moves && npm run build && npx vite preview --port 4188 --strictPort &
-node tools/arena-shots.mjs out/ --heroes=/path/A.vrm,/path/B.vrm --vp=390x844,844x390   # start / play / end
+node tools/arena-shots.mjs out/ --heroes=/path/A.vrm --fans=/path/B.vrm,/path/C.vrm --vp=390x844,844x390   # start / play / end
 node tools/arena-record.mjs plan.json out/      # bot-played footage, frame-stepped, with real touches
-node tools/arena-perf.mjs --hero=/path/A.vrm    # real-time fps, CPU per frame, draw calls
+node tools/arena-perf.mjs --hero=/path/A.vrm --fans=/path/B.vrm,/path/C.vrm --throttle=4   # real-time fps, CPU per frame, draw calls
+node tools/arena-crowdcheck.mjs                 # nothing hittable is a hero; who is in the stands, per player
+node tools/arena-stick.mjs out/                 # the stick's hint, float and dismissal, checked and photographed
 ```
 
 `?manual=1` stops the page's own loop so a harness steps it exactly 1/30 s a
