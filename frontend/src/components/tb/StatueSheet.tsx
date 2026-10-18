@@ -66,7 +66,11 @@ export function StatueSheet({ creation, heroName, onClose }: { creation: Creatio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creation.id]);
 
-  useEffect(() => { stage.current?.setText(name, creditLine(child, age)); }, [name, child, age, ready]);
+  // Redraw the engraving once typing pauses: each redraw repaints two textures.
+  useEffect(() => {
+    const t = setTimeout(() => stage.current?.setText(name, creditLine(child, age)), 180);
+    return () => clearTimeout(t);
+  }, [name, child, age, ready]);
   useEffect(() => { stage.current?.setSize(size); }, [size, ready]);
 
   const order = () => {

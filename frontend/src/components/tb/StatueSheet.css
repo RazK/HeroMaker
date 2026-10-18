@@ -8,7 +8,7 @@
 .tb-statue-stage {
   position: relative;
   flex-shrink: 0;
-  height: clamp(220px, 40dvh, 380px);
+  height: clamp(200px, 31dvh, 360px);
   border-radius: var(--tb-radius-card);
   overflow: hidden;
   background:
@@ -39,7 +39,7 @@
 /* Three sizes, equal, side by side: a price under each. */
 .tb-statue-sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .tb-statue-size {
-  height: 64px;
+  height: 58px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -59,10 +59,11 @@
 .tb-statue-size-price { font-weight: 800; font-size: 15px; }
 .tb-statue-size:focus-visible { outline: none; box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink), 0 0 0 4px rgba(91, 61, 245, .25); }
 
-.tb-statue-fields { display: flex; flex-direction: column; gap: 12px; }
+.tb-statue-fields { display: flex; flex-direction: column; gap: 10px; }
 .tb-statue-row { display: grid; grid-template-columns: 1fr 84px; gap: 10px; }
 .tb-statue-age .tb-input { text-align: center; }
-.tb-statue-sheet .tb-input { height: 48px; }
+.tb-statue-sheet .tb-input { height: 46px; }
+.tb-statue-sheet .tb-field { gap: 4px; }
 
 .tb-statue-soon { display: flex; flex-direction: column; gap: var(--tb-space); text-align: center; }
 .tb-statue-soon .tb-field { text-align: start; }

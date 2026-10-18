@@ -60,6 +60,7 @@ export class StatueStage {
   private drag: { x: number; a: number } | null = null;
   private resizeObs: ResizeObserver;
   private disposed = false;
+  private frozen = false;
   private opts: StatueOptions;
   private scaleTarget = 1;
   private scaleNow = 1;
@@ -193,7 +194,7 @@ export class StatueStage {
     this.opts.credit = credit;
     if (!this.topTex || !this.bumpTex) return;
     const R = this.baseR - CHAMFER;
-    const px = 2048;
+    const px = 1024;
     const k = px / (2 * R); // canvas px per mm
     const color = engraveCanvas(px, k, this.baseR, name, credit, CREAM, GRAPE, 0);
     const bump = engraveCanvas(px, k, this.baseR, name, credit, '#ffffff', '#000000', 1.2);
@@ -217,12 +218,21 @@ export class StatueStage {
   }
 
   /** For recordings: put the turntable at an angle and render one frame. */
-  renderAt(angle: number, scale = 1) {
+  renderAt(angle: number, scale?: number) {
     this.angle = angle;
-    this.scaleNow = this.scaleTarget = scale;
+    if (scale !== undefined) this.scaleTarget = scale;
+    this.scaleNow = this.scaleTarget;
     this.apply();
     this.render();
   }
+
+  /** For recordings: stop the turntable clock; frames come from renderAt(). */
+  freeze() {
+    this.frozen = true;
+    cancelAnimationFrame(this.raf);
+  }
+
+  get currentAngle() { return this.angle; }
 
   private apply() {
     this.turntable.rotation.y = this.angle;
@@ -269,7 +279,7 @@ export class StatueStage {
   }
 
   private loop = () => {
-    if (this.disposed) return;
+    if (this.disposed || this.frozen) return;
     const now = performance.now();
     const dt = Math.min((now - this.last) / 1000, 0.1);
     this.last = now;
