@@ -18,7 +18,8 @@
 /* Quiet: turning teacher mode off is rare, and not the tab's business. */
 .cls-stop-classes { color: var(--tb-ink-2); font-weight: 700; min-height: 44px; }
 
-.cls-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tb-space); }
+/* Each card its own height: a live card's Open button does not stretch its row. */
+.cls-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tb-space); align-items: start; }
 @media (min-width: 720px) { .cls-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1100px) { .cls-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
@@ -48,6 +49,28 @@ button.cls-card:active { transform: scale(0.98); }
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
+.cls-card-shelf--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 104px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--tb-ink-2);
+}
+.cls-card-shelf-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  color: var(--tb-grape);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (min-width: 720px) { .cls-card-shelf--empty { height: 120px; } }
 .cls-mini {
   position: relative;
   height: 104px;

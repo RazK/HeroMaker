@@ -112,7 +112,13 @@ function ClassCard({ c, index, onOpen }: { c: ClassView; index: number; onOpen: 
   const live = isLive(c);
   const seatsShown = Math.max(1, Math.min(SHELF, c.seats));
   const sub = `${c.heroes_ready} of ${c.seats} heroes · ${c.seats_left} ${c.seats_left === 1 ? 'seat' : 'seats'} left`;
-  const shelf = (
+  // No hero yet: one friendly plate waiting for the first.
+  const shelf = c.preview.length === 0 ? (
+    <span className={`cls-card-shelf cls-card-shelf--empty tb-plate-${(index % 6) + 1}`}>
+      <span className="cls-card-shelf-badge" aria-hidden="true"><Icon name="brush" /></span>
+      No heroes yet
+    </span>
+  ) : (
     <span className="cls-card-shelf" aria-hidden="true">
       {Array.from({ length: seatsShown }, (_, i) => {
         const h = c.preview[i];

@@ -142,6 +142,7 @@ function MainApp() {
       setCreation(null);
       setError(null);
       forgetGallery();
+      setTabState('featured');
       setGalleryKey((k) => k + 1);
       window.scrollTo({ top: 0 });
       setAccountNotice('Account deleted');

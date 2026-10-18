@@ -216,7 +216,7 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
     const r = row.getBoundingClientRect();
     const c = on.getBoundingClientRect();
     if (c.left < r.left || c.right > r.right) row.scrollLeft += c.left + c.width / 2 - (r.left + r.width / 2);
-  }, [filter]);
+  }, [filter, tabs.length]);
 
   return (
     <div className="tb-gallery creation-gallery" ref={rootRef}>

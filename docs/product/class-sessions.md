@@ -66,14 +66,20 @@ What exists:
 ## 2. How someone becomes a teacher
 
 - **At sign-up**, with an "I'm a teacher" switch on the sign-up sheet.
-- **Later**, from the account sheet: "Teacher home" on or off. Anyone can
-  switch; there is nothing to verify, because a teacher pays like everyone else
-  (no free class, section 5).
+- **Later**, from the account sheet: **Run a class**. It turns teacher mode on
+  and opens the My classes tab. Anyone can; there is nothing to verify, because
+  a teacher pays like everyone else (no free class, section 5).
 - **Creating a class** also turns it on.
 
-With it on, the home screen is **My classes** instead of the gallery. The
-gallery stays one tap away. The account, credits and Buy credits are the same as
-everyone else's.
+A teacher's classes are a **tab of the gallery**, not a separate home: the chips
+read Editors' choice · My heroes · **My classes** (admins also keep All heroes
+and Failed), under the same header, one tap apart. The gallery remembers the
+last tab, and a teacher with a class running right now lands on My classes,
+that class pinned first with a big **Open class**. Back from a class returns to
+the tab with its scroll kept; the logo always returns to the gallery on the tab
+last used. The account sheet is not navigation: a teacher has no row there, and
+"Stop showing My classes", at the foot of the tab, turns teacher mode off. The
+account, credits and Buy credits are the same as everyone else's.
 
 ## 3. User stories
 
@@ -99,9 +105,13 @@ everyone else's.
 ## 4. Flows
 
 ### Teacher, in advance (parent voice: this is money)
-1. Home (**My classes**). Each class card shows its name, "12 of 28 heroes", up
-   to five finished heroes on their plates, and a **Live** badge while a session
-   runs. The bar holds **New class**, the one grape action.
+1. The gallery's **My classes** tab. Each class card shows its name, "12 of 28
+   heroes", and a shelf of four small gallery tiles: its first finished heroes
+   (drawing cross-fading to the hero) and an empty seat for each still to come;
+   a class with none yet shows one plate, "No heroes yet". A class running now
+   is pinned first, ringed in grape, with **Live**, the time left and **Open
+   class** (the screen's grape action; New class then steps back to secondary).
+   Otherwise the bar holds **New class**, the one grape action.
 2. **New class** sheet. It asks for the class name and the number of students
    (a − 28 + stepper). The primary button carries a trail: "Pay 280 credits". If
    the balance is short, the sheet says "You need 280 credits. You have 100." and
