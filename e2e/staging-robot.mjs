@@ -3,17 +3,22 @@
 //   landing page -> heroes gallery -> sign up -> buy credits (Lemon Squeezy
 //   test mode) -> upload a drawing -> every pipeline stage completes -> the
 //   hero is in "My Creations" -> its page: the intro, then moves -> Play ->
-//   the game chooser -> Dance party, and the camera-free Robot Rumble
+//   the game chooser -> Dance party, and the camera-free Robot Rumble ->
+//   Teacher home -> a new class whose seats it cannot cover from its credits,
+//   paid for in money on Lemon Squeezy -> the seats land on the class (not on
+//   the robot's balance) -> Start class shows a PIN and a QR -> End class
 //
 // It talks to nothing but the public frontend URL, like a person would. No
-// API shortcuts: a step passes only if the UI shows it passed. Every step
+// API shortcuts: a step passes only if the UI shows it passed (the class step
+// also reads the API back, to prove where the money's seats went). Every step
 // writes a screenshot to e2e/out/ so a failure can be seen, not guessed at.
 //
 //   BASE_URL=https://<staging frontend> node e2e/staging-robot.mjs
 //   STEPS=landing,gallery,signup   run a subset (default: all)
 //
 // It spends real money at OpenAI and Meshy (one hero, ~10 credits of
-// provider cost) and a Lemon Squeezy TEST-mode purchase, which is free.
+// provider cost) and two Lemon Squeezy TEST-mode purchases (a credit pack,
+// then a class's seats), which are free.
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +28,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
 const DRAWING = path.join(HERE, '..', 'marketing', 'concepts', 'assets', 'pairs', 'crayon-kid-drawing.jpg');
 const BASE_URL = (process.env.BASE_URL || '').replace(/\/$/, '');
-const ALL_STEPS = ['landing', 'gallery', 'signup', 'buy', 'create', 'profile', 'game'];
+const ALL_STEPS = ['landing', 'gallery', 'signup', 'buy', 'create', 'profile', 'game', 'class'];
 const STEPS = (process.env.STEPS || ALL_STEPS.join(',')).split(',').map((s) => s.trim());
 const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS || 25 * 60 * 1000);
 // DEMO=1 records a video of the same journey at a human pace, with a visible
@@ -153,12 +158,23 @@ async function fillFirst(page, selectors, value, label, { mainOnly = false } = {
   return false;
 }
 
-async function payOnLemonSqueezy(page, email) {
+async function payOnLemonSqueezy(page, email, { marks: marking = true } = {}) {
   await page.waitForURL(/lemonsqueezy\.com/, { timeout: 60000 });
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(4000); // Stripe mounts its iframes after load
+  // Stripe mounts its iframes after load, sometimes many seconds after: wait
+  // for the card number itself rather than a fixed time.
+  await page.waitForTimeout(4000);
+  for (let i = 0; i < 30; i++) {
+    let found = false;
+    for (const frame of page.frames()) {
+      const n = frame.locator('input[name=cardnumber], input[autocomplete="cc-number"], #Field-numberInput, input[name=number]').first();
+      if (await n.isVisible().catch(() => false)) { found = true; break; }
+    }
+    if (found) break;
+    await page.waitForTimeout(1000);
+  }
   await snap(page, 'checkout-loaded');
-  mark('checkout');
+  if (marking) mark('checkout');
 
   // The checkout's "Email address" is Stripe's Link authentication field, so
   // it lives in a Stripe iframe; a fresh address never triggers Link's code.
@@ -250,7 +266,7 @@ async function payOnLemonSqueezy(page, email) {
     if (!(await thanks.isVisible().catch(() => false))) throw new Error('no order confirmation within 2 minutes of paying');
     await snap(page, 'checkout-paid');
     await linger(page, 2500);
-    mark('paid');
+    if (marking) mark('paid');
     await page.getByRole('button', { name: /^continue/i }).or(page.getByRole('link', { name: /^continue/i })).first().click();
     await page.waitForURL((u) => u.toString().startsWith(BASE_URL), { timeout: 60000 });
   }
@@ -332,6 +348,15 @@ async function robotToken() {
   if (r.status === 401) return null;  // no such account: sign-up never happened
   if (!r.ok) throw new Error(`sign-in for cleanup answered ${r.status}`);
   return (await r.json()).access_token || null;
+}
+
+// Reads the API back as this run's robot, to check what the UI cannot show.
+async function robotApi(pathname) {
+  const token = await robotToken();
+  if (!token) throw new Error(`no token to read ${pathname}`);
+  const r = await fetch(`${BASE_URL}${pathname}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`${pathname} answered ${r.status}`);
+  return r.json();
 }
 
 async function cleanup() {
@@ -646,6 +671,145 @@ try {
     await snap(page, 'dance-party');
     mark('end');
     return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began and Dance party started`;
+  });
+
+  await step(page, 'class', async () => {
+    // A teacher short of credits pays money for exactly the seats a class
+    // needs. The seats arrive on the class by the signed webhook, and never
+    // touch the teacher's own balance.
+    await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
+    await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
+    const me = await robotApi('/api/auth/me');
+    const balance = me.credits;
+
+    // Teacher home is a row on the account sheet; it turns teacher mode on.
+    if (!me.is_teacher) {
+      await page.getByRole('button', { name: 'Account' }).click();
+      await page.getByRole('button', { name: /teacher home/i }).click();
+    }
+    const newClass = page.locator('.cls-new-class');
+    await newClass.waitFor({ timeout: 30000 });
+    await linger(page, 1500);
+
+    // The price the app quotes must be the one packs.py sets.
+    const listed = await robotApi('/api/classes');
+    const price = listed.seat_price;
+    if (!price) throw new Error('GET /api/classes offers no seat_price: the class-seats variant is not configured');
+    if (price.order_cents !== 50 || price.seat_cents !== 125) {
+      throw new Error(`seat_price is ${JSON.stringify(price)}, want order_cents 50 and seat_cents 125 ($0.50 + $1.25 a seat)`);
+    }
+    // More seats than the robot's credits cover, so money is the way to pay.
+    const heroCost = listed.hero_cost;
+    const seats = Math.min(price.max_seats, Math.max(5, Math.floor(balance / heroCost) + 1));
+    const want = `$${((price.order_cents + price.seat_cents * seats) / 100).toFixed(2)}`;
+
+    await newClass.click();
+    // The first class asks for the school once.
+    const schoolName = page.locator('#cls-school');
+    const title = page.locator('#cls-title');
+    await schoolName.or(title).first().waitFor({ timeout: 15000 });
+    let school = 'already set';
+    if (await schoolName.isVisible()) {
+      await type(page, '#cls-school', 'Robot Primary');
+      await page.locator('.cls-school-types').getByRole('radio', { name: 'Primary school' }).click();
+      await linger(page, 800);
+      await page.locator('.cls-school-save').click();
+      school = 'Robot Primary, primary school';
+    }
+
+    await title.waitFor({ timeout: 15000 });
+    const className = `Robot ${stamp}`;
+    await type(page, '#cls-title', className);
+    // The Students stepper, tapped down (or up) to the count.
+    const value = page.locator('.cls-new-sheet .cls-stepper-value');
+    for (let i = 0; i < 80; i++) {
+      const n = Number(await value.inputValue());
+      if (n === seats) break;
+      await page.locator('.cls-new-sheet .cls-stepper').getByRole('button', { name: n > seats ? 'Fewer' : 'More' }).click();
+    }
+    if (Number(await value.inputValue()) !== seats) throw new Error(`the Students stepper stuck at ${await value.inputValue()}, want ${seats}`);
+    await page.locator('.cls-ages').getByRole('radio', { name: '7–8' }).click();
+    await linger(page, 1200);
+
+    const paySeats = page.locator('.cls-pay-seats');
+    await paySeats.waitFor({ timeout: 10000 });
+    const offer = (await paySeats.innerText()).trim();
+    if (offer !== `Pay ${want} for ${seats} seats`) throw new Error(`the bar offers "${offer}", want "Pay ${want} for ${seats} seats"`);
+    await paySeats.click();
+    const payMoney = page.locator('.cls-pay-money');
+    await payMoney.waitFor();
+    const confirm = (await payMoney.innerText()).trim();
+    if (confirm !== `Pay ${want}`) throw new Error(`the dialog's button reads "${confirm}", want "Pay ${want}"`);
+    await snap(page, 'class-pay');
+    await linger(page, 1500);
+    // The checkout the app opens, read as it passes: the page leaves for Lemon
+    // Squeezy at once, and a response body is gone with the page.
+    let buy = null;
+    await page.route('**/api/classes/buy', async (route) => {
+      const res = await route.fetch();
+      buy = { status: res.status(), text: await res.text() };
+      await route.fulfill({ response: res, body: buy.text });
+    });
+    await payMoney.click();
+    await page.waitForURL(/lemonsqueezy\.com/, { timeout: 60000 }).catch(() => {});
+    await page.unroute('**/api/classes/buy');
+    if (!buy) throw new Error('tapping Pay never asked for a checkout');
+    if (buy.status !== 201) throw new Error(`POST /api/classes/buy answered ${buy.status}: ${buy.text}`);
+    const checkout = JSON.parse(buy.text);
+    if (checkout.seats !== seats || checkout.price_display !== want) {
+      throw new Error(`the checkout is for ${checkout.seats} seats at ${checkout.price_display}, want ${seats} at ${want}`);
+    }
+
+    await payOnLemonSqueezy(page, user.email, { marks: false });
+    // Back on our site, on the class, which watches its seats arrive.
+    const back = Date.now();
+    if (!new URL(page.url()).search.includes(`class_paid=${checkout.class_id}`) && !(await page.locator('.cls-class').count())) {
+      throw new Error(`came back from the checkout to ${page.url()}, not to the class`);
+    }
+    const start = page.locator('.cls-start');
+    const note = page.locator('.cls-class .tb-bar-note');
+    const deadline = back + 60000;
+    while (Date.now() < deadline) {
+      if ((await note.innerText().catch(() => '')).startsWith(`${seats} of ${seats} seats left`) && await start.isVisible().catch(() => false)) break;
+      await page.waitForTimeout(500);
+    }
+    const shown = await note.innerText().catch(() => '(no bar)');
+    if (!shown.startsWith(`${seats} of ${seats} seats left`)) throw new Error(`a minute after paying the class shows "${shown}", want ${seats} of ${seats} seats left`);
+    const landed = ((Date.now() - back) / 1000).toFixed(1);
+    await snap(page, 'class-seats-in');
+
+    // The API agrees, and the money bought seats, not credits.
+    const cls = await robotApi(`/api/classes/${checkout.class_id}`);
+    if (cls.seats !== seats || cls.title !== className) throw new Error(`the API has "${cls.title}" with ${cls.seats} seats, want "${className}" with ${seats}`);
+    const after = (await robotApi('/api/auth/me')).credits;
+    if (after !== balance) throw new Error(`the teacher's balance moved ${balance} -> ${after}: class seats must never land on it`);
+
+    // Start the class: the code to copy off the board, and the QR to scan.
+    await start.click();
+    await page.locator('.cls-start-confirm').click();
+    const pinBox = page.locator('.cls-join-card .cls-pin');
+    await pinBox.waitFor({ timeout: 15000 });
+    const pin = (await pinBox.locator('.cls-pin-box').allInnerTexts()).join('');
+    if (!/^\d{6}$/.test(pin)) throw new Error(`the class code reads "${pin}", want 6 digits`);
+    const qr = page.locator('.cls-join-card svg.cls-qr');
+    if (!(await qr.isVisible())) throw new Error('no QR code on the live class');
+    const live = await robotApi(`/api/classes/${checkout.class_id}`);
+    if (live.live?.pin !== pin) throw new Error(`the screen shows code ${pin}, the API ${live.live?.pin}`);
+    await linger(page, 3000);
+    await snap(page, 'class-live');
+    await page.locator('.cls-end').click();
+    await page.locator('.cls-end-confirm').click();
+    await start.waitFor({ timeout: 15000 });
+
+    // Leave teacher mode as it was found.
+    if (!me.is_teacher) {
+      await page.getByRole('button', { name: 'Back to classes' }).click();
+      await newClass.waitFor({ timeout: 15000 });
+      await page.getByRole('button', { name: 'Account' }).click();
+      await page.getByRole('button', { name: /teacher home/i }).click();
+      await newClass.waitFor({ state: 'detached', timeout: 15000 });
+    }
+    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; ended`;
   });
 } catch {
   exitCode = 1;
