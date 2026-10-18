@@ -1,0 +1,147 @@
+/*
+ * Class stage. Toy Box tokens from ui/toybox.css; Hebrew, so right to left and
+ * logical properties only. Hebrew display text falls through Barriecito (no
+ * Hebrew glyphs) to Fredoka, as the brand book says; Hebrew body text is Rubik.
+ */
+:root { --cs-he: 'Rubik', var(--tb-font-body); }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--tb-cream); }
+html body { font-family: var(--cs-he); }
+#app { position: fixed; inset: 0; }
+
+.cs-stage { position: absolute; inset: 0; overflow: hidden; touch-action: manipulation; cursor: pointer; }
+.cs-stage canvas { display: block; width: 100%; height: 100%; }
+.cs-overlay { position: absolute; inset: 0; pointer-events: none; }
+.cs-dim, .cs-confetti { position: absolute; inset: 0; opacity: 0; }
+.cs-confetti { opacity: 1; }
+
+/* Every child's first name, on a plate on the tier edge under their hero. */
+.cs-labels { position: absolute; inset: 0; }
+.cs-label {
+  /* Placed by JS in screen pixels from the top-left corner; RTL must not flip it. */
+  position: absolute; left: 0; top: 0;
+  padding: 0.12em 0.7em 0.16em;
+  border-radius: 999px;
+  font-family: var(--tb-font-display); font-weight: 600; font-synthesis: none;
+  font-size: clamp(15px, min(2.5vw, 2.7vh), 34px); line-height: 1.15;
+  color: var(--tb-ink);
+  box-shadow: 0 3px 0 var(--tb-ink);
+  border: 2.5px solid var(--tb-ink);
+  white-space: nowrap;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+
+/* The class's name, top centre, while the show runs. */
+.cs-titlepill {
+  position: absolute; top: calc(var(--tb-space) + env(safe-area-inset-top, 0px)); left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 18px 8px; border-radius: 999px;
+  background: var(--tb-white); color: var(--tb-ink);
+  font-family: var(--tb-font-display); font-weight: 600; font-size: clamp(16px, min(2.2vw, 3vh), 30px);
+  box-shadow: 0 4px 0 var(--tb-ink); border: 2.5px solid var(--tb-ink);
+  transition: opacity 300ms;
+}
+
+/* The solo: name big, on its own plate (text over a 3D scene never floats). */
+.cs-spot {
+  position: absolute; left: 50%; bottom: calc(5vh + env(safe-area-inset-bottom, 0px));
+  transform-origin: 50% 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 40px 16px; border-radius: var(--tb-radius-card);
+  background: var(--tb-sun); color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-sun-deep); border: 3px solid var(--tb-ink);
+  opacity: 0;
+}
+.cs-spot-eyebrow { font-weight: 800; font-size: clamp(14px, min(1.7vw, 2.4vh), 24px); }
+.cs-spot-name { font-family: var(--tb-font-display); font-weight: 600; font-size: clamp(44px, min(7.5vw, 10vh), 120px); line-height: 1; }
+
+/* Intro and outro cards. */
+.cs-caption {
+  position: absolute; left: 50%; top: 3%;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 22px 44px 28px; border-radius: var(--tb-radius-card);
+  background: var(--tb-white); color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-grape-deep); border: 3px solid var(--tb-ink);
+  opacity: 0; max-width: 86vw; transform-origin: 50% 0;
+}
+.cs-caption[data-kind='outro'] { background: var(--tb-grape); color: var(--tb-white); box-shadow: 0 var(--tb-depth) 0 var(--tb-grape-deep); }
+.cs-cap-eyebrow { font-weight: 800; font-size: clamp(15px, min(2vw, 2.6vh), 28px); color: var(--tb-grape-text); }
+.cs-cap-title { font-family: var(--tb-font-display); font-weight: 600; font-size: clamp(40px, min(7vw, 9vh), 110px); line-height: 1.05; }
+.cs-cap-line { font-weight: 700; font-size: clamp(16px, min(2.2vw, 3vh), 32px); color: var(--tb-ink-2); }
+.cs-caption[data-kind='outro'] .cs-cap-line { color: #fff; opacity: 0.92; }
+
+/* A finger on the glass, for the recording. */
+.cs-tap {
+  position: absolute; left: 0; top: 0; width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(91, 61, 245, 0.28); border: 4px solid var(--tb-white);
+  box-shadow: 0 0 0 3px var(--tb-ink); opacity: 0;
+}
+
+.cs-toast {
+  position: absolute; left: 50%; top: calc(110px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  padding: 10px 20px; border-radius: var(--tb-radius-input);
+  background: var(--tb-ink); color: var(--tb-white); font-weight: 700; font-size: 16px;
+  opacity: 0; transition: opacity 200ms;
+}
+
+/* ---------------------------------------------------------------- solo view */
+.cs-solo { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 250ms; }
+.cs-solo.on { opacity: 1; }
+.cs-solo.on .cs-solo-back, .cs-solo.on .cs-solo-bar { pointer-events: auto; }
+.cs-solo-head {
+  position: absolute; inset-inline: 0; top: 0;
+  display: flex; align-items: center; justify-content: center;
+  height: calc(48px + 2 * var(--tb-space)); padding-top: env(safe-area-inset-top, 0px);
+}
+.cs-solo-back { position: absolute; inset-inline-start: var(--tb-gutter); top: calc(var(--tb-space) + env(safe-area-inset-top, 0px)); width: 48px; height: 48px; }
+/* Back points the way a Hebrew reader came from: mirrored. */
+[dir='rtl'] .cs-solo-back svg { transform: scaleX(-1); }
+.cs-solo-title {
+  font-family: var(--tb-font-display); font-weight: 600; font-size: 30px; color: var(--tb-ink);
+  padding: 2px 20px 6px; border-radius: 999px; background: var(--tb-white);
+  border: 2.5px solid var(--tb-ink); box-shadow: 0 4px 0 var(--tb-ink);
+}
+.cs-solo-bar {
+  position: absolute; inset-inline: 0; bottom: 0; margin: 0 auto; max-width: 560px;
+  display: flex; flex-direction: column; gap: var(--tb-stack);
+  padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+  background: var(--tb-white);
+  border-radius: var(--tb-radius-card) var(--tb-radius-card) 0 0;
+  box-shadow: 0 -2px 0 var(--tb-line), 0 -12px 32px rgba(35, 25, 66, 0.14);
+}
+.cs-solo-note { color: var(--tb-ink-2); font-family: var(--cs-he); }
+.cs-solo-bar .tb-btn { width: 100%; }
+.cs-solo-bar .tb-btn span { font-family: var(--tb-font-display); }
+.tb-btn.cs-pressed { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-grape-deep); }
+
+/* ---------------------------------------------------------------- loading */
+.cs-loading {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: var(--tb-gutter);
+  background: var(--tb-cream); transition: opacity 350ms;
+}
+.cs-loading.gone { opacity: 0; pointer-events: none; }
+.cs-load-card {
+  width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; gap: var(--tb-space);
+  text-align: center;
+}
+.cs-load-title { font-family: var(--tb-font-display); font-weight: 600; font-size: 40px; line-height: 1.1; color: var(--tb-ink); }
+.cs-load-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+.cs-load-tile {
+  position: relative; aspect-ratio: 1 / 1.12; border-radius: 18px; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+}
+.cs-load-tile img { position: absolute; inset: 6px 6px 22px; width: calc(100% - 12px); height: calc(100% - 28px); object-fit: contain; opacity: 0.45; filter: saturate(0.4); transition: opacity 300ms, filter 300ms; }
+.cs-load-tile.ready img { opacity: 1; filter: none; }
+.cs-load-tile span { position: relative; font-family: var(--tb-font-display); font-weight: 600; font-size: 15px; padding-bottom: 3px; color: var(--tb-ink); }
+.cs-load-tile.failed { opacity: 0.35; }
+.cs-load-bar { width: 100%; height: 10px; border-radius: 999px; background: var(--tb-track); overflow: hidden; }
+.cs-load-fill { height: 100%; width: 0; background: var(--tb-grape); border-radius: 999px; transition: width 200ms; }
+[dir='rtl'] .cs-load-bar { transform: scaleX(-1); }
+
+.cs-stats { position: absolute; inset-inline-end: 8px; bottom: 8px; padding: 4px 8px; border-radius: 8px; background: rgba(35,25,66,.8); color: #fff; font: 600 12px/1.3 ui-monospace, monospace; direction: ltr; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-solo, .cs-loading, .cs-titlepill { transition: none; }
+}
+
+html.cs-record *, html.cs-record *::before, html.cs-record *::after { transition: none !important; animation: none !important; }

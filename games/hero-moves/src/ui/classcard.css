@@ -1,0 +1,48 @@
+/*
+ * Printable hero card, A6 (105 x 148 mm), one per page. Toy Box; Hebrew, RTL.
+ * Sizes are in mm so the print and the screen agree.
+ */
+@page { size: 105mm 148mm; margin: 0; }
+html body { margin: 0; background: #d9d2c4; font-family: 'Rubik', var(--tb-font-body); color: var(--tb-ink); }
+#app { display: flex; flex-direction: column; align-items: center; gap: 8mm; padding: 8mm 0; }
+@media print { html body { background: none; } #app { padding: 0; gap: 0; } }
+
+.cc-card {
+  position: relative; box-sizing: border-box; width: 105mm; height: 148mm; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 6mm 6mm 5mm;
+  break-after: page; page-break-after: always;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+/* A white inner card with the app's ink outline: the hero's packaging. */
+.cc-card::before {
+  content: ''; position: absolute; inset: 4mm; border-radius: 7mm;
+  background: var(--tb-white); border: 0.8mm solid var(--tb-ink); box-shadow: 0 1.4mm 0 var(--tb-ink);
+}
+.cc-card > * { position: relative; }
+.cc-top { margin-top: 2.5mm; }
+.cc-eyebrow { font-weight: 800; font-size: 3.4mm; color: var(--tb-grape-text); }
+
+.cc-stage { position: relative; width: 84mm; height: 74mm; margin-top: 1mm; display: grid; place-items: center; }
+.cc-sun { position: absolute; width: 62mm; height: 62mm; border-radius: 50%; background: var(--tb-sun); top: 4mm; }
+.cc-hero { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+.cc-name {
+  font-family: var(--tb-font-display); font-weight: 600; font-synthesis: none;
+  font-size: 15mm; line-height: 1; margin-top: -1mm;
+}
+
+.cc-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 4mm;
+  width: 81mm; margin-top: auto; margin-bottom: 4mm;
+  padding: 3mm 3.5mm; box-sizing: border-box; border-radius: 4.5mm; background: var(--tb-cream);
+}
+.cc-scan { display: flex; flex-direction: column; gap: 1mm; }
+.cc-scan strong { font-family: var(--tb-font-display); font-weight: 600; font-size: 6mm; line-height: 1; }
+.cc-scan span { font-weight: 700; font-size: 3.6mm; color: var(--tb-ink-2); }
+/* Dark modules on white with a quiet zone, whatever the card colour. */
+.cc-qr { flex: none; width: 26mm; height: 26mm; padding: 1.6mm; background: #fff; border-radius: 2mm; }
+.cc-qr svg { display: block; width: 100%; height: 100%; }
+.cc-qr svg path, .cc-qr svg rect[fill='black'] { fill: var(--tb-ink); }
+
+.cc-brand { position: absolute; bottom: 5.2mm; inset-inline: 0; text-align: center; font-family: var(--tb-font-display); font-size: 3mm; color: var(--tb-ink-2); direction: ltr; }
