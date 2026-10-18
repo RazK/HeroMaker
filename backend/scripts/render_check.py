@@ -156,11 +156,19 @@ def main(argv=None) -> int:
         label, _, src = item.partition("=")
         if not label or not src:
             ap.error("--drawing wants LABEL=SRC")
-        jobs.append((label, _fetch(src), None, None))
+        try:
+            jobs.append((label, _fetch(src), None, None))
+        except Exception as e:
+            print(f"{label}: cannot fetch {src}: {e}", flush=True)
     for name in args.find:
         if not args.database_url:
-            ap.error("--find needs --database-url")
-        found = find_heroes(args.database_url, name)
+            print(f"find {name!r}: skipped, no --database-url", flush=True)
+            continue
+        try:
+            found = find_heroes(args.database_url, name)
+        except Exception as e:
+            print(f"find {name!r}: lookup failed: {e}", flush=True)
+            continue
         print(f"find {name!r}: {len(found)} hero(es)", flush=True)
         for label, user_id, creation_id, style in found:
             base = f"{args.files_base}/api/files/{user_id}/{creation_id}"
@@ -170,7 +178,10 @@ def main(argv=None) -> int:
                 shipped = _fetch(f"{base}/rendered.png")
             except Exception as e:
                 print(f"  {label}: no rendered.png ({e})")
-            jobs.append((label, _fetch(f"{base}/original.jpg"), shipped, style or "pixar"))
+            try:
+                jobs.append((label, _fetch(f"{base}/original.jpg"), shipped, style or "pixar"))
+            except Exception as e:
+                print(f"  {label}: cannot fetch the drawing: {e}", flush=True)
 
     calls = 0
     report = []

@@ -75,7 +75,10 @@ jobs:
           fi
           args+=(--max-calls "$MAX_CALLS" --out-dir out/render-check)
           [ -n "${PUBLIC_DB:-}" ] && args+=(--database-url "$PUBLIC_DB")
-          railway run --service="$SERVICE" --environment="$ENVIRONMENT" -- python backend/scripts/render_check.py "${args[@]}"
+          mkdir -p out/render-check
+          # The log goes to the review branch too: job logs are not readable
+          # from everywhere the results are.
+          railway run --service="$SERVICE" --environment="$ENVIRONMENT" -- python backend/scripts/render_check.py "${args[@]}" 2>&1 | tee out/render-check/log.txt
       - name: Push the paintings to a review branch
         if: always()
         run: |
@@ -87,7 +90,7 @@ jobs:
           mv out/render-check "$RUNNER_TEMP/render-check"
           git checkout --orphan "$branch"
           git rm -rq --cached .
-          git clean -fdq
+          git clean -fdxq
           cp -r "$RUNNER_TEMP/render-check/." .
           git add -A
           git commit -qm "Render check ${GITHUB_RUN_ID} from ${GITHUB_SHA::7}"
