@@ -3,6 +3,7 @@ import { api, ApiError, CreationResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { playUrl } from '../../config/play';
 import { HeroLive } from './HeroLive';
+import { StatueSheet } from './StatueSheet';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, Polaroid, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
 import { STEP_UI, currentStep, etaText, heroName, heroState, remainingCost, stepViews } from './pipeline';
@@ -34,7 +35,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const state = heroState(creation);
   const owns = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'statue' | null>(null);
   const [introRequest, setIntroRequest] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +114,7 @@ export function HeroScreen(props: HeroScreenProps) {
   // The sheet behind ⋯ : the same button for everyone, more rows for the owner.
   const moreRows = [
     canShare && <SheetRow key="share" icon="share" label="Share" onClick={() => { setSheet(null); share(); }} />,
+    ready && <SheetRow key="statue" icon="statue" label="Make it real" trail="from $49" onClick={() => setSheet('statue')} />,
     ready && <SheetRow key="made" icon="layers" label="How it was made" onClick={() => { setSheet(null); setIntroRequest((n) => n + 1); }} />,
     ...(owns ? [
       <SheetRow key="rename" icon="pencil" label="Rename" onClick={() => setSheet('rename')} />,
@@ -204,7 +206,7 @@ export function HeroScreen(props: HeroScreenProps) {
     <div className="tb-screen tb-screen--fit tb-hero-screen" data-state={state}>
       {header}
       {ready
-        ? <HeroLive key={creation.id} creation={creation} introRequest={introRequest} notice={notice} />
+        ? <HeroLive key={creation.id} creation={creation} introRequest={introRequest} notice={notice} onMakeReal={() => setSheet('statue')} />
         : <div className="tb-screen-body">{notice}{body}</div>}
       <div className="tb-bar">{bar}</div>
 
@@ -213,6 +215,7 @@ export function HeroScreen(props: HeroScreenProps) {
           {moreRows}
         </Sheet>
       )}
+      {sheet === 'statue' && <StatueSheet creation={creation} heroName={name} onClose={() => setSheet(null)} />}
       {sheet === 'rename' && <RenameSheet creation={creation} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}
       {sheet === 'delete' && (
         <Dialog label={`Delete ${name}?`} onClose={() => setSheet(null)}>

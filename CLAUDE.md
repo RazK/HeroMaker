@@ -100,6 +100,22 @@ dead-thumbnail finding is a pipeline bug worth fixing at the source
 (`vrm-converter-service/`), which would shrink every avatar for every consumer
 at once.
 
+### `backend/scripts/make_statue.py` — a hero as a print-ready figurine (prototype)
+
+```bash
+.venv/bin/python backend/scripts/make_statue.py model.glb out.zip --height 90 --name "Blue Bolt" --child Maya --age 6
+```
+
+`app/services/statue.py` welds Meshy's UV seams, drops slivers and crumbs,
+fills holes, puts the hero on a round base with the name engraved (real
+geometry, manifold3d booleans) and writes OBJ+MTL+texture, a textured 3MF,
+a preview GLB and `report.json` (watertight, volume, wall thickness, price).
+Same code behind admin-only `GET /api/admin/creations/{id}/print-file`.
+Measured on 8 staging heroes: all watertight, one shell. The "Make it real"
+sheet on the hero page is a fake door: **no checkout — Lemon Squeezy forbids
+physical goods.** `frontend/statue-demo.html` is the dev-only product-shot
+studio for ads.
+
 ### `devops/scripts/railway-env.sh` — one home for every Railway variable
 
 Railway env vars are **never** typed into the dashboard twice. They live in
