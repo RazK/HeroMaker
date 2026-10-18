@@ -261,7 +261,15 @@ function finish() {
   app.querySelector('.rr-end-best')!.textContent = isBest
     ? `${game.stats.robots} robots stopped`
     : `Best ${best.toLocaleString('en-US')} · ${game.stats.robots} robots stopped`
-  againBtn.focus({ preventScroll: true })
+  // A thumb still hammering Punch when time runs out must not land on Back:
+  // the card's buttons wake up a moment after it appears.
+  // (Inert rather than disabled, so they do not flash grey.)
+  const endButtons = app.querySelector<HTMLElement>('.rr-end-buttons')!
+  endButtons.inert = true
+  setTimeout(() => {
+    endButtons.inert = false
+    againBtn.focus({ preventScroll: true })
+  }, 900)
 }
 
 startBtn.addEventListener('click', () => start())

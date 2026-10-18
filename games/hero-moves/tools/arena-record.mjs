@@ -123,6 +123,9 @@ for (const seg of plan.segments) {
     // Fast-forward to the last few seconds, then record the finish and the card.
     while (s.phase === 'play' && s.remaining > (seg.endLead ?? 3)) s = await playFrame(false)
     while (s.phase === 'play') s = await playFrame(true)
+    // Lift every finger the moment the round ends, as a player would.
+    for (const id of [...touches.keys()]) touches.delete(id)
+    await send('touchEnd').catch(() => {})
     for (let i = 0; i < Math.round((seg.endHold ?? 5) * FPS); i++) { await step(true); await grab() }
   }
   for (const id of [...touches.keys()]) touches.delete(id)
