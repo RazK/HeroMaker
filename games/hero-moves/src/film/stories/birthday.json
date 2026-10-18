@@ -1,0 +1,67 @@
+{
+  "id": "birthday",
+  "label": "Birthday",
+  "title": "{hero}'s Big Birthday",
+  "bpm": 116,
+  "paywallAt": 15.0,
+  "beats": [
+    {
+      "card": "title", "dur": 3.8, "backdrop": "sunset", "mood": "calm", "transition": "cut",
+      "acts": [{ "at": 0, "clip": "idle", "loop": true }, { "at": 1.6, "clip": "nod" }],
+      "camera": { "from": { "shot": "wide", "az": 14, "push": 1.15 }, "to": { "shot": "wide", "az": 6 } },
+      "sfx": [{ "at": 0.25, "kind": "chime" }]
+    },
+    {
+      "dur": 6.0, "backdrop": "sunset", "mood": "calm",
+      "text": "This is {hero}. And today is {hero}'s birthday!",
+      "acts": [{ "at": 0, "clip": "walk", "loop": true }, { "at": 2.9, "clip": "wave", "speed": 1.15 }],
+      "path": [{ "t": 0, "x": -1.9, "z": 0.2, "yaw": 62 }, { "t": 2.8, "x": 0, "z": 0, "yaw": 22 }, { "t": 3.3, "yaw": 0 }],
+      "camera": { "from": { "shot": "wide", "az": 18 }, "to": { "shot": "medium", "az": 6 } }
+    },
+    {
+      "dur": 5.4, "backdrop": "nature", "mood": "suspense",
+      "text": "But where did everybody go?",
+      "acts": [{ "at": 0, "clip": "idle", "loop": true }, { "at": 0.9, "clip": "confused", "speed": 0.9 }],
+      "path": [{ "t": 0, "yaw": -24 }, { "t": 1.4, "yaw": 22 }, { "t": 3.4, "yaw": -6 }],
+      "camera": { "from": { "shot": "medium", "az": -14 }, "to": { "shot": "close", "az": -4 } },
+      "sfx": [{ "at": 4.2, "kind": "drumroll", "dur": 1.15 }]
+    },
+    {
+      "dur": 5.2, "backdrop": "circus", "mood": "party", "transition": "flash",
+      "title": "SURPRISE!",
+      "text": "All of {hero}'s friends jumped out!",
+      "acts": [{ "at": 0, "clip": "jump" }, { "at": 1.2, "clip": "cheer" }, { "at": 2.9, "clip": "jacks", "loop": true }],
+      "camera": { "from": { "shot": "low", "az": 0, "push": 0.9 }, "to": { "shot": "wide", "az": 10 } },
+      "fx": [{ "kind": "confetti", "at": 0.05 }],
+      "sfx": [{ "at": 0, "kind": "crash" }]
+    },
+    {
+      "dur": 6.2, "backdrop": "circus", "mood": "party",
+      "text": "They danced the birthday dance all afternoon.",
+      "acts": [{ "at": 0, "clip": "dance", "loop": true }, { "at": 3.1, "clip": "hipdance", "loop": true }],
+      "camera": { "from": { "shot": "wide", "az": -26 }, "to": { "shot": "wide", "az": 26 } },
+      "fx": [{ "kind": "confetti", "at": 0.2, "palette": "light" }]
+    },
+    {
+      "dur": 5.6, "backdrop": "theatre", "mood": "triumph",
+      "text": "Then {hero} made a wish... and did a BIG backflip!",
+      "acts": [{ "at": 0, "clip": "nod" }, { "at": 1.7, "clip": "backflip" }, { "at": 4.0, "clip": "victory" }],
+      "camera": { "from": { "shot": "medium", "az": 12 }, "to": { "shot": "wide", "az": 4 } },
+      "fx": [{ "kind": "sparkle", "at": 1.0, "dur": 1.2 }],
+      "sfx": [{ "at": 1.0, "kind": "sparkle" }, { "at": 1.75, "kind": "rise", "dur": 0.9 }, { "at": 4.0, "kind": "pop" }]
+    },
+    {
+      "dur": 5.0, "backdrop": "sunset", "mood": "triumph",
+      "text": "Best. Birthday. EVER!",
+      "acts": [{ "at": 0, "clip": "jacks", "loop": true }, { "at": 2.5, "clip": "cheer" }],
+      "camera": { "from": { "shot": "medium", "az": -12 }, "to": { "shot": "close", "az": 0 } },
+      "fx": [{ "kind": "confetti", "at": 0.1 }]
+    },
+    {
+      "card": "end", "dur": 6.4, "backdrop": "theatre", "mood": "finale",
+      "acts": [{ "at": 0, "clip": "bow" }, { "at": 3.6, "clip": "wave" }],
+      "camera": { "from": { "shot": "wide", "az": -6 }, "to": { "shot": "wide", "az": 4 } },
+      "sfx": [{ "at": 0.1, "kind": "tada" }]
+    }
+  ]
+}

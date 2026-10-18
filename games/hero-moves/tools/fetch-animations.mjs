@@ -41,11 +41,15 @@ const PACKS = [
       // A superhero deck from the same CC0 library: the three-point landing
       // and the flying pose are the two motions this asset was drawn for.
       'Land_Three_Point', 'Flying Forward Super', 'Victory Fist Pump',
+      // The film's acting vocabulary (film.html): a hero has to arrive, say
+      // hello, wonder, be surprised, power up, take a bow.
+      'Greeting', 'Victory', 'Jumping Jacks', 'Dance Reach Hip', 'Confused',
+      'Power Up', 'Bow', 'Two-hand Blast', 'Head Nod',
     ],
   },
   {
     url: `${CDN}/scottpetrovic/mesh2motion-app@main/static/animations/human-base-animations.glb`,
-    clips: ['Punch_Cross'],
+    clips: ['Punch_Cross', 'Walk', 'Idle_A', 'Dance_Simple', 'Yes', 'Swim_Fwd', 'Swim_Idle'],
   },
 ]
 
@@ -149,6 +153,10 @@ function extractClip(src, clipName) {
 }
 
 async function get(url) {
+  // FETCH_CACHE=<dir>: use a pack already downloaded there (sandboxes whose
+  // Node cannot reach the CDN through the proxy).
+  const cached = process.env.FETCH_CACHE && path.join(process.env.FETCH_CACHE, path.basename(url))
+  if (cached && fs.existsSync(cached)) return fs.readFileSync(cached)
   const res = await fetch(url)
   if (!res.ok) throw new Error(`${res.status} ${url}`)
   return Buffer.from(await res.arrayBuffer())

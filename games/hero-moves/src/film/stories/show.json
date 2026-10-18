@@ -1,0 +1,56 @@
+{
+  "id": "show",
+  "label": "Dance show",
+  "title": "{hero}'s Dance Show",
+  "bpm": 120,
+  "paywallAt": 14.8,
+  "beats": [
+    {
+      "card": "title", "dur": 3.8, "backdrop": "theatre", "mood": "calm", "transition": "cut",
+      "acts": [{ "at": 0, "clip": "idle", "loop": true }],
+      "camera": { "from": { "shot": "wide", "az": 0, "push": 1.2 }, "to": { "shot": "wide", "az": 0 } },
+      "sfx": [{ "at": 0.25, "kind": "chime" }]
+    },
+    {
+      "dur": 5.4, "backdrop": "theatre", "mood": "calm",
+      "text": "The lights went down. The crowd went quiet.",
+      "acts": [{ "at": 0, "clip": "walk", "loop": true }, { "at": 2.7, "clip": "bow" }],
+      "path": [{ "t": 0, "x": 1.9, "z": 0.2, "yaw": -62 }, { "t": 2.6, "x": 0, "z": 0, "yaw": -18 }, { "t": 3.0, "yaw": 0 }],
+      "camera": { "from": { "shot": "wide", "az": -16 }, "to": { "shot": "medium", "az": -4 } }
+    },
+    {
+      "dur": 5.6, "backdrop": "theatre", "mood": "party",
+      "text": "Then {hero} started to dance!",
+      "acts": [{ "at": 0, "clip": "bounce", "loop": true }, { "at": 2.5, "clip": "dance", "loop": true }],
+      "camera": { "from": { "shot": "medium", "az": 14 }, "to": { "shot": "wide", "az": -14 } }
+    },
+    {
+      "dur": 5.6, "backdrop": "space", "mood": "party",
+      "text": "{hero} danced among the stars...",
+      "acts": [{ "at": 0, "clip": "bodyroll", "loop": true }],
+      "camera": { "from": { "shot": "wide", "az": -24 }, "to": { "shot": "wide", "az": 24 } },
+      "fx": [{ "kind": "stars", "at": 0.2 }]
+    },
+    {
+      "dur": 5.4, "backdrop": "reef", "mood": "gentle",
+      "text": "...and under the sea!",
+      "acts": [{ "at": 0, "clip": "float", "loop": true }],
+      "path": [{ "t": 0, "y": 0.5 }, { "t": 5.4, "y": 0.7 }],
+      "camera": { "from": { "shot": "wide", "az": 10 }, "to": { "shot": "medium", "az": -6 } }
+    },
+    {
+      "dur": 5.4, "backdrop": "circus", "mood": "triumph",
+      "text": "For the big finish: a backflip!",
+      "acts": [{ "at": 0, "clip": "jacks", "loop": true }, { "at": 1.6, "clip": "backflip" }, { "at": 4.0, "clip": "victory" }],
+      "camera": { "from": { "shot": "wide", "az": 12 }, "to": { "shot": "wide", "az": 0 } },
+      "fx": [{ "kind": "confetti", "at": 3.9 }],
+      "sfx": [{ "at": 1.6, "kind": "rise", "dur": 0.9 }, { "at": 3.9, "kind": "crash" }]
+    },
+    {
+      "card": "end", "dur": 6.4, "backdrop": "theatre", "mood": "finale",
+      "acts": [{ "at": 0, "clip": "bow" }, { "at": 3.6, "clip": "wave" }],
+      "camera": { "from": { "shot": "wide", "az": -6 }, "to": { "shot": "wide", "az": 4 } },
+      "sfx": [{ "at": 0.1, "kind": "tada" }]
+    }
+  ]
+}

@@ -70,6 +70,8 @@ npm run build        # dist/, multi-page
 | `index.html` | **Hero Moves** — the webcam party game. One to three players, one hero and one lane each, scored on shape and timing. |
 | `reel.html` | **Hero Stunt Reel** — a camera-free prototype. Pick clips, arrange a routine, watch your hero perform it, discover combos. |
 | `animlab.html` | Retargeted animation clips playing on any hero, with their sources. |
+| `film.html` | **Hero Story Film** (prototype) — a 40–46 s storybook film starring the hero, from a JSON script (`src/film/stories/`). Fake-door paywall at ~15 s. See "Films and greetings" below. |
+| `greeting.html` | **Hero Greeting** (prototype) — a 10 s vertical occasion greeting (birthday, Hanukkah, get well, love you) with the drawing and a QR code on the end card. |
 | `herostage.js` | Not a page: the live hero on the HeroMaker app's hero page (the intro, the idle dance, the eight moves). The app imports it at run time from `/play/herostage.js`, so it shares three.js, the clips and the hero's VRM with the Dance party page. See `src/herostage.ts`. |
 
 The reel exists because the market evidence points away from the webcam: the
@@ -418,3 +420,44 @@ eventually disagree about it. One of those assertions changed on the way in —
 a hero portrait is now measured on its short side, because the tiles cap their
 height and an `object-fit: contain` portrait 78px wide and 41px tall is a 41px
 portrait.
+
+## Films and greetings (prototype)
+
+`film.html` and `greeting.html` put a hero in a short, shareable film rendered
+by this engine: no generative video, no GPU, no per-film API cost.
+
+```
+film.html?vrm=/api/files/<u>/<c>/opt_avatar.vrm&name=Blue%20Bolt&artist=Maya&age=6&story=birthday
+greeting.html?vrm=...&name=Prickle%20Pete&artist=Itai&occasion=birthday&to=Savta
+```
+
+Same `?vrm=`/`?name=` as the Dance party page, plus who drew it; the drawing is
+read from `original.jpg` beside the VRM. No `?vrm=` plays a sample hero.
+
+* **A film is a script** (`src/film/stories/*.json`): beats of backdrop, acts
+  (clips from `src/film/clips.ts`: the game's eight moves plus walk, wave,
+  confused, power up, bow ...), a path, a camera move between two shots
+  (`wide`/`medium`/`close`/`low`, azimuth capped at ±40° so the drawn front is
+  always on screen), a caption, effects and a music mood. `{hero}`, `{artist}`,
+  `{to}`, `{from}` are filled in at play time. A new story is a new file, or an
+  LLM asked for this exact shape.
+* **`src/film/director.ts`** draws the frame at any time `t` (pose, path,
+  camera, set) and `overlay.ts` paints captions, cards, confetti and
+  transitions on top, in Toy Box type and colours, into one 2D canvas. That
+  canvas *is* the film: what the player shows, what "Save video" records and
+  what the offline renderer saves.
+* **`src/film/music.ts`** composes the soundtrack in WebAudio (a four-chord
+  arrangement per mood, Happy Birthday (public domain) for the birthday
+  greeting, sound effects). The same score plays live and renders through an
+  `OfflineAudioContext` for export. No audio file, no licence.
+* **Save video** records the canvas and the score with `MediaRecorder` (MP4
+  where the browser can, else WebM for a server-side `ffmpeg` to MP4).
+* **`tools/render-film.mjs`** steps the page frame by frame in headless
+  Chromium and muxes the frames with the offline-rendered WAV into an H.264
+  MP4: perfectly smooth on any machine. **`tools/filmcheck.mjs`** drives the
+  real players: play to the paywall, tap Unlock, save a greeting, screenshot
+  the brand book's four viewports.
+* A clip that starts mid-air or travels (the superhero landing) measures far
+  more room than the moment worth framing; the camera clamps it. A prone clip
+  (flying) shows the top of the head from the front, so the film pitches the
+  hero upright (`pitch` in a path key) instead of moving the camera behind.
