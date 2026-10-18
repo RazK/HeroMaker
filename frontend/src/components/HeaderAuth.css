@@ -11,10 +11,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Account button: a round nav button holding the person's hero or initials.
-   Heroes are T-poses: zoomed in on the top-centre, the circle shows the face.
-   The clip is on an inner frame so the button's wider tap layer still works. */
+/* Account button: a round nav button holding the person's initials. */
 .tb-avatar { padding: 0; }
-.tb-avatar-pic { width: 100%; height: 100%; border-radius: 999px; overflow: hidden; background: var(--tb-white); }
-.tb-avatar-pic img { width: 100%; height: 100%; object-fit: contain; transform: scale(2.1); transform-origin: 50% 22%; }
-.tb-avatar > span:not(.tb-avatar-pic) { font-family: var(--tb-font-body); font-weight: 800; font-size: 15px; letter-spacing: 0.5px; color: var(--tb-ink); }
+.tb-avatar span { font-family: var(--tb-font-body); font-weight: 800; font-size: 15px; letter-spacing: 0.5px; color: var(--tb-ink); }

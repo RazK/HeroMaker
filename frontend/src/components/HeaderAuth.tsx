@@ -6,7 +6,6 @@ import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
 import { Icon } from './tb/Icon';
 import { Dialog, Sheet, SheetRow } from './tb/parts';
-import { heroState } from './tb/pipeline';
 import './HeaderAuth.css';
 
 /**
@@ -74,33 +73,18 @@ interface User {
 }
 
 /**
- * The signed-in person's face in the header: their newest finished hero, or
- * their initials on one of the gallery's plate colours (the same one every
- * time, picked from their id) until they have one.
+ * The signed-in person in the header: their initials on one of the gallery's
+ * plate colours, the same one every time (picked from their id). A hero's
+ * picture was tried here and read worse: auto-cropping to the head is not
+ * reliable across heroes.
  */
 function AccountButton({ user, onClick }: { user: User; onClick: () => void }) {
-  const [picture, setPicture] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    api.listCreations(20, 0, true)
-      .then(({ creations }) => {
-        const newest = creations
-          .filter((c) => heroState(c) === 'ready')
-          .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
-        if (!cancelled) setPicture(newest ? api.getFileUrl(newest.id, 'thumb_rendered.png', newest.user_id) : null);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [user.id]);
-
   const words = (user.name?.trim() || user.username).split(/[\s._-]+/).filter(Boolean);
   const initials = (words.length > 1 ? words[0][0] + words[1][0] : words[0]?.slice(0, 2) || '?').toUpperCase();
   const plate = ([...user.id].reduce((n, ch) => n + ch.charCodeAt(0), 0) % 6) + 1;
   return (
     <button type="button" className={`tb-nav tb-avatar tb-plate-${plate} header-auth-user-button`} aria-label="Account" title="Account" onClick={onClick}>
-      {picture
-        ? <span className="tb-avatar-pic"><img src={picture} alt="" onError={() => setPicture(null)} /></span>
-        : <span>{initials}</span>}
+      <span>{initials}</span>
     </button>
   );
 }
