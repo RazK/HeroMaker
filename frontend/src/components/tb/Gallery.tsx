@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api, CreationResponse } from '../../api/client';
 import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState } from './pipeline';
 import './Gallery.css';
 
-export type Filter = 'featured' | 'all' | 'mine' | 'failed';
+/** The gallery's tabs. 'classes' is a teacher's classes, in the same screen. */
+export type Filter = 'featured' | 'all' | 'mine' | 'classes' | 'failed';
 
 /** How long an unstarred hero stays in Editors' choice before it leaves, in ms. */
 const LEAVE_MS = 700;
@@ -17,25 +18,50 @@ const EAGER_TILES = 6;
  * unmounts whenever a hero opens, and coming back used to start from nothing:
  * skeleton plates while the list reloaded, then every picture fetched again,
  * scrolled back to the top. Now it comes back exactly as it was left (same
- * filter, same list, same scroll) and refreshes the list behind the scenes,
- * changing only the tiles that actually changed.
+ * tab, same list, same scroll) and refreshes the list behind the scenes,
+ * changing only the tiles that actually changed. Each tab keeps its own
+ * scroll, so switching tabs and back finds each where it was.
  */
 const memory = {
-  filter: 'featured' as Filter,
   lists: new Map<string, CreationResponse[]>(),
-  scrollTop: 0,
+  scroll: new Map<Filter, number>(),
 };
+
+/** The last tab is also kept across visits, in this browser only. */
+const TAB_KEY = 'heromaker.gallery.tab';
+const TABS: Filter[] = ['featured', 'all', 'mine', 'classes', 'failed'];
+
+/** The tab the viewer last chose (Editors' choice the first time). */
+export function rememberedTab(): Filter {
+  try {
+    const saved = localStorage.getItem(TAB_KEY) as Filter | null;
+    if (saved && TABS.includes(saved)) return saved;
+  } catch { /* private window: no memory, no harm */ }
+  return 'featured';
+}
+
+export function rememberTab(tab: Filter) {
+  try { localStorage.setItem(TAB_KEY, tab); } catch { /* fine */ }
+}
+
+/** The tabs this viewer has, in the order the chips show them. */
+export function galleryTabs({ isLoggedIn, isAdmin, isTeacher }: { isLoggedIn: boolean; isAdmin: boolean; isTeacher: boolean }): Filter[] {
+  return TABS.filter((t) => t === 'featured'
+    || (t === 'mine' && isLoggedIn)
+    || (t === 'classes' && isLoggedIn && isTeacher)
+    || ((t === 'all' || t === 'failed') && isAdmin));
+}
 
 /** Next time, start the gallery at the top (the logo was tapped). */
 export function resetGalleryScroll() {
-  memory.scrollTop = 0;
+  memory.scroll.clear();
 }
 
 /** Forget everything the gallery remembers (the account is gone). */
 export function forgetGallery() {
-  memory.filter = 'featured';
   memory.lists.clear();
-  memory.scrollTop = 0;
+  memory.scroll.clear();
+  try { localStorage.removeItem(TAB_KEY); } catch { /* fine */ }
 }
 
 /** Editors' choice is the same for everyone; every other list is the viewer's own. */
@@ -45,12 +71,17 @@ const sameList = (a: CreationResponse[], b: CreationResponse[]) =>
   a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
 
 interface GalleryProps {
-  isLoggedIn: boolean;
   isAdmin: boolean;
   userId?: string;
   onSelect: (c: CreationResponse) => void;
-  /** Where it opens when asked (a parent who just kept a hero opens on My heroes); otherwise where it was left. */
-  initialFilter?: Filter;
+  /** The tab shown. App owns it (the bar under the gallery follows it) and
+   * remembers it (rememberedTab); `tabs` are the chips offered. */
+  filter: Filter;
+  tabs: Filter[];
+  onFilter: (f: Filter) => void;
+  /** What My classes shows (a teacher's classes, class/MyClasses.tsx), and
+   * whether it has loaded, so the tab's scroll is restored onto its cards. */
+  classes?: { content: ReactNode; ready: boolean };
 }
 
 /**
@@ -58,9 +89,10 @@ interface GalleryProps {
  * Editors' choice: the heroes an admin starred. "Mine" also shows the heroes
  * still being made and the ones that failed, because those are the owner's
  * to finish. Admins get a star on every tile to curate Editors' choice.
+ * A teacher's classes are one more tab, My classes: one tap away, same screen.
  */
-export function Gallery({ isLoggedIn, isAdmin, userId, onSelect, initialFilter }: GalleryProps) {
-  const [filter, setFilter] = useState<Filter>(initialFilter ?? memory.filter);
+export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: setFilter, classes }: GalleryProps) {
+  const isClasses = filter === 'classes';
   const key = listKey(filter, userId);
   // The list this gallery holds, and which filter+viewer it is for. Until the
   // first answer for a key arrives, the remembered list for it stands in.
@@ -77,11 +109,6 @@ export function Gallery({ isLoggedIn, isAdmin, userId, onSelect, initialFilter }
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [starError, setStarError] = useState(false);
 
-  useEffect(() => {
-    if ((!isLoggedIn && filter === 'mine') || (!isAdmin && (filter === 'all' || filter === 'failed'))) setFilter('featured');
-  }, [isLoggedIn, isAdmin, filter]);
-
-  useEffect(() => { memory.filter = filter; }, [filter]);
   useEffect(() => { if (data) memory.lists.set(data.key, data.list); }, [data]);
 
   // A new list replaces the old one only if something in it changed, so a
@@ -92,28 +119,33 @@ export function Gallery({ isLoggedIn, isAdmin, userId, onSelect, initialFilter }
   // Stale-while-revalidate: whatever is remembered shows at once (above), and
   // the list is always asked for again. An error only shows with nothing to show.
   useEffect(() => {
+    if (isClasses) return undefined;
     let cancelled = false;
     setError(false);
     api.listCreations(0, 0, filter === 'mine', filter === 'featured')
       .then((r) => { if (!cancelled) receive(key, r.creations); })
       .catch(() => { if (!cancelled && !memory.lists.has(key)) setError(true); });
     return () => { cancelled = true; };
-  }, [key, filter, reload]);
+  }, [key, filter, reload, isClasses]);
 
   // Back where it was left. The screen body is the gallery's scroller (the
-  // page itself never scrolls, see NoPageScroll). Restored once the tiles are
-  // there to scroll to, before the first paint, so it never visibly jumps.
-  const restored = useRef(false);
+  // page itself never scrolls, see NoPageScroll). Each tab's scroll is
+  // restored once its tiles (or class cards) are there to scroll to, before
+  // the first paint, so it never visibly jumps. Until then the scroll is not
+  // recorded: a short list's clamped scroll must not overwrite the memory.
+  const ready = isClasses ? !!classes?.ready : !!creations;
+  const restoredFor = useRef<Filter | null>(null);
   useLayoutEffect(() => {
     const list = rootRef.current?.closest<HTMLElement>('.tb-screen-body');
-    if (!list || restored.current || !creations) return;
-    restored.current = true;
-    list.scrollTop = memory.scrollTop;
-  }, [creations]);
+    if (!list || restoredFor.current === filter) return;
+    if (!ready) { restoredFor.current = null; return; }
+    restoredFor.current = filter;
+    list.scrollTop = memory.scroll.get(filter) ?? 0;
+  }, [filter, ready]);
   useEffect(() => {
     const list = rootRef.current?.closest<HTMLElement>('.tb-screen-body');
     if (!list) return;
-    const onScroll = () => { memory.scrollTop = list.scrollTop; };
+    const onScroll = () => { if (restoredFor.current) memory.scroll.set(restoredFor.current, list.scrollTop); };
     list.addEventListener('scroll', onScroll, { passive: true });
     return () => list.removeEventListener('scroll', onScroll);
   }, []);
@@ -171,24 +203,32 @@ export function Gallery({ isLoggedIn, isAdmin, userId, onSelect, initialFilter }
     })
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-  // "All heroes" and "Failed" are admin views. Signed out there is only
-  // Editors' choice, and one lone chip is no choice: no chips at all.
-  const chips: { key: Filter; label: string; cls: string }[] = [
-    { key: 'featured', label: 'Editors’ choice', cls: 'tb-chip-featured' },
-    ...(isAdmin ? [{ key: 'all' as Filter, label: 'All heroes', cls: 'tb-chip-all' }] : []),
-    ...(isLoggedIn ? [{ key: 'mine' as Filter, label: 'My heroes', cls: 'tb-chip-mine' }] : []),
-    ...(isAdmin ? [{ key: 'failed' as Filter, label: 'Failed', cls: 'tb-chip-failed' }] : []),
-  ];
+  // "All heroes" and "Failed" are admin views, My classes a teacher's (see
+  // galleryTabs). Signed out there is only Editors' choice, and one lone chip
+  // is no choice: no chips at all.
+  const chipsRef = useRef<HTMLDivElement>(null);
+  // The chosen chip in view: an admin who teaches has five, and the row scrolls.
+  // (Only the row moves: scrollIntoView would also scroll the list.)
+  useLayoutEffect(() => {
+    const row = chipsRef.current;
+    const on = row?.querySelector<HTMLElement>('.tb-chip--on');
+    if (!row || !on || row.scrollWidth <= row.clientWidth) return;
+    const r = row.getBoundingClientRect();
+    const c = on.getBoundingClientRect();
+    if (c.left < r.left || c.right > r.right) row.scrollLeft += c.left + c.width / 2 - (r.left + r.width / 2);
+  }, [filter]);
 
   return (
     <div className="tb-gallery creation-gallery" ref={rootRef}>
-      {chips.length > 1 && (
-        <div className="tb-gallery-chips" role="tablist" aria-label="Show">
-          {chips.map((c) => (
-            <button key={c.key} type="button" role="tab" aria-selected={filter === c.key} className={`tb-chip ${c.cls}${filter === c.key ? ' tb-chip--on' : ''}`} onClick={() => setFilter(c.key)}>{c.label}</button>
+      {tabs.length > 1 && (
+        <div className="tb-gallery-chips" role="tablist" aria-label="Show" ref={chipsRef}>
+          {tabs.map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={filter === t} className={`tb-chip tb-chip-${t}${filter === t ? ' tb-chip--on' : ''}`} onClick={() => setFilter(t)}>{CHIP_LABEL[t]}</button>
           ))}
         </div>
       )}
+
+      {isClasses ? classes?.content : <>
 
       {starError && <div className="tb-gallery-note" role="status">Could not save that. Try again.</div>}
       {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setReload((n) => n + 1)}>Try again</button></div>}
@@ -212,9 +252,18 @@ export function Gallery({ isLoggedIn, isAdmin, userId, onSelect, initialFilter }
           ))}
         </div>
       )}
+      </>}
     </div>
   );
 }
+
+const CHIP_LABEL: Record<Filter, string> = {
+  featured: 'Editors’ choice',
+  all: 'All heroes',
+  mine: 'My heroes',
+  classes: 'My classes',
+  failed: 'Failed',
+};
 
 /**
  * Admin only: star a hero into Editors' choice. A sibling of the tile, not

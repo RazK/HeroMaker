@@ -4,7 +4,7 @@
 //   test mode) -> upload a drawing -> every pipeline stage completes -> the
 //   hero is in "My Creations" -> its page: the intro, then moves -> Play ->
 //   the game chooser -> Dance party, and the camera-free Robot Rumble ->
-//   Teacher home -> a new class whose seats it cannot cover from its credits,
+//   Run a class -> the gallery's My classes tab -> a new class whose seats it cannot cover from its credits,
 //   paid for in money on Lemon Squeezy -> the seats land on the class (not on
 //   the robot's balance) -> Start class shows a PIN and a QR -> a student
 //   joins on a phone and makes a hero -> the teacher opens it from the class
@@ -684,13 +684,20 @@ try {
     const me = await robotApi('/api/auth/me');
     const balance = me.credits;
 
-    // Teacher home is a row on the account sheet; it turns teacher mode on.
+    // A teacher's classes are a tab of the gallery, My classes. The first
+    // time, "Run a class" on the account sheet turns teacher mode on and
+    // lands on that tab; after that the tab is one tap.
+    const classesTab = page.getByRole('tab', { name: 'My classes' });
     if (!me.is_teacher) {
+      if (await classesTab.count()) throw new Error('a non-teacher is shown a My classes tab');
       await page.getByRole('button', { name: 'Account' }).click();
-      await page.getByRole('button', { name: /teacher home/i }).click();
+      await page.getByRole('button', { name: 'Run a class' }).click();
+    } else {
+      await classesTab.click();
     }
     const newClass = page.locator('.cls-new-class');
     await newClass.waitFor({ timeout: 30000 });
+    if ((await classesTab.getAttribute('aria-selected')) !== 'true') throw new Error('New class shows, but the My classes tab is not the one selected');
     await linger(page, 1500);
 
     // The price the app quotes must be the one packs.py sets.
@@ -851,13 +858,18 @@ try {
     await page.locator('.cls-end-confirm').click();
     await start.waitFor({ timeout: 15000 });
 
-    // Leave teacher mode as it was found.
+    // Back from the class lands on the gallery's My classes tab, the class among its cards.
+    await page.getByRole('button', { name: 'Back to classes' }).click();
+    await newClass.waitFor({ timeout: 15000 });
+    if ((await classesTab.getAttribute('aria-selected')) !== 'true') throw new Error('Back from the class did not land on the My classes tab');
+    await page.locator(`.cls-card[data-class="${className}"]`).waitFor({ timeout: 15000 });
+    await snap(page, 'class-tab');
+
+    // Leave teacher mode as it was found, from inside the tab.
     if (!me.is_teacher) {
-      await page.getByRole('button', { name: 'Back to classes' }).click();
-      await newClass.waitFor({ timeout: 15000 });
-      await page.getByRole('button', { name: 'Account' }).click();
-      await page.getByRole('button', { name: /teacher home/i }).click();
-      await newClass.waitFor({ state: 'detached', timeout: 15000 });
+      await page.locator('.cls-stop-classes').click();
+      await classesTab.waitFor({ state: 'detached', timeout: 15000 });
+      await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
     return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; ended`;
   });

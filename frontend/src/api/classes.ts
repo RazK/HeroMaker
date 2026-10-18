@@ -75,7 +75,8 @@ export interface ClassView {
   live: LiveSession | null;
   sessions: number;
   heroes_ready: number;
-  preview: Array<{ creation_id: string; user_id: string; label: string }>;
+  /** Up to four finished heroes, for the class card. */
+  preview: Array<{ creation_id: string; user_id: string; label: string; file_versions?: Record<string, string> }>;
   roster?: Student[];
   /** Only on GET /api/classes/{id}. */
   seat_price?: SeatPrice | null;
