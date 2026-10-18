@@ -1,24 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, getAuthToken } from '../../api/client';
+import { api, ApiError, getAuthToken } from '../../api/client';
 import { ClaimView, claimApi, heroFile } from '../../api/classes';
+import { HeroLive, LiveHero } from '../tb/HeroLive';
 import { Icon } from '../tb/Icon';
-import { Header, Polaroid, useClearOfPolaroid, useFitScreen } from '../tb/parts';
+import { Header, useClearOfPolaroid, useFitScreen } from '../tb/parts';
 import './class.css';
 
 export const CLAIM_PATH = '/claim/';
 
+/** The moves a parent can try before keeping the hero: a taste, not the game. */
+const CLAIM_MOVES = ['dance', 'bodyroll', 'backflip'];
+
+/** The signed-in account a kept hero goes to; null when signed out. */
+interface Account { email: string }
+
 /**
  * A parent keeps their child's class hero: it moves into their account with
  * the child's first name and age. Parent voice: calm, plain, precise.
- * Signed out, "Keep" opens the app's sign-up sheet and claims once it closes
- * signed in.
+ *
+ * The account step is always visible. Signed out, "Keep" opens the sign-up
+ * sheet (Google first), which says the hero will be saved there, and claims
+ * once it closes signed in. Signed in, the bar names the account before the
+ * tap, with "Switch account" for a phone someone else is signed in on. Kept,
+ * it says where the hero is and how to find it on another device.
  */
-export function ClaimScreen({ token, onSeeHeroes }: { token: string; onSeeHeroes: () => void }) {
+export function ClaimScreen({ token, onSeeHeroes, onOpenHero }: {
+  token: string;
+  onSeeHeroes: () => void;
+  /** Open the kept hero on its own page, in the parent's account. */
+  onOpenHero: (creationId: string) => void;
+}) {
   useFitScreen();
   const [view, setView] = useState<ClaimView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mine, setMine] = useState(false);
+  // undefined while it is being read: Keep waits, so it never claims blind.
+  const [account, setAccount] = useState<Account | null | undefined>(() => (getAuthToken() ? undefined : null));
+  // The hero as first shown live. Keeping it moves its files to the parent's
+  // account; the stage keeps what it already loaded rather than reloading.
+  const [live, setLive] = useState<LiveHero | null>(null);
   const wantsClaim = useRef(false);
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -32,6 +53,27 @@ export function ClaimScreen({ token, onSeeHeroes }: { token: string; onSeeHeroes
     return () => window.clearInterval(t);
   }, [view?.hero?.state, load]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Who is signed in on this device, read again whenever that changes.
+  const readAccount = useCallback(() => {
+    if (!getAuthToken()) { setAccount(null); return; }
+    api.getMe().then((u) => setAccount({ email: u.email }), () => setAccount(null));
+  }, []);
+  useEffect(() => {
+    readAccount();
+    window.addEventListener('auth:login', readAccount);
+    window.addEventListener('auth:logout', readAccount);
+    return () => {
+      window.removeEventListener('auth:login', readAccount);
+      window.removeEventListener('auth:logout', readAccount);
+    };
+  }, [readAccount]);
+
+  const hero = view?.hero;
+  useEffect(() => {
+    if (!view || !hero || hero.state !== 'ready' || live) return;
+    setLive({ id: hero.creation_id, user_id: hero.user_id, name: view.first_name, age: view.age, file_versions: hero.file_versions });
+  }, [view, hero, live]);
+
   const keep = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -41,55 +83,76 @@ export function ClaimScreen({ token, onSeeHeroes }: { token: string; onSeeHeroes
       window.dispatchEvent(new CustomEvent('credits:changed'));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not keep the hero. Try again.');
+      load();
     } finally {
       setBusy(false);
     }
-  }, [token]);
+  }, [token, load]);
 
-  // Back from the sign-up sheet, signed in: finish what "Keep" started.
+  // Back from the sign-in sheet, signed in: finish what "Keep" started.
   useEffect(() => {
     const onLogin = () => { if (wantsClaim.current) { wantsClaim.current = false; keep(); } };
     window.addEventListener('auth:login', onLogin);
     return () => window.removeEventListener('auth:login', onLogin);
   }, [keep]);
 
-  const start = () => {
-    if (getAuthToken()) { keep(); return; }
+  const first = view?.first_name ?? '';
+  const askAccount = (mode: 'signup' | 'login') => {
     wantsClaim.current = true;
-    window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup' } }));
+    window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode, note: `${first}’s hero will be saved to this account.` } }));
+  };
+  const start = () => {
+    if (account) { keep(); return; }
+    askAccount('signup');
+  };
+  // Someone else is signed in here (a teacher, a sibling): sign them out, then
+  // sign in to the right account, and the hero goes there.
+  const switchAccount = async () => {
+    await api.logout();
+    askAccount('login');
   };
 
-  const hero = view?.hero;
-  const kid = view ? `${view.first_name}${view.age ? `, ${view.age}` : ''}` : '';
-  const art = hero ? heroFile(hero, hero.state === 'ready' ? 'rendered.png' : 'original.jpg') : null;
-  useClearOfPolaroid(stageRef, art);
   const ready = hero?.state === 'ready';
-  const done = mine;
+  const done = mine || !!view?.kept_by_you;
+  const heroName = hero?.character_name || `${first}’s hero`;
+  const art = hero && !ready ? heroFile(hero, 'original.jpg') : null;
+  useClearOfPolaroid(stageRef, art);
 
   return (
-    <div className="tb-screen tb-screen--fit cls-claim">
-      <Header left={<img src="/logo-head-transparent.png" alt="HeroMaker" width={40} height={40} />} title={view ? `${view.first_name}’s hero` : 'HeroMaker'} />
-      <div className="tb-screen-body">
-        {error && <div className="tb-notice tb-notice--error" role="alert">{error}</div>}
-        {view && hero && art && (
-          <>
-            <div ref={stageRef} className="tb-stage cls-claim-stage">
-              <div className="tb-stage-sun" />
-              <img className={`tb-stage-img${ready ? ' cls-pop' : ' tb-hero-faded'}`} src={art} alt={`${view.first_name}’s hero`} />
-              {ready && <Polaroid src={heroFile(hero, 'thumb_original.jpg')} artist={view.first_name} age={view.age} />}
-            </div>
-            <div className="cls-claim-who">
-              <div className="tb-h2">{done ? 'It’s yours' : hero.character_name || `${view.first_name}’s hero`}</div>
-              <div className="tb-muted">{done ? `${view.first_name}’s hero is in My heroes.` : `By ${kid} · ${view.class_title}`}</div>
-            </div>
-          </>
-        )}
-      </div>
+    <div className="tb-screen tb-screen--fit tb-hero-screen cls-claim" data-state={ready && live ? 'ready' : 'making'}>
+      <Header left={<img src="/logo-head-transparent.png" alt="HeroMaker" width={40} height={40} />} title={view ? heroName : 'HeroMaker'} />
+      {ready && live ? (
+        <HeroLive
+          key={live.id}
+          creation={live}
+          introRequest={0}
+          moves={done ? [] : CLAIM_MOVES}
+          notice={error && <div className="tb-notice tb-notice--error" role="alert">{error}</div>}
+        />
+      ) : (
+        <div className="tb-screen-body">
+          {error && <div className="tb-notice tb-notice--error" role="alert">{error}</div>}
+          {view && hero && art && (
+            <>
+              <div ref={stageRef} className="tb-stage cls-claim-stage">
+                <div className="tb-stage-sun" />
+                <img className="tb-stage-img tb-hero-faded" src={art} alt={heroName} />
+              </div>
+              <div className="cls-claim-who">
+                <div className="tb-h2">{heroName}</div>
+                <div className="tb-muted">By {first}{view.age ? `, ${view.age}` : ''} · {view.class_title}</div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <div className="tb-bar">
         {done ? (
           <>
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Make more at home</button>
-            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-see-heroes" onClick={onSeeHeroes}><Icon name="star" />See my heroes</button>
+            <div className="cls-ready-line cls-claim-kept">{heroName} is in your heroes</div>
+            {account && <div className="tb-bar-note cls-claim-account">Sign in as <strong>{account.email}</strong> on any device to find it.</div>}
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Make more</button>
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-open-hero" onClick={() => hero && onOpenHero(hero.creation_id)}><Icon name="star" />Open the hero</button>
           </>
         ) : view?.claimed ? (
           <>
@@ -98,9 +161,18 @@ export function ClaimScreen({ token, onSeeHeroes }: { token: string; onSeeHeroes
           </>
         ) : (
           <>
-            <div className="tb-bar-note">{ready ? 'Free with an account. Yours to keep.' : 'Still being made. This page will update.'}</div>
-            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-keep" disabled={!ready || busy} onClick={start}>
-              <Icon name="star" />{busy ? 'Keeping…' : `Keep ${view?.first_name ?? 'the'}’s hero`}
+            {!ready ? (
+              <div className="tb-bar-note">Still being made. This page will update.</div>
+            ) : account ? (
+              <div className="tb-bar-note cls-claim-account">
+                Saved to <strong>{account.email}</strong>.{' '}
+                <button type="button" className="tb-link cls-switch" onClick={switchAccount}>Not you? Switch account</button>
+              </div>
+            ) : (
+              <div className="tb-bar-note">Free. Saved to the account you sign in with.</div>
+            )}
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-keep" disabled={!ready || busy || account === undefined} onClick={start}>
+              <Icon name="star" />{busy ? 'Keeping…' : `Keep ${first || 'the'}’s hero`}
             </button>
           </>
         )}

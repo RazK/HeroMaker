@@ -117,12 +117,19 @@ export interface GuestView {
   claimed: boolean;
 }
 
+/**
+ * What a parent's claim link shows. The token is its only credential: the
+ * child's first name and age, the class's title, and this one hero, with
+ * which of its public files exist (enough for the live stage, HeroLive).
+ */
 export interface ClaimView {
   first_name: string;
   age: number | null;
   class_title: string;
-  hero: HeroSummary | null;
+  hero: (HeroSummary & { file_versions: Record<string, string> }) | null;
   claimed: boolean;
+  /** The signed-in account looking at the link is the one that kept it. */
+  kept_by_you: boolean;
 }
 
 const json = (body: unknown): RequestInit => ({

@@ -10,11 +10,13 @@ interface AuthModalProps {
   onClose: () => void;
   onSuccess: () => void;
   initialMode?: AuthMode;
+  /** One line above the choices, e.g. "Maya's hero will be saved to this account." */
+  note?: string;
 }
 
 export type AuthMode = 'login' | 'signup' | 'forgot';
 
-export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', note }: AuthModalProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   useEffect(() => { if (isOpen) { setMode(initialMode); setResetSent(false); } }, [isOpen, initialMode]);
   // "Forgot password?" shows only where the backend can actually send email.
@@ -121,6 +123,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login' }:
   return (
     <Sheet title={mode === 'login' ? 'Welcome back' : 'Save every hero'} onClose={handleClose} className="auth-modal">
       <form className="auth-modal-form" onSubmit={handleSubmit}>
+        {note && <div className="tb-muted auth-modal-note">{note}</div>}
         <GoogleSignIn onCredential={handleGoogle} />
         <div className="auth-modal-fields">
           <div className="tb-field">

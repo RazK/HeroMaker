@@ -100,6 +100,8 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
+  // A line the sheet shows for whoever opened it, e.g. where a kept hero goes.
+  const [authNote, setAuthNote] = useState<string | undefined>(undefined);
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -123,17 +125,21 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
     const handleOpenBuy = () => setShowBuyModal(true);
     // Anywhere can ask for sign-in or sign-up, e.g. "Make a hero" while signed out.
     const handleOpenAuth = (e: Event) => {
-      const mode = (e as CustomEvent).detail?.mode;
+      const { mode, note } = (e as CustomEvent).detail ?? {};
       setAuthMode(mode === 'signup' || mode === 'forgot' ? mode : 'login');
+      setAuthNote(typeof note === 'string' ? note : undefined);
       setShowAuthModal(true);
     };
     window.addEventListener('auth:open', handleOpenAuth);
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
+    // Signed out from elsewhere (the claim page's "Switch account").
+    window.addEventListener('auth:logout', handleUnauthorized);
     window.addEventListener('auth:credits-updated', handleCreditsUpdated);
     window.addEventListener('credits:buy', handleOpenBuy);
     return () => {
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      window.removeEventListener('auth:logout', handleUnauthorized);
       window.removeEventListener('auth:credits-updated', handleCreditsUpdated);
       window.removeEventListener('credits:buy', handleOpenBuy);
       window.removeEventListener('auth:open', handleOpenAuth);
@@ -221,7 +227,7 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
     return (
       <>
         {controls && (
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm header-auth-button" onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm header-auth-button" onClick={() => { setAuthMode('login'); setAuthNote(undefined); setShowAuthModal(true); }}>
             Sign in
           </button>
         )}
@@ -230,6 +236,7 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
           onClose={() => setShowAuthModal(false)}
           onSuccess={handleLoginSuccess}
           initialMode={authMode}
+          note={authNote}
         />
       </>
     );

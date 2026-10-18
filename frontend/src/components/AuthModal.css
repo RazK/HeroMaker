@@ -2,6 +2,8 @@
 .auth-modal-fields { display: flex; flex-direction: column; gap: 16px; }
 .auth-modal-actions { padding-top: 8px; }
 .auth-modal-error { color: var(--tb-red); font-weight: 700; text-align: center; }
+/* Why this sheet opened, when that matters: where a kept hero will be saved. */
+.auth-modal-note { text-align: center; margin-block-end: -8px; }
 
 /* Continue with Google, then "or", then the email form. The button itself is
    Google's (an iframe GIS renders), so only its slot is styled here. */
