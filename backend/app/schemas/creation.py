@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict
 from app.config.steps import STEPS, get_step_by_name
 from app.models import CreationStep
 from app.services.openai import DEFAULT_STYLE, resolve_style
@@ -75,6 +75,44 @@ class CreationStepResponse(BaseModel):
         }
         return cls(**data)
 
+# The drawing is uploaded once, when the hero is created; every other file is
+# the output of a step, rewritten each time that step runs again.
+ORIGINAL_FILE = "original.jpg"
+
+
+def _version(at: Optional[datetime]) -> Optional[str]:
+    """A short token that changes whenever ``at`` does (ms since the epoch, hex)."""
+    if at is None:
+        return None
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return format(int(at.timestamp() * 1000), "x")
+
+
+def file_versions(creation) -> Dict[str, str]:
+    """For each of the hero's files that exists, a version that changes when it does.
+
+    The client appends it to a file's URL (``thumb_rendered.png?v=<version>``),
+    which lets the API mark that URL cacheable for a year (see api/files.py):
+    re-running a step gives its output a new completed_at, hence a new URL.
+    A step's output is only listed once the step has completed; until then its
+    URL carries no version and is revalidated on every use.
+    """
+    versions = {}
+    created = _version(creation.created_at)
+    if created:
+        versions[ORIGINAL_FILE] = created
+    by_name = {step.step_name: step for step in creation.steps}
+    for config in STEPS:
+        step = by_name.get(config["name"])
+        output = config.get("output")
+        if output and step is not None and step.status == "completed":
+            done = _version(step.completed_at)
+            if done:
+                versions[output] = done
+    return versions
+
+
 class CreationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
@@ -94,6 +132,7 @@ class CreationResponse(BaseModel):
     featured: bool = False  # Starred by an admin: shown under Editors' choice
     # Made in a class and not yet kept by a parent: private, never featured.
     in_class: bool = False
+    file_versions: Dict[str, str] = {}  # file name -> version token for its URL (see file_versions)
 
     @classmethod
     def from_creation(cls, creation):
@@ -114,6 +153,7 @@ class CreationResponse(BaseModel):
             style=resolve_style(creation.style),
             featured=bool(creation.featured),
             in_class=bool(getattr(creation, "class_id", None)),
+            file_versions=file_versions(creation),
             steps=[],
         )
         

@@ -50,7 +50,7 @@ export function HeroScreen(props: HeroScreenProps) {
     return () => clearInterval(t);
   }, [state]);
 
-  const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
+  const file = (f: string) => api.heroFileUrl(creation, f);
   const step = currentStep(creation);
   const now = Date.now();
   const measured = stepProgress(step, now);

@@ -50,7 +50,7 @@ export function HeroLive({ creation, introRequest, notice }: {
   introRequest: number;
   notice?: ReactNode;
 }) {
-  const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
+  const file = (f: string) => api.heroFileUrl(creation, f);
   const done = (step: string) => creation.steps.find((s) => s.step_name === step)?.status === 'completed';
   const vrm = heroVrmUrl(creation);
   const hasSculpt = done('meshy_3d');
