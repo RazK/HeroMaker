@@ -7,8 +7,9 @@ import { OWN_HERO, OWN_NAME, goBack } from '../ownhero'
 import { Controls, type Input } from './controls'
 import { Game, ROUND_SECONDS, type Phase } from './game'
 import { MOVE_FILES } from './moves'
+import { isToy } from './things'
 import { Sfx } from './sfx'
-import { loadRival, rivalSources } from './rivals'
+import { Crowd, CROWD_MAX, crowdSources, loadFan } from './crowd'
 import { ARENA, World } from './world'
 
 /**
@@ -17,6 +18,9 @@ import { ARENA, World } from './world'
  * Opened by the HeroMaker app exactly like Dance party — `?vrm=<same-origin
  * opt_avatar.vrm>&name=<hero name>` — and, with no `?vrm`, on one of the
  * sample heroes shipped with this build (`?sample=Superstar` picks one).
+ * `?class=<id>` names the class a class hero's classmates come from (the
+ * game also finds it on its own for the class's teacher); `?crowd=N` caps
+ * the stands (default 6, 0 for none).
  *
  * The page is the app's Toy Box screen: header with a round back button,
  * the stage, a bottom bar. The bar holds the start card, then the thumb
@@ -26,6 +30,7 @@ import { ARENA, World } from './world'
 const params = new URLSearchParams(location.search)
 const MANUAL = params.get('manual') === '1'
 const DPR = Number(params.get('dpr')) || Math.min(devicePixelRatio, 2)
+const CROWD_SIZE = params.has('crowd') ? Math.max(0, Math.min(CROWD_MAX, Number(params.get('crowd')) || 0)) : CROWD_MAX
 
 const samples = import.meta.glob('../../assets/avatars/*.opt.vrm', { query: '?url', import: 'default', eager: true }) as Record<string, string>
 const sampleUrl = (name: string) =>
@@ -103,7 +108,7 @@ app.querySelector('.rr-end-buttons')!.append(tbButton('Back', { kind: 'secondary
 const ringFill = app.querySelector<SVGCircleElement>('.rr-ring-fill')!
 const ringPct = app.querySelector<HTMLElement>('.rr-ring-pct')!
 
-const controls = new Controls(bar)
+const controls = new Controls(bar, stageEl)
 const sfx = new Sfx()
 
 // ------------------------------------------------------------------ 3D
@@ -118,6 +123,7 @@ stageEl.prepend(renderer.domElement)
 renderer.domElement.className = 'rr-canvas'
 
 const world = new World()
+const crowd = new Crowd(world.scene, CROWD_SIZE)
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60)
 let game: Game | null = null
 let size = { w: 1, h: 1 }
@@ -233,6 +239,7 @@ let phase: Phase | 'loading' = 'loading'
 let countdown = 0
 let endAt = 0
 let hitStop = 0
+let cheers = 0
 let lastShownSecond = -1
 const perf = { frames: 0, ms: 0, worst: 0, calls: 0, fps: 0, dropped: false }
 
@@ -259,15 +266,18 @@ function finish() {
   setPhase('end')
   endAt = performance.now()
   game.celebrate()
+  crowd.celebrate()
   sfx.fanfare()
   const best = readBest()
   const isBest = game.score > best
   if (isBest) writeBest(game.score)
   app.querySelector('.rr-end-value')!.textContent = game.score.toLocaleString('en-US')
   app.querySelector('.rr-end-eyebrow')!.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
+  const s = game.stats
+  const bopped = s.robots + s.mushrooms + s.bouncies + s.crates + s.balloons
   app.querySelector('.rr-end-best')!.textContent = isBest
-    ? `${game.stats.robots + game.stats.rivals} bopped`
-    : `Best ${best.toLocaleString('en-US')} · ${game.stats.robots + game.stats.rivals} bopped`
+    ? `${bopped} bopped`
+    : `Best ${best.toLocaleString('en-US')} · ${bopped} bopped`
   // A thumb still hammering Punch when time runs out must not land on Back:
   // the card's buttons wake up a moment after it appears.
   // (Inert rather than disabled, so they do not flash grey.)
@@ -337,6 +347,8 @@ function frame(dtReal: number, render = true) {
   const showTarget = phase === 'play' || phase === 'countdown' ? 0 : 1
   cam.show += (showTarget - cam.show) * (1 - Math.exp(-(showTarget ? 2.2 : 3.2) * dt))
   aimCamera(dt)
+  camera.updateMatrixWorld()
+  crowd.update(dt, camera)
   updatePops(dt)
   if (render) renderer.render(world.scene, camera)
 
@@ -410,6 +422,11 @@ function setProgress(f: number) {
       popup,
       shake: (a) => { cam.shake = Math.max(cam.shake, a) },
       hitStop: (s) => { hitStop = Math.max(hitStop, s) },
+      // The stands jump up when the player scores.
+      scored: (_kind, big) => {
+        if (crowd.cheer(big) && big) sfx.cheer()
+        cheers++
+      },
     })
     game.reset()
     const loaded = await game.moves.load()
@@ -421,15 +438,21 @@ function setProgress(f: number) {
     startBtn.disabled = false
     ;(window as unknown as { __ready?: unknown; __moves?: number }).__moves = loaded
     ;(window as unknown as { __ready?: unknown }).__ready = true
-    // Rival heroes from the gallery, one after another behind the player's:
-    // the game is playable with robots alone while they arrive.
+    // The crowd: other heroes cheering from the stands, one after another
+    // behind the player's. The game never waits for them, and plays the same
+    // with empty stands.
     void (async () => {
-      const g = game!
-      for (const src of await rivalSources(OWN_HERO ?? HERO_URL, samples, params.has('rivals') ? Number(params.get('rivals')) : 4)) {
-        const r = await loadRival(src)
-        if (r) g.addRival(r)
+      const w = window as unknown as { __crowd?: number; __crowdFrom?: string[] }
+      if (CROWD_SIZE > 0) {
+        try {
+          const from: string[] = []
+          for (const src of await crowdSources(OWN_HERO ?? HERO_URL, samples, CROWD_SIZE, params.get('class'))) {
+            if (await loadFan(crowd, src)) from.push(src.from)
+          }
+          w.__crowdFrom = from
+        } catch { /* empty stands */ }
       }
-      ;(window as unknown as { __rivals?: number }).__rivals = g.rivals.length
+      w.__crowd = crowd.size
     })()
   } catch (err) {
     const message = (err as Error).message
@@ -459,8 +482,8 @@ function setProgress(f: number) {
     return {
       phase, time: game.time, remaining: game.remaining, score: game.score, combo: game.combo,
       hero: { x: game.pos.x, y: game.pos.y, z: game.pos.z, heading: game.heading, airborne: game.airborne, playing: game.moves.playing, height: game.hero.height, width: game.hero.width, radius: game.radius, screen: project(game.pos) },
-      rivals: game.rivals.length,
-      things: game.things.filter((t) => !t.dead && !t.dying && !t.bopped).map((t) => ({ kind: t.kind, name: t.rival?.name, age: t.age, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp })),
+      crowd: { size: crowd.size, onScreen: crowd.onScreen, cheers, fans: crowd.fans.map((f) => ({ name: f.name, from: f.from, x: f.base.x, z: f.base.z, screen: project(f.base) })) },
+      things: game.things.filter((t) => !t.dead && !t.dying).map((t) => ({ kind: t.kind, age: t.age, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp, screen: project(t.pos) })),
       stats: game.stats,
       facing: { front: game.facing.front, total: game.facing.total, detail: game.facing.detail },
       perf: { frames: perf.frames, avgMs: perf.frames ? perf.ms / perf.frames : 0, worstFrameMs: perf.worst, drawCalls: perf.calls, fps: perf.fps, pixelRatio, triangles: renderer.info.render.triangles },
@@ -469,4 +492,18 @@ function setProgress(f: number) {
     }
   },
   resetPerf: () => { perf.frames = 0; perf.ms = 0; perf.worst = 0 },
+  /**
+   * The rule Raz set, as a check: nothing the player can hit is a hero.
+   * Every live target is a generated toy with no skinned mesh in it; no fan
+   * is inside the game's tree (the only one the punch reads); and every fan
+   * stands outside the play area.
+   */
+  audit: () => {
+    const g = game?.audit() ?? { things: 0, kinds: [], bad: [] }
+    const fansInGame = game ? crowd.fans.filter((f) => { let o: THREE.Object3D | null = f.hero.root; while (o) { if (o === game!.root) return true; o = o.parent } return false }).length : 0
+    const outside = crowd.outside()
+    // The detector itself, shown a real hero: it must say "not a toy".
+    const detects = (!game || !isToy(game.hero.root)) && crowd.fans.every((f) => !isToy(f.hero.root))
+    return { ok: g.bad.length === 0 && fansInGame === 0 && outside && detects, ...g, crowd: crowd.size, fansInGame, crowdOutside: outside, detectorCatchesHeroes: detects }
+  },
 }

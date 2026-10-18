@@ -17,6 +17,18 @@ export const ARENA = { minX: -4.6, maxX: 4.6, minZ: -3.2, maxZ: 3.4 }
 /** Where the toy chest sits — the robots walk here. */
 export const CHEST = new THREE.Vector3(0, 0, -3.95)
 
+/**
+ * The four big letter blocks behind the back edge, H E R O, as [x, z, yaw]:
+ * scenery, and the high seats the crowd stands on either side of the chest,
+ * where even a phone's narrow portrait view sees them.
+ */
+export const BACK_BLOCKS: [number, number, number][] = [
+  [-3.25, ARENA.minZ - 1.2, -0.35], [-2.2, ARENA.minZ - 1.05, -0.1],
+  [2.2, ARENA.minZ - 1.05, 0.15], [3.25, ARENA.minZ - 1.2, 0.4],
+]
+/** Their size: a block is this tall, and a fan stands on its top. */
+export const BLOCK_SIZE = 0.8
+
 /** Toy Box palette, as linear-ready hex for materials. */
 export const PAL = {
   grape: 0x5b3df5,
@@ -187,11 +199,10 @@ export class World {
         g.fillText(ch, 64, 70)
       })
       const m = new THREE.Mesh(blockGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 }))
-      const side = i < 2 ? -1 : 1
-      m.scale.setScalar(0.8)
-      const outer = side < 0 ? i === 0 : i === 3
-      m.position.set(side * (outer ? 3.9 : 2.95), 0.4, ARENA.minZ - 1.05 - (outer ? 0.15 : 0))
-      m.rotation.y = side * 0.25 + (i % 2 ? 0.15 : -0.1)
+      const [x, z, yaw] = BACK_BLOCKS[i]
+      m.scale.setScalar(BLOCK_SIZE)
+      m.position.set(x, BLOCK_SIZE / 2, z)
+      m.rotation.y = yaw
       s.add(m)
     })
 

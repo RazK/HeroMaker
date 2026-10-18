@@ -45,8 +45,9 @@ const PACKS = [
       // an anime run, a jump with a crouch in it and the ground pound.
       'Fighting Idle', 'Fighting Left Jab', 'Fighting Right Jab', 'Run_Anime',
       'Jump_2', 'Attack_Ground_Pound', 'Victory',
-      // Robot Rumble's rival heroes: dizzy after a bop, then a wave goodbye.
-      'Dizzy', 'Greeting',
+      // Dizzy and Greeting were Robot Rumble's rival heroes; Greeting is now
+      // one of the crowd's cheers (a big wave), Jumping Jacks another.
+      'Dizzy', 'Greeting', 'Jumping Jacks',
     ],
   },
   {
@@ -54,8 +55,9 @@ const PACKS = [
     clips: ['Punch_Cross',
       // Robot Rumble: being bumped by a bouncy ball.
       'Hit_Knockback',
-      // Robot Rumble's rival heroes waddle in.
-      'Walk'],
+      'Walk',
+      // Robot Rumble's cheering crowd: a little side-to-side dance.
+      'Dance_Simple'],
   },
 ]
 

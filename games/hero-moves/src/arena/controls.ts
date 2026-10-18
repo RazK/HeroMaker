@@ -5,10 +5,33 @@ import { icon } from '../ui/tb'
  *
  * Pointer events, one capture per pointer, so a thumb can hold the stick while
  * the other one hammers Punch — real multi-touch, no gesture library. The
- * stick re-centres wherever the thumb lands inside its zone, so a child never
- * has to find a small target to start running. The keyboard drives the same
- * state on a desktop: arrows or WASD to run, J or F to punch, K or Space to jump.
+ * keyboard drives the same state on a desktop: arrows or WASD to run, J or F
+ * to punch, K or Space to jump.
+ *
+ * The stick has to explain itself, because kids read "a circle in a circle"
+ * as a button (Raz, from a classroom). So:
+ * - four chevrons on its ring say "drag this way";
+ * - the knob is a raised thumb pad, with depth and a grip;
+ * - it floats: a thumb landing anywhere in the lower-left of the screen (the
+ *   bar's left end, or the stage above it) brings the stick to the thumb, so
+ *   there is no small target to find. At rest it sits where it always has;
+ * - until the player first moves, the knob drifts side to side under a hand
+ *   and "Drag to move". The first move dismisses it, and it stays dismissed
+ *   (localStorage, guarded: a private window shows it again next visit).
  */
+
+const HINT_KEY = 'heromaker.robotRumble.movedOnce'
+function hintSeen(): boolean {
+  try { return localStorage.getItem(HINT_KEY) === '1' } catch { return false }
+}
+function rememberHint() {
+  try { localStorage.setItem(HINT_KEY, '1') } catch { /* private mode: dismissed for this visit */ }
+}
+
+/** Four chevrons on the ring, in the icon style: 2.4 stroke, round caps. */
+const CHEVRONS = `<svg class="rr-stick-arrows" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M42 15l8-8 8 8" /><path d="M42 85l8 8 8-8" /><path d="M15 42l-8 8 8 8" /><path d="M85 42l8 8-8 8" />
+</svg>`
 
 export interface Input {
   /** Stick, x right and y up the screen, length 0..1. */
@@ -21,8 +44,12 @@ export interface Input {
 export class Controls {
   readonly el: HTMLElement
   private zone: HTMLElement
+  /** The stage's lower-left, where a thumb can also land to bring the stick. */
+  private reach: HTMLElement
   private base: HTMLElement
   private knob: HTMLElement
+  /** Shown until the first move, ever. */
+  private hinting = !hintSeen()
   private punchBtn: HTMLButtonElement
   private jumpBtn: HTMLButtonElement
   private stickId: number | null = null
@@ -34,12 +61,15 @@ export class Controls {
   private punchHeld = false
   enabled = false
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: HTMLElement, stage: HTMLElement) {
     const el = document.createElement('div')
     el.className = 'rr-controls'
     el.innerHTML = `
       <div class="rr-stick-zone" aria-label="Move">
-        <div class="rr-stick"><div class="rr-knob"></div></div>
+        <div class="rr-stick">${CHEVRONS}<div class="rr-knob"></div>
+          <div class="rr-hint-hand" aria-hidden="true">${icon('hand', 30)}</div>
+          <div class="rr-hint" aria-hidden="true">Drag to move</div>
+        </div>
       </div>
       <div class="rr-buttons">
         <button type="button" class="rr-btn rr-btn--jump" aria-label="Jump">${icon('jump', 30)}<span>Jump</span></button>
@@ -50,13 +80,18 @@ export class Controls {
     this.zone = el.querySelector('.rr-stick-zone')!
     this.base = el.querySelector('.rr-stick')!
     this.knob = el.querySelector('.rr-knob')!
+    this.reach = document.createElement('div')
+    this.reach.className = 'rr-stick-reach'
+    stage.appendChild(this.reach)
     this.punchBtn = el.querySelector('.rr-btn--punch')!
     this.jumpBtn = el.querySelector('.rr-btn--jump')!
 
-    this.zone.addEventListener('pointerdown', (e) => this.stickDown(e))
-    this.zone.addEventListener('pointermove', (e) => this.stickMove(e))
-    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
-      this.zone.addEventListener(t, (e) => this.stickUp(e as PointerEvent))
+    for (const z of [this.zone, this.reach]) {
+      z.addEventListener('pointerdown', (e) => this.stickDown(e, z))
+      z.addEventListener('pointermove', (e) => this.stickMove(e))
+      for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
+        z.addEventListener(t, (e) => this.stickUp(e as PointerEvent))
+      }
     }
     this.bindButton(this.punchBtn, () => { this.punchQueued = true }, (held) => { this.punchHeld = held })
     this.bindButton(this.jumpBtn, () => { this.jumpQueued = true })
@@ -67,6 +102,7 @@ export class Controls {
       if (e.repeat) return
       this.keys.add(k)
       if (!this.enabled) return
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(k)) this.moved()
       if (k === 'j' || k === 'f') { this.punchQueued = true; this.flash(this.punchBtn) }
       if (k === 'k' || k === ' ') { this.jumpQueued = true; this.flash(this.jumpBtn) }
     })
@@ -99,21 +135,35 @@ export class Controls {
 
   private radius() { return this.base.clientWidth * 0.42 || 48 }
 
-  private stickDown(e: PointerEvent) {
+  private stickDown(e: PointerEvent, from: HTMLElement) {
     if (this.stickId !== null || !this.enabled) return
     e.preventDefault()
-    this.zone.setPointerCapture?.(e.pointerId)
+    from.setPointerCapture?.(e.pointerId)
     this.stickId = e.pointerId
-    // Re-centre on the thumb, kept inside the zone so the ring never clips.
+    // Float to the thumb, kept inside the lower-left area (the bar's stick
+    // zone and the stage above it) so the ring never clips. Positions are
+    // relative to the zone, which the stick lives in.
     const z = this.zone.getBoundingClientRect()
+    const a = this.reach.getBoundingClientRect()
     const r = this.base.clientWidth / 2
-    const cx = Math.min(Math.max(e.clientX, z.left + r), z.right - r)
-    const cy = Math.min(Math.max(e.clientY, z.top + r), z.bottom - r)
+    const left = Math.min(z.left, a.width ? a.left : z.left) + r
+    const right = Math.max(z.right, a.width ? a.right : z.right) - r
+    const top = Math.min(z.top, a.height ? a.top : z.top) + r
+    const cx = Math.min(Math.max(e.clientX, left), right)
+    const cy = Math.min(Math.max(e.clientY, top), z.bottom - r)
     this.origin = { x: cx, y: cy }
     this.base.style.left = `${cx - z.left}px`
     this.base.style.top = `${cy - z.top}px`
     this.base.classList.add('is-active')
     this.stickMove(e)
+  }
+
+  /** The player moved: the hint has done its job, for good. */
+  private moved() {
+    if (!this.hinting) return
+    this.hinting = false
+    rememberHint()
+    this.base.classList.remove('is-hint')
   }
 
   private stickMove(e: PointerEvent) {
@@ -129,6 +179,7 @@ export class Controls {
     const m = Math.min(1, len / r)
     const v = m < 0.12 ? 0 : Math.min(1, (m - 0.12) / 0.6)
     this.touch = len > 0 ? { x: (dx / len) * v, y: (-dy / len) * v } : { x: 0, y: 0 }
+    if (v > 0) this.moved()
   }
 
   private stickUp(e: PointerEvent) {
@@ -168,6 +219,11 @@ export class Controls {
   setEnabled(on: boolean) {
     this.enabled = on
     this.el.classList.toggle('is-off', !on)
+    this.reach.classList.toggle('is-on', on)
+    this.base.classList.toggle('is-hint', on && this.hinting)
     if (!on) this.reset()
   }
+
+  /** For harnesses: whether the first-play hint is showing. */
+  get hintShowing() { return this.base.classList.contains('is-hint') }
 }

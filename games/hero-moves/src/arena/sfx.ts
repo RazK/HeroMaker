@@ -65,6 +65,10 @@ export class Sfx {
     this.noise(0.08, 0.4, 900)
   }
   pop() { this.tone(900, 1800, 0.08, 'sine', 0.3); this.noise(0.05, 0.3, 3000) }
+  /** A spring: a mushroom squashed, a bouncy ball knocked away. */
+  boing() { this.tone(220, 660, 0.12, 'sine', 0.32); this.tone(660, 300, 0.2, 'triangle', 0.18, 0.1) }
+  /** The crowd: a soft rising "yay" of three voices. */
+  cheer() { [392, 494, 587].forEach((f, i) => this.tone(f * 0.9, f * 1.25, 0.32, 'triangle', 0.06, i * 0.03)); this.noise(0.35, 0.12, 2400, 0.5) }
   crate() { this.tone(180, 60, 0.25, 'triangle', 0.4); this.noise(0.18, 0.5, 400) }
   jump() { this.tone(300, 720, 0.18, 'sine', 0.22) }
   slam() { this.tone(140, 40, 0.4, 'sine', 0.6); this.noise(0.3, 0.6, 250, 0.6) }

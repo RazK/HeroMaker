@@ -662,6 +662,10 @@ try {
     await page.waitForFunction(() => window.__phase === 'play', null, { timeout: 30000 });
     await page.waitForTimeout(DEMO ? 3000 : 1000);
     await snap(page, 'robot-rumble');
+    // Raz's rule: nothing the player can hit is a hero. Other heroes only
+    // cheer from the stands. The game proves it about its own scene.
+    const audit = await page.evaluate(() => window.__arena?.audit?.() ?? null);
+    if (audit && !audit.ok) throw new Error(`Robot Rumble: a hero is hittable or in the arena: ${JSON.stringify(audit)}`);
 
     // Dance party's page loads from its card's link. (The app keeps no route
     // for the hero screen, so going back would land on the gallery.)
@@ -672,7 +676,7 @@ try {
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began and Dance party started`;
+    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}) and Dance party started`;
   });
 
   await step(page, 'class', async () => {

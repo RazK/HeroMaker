@@ -15,8 +15,8 @@ import { el } from './dom'
 
 /**
  * Line icons, copied path for path from frontend/src/components/tb/Icon.tsx:
- * 24 viewBox, stroke 2.4, round caps and joins, currentColor. `pause` is the
- * one glyph the app does not have yet; it is drawn in the same style.
+ * 24 viewBox, stroke 2.4, round caps and joins, currentColor. `pause` and
+ * `hand` are glyphs the app does not have yet; they are drawn in the same style.
  */
 const PATHS = {
   back: '<path d="M15 18l-6-6 6-6" />',
@@ -32,6 +32,9 @@ const PATHS = {
   punch: '<rect x="9" y="7" width="11" height="10" rx="3.5" /><path d="M13 7v4" /><path d="M16.5 7v4" /><path d="M9 11.5h6" /><path d="M3 9h3" /><path d="M2 12h4" /><path d="M3 15h3" />',
   jump: '<path d="M12 16V4" /><path d="M7 9l5-5 5 5" /><path d="M5 20.5h14" />',
   clock: '<circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" />',
+  // Robot Rumble's first-play hint, "Drag to move": a pointing hand, drawn in
+  // the same style (the app has no such glyph yet).
+  hand: '<path d="M9 11.5V4.5a1.75 1.75 0 0 1 3.5 0V11" /><path d="M12.5 10V8.75a1.75 1.75 0 0 1 3.5 0V11" /><path d="M16 10.25a1.75 1.75 0 0 1 3.5 0V14a7 7 0 0 1-7 7h-1.2c-2.2 0-3.6-.8-4.9-2.2L3.6 16a1.8 1.8 0 0 1 2.6-2.5L9 16" />',
 } as const
 export type IconName = keyof typeof PATHS
 

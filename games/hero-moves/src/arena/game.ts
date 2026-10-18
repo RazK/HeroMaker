@@ -3,14 +3,15 @@ import type { Hero } from '../avatar/loader'
 import { makeRng } from '../core/math'
 import type { Input } from './controls'
 import { Moves, type MoveId } from './moves'
-import { makeThing, makeWarning, Particles, Shockwave, type Kind, type Thing } from './things'
+import { isToy, makeThing, makeWarning, Particles, Shockwave, TOY_KINDS, type Kind, type Thing } from './things'
 import { ARENA, CHEST, PAL, World, makeBlob } from './world'
 import type { Sfx } from './sfx'
-import type { Rival } from './rivals'
 
 /**
- * Robot Rumble's rules: wind-up robots march in from the front of the room
- * toward the toy chest at the back, and the hero stops them.
+ * Robot Rumble's rules: wind-up robots and springy mushrooms march in from
+ * the front of the room toward the toy chest at the back, and the hero stops
+ * them. Everything the hero can hit is a generated toy (things.ts); other
+ * children's heroes only ever cheer from the stands (crowd.ts).
  *
  * The direction is the whole design. Robots come from the camera's side, so
  * the hero spends the round turned toward the camera to meet them — the face
@@ -33,14 +34,19 @@ const POUND_RADIUS = 2.3
  */
 const FRONT_HALF = -0.6
 
-export const POINTS: Record<Kind, number> = { robot: 100, balloon: 50, gold: 50, crate: 250, ball: 50, rival: 150 }
+export const POINTS: Record<Kind, number> = { robot: 100, mushroom: 150, bouncy: 75, balloon: 50, gold: 50, crate: 250, ball: 50 }
+
+/** What the punch, the auto-aim and the ground pound can reach. */
+const TARGETS: Kind[] = ['robot', 'mushroom', 'bouncy', 'crate', 'balloon', 'gold']
 
 export type Phase = 'menu' | 'countdown' | 'play' | 'end'
 
 export interface GameEvents {
-  popup(at: THREE.Vector3, text: string, tone: 'score' | 'combo' | 'bad' | 'bonus' | 'name'): void
+  popup(at: THREE.Vector3, text: string, tone: 'score' | 'combo' | 'bad' | 'bonus'): void
   shake(amount: number): void
   hitStop(seconds: number): void
+  /** The player scored: the crowd cheers. `big` for a crate, a combo step or a smash. */
+  scored?(kind: Kind, big: boolean): void
 }
 
 interface Attack { move: MoveId; hitAt: number; t: number; done: boolean; reach: number }
@@ -56,7 +62,7 @@ export class Game {
   score = 0
   combo = 0
   best = 0
-  stats = { robots: 0, rivals: 0, balloons: 0, crates: 0, jumps: 0, slams: 0, stolen: 0, hurt: 0, punches: 0, maxCombo: 0 }
+  stats = { robots: 0, mushrooms: 0, bouncies: 0, balloons: 0, crates: 0, jumps: 0, slams: 0, stolen: 0, hurt: 0, punches: 0, maxCombo: 0 }
 
   // ---- hero state
   readonly pos = new THREE.Vector3()
@@ -83,9 +89,7 @@ export class Game {
   private heroBlob: THREE.Mesh
   private warnings: { mesh: THREE.Mesh; until: number; side: number; z: number }[] = []
   private rnd = makeRng(1)
-  private spawn = { robot: 1.2, balloon: 2.5, crate: 8, ball: 12, rival: 3, gold: [24, 50] as number[] }
-  /** Gallery heroes ready to visit, filled in as they finish loading. */
-  readonly rivals: Rival[] = []
+  private spawn = { robot: 1.2, mushroom: 3, bouncy: 6, balloon: 2.5, crate: 8, ball: 12, gold: [24, 50] as number[] }
   /** Where the camera is, so "facing the camera" can be measured honestly. */
   cameraPos = new THREE.Vector3(0, 5, 10)
 
@@ -105,16 +109,16 @@ export class Game {
   get multiplier() { return Math.min(5, 1 + Math.floor(this.combo / 5)) }
 
   reset(seed = 1) {
-    for (const t of this.things) { this.root.remove(t.obj); if (t.rival) { t.rival.reset(); t.rival.busy = false } }
+    for (const t of this.things) this.root.remove(t.obj)
     this.things.length = 0
     for (const w of this.warnings) this.root.remove(w.mesh)
     this.warnings.length = 0
     this.rnd = makeRng(seed)
-    this.spawn = { robot: 1.2, balloon: 2.5, crate: 8, ball: 12, rival: 3, gold: [24, 50] }
+    this.spawn = { robot: 1.2, mushroom: 3, bouncy: 6, balloon: 2.5, crate: 8, ball: 12, gold: [24, 50] }
     this.time = 0
     this.score = 0
     this.combo = 0
-    this.stats = { robots: 0, rivals: 0, balloons: 0, crates: 0, jumps: 0, slams: 0, stolen: 0, hurt: 0, punches: 0, maxCombo: 0 }
+    this.stats = { robots: 0, mushrooms: 0, bouncies: 0, balloons: 0, crates: 0, jumps: 0, slams: 0, stolen: 0, hurt: 0, punches: 0, maxCombo: 0 }
     this.facing.front = this.facing.total = 0
     this.facing.detail = {}
     this.pos.set(0, 0, 0.6)
@@ -136,8 +140,7 @@ export class Game {
     this.vel.set(0, 0, 0)
     this.targetHeading = 0
     this.hero.root.visible = true
-    for (const t of this.things) if (t.kind === 'rival' && !t.dead && (t.rstate === 'walk' || t.rstate === 'knock')) { t.bopped = true; this.rivalTo(t, 'wave') }
-    for (const t of this.things) if (!t.dead && !t.dying && t.kind !== 'rival') { t.dying = 0.001; this.particles.burst(t.pos.clone().setY(0.6), 10, [PAL.sun, PAL.grape, PAL.red]) }
+    for (const t of this.things) if (!t.dead && !t.dying) { t.dying = 0.001; this.particles.burst(t.pos.clone().setY(0.6), 10, [PAL.sun, PAL.grape, PAL.red]) }
     for (const w of this.warnings) this.root.remove(w.mesh)
     this.warnings.length = 0
     if (this.moves.has('victory')) this.moves.play('victory', { mask: 'full', speed: 1 })
@@ -203,7 +206,7 @@ export class Game {
     } else {
       this.stillFor += dt
       if (this.stillFor > 0.18 && !attacking && free) {
-        const near = this.nearest(['robot', 'rival', 'crate', 'balloon', 'gold'], 2.6, true)
+        const near = this.nearest(TARGETS, 2.6, true)
         if (near) this.targetHeading = Math.atan2(near.pos.x - this.pos.x, near.pos.z - this.pos.z)
         else {
           const toCam = Math.atan2(this.cameraPos.x - this.pos.x, this.cameraPos.z - this.pos.z)
@@ -298,7 +301,7 @@ export class Game {
     const moving = this.loco > 0.35
     // Auto-aim: snap toward the best target in reach so a child's rough aim
     // still connects. Proportions do not matter — reach is from the capsule.
-    const target = this.nearest(['robot', 'rival', 'crate', 'balloon', 'gold'], this.radius + 1.7, true)
+    const target = this.nearest(TARGETS, this.radius + 1.7, true)
     if (target) {
       this.targetHeading = Math.atan2(target.pos.x - this.pos.x, target.pos.z - this.pos.z)
       // A little lunge into it.
@@ -321,7 +324,7 @@ export class Game {
     const fwd = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading))
     const hits: { th: Thing; d: number }[] = []
     for (const th of this.things) {
-      if (th.dead || th.dying || th.bopped || th.kind === 'ball') continue
+      if (th.dead || th.dying || th.kind === 'ball') continue
       const dx = th.pos.x - this.pos.x, dz = th.pos.z - this.pos.z
       const d = Math.hypot(dx, dz)
       const reach = this.radius + th.radius + a.reach
@@ -357,7 +360,7 @@ export class Game {
     navigator.vibrate?.(40)
     let n = 0
     for (const th of this.things) {
-      if (th.dead || th.dying || th.bopped || th.kind === 'ball') continue
+      if (th.dead || th.dying || th.kind === 'ball') continue
       const d = Math.hypot(th.pos.x - this.pos.x, th.pos.z - this.pos.z)
       if (d > POUND_RADIUS + th.radius) continue
       if ((th.kind === 'balloon' || th.kind === 'gold') && th.pos.y > 1.8) continue
@@ -365,15 +368,19 @@ export class Game {
       this.hit(th, away, 3)
       n++
     }
-    if (n >= 3) this.ev.popup(this.pos.clone().setY(this.hero.height + 0.3), `SMASH x${n}!`, 'combo')
+    if (n >= 3) {
+      this.ev.popup(this.pos.clone().setY(this.hero.height + 0.3), `SMASH x${n}!`, 'combo')
+      this.ev.scored?.('crate', true)
+    }
   }
 
   /** Something got hit: score it, pop it, make it feel like it. */
   private hit(th: Thing, dir: THREE.Vector3, power: number) {
-    if (th.kind === 'rival') { this.bop(th, dir); return }
+    // The one door into scoring: a generated toy, or nothing.
+    if (!TOY_KINDS.includes(th.kind) || !isToy(th.obj)) throw new Error(`refusing to hit a non-toy (${th.kind})`)
     th.hp -= power
     th.squash = 1
-    const top = th.pos.clone().setY(th.kind === 'crate' ? 1.0 : th.kind === 'robot' ? 0.8 : th.pos.y)
+    const top = th.pos.clone().setY(th.kind === 'crate' ? 1.0 : th.kind === 'robot' || th.kind === 'mushroom' ? 0.8 : th.pos.y)
     this.combo++
     this.stats.maxCombo = Math.max(this.stats.maxCombo, this.combo)
     this.comboUntil = this.time + COMBO_WINDOW
@@ -391,7 +398,8 @@ export class Game {
       return
     }
     th.dying = 0.001
-    th.vel.copy(dir).multiplyScalar(th.kind === 'robot' ? 5 : 2).setY(th.kind === 'robot' ? 4.5 : 0)
+    th.vel.copy(dir).multiplyScalar(th.kind === 'robot' ? 5 : th.kind === 'bouncy' ? 7 : th.kind === 'mushroom' ? 0 : 2)
+      .setY(th.kind === 'robot' ? 4.5 : th.kind === 'bouncy' ? 6 : 0)
     const pts = POINTS[th.kind] * mult
     this.score += pts
     if (th.kind === 'robot') {
@@ -399,6 +407,18 @@ export class Game {
       this.particles.burst(top, 18, [PAL.sun, PAL.red, PAL.grape, 0x2fa8e0], 4.5, 3)
       this.sfx.hit(this.combo)
       this.ev.shake(0.2)
+    } else if (th.kind === 'mushroom') {
+      // Boing: squashed flat, then a puff of spots.
+      this.stats.mushrooms++
+      this.particles.burst(top, 22, [0xffffff, PAL.red, PAL.sun, PAL.grape], 4, 3.5)
+      this.sfx.boing()
+      this.ev.shake(0.18)
+    } else if (th.kind === 'bouncy') {
+      // Scattered: knocked high and away, popping as it goes.
+      this.stats.bouncies++
+      this.particles.burst(top, 14, [PAL.grape, PAL.sun, PAL.mint], 3.5, 3)
+      this.sfx.boing()
+      this.ev.shake(0.12)
     } else if (th.kind === 'crate') {
       this.stats.crates++
       this.particles.burst(top, 30, [PAL.sun, PAL.sunDeep, 0xffffff], 5, 4)
@@ -416,143 +436,25 @@ export class Game {
       }
     }
     this.ev.popup(top, `+${pts}`, 'score')
-    if (this.combo >= 5 && this.combo % 5 === 0) this.ev.popup(this.pos.clone().setY(this.hero.height + 0.5), `COMBO x${this.multiplier}`, 'combo')
+    const step = this.combo >= 5 && this.combo % 5 === 0
+    if (step) this.ev.popup(this.pos.clone().setY(this.hero.height + 0.5), `COMBO x${this.multiplier}`, 'combo')
+    this.ev.scored?.(th.kind, step || th.kind === 'crate')
     this.ev.hitStop(0.05)
     navigator.vibrate?.(15)
   }
 
   private breakCombo() { this.combo = 0 }
 
-  // ------------------------------------------------------------- rivals
-
-  /** A gallery hero finished loading: it can visit from now on. */
-  addRival(r: Rival) { this.rivals.push(r) }
-
   /**
-   * Tag! The rival tumbles onto its bottom, sees stars facing the camera,
-   * waves, and runs off — the friendliest possible way to lose.
+   * Proof that nothing hittable is a hero: every live thing is one of the toy
+   * kinds and holds no skinned mesh. The harness and the staging robot read
+   * it through `window.__arena.audit()`.
    */
-  private bop(th: Thing, dir: THREE.Vector3) {
-    th.bopped = true
-    this.combo++
-    this.stats.maxCombo = Math.max(this.stats.maxCombo, this.combo)
-    this.comboUntil = this.time + COMBO_WINDOW
-    this.stats.rivals++
-    const pts = POINTS.rival * this.multiplier
-    this.score += pts
-    const top = th.pos.clone().setY((th.rival?.hero.height ?? 1.5) * 0.9)
-    th.vel.copy(dir).setY(0).normalize().multiplyScalar(2.2)
-    this.rivalTo(th, 'knock')
-    this.particles.burst(top, 22, [PAL.sun, PAL.grape, 0x2fa8e0, 0xffffff], 4, 3)
-    this.sfx.hit(this.combo)
-    this.sfx.pop()
-    this.ev.popup(top, `+${pts}`, 'score')
-    this.ev.popup(top.clone().setY(top.y + 0.45), `Bopped ${th.rival?.name ?? 'a hero'}!`, 'name')
-    if (this.combo >= 5 && this.combo % 5 === 0) this.ev.popup(this.pos.clone().setY(this.hero.height + 0.5), `COMBO x${this.multiplier}`, 'combo')
-    this.ev.shake(0.2)
-    this.ev.hitStop(0.05)
-    navigator.vibrate?.(15)
+  audit() {
+    const live = this.things.filter((t) => !t.dead)
+    const bad = live.filter((t) => !TOY_KINDS.includes(t.kind) || !isToy(t.obj)).map((t) => t.kind)
+    return { things: live.length, kinds: [...new Set(live.map((t) => t.kind))], bad }
   }
-
-  private rivalTo(th: Thing, state: NonNullable<Thing['rstate']>) {
-    const r = th.rival!
-    th.rstate = state
-    th.rt = 0
-    r.stars.visible = state === 'dizzy'
-    if (state === 'walk') r.play('walk', { speed: 1.1 })
-    else if (state === 'knock') r.play('knock', { loop: false, speed: 0.95, fade: 0.08 })
-    else if (state === 'dizzy') r.play('dizzy', { speed: 1.2 })
-    else if (state === 'wave') r.play('wave', { loop: false, from: 0.5, speed: 1.3 })
-    else if (state === 'leave') {
-      r.play('run', { speed: 1.2 })
-      const side = th.pos.x >= 0 ? 1 : -1
-      th.vel.set(side * 3.4, 0, 0)
-    }
-  }
-
-  private spawnRival() {
-    const free = this.rivals.filter((r) => !r.busy)
-    if (!free.length) return false
-    const r = free[Math.floor(this.rnd() * free.length)]
-    r.busy = true
-    r.reset()
-    const obj = new THREE.Group()
-    obj.add(r.hero.root)
-    r.hero.root.scale.setScalar(0.9)
-    r.hero.root.visible = true
-    const blob = makeBlob(Math.max(0.8, r.hero.width * 0.5))
-    obj.add(blob)
-    const th: Thing = {
-      kind: 'rival', obj, body: r.hero.root, blob,
-      // In at the front, like the robots: the player meets them face to face
-      // and the camera sees both.
-      pos: new THREE.Vector3(this.awayX(0.8), 0, ARENA.maxZ - 0.1),
-      vel: new THREE.Vector3(0, 0, -0.8),
-      radius: Math.min(0.5, Math.max(0.3, r.hero.radius * 0.9)),
-      hp: 1, age: 0, phase: 0, squash: 0, dying: 0, dead: false, rival: r,
-    }
-    th.obj.rotation.y = Math.PI
-    this.particles.burst(th.pos.clone().setY(0.4), 12, [0xffffff, PAL.sun, PAL.grape], 2.5, 2)
-    this.things.push(th)
-    this.root.add(obj)
-    this.rivalTo(th, 'walk')
-    return true
-  }
-
-  private updateRival(th: Thing, dt: number) {
-    const r = th.rival!
-    th.rt = (th.rt ?? 0) + dt
-    // Pops in at the doorway with a little bounce, like the robots.
-    const k = Math.min(1, th.age / 0.35)
-    r.hero.root.scale.setScalar(0.9 * (k < 1 ? 0.3 + 0.7 * (1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2) : 1))
-    const toCamYaw = Math.atan2(this.cameraPos.x - th.pos.x, this.cameraPos.z - th.pos.z)
-    const face = (yaw: number, rate: number) => { th.obj.rotation.y += wrap(yaw - th.obj.rotation.y) * (1 - Math.exp(-rate * dt)) }
-    switch (th.rstate) {
-      case 'walk': {
-        // Wander toward the chest.
-        const to = new THREE.Vector3(CHEST.x - th.pos.x, 0, CHEST.z + 0.9 - th.pos.z)
-        const d = to.length()
-        to.normalize().multiplyScalar(0.7 + 0.3 * (this.time / ROUND_SECONDS))
-        th.vel.x += (to.x - th.vel.x) * (1 - Math.exp(-1.2 * dt))
-        th.vel.z += (to.z - th.vel.z) * (1 - Math.exp(-1.2 * dt))
-        th.pos.x += th.vel.x * dt
-        th.pos.z += th.vel.z * dt
-        face(Math.atan2(th.vel.x, th.vel.z), 6)
-        if (d < 1.0) {
-          // Reached the toys: a cheeky wave, and off with one.
-          this.stats.stolen++
-          this.world.bumpChest()
-          this.sfx.steal()
-          this.ev.popup(CHEST.clone().setY(1.6), 'Oh no!', 'bad')
-          this.breakCombo()
-          th.bopped = true
-          this.rivalTo(th, 'wave')
-        }
-        break
-      }
-      case 'knock':
-        th.vel.multiplyScalar(Math.exp(-5 * dt))
-        th.pos.addScaledVector(th.vel, dt)
-        if (th.rt > 0.8) this.rivalTo(th, 'dizzy')
-        break
-      case 'dizzy':
-        // Seeing stars, turned to the player: the moment the hero is on show.
-        face(toCamYaw, 8)
-        if (th.rt > 1.3) this.rivalTo(th, 'wave')
-        break
-      case 'wave':
-        face(toCamYaw, 8)
-        if (th.rt > 1.1) this.rivalTo(th, 'leave')
-        break
-      case 'leave':
-        th.pos.x += th.vel.x * dt
-        face(Math.atan2(th.vel.x, 0), 10)
-        if (Math.abs(th.pos.x) > ARENA.maxX + 1.6) this.remove(th)
-        break
-    }
-    r.update(dt, this.time)
-  }
-
 
   // ------------------------------------------------------------- the toys
 
@@ -561,7 +463,7 @@ export class Game {
     let bestScore = Infinity
     const fwd = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading))
     for (const th of this.things) {
-      if (th.dead || th.dying || th.bopped || !kinds.includes(th.kind)) continue
+      if (th.dead || th.dying || !kinds.includes(th.kind)) continue
       if ((th.kind === 'balloon' || th.kind === 'gold') && th.pos.y > 2.0 + this.pos.y) continue
       const dx = th.pos.x - this.pos.x, dz = th.pos.z - this.pos.z
       const d = Math.hypot(dx, dz)
@@ -593,6 +495,7 @@ export class Game {
 
   private add(kind: Kind) {
     const th = makeThing(kind, this.rnd)
+    if (!isToy(th.obj)) throw new Error(`a ${kind} is not a generated toy`)
     this.things.push(th)
     this.root.add(th.obj)
     return th
@@ -601,13 +504,28 @@ export class Game {
   private spawnThings() {
     const t = this.time
     const k = t / ROUND_SECONDS
-    const live = (kind: Kind) => this.things.filter((x) => x.kind === kind && !x.dead && !x.dying && !x.bopped).length
+    const live = (kind: Kind) => this.things.filter((x) => x.kind === kind && !x.dead && !x.dying).length
     const r = this.rnd
 
-    // Gallery heroes visit while any are loaded: two at a time, three later.
-    if (t >= this.spawn.rival && this.rivals.length) {
-      if (live('rival') < (k > 0.45 ? 3 : 2)) this.spawnRival()
-      this.spawn.rival = t + lerp(3.2, 2.0, k) * (0.8 + r() * 0.4)
+    // Mushrooms hop in at the front, like the robots: two at a time, three later.
+    if (t >= this.spawn.mushroom) {
+      if (live('mushroom') < (k > 0.45 ? 3 : 2)) {
+        const th = this.add('mushroom')
+        th.pos.set(this.awayX(0.8), 0, ARENA.maxZ - 0.1)
+        th.vel.set(0, 0, -0.8)
+        th.hop = r()
+        this.particles.burst(th.pos.clone().setY(0.4), 10, [0xffffff, PAL.sun, PAL.red], 2.5, 2)
+      }
+      this.spawn.mushroom = t + lerp(3.2, 2.0, k) * (0.8 + r() * 0.4)
+    }
+    // Bouncy balls boing in place in the front half until they are knocked away.
+    if (t >= this.spawn.bouncy) {
+      if (live('bouncy') < 2) {
+        const th = this.add('bouncy')
+        th.pos.set(this.awayX(1), 3, lerp(FRONT_HALF, ARENA.maxZ - 0.9, r()))
+        th.vel.set((r() - 0.5) * 0.6, 0, (r() - 0.5) * 0.4)
+      }
+      this.spawn.bouncy = t + 6 + r() * 3
     }
     if (t >= this.spawn.robot) {
       const n = k > 0.35 && r() < 0.4 ? 2 : 1
@@ -618,7 +536,7 @@ export class Game {
         const sp = 0.6 + 0.45 * k + r() * 0.15
         th.vel.set(0, 0, -sp)
       }
-      this.spawn.robot = t + lerp(1.7, 0.8, k) * (0.8 + r() * 0.4) * (this.rivals.length ? 1.7 : 1)
+      this.spawn.robot = t + lerp(1.7, 0.8, k) * (0.8 + r() * 0.4) * 1.6
     }
     if (t >= this.spawn.balloon) {
       if (live('balloon') < 4) {
@@ -676,8 +594,14 @@ export class Game {
       th.phase += dt
       th.squash = Math.max(0, th.squash - dt * 5)
 
-      if (th.kind === 'rival') {
-        this.updateRival(th, dt)
+      if (th.dying && th.kind === 'mushroom' && !th.stealing) {
+        // Squashed flat and wide, then gone in a puff.
+        th.dying += dt
+        const k = Math.min(1, th.dying / 0.3)
+        th.body.scale.set(1 + 0.7 * k, Math.max(0.05, 1 - 0.95 * k), 1 + 0.7 * k)
+        th.pos.y = Math.max(0, th.pos.y - dt * 4)
+        th.blob.visible = false
+        if (th.dying > 0.3) this.remove(th)
       } else if (th.dying) {
         th.dying += dt
         th.vel.y -= 14 * dt
@@ -703,6 +627,39 @@ export class Game {
         th.body.rotation.z = Math.sin(th.phase * 9) * 0.12
         th.body.position.y = Math.abs(Math.sin(th.phase * 9)) * 0.05
         if (d < 0.9) this.steal(th)
+      } else if (th.kind === 'mushroom') {
+        // Hop, hop, hop toward the chest: forward only while in the air, a
+        // squash on every landing and a stretch on every take-off.
+        const to = new THREE.Vector3(CHEST.x - th.pos.x, 0, CHEST.z + 0.7 - th.pos.z)
+        const d = to.length()
+        const speed = 0.75 + 0.35 * (this.time / ROUND_SECONDS)
+        to.normalize().multiplyScalar(speed)
+        th.vel.x += (to.x - th.vel.x) * (1 - Math.exp(-1.5 * dt))
+        th.vel.z += (to.z - th.vel.z) * (1 - Math.exp(-1.5 * dt))
+        th.hop = ((th.hop ?? 0) + dt / 0.62) % 1
+        const air = th.hop < 0.7 ? th.hop / 0.7 : -1
+        if (air >= 0) {
+          th.pos.x += th.vel.x * dt / 0.7
+          th.pos.z += th.vel.z * dt / 0.7
+          th.pos.y = Math.sin(air * Math.PI) * 0.42
+        } else {
+          th.pos.y = 0
+          if (th.squash < 0.5) th.squash = 0.45
+        }
+        th.obj.rotation.y = Math.atan2(th.vel.x, th.vel.z)
+        th.blob.position.y = -th.pos.y + 0.006
+        th.blob.scale.setScalar(0.95 * (1 - Math.min(0.4, th.pos.y * 0.6)))
+        if (d < 0.9) this.steal(th)
+      } else if (th.kind === 'bouncy') {
+        // Boing, boing: a high bounce in place, drifting a little.
+        th.vel.y -= 16 * dt
+        th.pos.y += th.vel.y * dt
+        if (th.pos.y <= 0.36) { th.pos.y = 0.36; th.vel.y = 6.2; th.squash = Math.max(th.squash, 0.6) }
+        th.pos.x = THREE.MathUtils.clamp(th.pos.x + th.vel.x * dt, ARENA.minX + 0.6, ARENA.maxX - 0.6)
+        th.pos.z = THREE.MathUtils.clamp(th.pos.z + th.vel.z * dt, FRONT_HALF, ARENA.maxZ - 0.6)
+        th.body.rotation.y += dt * 1.5
+        th.blob.position.y = -th.pos.y + 0.006
+        th.blob.scale.setScalar(0.8 / (1 + (th.pos.y - 0.36) * 0.5))
       } else if (th.kind === 'balloon' || th.kind === 'gold') {
         const lifeLeft = 9 - th.age
         const goal = lifeLeft > 0 ? th.float! : th.float! + (-lifeLeft) * 2.5
@@ -740,7 +697,8 @@ export class Game {
           th.pos.x = THREE.MathUtils.clamp(th.pos.x + th.vel.x * dt, ARENA.minX + 0.5, ARENA.maxX - 0.5)
           th.pos.z = THREE.MathUtils.clamp(th.pos.z + th.vel.z * dt, ARENA.minZ + 0.5, ARENA.maxZ - 0.5)
         }
-        th.body.rotation.z = Math.sin(th.phase * 30) * 0.08 * th.squash
+        // Wobbly: a gentle jelly sway at rest, a hard shiver when knocked.
+        th.body.rotation.z = Math.sin(th.phase * 30) * 0.08 * th.squash + Math.sin(th.phase * 2.3) * 0.035
       } else if (th.kind === 'ball') {
         th.pos.x += th.vel.x * dt
         const bounce = Math.abs(Math.sin(th.phase * 5.5))
@@ -761,13 +719,13 @@ export class Game {
       }
 
       // Toys do not overlap the hero; robots are light and get shoved.
-      if (!th.dying && !th.bopped && th.kind !== 'ball' && th.kind !== 'balloon' && th.kind !== 'gold' && th.pos.y < 0.5) {
+      if (!th.dying && th.kind !== 'ball' && th.kind !== 'balloon' && th.kind !== 'gold' && th.kind !== 'bouncy' && th.pos.y < 0.5) {
         const dx = th.pos.x - this.pos.x, dz = th.pos.z - this.pos.z
         const d = Math.hypot(dx, dz)
         const min = heroR + th.radius
         if (d < min && d > 1e-4) {
           const push = (min - d) / d
-          if (th.kind === 'robot' || th.kind === 'rival') {
+          if (th.kind === 'robot' || th.kind === 'mushroom') {
             // A robot walks into the hero and stops there, still facing them:
             // a hero standing guard holds the line instead of being slipped past.
             th.pos.x += dx * push; th.pos.z += dz * push
@@ -777,19 +735,21 @@ export class Game {
         }
       }
 
-      // Squash and stretch on every hit.
-      if (!th.dying && th.kind !== 'rival') {
+      // Squash and stretch on every hit (and every mushroom landing).
+      if (!th.dying) {
         const s = th.squash
-        // A robot pops in at the doorway with a little bounce.
-        const k = th.kind === 'robot' ? Math.min(1, th.age / 0.35) : 1
+        // Robots and mushrooms pop in at the doorway with a little bounce.
+        const k = th.kind === 'robot' || th.kind === 'mushroom' ? Math.min(1, th.age / 0.35) : 1
         const pop = k < 1 ? 0.3 + 0.7 * (1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2) : 1
-        th.body.scale.set(pop * (1 + 0.3 * s), pop * (1 - 0.3 * s), pop * (1 + 0.3 * s))
+        // A mushroom stretches tall as it takes off.
+        const up = th.kind === 'mushroom' && th.pos.y > 0.02 ? 0.12 * Math.min(1, th.pos.y / 0.2) : 0
+        th.body.scale.set(pop * (1 + 0.3 * s - up * 0.5), pop * (1 - 0.3 * s + up), pop * (1 + 0.3 * s - up * 0.5))
       }
-      th.obj.position.set(th.pos.x, th.kind === 'robot' || th.kind === 'crate' ? th.pos.y : 0, th.pos.z)
-      if (th.kind === 'balloon' || th.kind === 'gold' || th.kind === 'ball') th.body.position.y = th.pos.y
+      th.obj.position.set(th.pos.x, th.kind === 'robot' || th.kind === 'crate' || th.kind === 'mushroom' ? th.pos.y : 0, th.pos.z)
+      if (th.kind === 'balloon' || th.kind === 'gold' || th.kind === 'ball' || th.kind === 'bouncy') th.body.position.y = th.pos.y
     }
     // Robots keep out of each other's way.
-    const robots = this.things.filter((x) => (x.kind === 'robot' || (x.kind === 'rival' && !x.bopped)) && !x.dying && !x.dead)
+    const robots = this.things.filter((x) => (x.kind === 'robot' || x.kind === 'mushroom') && !x.dying && !x.dead)
     for (let i = 0; i < robots.length; i++) for (let j = i + 1; j < robots.length; j++) {
       const a = robots[i], b = robots[j]
       const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z
@@ -832,7 +792,6 @@ export class Game {
   private remove(th: Thing) {
     th.dead = true
     this.root.remove(th.obj)
-    if (th.rival) { th.rival.reset(); th.rival.busy = false }
   }
 }
 

@@ -13,7 +13,8 @@
  *   { "hero": "/abs/Curly_Carl.vrm", "name": "Curly Carl", "seed": 3,
  *     "menu": 2.0, "skip": 0, "record": 20, "end": false } ] }
  *
- * Each segment: show the start card for `menu` seconds, tap Start, play
+ * Each segment: show the start card for `menu` seconds, tap Start, wait
+ * `idle` seconds with no input (the first-play hint shows), play
  * `skip` seconds unrecorded (the bot keeps playing), record `record` seconds,
  * and if `end` play on to the end card and record `endHold` seconds of it.
  * Frames land in out-dir/frames/NNNNN.jpg; encode with ffmpeg afterwards.
@@ -47,14 +48,14 @@ for (const seg of plan.segments) {
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.log('pageerror', e.message))
   const file = path.basename(seg.hero)
-  const rivals = (plan.rivals ?? []).filter((f) => f !== seg.hero)
-  await routeHeroes(page, seg.hero, rivals)
+  const fans = (plan.fans ?? []).filter((f) => f !== seg.hero)
+  await routeHeroes(page, seg.hero, fans)
   await page.goto(`${BASE}/arena.html?vrm=${encodeURIComponent('/api/files/local/' + file)}&name=${encodeURIComponent(seg.name)}&manual=1&dpr=${SCALE}`)
   await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 180000 })
   const ready = await page.evaluate(() => window.__ready)
   if (ready !== true) throw new Error(`${seg.name}: ${ready}`)
   // Let the gallery heroes finish arriving, so every round has them.
-  if (rivals.length) await page.waitForFunction(() => window.__rivals !== undefined, null, { timeout: 300000 })
+  if (fans.length) await page.waitForFunction(() => window.__crowd !== undefined, null, { timeout: 300000 })
   const cdp = await ctx.newCDPSession(page)
 
   const grab = async () => {
@@ -92,7 +93,9 @@ for (const seg of plan.segments) {
 
   const playFrame = async (render) => {
     const s = await page.evaluate(() => window.__arena.state())
-    const act = bot(s)
+    // `idle`: the player's thumb stays off the stick for the round's first
+    // seconds, as a new player's does, so the first-play hint is on camera.
+    const act = s.phase === 'play' && s.time < (seg.idle ?? 0) ? { move: null, punch: false, jump: false } : bot(s)
     // ---- stick finger (id 1)
     if (act.move) {
       const p = { x: sc.x + act.move.x * sc.r, y: sc.y - act.move.y * sc.r }
@@ -183,7 +186,7 @@ function makeBot() {
       if (x.kind === 'robot' && x.age < 0.9) continue
       const d = Math.hypot(x.x - h.x, x.z - h.z)
       let score = d
-      if (x.kind === 'robot') score -= Math.max(0, 3.2 - Math.hypot(x.x - chest.x, x.z - chest.z)) * 0.3
+      if (x.kind === 'robot' || x.kind === 'mushroom') score -= Math.max(0, 3.2 - Math.hypot(x.x - chest.x, x.z - chest.z)) * 0.3
       if (x.kind === 'crate') score -= 0.8
       if (x.kind === 'gold') score -= 2.5
       if ((x.kind === 'balloon' || x.kind === 'gold') && x.y > 1.9) continue

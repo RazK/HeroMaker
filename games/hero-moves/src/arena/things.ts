@@ -6,9 +6,28 @@ import { PAL, makeBlob } from './world'
  * The toys in the room. Each one is a single merged, vertex-coloured mesh plus
  * a painted blob shadow: two draw calls a toy, so a screen full of robots
  * costs less than the hero's outline does.
+ *
+ * **Everything the player can hit is made here, from primitives.** No hero —
+ * not the player's, not another child's — is ever a target: other children's
+ * heroes cheer from the stands (`crowd.ts`) and are never in the game's list
+ * of things. `TOY_KINDS` is that list's whole vocabulary, and `isToy` is the
+ * check the game runs on every thing it adds.
  */
 
-export type Kind = 'robot' | 'balloon' | 'gold' | 'crate' | 'ball' | 'rival'
+export const TOY_KINDS = ['robot', 'mushroom', 'bouncy', 'balloon', 'gold', 'crate', 'ball'] as const
+export type Kind = typeof TOY_KINDS[number]
+
+/**
+ * True when `obj` is a generated toy: no skinned mesh and no VRM anywhere in
+ * it. A hero is always a skinned VRM, so a hero can never pass this.
+ */
+export function isToy(obj: THREE.Object3D): boolean {
+  let ok = true
+  obj.traverse((o) => {
+    if ((o as THREE.SkinnedMesh).isSkinnedMesh || o.userData.vrm || o.userData.hero) ok = false
+  })
+  return ok
+}
 
 export interface Thing {
   kind: Kind
@@ -36,12 +55,8 @@ export interface Thing {
   /** Balloon float height. */
   float?: number
   extra?: THREE.Object3D
-  /** A rival hero: who it is, what it is doing, and for how long. */
-  rival?: import('./rivals').Rival
-  rstate?: 'walk' | 'knock' | 'dizzy' | 'wave' | 'leave'
-  rt?: number
-  /** Bopped already: no longer a target, on its way out. */
-  bopped?: boolean
+  /** A mushroom's hop clock: 0 → 1 is one hop. */
+  hop?: number
 }
 
 const lambert = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0 })
@@ -147,6 +162,74 @@ function ballMaterial() {
   return ballMat
 }
 
+const MUSHROOM_CAPS = [PAL.red, PAL.grape, PAL.green, 0xff8a3d, 0x2fa8e0]
+const mushroomGeos = new Map<number, THREE.BufferGeometry>()
+
+/**
+ * A springy toy mushroom, ~0.8 m: a cream stem with friendly eyes under a
+ * spotted cap. It hops toward the chest, squashing on every landing.
+ */
+function mushroomGeometry(cap: number) {
+  let g = mushroomGeos.get(cap)
+  if (g) return g
+  const stem = new THREE.LatheGeometry([
+    new THREE.Vector2(0.0, 0.0), new THREE.Vector2(0.2, 0.0), new THREE.Vector2(0.24, 0.12),
+    new THREE.Vector2(0.23, 0.3), new THREE.Vector2(0.19, 0.44), new THREE.Vector2(0.0, 0.46),
+  ], 16)
+  const dome = new THREE.SphereGeometry(0.42, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)
+  dome.scale(1, 0.78, 1)
+  const rim = new THREE.CylinderGeometry(0.42, 0.36, 0.06, 20)
+  const parts = [
+    colored(stem, PAL.cream),
+    colored(at(dome, 0, 0.44, 0), cap),
+    colored(at(rim, 0, 0.42, 0), cap),
+    colored(at(new THREE.SphereGeometry(0.04, 8, 6), -0.08, 0.27, 0.215), PAL.ink),   // eyes
+    colored(at(new THREE.SphereGeometry(0.04, 8, 6), 0.08, 0.27, 0.215), PAL.ink),
+    colored(at(new THREE.SphereGeometry(0.014, 6, 4), -0.07, 0.29, 0.25), 0xffffff), // eye shine
+    colored(at(new THREE.SphereGeometry(0.014, 6, 4), 0.09, 0.29, 0.25), 0xffffff),
+    colored(at(new THREE.SphereGeometry(0.035, 8, 6), -0.16, 0.2, 0.18), PAL.pink),  // cheeks
+    colored(at(new THREE.SphereGeometry(0.035, 8, 6), 0.16, 0.2, 0.18), PAL.pink),
+  ]
+  // White spots on the cap, Mario-style: flattened spheres on the dome.
+  const spots: [number, number, number][] = [[0, 0.5, 0.22], [0.92, 0.2, 0.15], [-0.92, 0.2, 0.15], [2.4, 0.35, 0.15], [-2.4, 0.35, 0.15], [Math.PI, 0.5, 0.13], [0, 1.3, 0.12]]
+  for (const [yaw, polar, r] of spots) {
+    const p = new THREE.Vector3(Math.sin(polar) * Math.sin(yaw) * 0.42, Math.cos(polar) * 0.42 * 0.78 + 0.44, Math.sin(polar) * Math.cos(yaw) * 0.42)
+    const s = new THREE.SphereGeometry(r, 10, 6)
+    s.scale(1, 0.35, 1)
+    // Lie flat on the cap: turn its squashed axis to the surface normal.
+    const n = new THREE.Vector3(p.x, (p.y - 0.44) / 0.78 ** 2, p.z).normalize()
+    s.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n))
+    s.translate(p.x, p.y, p.z)
+    parts.push(colored(s, 0xffffff))
+  }
+  g = mergeGeometries(parts)!
+  g.computeVertexNormals()
+  mushroomGeos.set(cap, g)
+  return g
+}
+
+let bouncyMat: THREE.Material | null = null
+const bouncyGeo = new THREE.SphereGeometry(0.36, 20, 14)
+/** A bouncy ball with a star: grape, sun and mint, so it never reads as the rolling hazard. */
+function bouncyMaterial() {
+  if (bouncyMat) return bouncyMat
+  const c = document.createElement('canvas')
+  c.width = 256; c.height = 128
+  const g = c.getContext('2d')!
+  g.fillStyle = '#5b3df5'; g.fillRect(0, 0, 256, 128)
+  g.fillStyle = '#cff5ea'; g.fillRect(0, 54, 256, 20)
+  for (const x of [64, 192]) {
+    g.save(); g.translate(x, 64); g.scale(2.6, 2.6); g.translate(-12, -12)
+    const p = new Path2D('M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z')
+    g.fillStyle = '#ffc233'; g.strokeStyle = '#231942'; g.lineWidth = 1.2; g.lineJoin = 'round'
+    g.fill(p); g.stroke(p); g.restore()
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  bouncyMat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.3 })
+  return bouncyMat
+}
+
 let goldMat: THREE.Material | null = null
 
 export function makeThing(kind: Kind, rnd: () => number): Thing {
@@ -165,6 +248,15 @@ export function makeThing(kind: Kind, rnd: () => number): Thing {
     body = new THREE.Mesh(balloonGeometry(col), kind === 'gold' ? goldMat! : lambert)
     radius = 0.34
     blobSize = 0.55
+  } else if (kind === 'mushroom') {
+    const cap = MUSHROOM_CAPS[Math.floor(rnd() * MUSHROOM_CAPS.length)]
+    body = new THREE.Mesh(mushroomGeometry(cap), lambert)
+    radius = 0.4
+    blobSize = 0.95
+  } else if (kind === 'bouncy') {
+    body = new THREE.Mesh(bouncyGeo, bouncyMaterial())
+    radius = 0.38
+    blobSize = 0.8
   } else if (kind === 'crate') {
     body = new THREE.Mesh(crateGeo, crateMaterial())
     body.position.y = 0.45

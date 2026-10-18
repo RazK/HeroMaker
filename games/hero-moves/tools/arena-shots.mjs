@@ -46,14 +46,14 @@ for (const heroFile of HEROES.length ? HEROES : [null]) {
     const page = await ctx.newPage()
     page.on('pageerror', (e) => console.log('pageerror', e.message))
     if (heroFile) {
-      await routeHeroes(page, heroFile, (args.rivals ?? '').split(',').filter((f) => f && f !== heroFile))
+      await routeHeroes(page, heroFile, (args.fans ?? '').split(',').filter((f) => f && f !== heroFile))
     }
     const q = heroFile ? `?vrm=${encodeURIComponent('/api/files/local/' + path.basename(heroFile))}&name=${encodeURIComponent(name)}&manual=1&dpr=1` : '?manual=1&dpr=1'
     await page.goto(`${BASE}/arena.html${q}`)
     await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 120000 })
     const ready = await page.evaluate(() => window.__ready)
     if (ready !== true) { console.log(name, 'not ready:', ready); await ctx.close(); continue }
-    if (args.rivals) await page.waitForFunction(() => window.__rivals !== undefined, null, { timeout: 300000 })
+    if (args.fans) await page.waitForFunction(() => window.__crowd !== undefined, null, { timeout: 300000 })
     const tag = `${name.replace(/\W+/g, '_')}-${w}x${h}`
     await page.evaluate(() => window.__arena.step(40, 1 / 30))
     await shot(page, path.join(OUT, `${tag}-1-start.png`)); console.error(tag, '1-start')

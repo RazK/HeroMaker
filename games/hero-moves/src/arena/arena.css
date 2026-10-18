@@ -77,8 +77,6 @@ button { font: inherit; color: inherit; }
 }
 .rr-pop--combo { background: var(--tb-sun); font-size: 24px; }
 .rr-pop--bonus { background: var(--tb-sun); }
-/* "Bopped Panda Pals!": the rival's name, small and friendly, grape on white. */
-.rr-pop--name { font-family: var(--tb-font-body); font-weight: 800; font-size: 15px; color: var(--tb-grape-text); border-color: var(--tb-grape); box-shadow: 0 3px 0 var(--tb-grape); }
 .rr-pop--bad { color: var(--tb-red); border-color: var(--tb-red); box-shadow: 0 4px 0 var(--tb-red); }
 
 /* The combo: a third pill of the same kind, centred under the header. */
@@ -200,22 +198,88 @@ button { font: inherit; color: inherit; }
   border-radius: 50%;
   background: var(--tb-white);
   border: 2.5px solid var(--tb-ink);
-  box-shadow: 0 var(--tb-depth) 0 var(--tb-ink), inset 0 0 0 12px var(--tb-plate-1);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-ink), inset 0 0 0 14px var(--tb-plate-1);
+  color: var(--tb-grape);
   pointer-events: none;
 }
-.rr-stick.is-active { box-shadow: 0 var(--tb-depth) 0 var(--tb-ink), inset 0 0 0 12px var(--tb-plate-2); }
+.rr-stick.is-active { box-shadow: 0 var(--tb-depth) 0 var(--tb-ink), inset 0 0 0 14px var(--tb-plate-2); }
+/* Four chevrons in the ring: "drag this way", in the icon style. */
+.rr-stick-arrows { position: absolute; inset: 0; width: 100%; height: 100%; }
+/*
+ * The knob is a raised thumb pad: the app's grape with its depth under it, a
+ * soft shadow on the ring, a highlight on top and two grip rings to put a
+ * thumb on. Pressed, it sinks onto the ring like a button does.
+ */
 .rr-knob {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 46%;
-  height: 46%;
+  width: 50%;
+  height: 50%;
   transform-origin: center;
-  translate: -50% calc(-50% - 2px);
+  translate: -50% calc(-50% - 3px);
   border-radius: 50%;
-  background: var(--tb-grape);
-  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep);
+  background:
+    radial-gradient(circle, transparent 0 24%, rgba(255, 255, 255, .26) 25% 30%, transparent 31% 44%, rgba(255, 255, 255, .2) 45% 50%, transparent 51%),
+    radial-gradient(circle at 38% 28%, rgba(255, 255, 255, .34), rgba(255, 255, 255, 0) 58%),
+    var(--tb-grape);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep), 0 8px 14px rgba(35, 25, 66, .3);
+  transition: box-shadow 80ms ease, translate 80ms ease;
 }
+.rr-stick.is-active .rr-knob { translate: -50% calc(-50% - 1px); box-shadow: 0 2px 0 var(--tb-grape-deep), 0 4px 8px rgba(35, 25, 66, .3); }
+
+/* First play: the knob drifts side to side under a pointing hand until the
+   player first moves. Nothing else on screen moves like it. */
+.rr-hint-hand, .rr-hint { display: none; }
+.rr-stick.is-hint .rr-knob { animation: rr-nudge 2.2s ease-in-out infinite; }
+.rr-stick.is-hint .rr-hint-hand {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 2px 0 0 -6px;
+  color: var(--tb-ink);
+  filter: drop-shadow(0 0 0 var(--tb-white)) drop-shadow(1.5px 1.5px 0 var(--tb-white)) drop-shadow(-1.5px -1.5px 0 var(--tb-white));
+  animation: rr-nudge 2.2s ease-in-out infinite;
+}
+.rr-stick.is-hint .rr-hint-hand svg { display: block; }
+.rr-stick.is-hint .rr-hint {
+  display: block;
+  position: absolute;
+  inset-inline-start: -6px;
+  bottom: calc(100% + 14px);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
+  font-family: var(--tb-font-body);
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.2;
+  white-space: nowrap;
+  animation: rr-hint-in 260ms cubic-bezier(.3, 1.6, .5, 1) both;
+}
+@keyframes rr-nudge {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(calc(var(--rr-d) * -.17), 0); }
+  75% { transform: translate(calc(var(--rr-d) * .17), 0); }
+}
+@keyframes rr-hint-in { from { opacity: 0; transform: translateY(6px) scale(.9); } }
+
+/* The stage's lower-left: a thumb landing here brings the stick to it. */
+.rr-stick-reach {
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: 50%;
+  height: 45%;
+  display: none;
+  touch-action: none;
+  z-index: 1;
+}
+.rr-stick-reach.is-on { display: block; }
 .rr-buttons { display: flex; align-items: center; gap: var(--tb-space); flex-shrink: 0; }
 .rr-btn {
   position: relative;
@@ -267,6 +331,8 @@ button { font: inherit; color: inherit; }
   }
   .rr-controls { max-width: none; padding-inline: max(var(--tb-gutter), env(safe-area-inset-left, 0px)); }
   .rr-stick-zone, .rr-btn { pointer-events: auto; }
+  /* The stick floats over a short stage: give the thumb most of its left side. */
+  .rr-stick-reach { width: 45%; height: 70%; }
 }
 
 /* Any landscape screen: the sheet docks to the right of the stage, as Dance
@@ -293,6 +359,7 @@ button { font: inherit; color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   .rr-timer.is-low { animation: none; }
+  .rr-stick.is-hint .rr-knob, .rr-stick.is-hint .rr-hint-hand { animation: none; }
 }
 
 /* A 360px phone: the same three, a size down, still on one line. */
