@@ -492,6 +492,10 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
     if cache.hit:
         return
 
+    # render_image frames the drawing, checks the painting for a character cut
+    # off at the edge and, if so, paints once more - all inside this one step,
+    # so the user is charged once. `framing` says how that went.
+    framing = {}
     with _get_file_path_for_processing(creation_id, user_id, "processed.jpg", "r") as input_path:
         with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "w") as output_path:
             await loop.run_in_executor(
@@ -501,10 +505,19 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
                     output_path,
                     usage=UsageContext.for_step(creation_id, user_id, "openai_render"),
                     style=style,
+                    report=framing,
                 )
             )
 
-    await _cache_save(cache, ["rendered.png"])
+    step = _get_creation_step(creation_id, "openai_render", db)
+    step.metadata_json = {**(step.metadata_json or {}), "framing": framing}
+    flag_modified(step, "metadata_json")
+    db.commit()
+
+    # A painting still cut off after the retry is not worth handing to the
+    # next run of the same drawing: leave it out of the cache.
+    if not framing.get("touched_edges"):
+        await _cache_save(cache, ["rendered.png"])
 
 
 async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:

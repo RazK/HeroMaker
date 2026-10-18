@@ -9,6 +9,7 @@ import io
 import json
 import logging
 import re
+import time
 import unicodedata
 from pathlib import Path
 from typing import Optional
@@ -157,6 +158,154 @@ def resolve_style(style: Optional[str]) -> str:
 def style_prompt(style: Optional[str] = None) -> str:
     return STYLES[resolve_style(style)]["prompt"]
 
+
+# ---------------------------------------------------------------------------
+# Framing: the whole character, feet included, with room around it.
+#
+# Every style asks for the character "fully contained in the view without
+# cropping", and the model still paints it edge to edge. Measured on the
+# transparent renders made so far: a tall character fills the full height with
+# 2-6 px left above the head and below the feet, so the smallest overshoot cuts
+# the feet off, and Meshy then builds a hero with no feet. Asking harder alone
+# does not hold, so three things are done, all generic (nothing here knows
+# about any one drawing):
+#
+#   1. the drawing is sent centred on a square canvas (the shape of the output)
+#      with empty paper around it - a phone photo is portrait, the painting is
+#      square, and squeezing one into the other is where the model reframes;
+#   2. FRAMING_PROMPT, the same for every style, asks for the margin in words;
+#   3. the painting is checked: if the character's opaque pixels run into an
+#      edge of the image, the render is tried once more with a wider margin, and
+#      the better of the two is kept. Both tries are the same pipeline step, so
+#      the user is charged once (execute_step charges per step, before it runs);
+#      the second call is ours to pay and is recorded as its own usage_event.
+#
+# The style prompts stay byte for byte what they were (Pixar's is pinned by
+# tests/test_render_styles.py): framing is not a look, so it is appended here.
+# It does enter the result cache's version, so a render cached before this fix
+# - possibly a cropped one - is never handed out again.
+# ---------------------------------------------------------------------------
+
+FRAMING_PROMPT = """Framing: show the whole character, small enough to leave clear empty space on every side of it. Nothing touches or crosses the edges of the image: the top of the head, both hands at the ends of the outstretched arms, and both feet with their shoes all stay inside, with empty space below the feet. If anything would not fit, make the whole character smaller; never cut part of it off."""
+
+# The drawing goes to OpenAI on a square canvas this size, its longer side
+# spanning FRAME_FILL of it, the rest filled with the drawing's own paper colour.
+FRAME_CANVAS_PX = 1024
+FRAME_FILL = 0.78
+# The second try, when the first painting ran into an edge: more room still.
+FRAME_RETRY_FILL = 0.62
+
+# A painting "touches" an edge when at least this many pixels of its outermost
+# row or column are opaque (alpha >= EDGE_ALPHA). A cut-off foot leaves a solid
+# run there; a stray antialiased speck does not reach the count.
+EDGE_ALPHA = 128
+EDGE_MIN_PIXELS = 5
+# Below this share of see-through pixels the background was not removed, and
+# edges say nothing about cropping: no check, no retry.
+EDGE_MIN_TRANSPARENT_SHARE = 0.02
+
+# A second try only if the first came back within this many seconds, and never
+# for longer than RETRY_TIMEOUT_S: the step's own timeout (app/config/steps.py,
+# 300 s) must never turn a usable painting into a failed, refunded step.
+RETRY_IF_FIRST_WITHIN_S = 120.0
+RETRY_TIMEOUT_S = 120.0
+
+FRAMING_PARAMS = {
+    "canvas_px": FRAME_CANVAS_PX,
+    "fill": FRAME_FILL,
+    "retry_fill": FRAME_RETRY_FILL,
+    "edge_alpha": EDGE_ALPHA,
+    "edge_min_pixels": EDGE_MIN_PIXELS,
+}
+
+
+def render_prompt(style: Optional[str] = None) -> str:
+    """Exactly what is sent to OpenAI for this style: its look, then the
+    framing every style shares."""
+    return style_prompt(style) + "\n\n" + FRAMING_PROMPT
+
+
+def _paper_colour(img) -> tuple:
+    """The median colour of the drawing's outer ring: the paper it is on."""
+    small = img.convert("RGB")
+    small.thumbnail((128, 128))
+    w, h = small.size
+    px = small.load()
+    ring = [px[x, y] for y in (0, 1, h - 2, h - 1) if 0 <= y < h for x in range(w)]
+    ring += [px[x, y] for x in (0, 1, w - 2, w - 1) if 0 <= x < w for y in range(h)]
+    return tuple(sorted(p[c] for p in ring)[len(ring) // 2] for c in range(3))
+
+
+def frame_drawing(image_bytes: bytes, fill: float = FRAME_FILL,
+                  canvas_px: int = FRAME_CANVAS_PX) -> Optional[bytes]:
+    """
+    The drawing as a square PNG, centred, its longer side `fill` of the canvas,
+    on its own paper colour. None if the bytes are not an image Pillow reads;
+    the caller then sends them unchanged, so framing can never break a render.
+    """
+    from PIL import Image, ImageOps
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as opened:
+            img = ImageOps.exif_transpose(opened)
+            img.load()
+    except Exception:
+        return None
+
+    if img.mode in ("RGBA", "LA", "P", "PA"):
+        img = img.convert("RGBA")
+        flat = Image.new("RGB", img.size, (255, 255, 255))
+        flat.paste(img, mask=img.getchannel("A"))
+        img = flat
+    else:
+        img = img.convert("RGB")
+
+    paper = _paper_colour(img)
+    scale = fill * canvas_px / max(img.size)
+    size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+    img = img.resize(size, Image.LANCZOS)
+    canvas = Image.new("RGB", (canvas_px, canvas_px), paper)
+    canvas.paste(img, ((canvas_px - img.width) // 2, (canvas_px - img.height) // 2))
+    out = io.BytesIO()
+    canvas.save(out, format="PNG")
+    return out.getvalue()
+
+
+def touched_edges(png_bytes: bytes) -> Optional[dict]:
+    """
+    Which edges of a transparent painting the character runs into:
+    {"top": n, "bottom": n, "left": n, "right": n} with n the opaque pixels on
+    that outermost row/column, listing only edges at or above EDGE_MIN_PIXELS.
+    An empty dict is a clean painting. None means it cannot be judged: not an
+    image, or no transparent background to tell the character from.
+    """
+    from PIL import Image
+
+    try:
+        with Image.open(io.BytesIO(png_bytes)) as opened:
+            opened.load()
+            if "A" not in opened.getbands() and "transparency" not in opened.info:
+                return None
+            alpha = opened.convert("RGBA").getchannel("A")
+    except Exception:
+        return None
+
+    w, h = alpha.size
+    hist = alpha.histogram()
+    if sum(hist[:EDGE_ALPHA]) < EDGE_MIN_TRANSPARENT_SHARE * w * h:
+        return None
+    mask = alpha.point(lambda v: 255 if v >= EDGE_ALPHA else 0)
+    lines = {
+        "top": (0, 0, w, 1), "bottom": (0, h - 1, w, h),
+        "left": (0, 0, 1, h), "right": (w - 1, 0, w, h),
+    }
+    found = {}
+    for edge, box in lines.items():
+        n = mask.crop(box).histogram()[255]
+        if n >= EDGE_MIN_PIXELS:
+            found[edge] = n
+    return found
+
 # Everything sent to images.edit() that shapes the picture we get back. Kept in
 # one place for two readers: the call below, and the staging result cache
 # (app/services/result_cache.py), which keys on a hash of the style's prompt
@@ -182,12 +331,111 @@ RENDER_PARAMS = {
 def render_cache_version(style: Optional[str] = None) -> dict:
     """What a cached render depends on besides the input image.
 
-    The prompt is the chosen style's, so a Lego request on a drawing that was
-    cached as Pixar misses instead of returning the Pixar painting. For the
-    default style this is exactly what it was before styles existed (no extra
-    key), so the entries already in the cache keep hitting.
+    The prompt is the chosen style's plus the shared framing, so a Lego request
+    on a drawing that was cached as Pixar misses instead of returning the Pixar
+    painting, and a render cached before the framing fix (possibly cropped)
+    misses instead of being handed out again.
     """
-    return {"prompt": style_prompt(style), **RENDER_PARAMS}
+    return {"prompt": render_prompt(style), **RENDER_PARAMS, "framing": FRAMING_PARAMS}
+
+
+class _Painting:
+    """One painting OpenAI sent back, and how it sits in its frame."""
+
+    def __init__(self, image_bytes: bytes, edges: Optional[dict], attempt: int):
+        self.image_bytes = image_bytes
+        self.edges = edges          # touched_edges(); {} clean, None unjudged
+        self.attempt = attempt
+
+    @property
+    def cropped(self) -> bool:
+        return bool(self.edges)
+
+    @property
+    def score(self) -> float:
+        """Lower is better: opaque pixels on the image's edges."""
+        return float(sum(self.edges.values())) if self.edges is not None else float("inf")
+
+
+def _paint_once(client, input_path: Path, prompt: str, style: str,
+                usage: Optional[UsageContext], attempt: int,
+                fill: Optional[float], timeout: float) -> _Painting:
+    """One images.edit call, recorded as one usage_event whatever happens.
+
+    `fill` None sends the drawing file unchanged; otherwise it is framed with
+    frame_drawing(fill) first (unchanged too if Pillow cannot read it).
+    """
+    framed = frame_drawing(input_path.read_bytes(), fill=fill) if fill is not None else None
+    # COST CAPTURE. One usage_event per call, whatever the outcome.
+    #
+    # Caveat worth knowing: the OpenAI SDK does its own retries with
+    # exponential backoff INSIDE this single call, and those attempts are
+    # invisible from here - we see one call, the SDK may have made three.
+    # OpenAI does not bill failed attempts, so the money is right; the
+    # attempt COUNT in usage_events is a lower bound. The retries that cost
+    # real money are the ones at our level - the framing retry below, a user
+    # re-running a step, or the pipeline re-running openai_render because a
+    # later step failed - and those each come through here and each get their
+    # own row.
+    #
+    # The model/size/quality in RENDER_PARAMS must stay in step with
+    # pricing.OPENAI_IMAGE_USD_MICROS.
+    with usage_service.track(
+        usage,
+        pricing.PROVIDER_OPENAI,
+        pricing.OP_OPENAI_IMAGE_EDIT,
+        quantity=1,
+        metadata={
+            **{
+                k: RENDER_PARAMS[k]
+                for k in ("model", "size", "quality", "background", "n")
+            },
+            "style": style,
+            "attempt": attempt,
+            "frame_fill": fill if framed is not None else None,
+        },
+    ) as call:
+        if framed is not None:
+            response = client.images.edit(
+                image=("drawing.png", framed, "image/png"),
+                prompt=prompt,
+                timeout=timeout,
+                **RENDER_PARAMS,
+            )
+        else:
+            with open(input_path, "rb") as img_file:
+                response = client.images.edit(
+                    image=img_file,
+                    prompt=prompt,
+                    timeout=timeout,
+                    # Note: GPT-Image-1 always returns base64, no response_format parameter needed
+                    **RENDER_PARAMS,
+                )
+        # OpenAI's own request id, so a line in our margin report can be
+        # reconciled against a line on their invoice.
+        call.provider_ref = getattr(response, "_request_id", None) or getattr(response, "id", None)
+        # GPT-Image-1 returns base64 in b64_json field
+        image_bytes = base64.b64decode(response.data[0].b64_json)
+        edges = touched_edges(image_bytes)
+        call.metadata["touched_edges"] = edges
+    return _Painting(image_bytes, edges, attempt)
+
+
+def _retry_paint(client, input_path: Path, prompt: str, style: str,
+                 usage: Optional[UsageContext]) -> Optional[_Painting]:
+    """The second try, with a wider margin. Never raises: the first painting
+    is already in hand, and a failed retry must not turn it into a failure.
+    No SDK-level retries and a bounded timeout, so it fits in the step."""
+    try:
+        quick = client.with_options(max_retries=0) if hasattr(client, "with_options") else client
+        return _paint_once(quick, input_path, prompt, style, usage, attempt=2,
+                           fill=FRAME_RETRY_FILL, timeout=RETRY_TIMEOUT_S)
+    except Exception as e:
+        if isinstance(e, RateLimitError) and provider_errors.is_openai_out_of_credits(e):
+            provider_errors.alert_out_of_credits(pricing.PROVIDER_OPENAI, str(e))
+        logger.warning("Framing retry for %s failed; keeping the first painting: %s",
+                       input_path, e)
+        return None
 
 
 def render_image(
@@ -195,10 +443,12 @@ def render_image(
     output_path: Path,
     usage: Optional[UsageContext] = None,
     style: Optional[str] = None,
+    report: Optional[dict] = None,
+    framing: bool = True,
 ) -> Path:
     """
     Convert scanned drawing to rendered figure using OpenAI's GPT-Image-1.
-    
+
     Args:
         input_path: Path to input scanned image
         output_path: Path where rendered image should be saved
@@ -206,10 +456,17 @@ def render_image(
             given, every invocation of this function - success, failure, or
             retry - writes one row to usage_events. See app/services/usage.py.
         style: a key of STYLES; None means DEFAULT_STYLE.
-    
+        report: if given, filled with how the framing went:
+            {"attempts": 1|2, "touched_edges": {...} of the painting kept,
+             "first_touched_edges": {...}} (see touched_edges()).
+        framing: False sends the drawing and the style's prompt exactly as
+            before the framing fix, with no check and no retry. Only for
+            before/after comparisons (scripts/render_check.py); the pipeline
+            never passes it.
+
     Returns:
         Path to output file
-    
+
     Raises:
         ValueError: If OPENAI_API_KEY is not set
         FileNotFoundError: If input file doesn't exist
@@ -217,77 +474,70 @@ def render_image(
     """
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not found. Set it in .env file.")
-    
+
     if not input_path.exists():
         raise FileNotFoundError(f"Input image not found: {input_path}")
-    
+
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     style = resolve_style(style)
-    prompt = STYLES[style]["prompt"]
+    prompt = render_prompt(style) if framing else style_prompt(style)
     client = OpenAI(api_key=OPENAI_API_KEY)
-    
+
     try:
         logger.info(f"Starting OpenAI GPT-Image-1 render for {input_path} (style {style})")
-        
+        started = time.monotonic()
+
         # Use GPT-Image-1's images.edit() for image-to-image transformation
         # GPT-Image-1 supports full image editing without requiring a mask
         # The OpenAI client has built-in retry logic with exponential backoff
-        # COST CAPTURE. One usage_event per invocation, whatever the outcome.
-        #
-        # Caveat worth knowing: the OpenAI SDK does its own retries with
-        # exponential backoff INSIDE this single call, and those attempts are
-        # invisible from here - we see one call, the SDK may have made three.
-        # OpenAI does not bill failed attempts, so the money is right; the
-        # attempt COUNT in usage_events is a lower bound. The retries that cost
-        # real money are the ones at our level - a user re-running a step, or
-        # the pipeline re-running openai_render because a later step failed -
-        # and those each come through here and each get their own row.
-        #
-        # The model/size/quality in RENDER_PARAMS must stay in step with
-        # pricing.OPENAI_IMAGE_USD_MICROS.
-        with usage_service.track(
-            usage,
-            pricing.PROVIDER_OPENAI,
-            pricing.OP_OPENAI_IMAGE_EDIT,
-            quantity=1,
-            metadata={
-                **{
-                    k: RENDER_PARAMS[k]
-                    for k in ("model", "size", "quality", "background", "n")
-                },
-                "style": style,
-            },
-        ) as call:
-            with open(input_path, "rb") as img_file:
-                response = client.images.edit(
-                    image=img_file,
-                    prompt=prompt,
-                    timeout=120.0,  # 2 minute timeout per request
-                    # Note: GPT-Image-1 always returns base64, no response_format parameter needed
-                    **RENDER_PARAMS,
+        best = _paint_once(client, input_path, prompt, style, usage, attempt=1,
+                           fill=FRAME_FILL if framing else None, timeout=120.0)
+        first_edges = best.edges
+        attempts = 1
+
+        elapsed = time.monotonic() - started
+        if framing and best.cropped:
+            if elapsed <= RETRY_IF_FIRST_WITHIN_S:
+                logger.warning(
+                    "Render of %s runs into the image edge %s; painting it once more with more room",
+                    input_path, best.edges,
                 )
-            # OpenAI's own request id, so a line in our margin report can be
-            # reconciled against a line on their invoice.
-            call.provider_ref = getattr(response, "_request_id", None) or getattr(response, "id", None)
-        
+                attempts = 2
+                second = _retry_paint(client, input_path, prompt, style, usage)
+                if second is not None and second.score < best.score:
+                    best = second
+            else:
+                logger.warning(
+                    "Render of %s runs into the image edge %s; no time left in the step to retry (%.0fs)",
+                    input_path, best.edges, elapsed,
+                )
+            if best.cropped:
+                logger.warning("Render of %s keeps touching the edge %s after %d attempt(s)",
+                               input_path, best.edges, best.attempt)
+
+        if report is not None:
+            report.update({
+                "attempts": attempts,
+                "kept_attempt": best.attempt,
+                "touched_edges": best.edges,
+                "first_touched_edges": first_edges,
+            })
+
         logger.info("OpenAI API call succeeded, processing response")
-        
-        # GPT-Image-1 returns base64 in b64_json field
-        image_base64 = response.data[0].b64_json
-        image_bytes = base64.b64decode(image_base64)
-        
+        image_bytes = best.image_bytes
+
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Save to output path
         with open(output_path, "wb") as f:
             f.write(image_bytes)
-        
+
         logger.info(f"Successfully saved rendered image to {output_path}")
         return output_path
-        
+
     except APITimeoutError as e:
         error_msg = (
             f"OpenAI API timeout: The request took longer than 120 seconds.\n"

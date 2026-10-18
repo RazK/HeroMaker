@@ -224,7 +224,7 @@ def test_changing_the_prompt_misses(
     _make_hero(db, second, user)
 
     assert len(providers.openai_calls) == 2
-    assert providers.openai_calls[1]["prompt"].endswith("Bigger eyes.")
+    assert providers.openai_calls[1]["prompt"].startswith(openai_service.RENDER_PROMPT + " Bigger eyes.")
     # A new render is new input for Meshy, so the whole chain is paid again.
     assert len(providers.meshy_posts) == 4
     assert len(_paid_events(second.id)) == 3
@@ -235,14 +235,14 @@ def test_another_style_on_the_same_drawing_misses_and_its_repeat_hits(
     """A Lego request on a drawing cached as Pixar must not get the Pixar painting."""
     user = make_user(credits=100)
     _make_hero(db, _new_hero(db, make_creation, storage, user), user)        # NULL style: pixar
-    assert providers.openai_calls[0]["prompt"] == openai_service.RENDER_PROMPT
+    assert providers.openai_calls[0]["prompt"] == openai_service.render_prompt("pixar")
 
     lego = _new_hero(db, make_creation, storage, user)
     lego.style = "lego"
     db.commit()
     _make_hero(db, lego, user)
     assert len(providers.openai_calls) == 2, "the Pixar entry was served for a Lego request"
-    assert providers.openai_calls[1]["prompt"] == openai_service.STYLES["lego"]["prompt"]
+    assert providers.openai_calls[1]["prompt"] == openai_service.render_prompt("lego")
     assert len(providers.meshy_posts) == 4                  # a new painting is new input for Meshy
 
     again = _new_hero(db, make_creation, storage, user)
