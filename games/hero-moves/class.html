@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#fff6e9" />
+<title>הגיבורים של הגן · HeroMaker</title>
+<meta name="description" content="כל ילד מצייר גיבור, וכל הגן רוקד איתו. חבילה לגן: ₪990." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- Not render-blocking: the page and the heroes start loading before the fonts arrive. -->
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&family=Rubik:wght@600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+</head>
+<body>
+<!--
+  Hero Class: the landing page a parents' committee lands on from WhatsApp.
+  A static mockup: the form below is a stub and takes no payment.
+-->
+<div class="cl-page">
+  <header class="cl-header">
+    <a class="tb-logo" href="/" aria-label="HeroMaker">
+      <img src="/logo-head-transparent.png" alt="" />
+      <span>HeroMaker</span>
+    </a>
+  </header>
+
+  <main>
+    <section class="cl-hero">
+      <div class="tb-eyebrow">לגנים ולוועדי הורים</div>
+      <h1 class="cl-h1">כל הגן רוקד עם הגיבורים שלו</h1>
+      <p class="cl-line">כל ילד מצייר גיבור, ואנחנו מעירים אותו לחיים.</p>
+      <a class="cl-poster" href="class-stage.html" aria-label="צפו בבמה של גן לדוגמה">
+        <img src="class-stage-poster.webp" alt="שתים עשרה דמויות של ילדי גן רוקדות יחד על במה" width="1280" height="720" />
+        <span class="cl-play">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" /></svg>
+          <span>צפו בגן לדוגמה</span>
+        </span>
+      </a>
+    </section>
+
+    <section class="cl-pack" aria-labelledby="pack-title">
+      <h2 id="pack-title" class="cl-h2">מה מקבלים</h2>
+      <ul class="cl-items">
+        <li class="cl-item tb-plate-1">
+          <svg class="cl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5l5 5-7 7-5-5z" /><path d="M7.5 11.5c-3 0-3.5 3-3.5 5 0 1.5-1 2.5-1 2.5 3.5.5 7 0 8-3.5" /></svg>
+          <div><strong>גיבור לכל ילד</strong><span>הציור הופך לדמות תלת־ממד שרוקדת</span></div>
+        </li>
+        <li class="cl-item tb-plate-2">
+          <svg class="cl-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="4.5" r="1.8" /><path d="M12.5 8l-1 6" /><path d="M12.3 9.5L17 6" /><path d="M12.3 9.5L7 11" /><path d="M11.5 14L8 20" /><path d="M11.5 14l4 2.5-.5 4" /></svg>
+          <div><strong>הבמה של הגן</strong><span>כל הגיבורים רוקדים יחד על המסך במסיבה</span></div>
+        </li>
+        <li class="cl-item tb-plate-3">
+          <svg class="cl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 011-1h3" /><path d="M16 4h3a1 1 0 011 1v3" /><path d="M20 16v3a1 1 0 01-1 1h-3" /><path d="M8 20H5a1 1 0 01-1-1v-3" /><path d="M4 12h16" /></svg>
+          <div><strong>כרטיסי QR להדפסה</strong><span>סורקים, והגיבור רוקד בטלפון של סבתא</span></div>
+        </li>
+        <li class="cl-item tb-plate-4">
+          <svg class="cl-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="2" /><path d="M4 10h16" /><path d="M8.5 3.5v4" /><path d="M15.5 3.5v4" /></svg>
+          <div><strong>גיבורי יום הולדת כל השנה</strong><span>ביום ההולדת, הגיבור של הילד במרכז הבמה</span></div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="cl-price" aria-labelledby="price-title">
+      <div class="cl-price-card">
+        <div class="tb-eyebrow" id="price-title">חבילה לגן</div>
+        <div class="cl-amount"><span class="cl-shekel">₪</span>990</div>
+        <div class="cl-price-line">עד 30 ילדים. תשלום אחד, לכל השנה.</div>
+        <div class="cl-price-line cl-quiet">רק שמות פרטיים. הקישור פרטי לגן.</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="cl-bar">
+    <div class="tb-bar-note">בלי תשלום עכשיו. נחזור אליכם תוך יום.</div>
+    <button type="button" class="tb-btn tb-btn--primary tb-btn--full" id="reserve"><span>שריינו לגן שלכם</span></button>
+  </div>
+</div>
+
+<!-- The reservation form: a bottom sheet, the app's own. A stub: it sends nothing. -->
+<div class="tb-scrim cl-scrim" id="sheet" hidden>
+  <form class="tb-sheet cl-sheet" id="form" novalidate>
+    <div class="tb-sheet-grip" aria-hidden="true"></div>
+    <div class="cl-sheet-head">
+      <h2 class="tb-sheet-title">שריון לגן</h2>
+      <button type="button" class="tb-nav" id="close" aria-label="סגירה"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12" /><path d="M18 6L6 18" /></svg></button>
+    </div>
+    <div class="tb-field"><label for="f-gan">שם הגן</label><input class="tb-input" id="f-gan" name="gan" required autocomplete="organization" placeholder="גן הרימון" /></div>
+    <div class="cl-row">
+      <div class="tb-field"><label for="f-city">עיר</label><input class="tb-input" id="f-city" name="city" required autocomplete="address-level2" /></div>
+      <div class="tb-field"><label for="f-kids">מספר ילדים</label><input class="tb-input" id="f-kids" name="kids" required inputmode="numeric" placeholder="28" /></div>
+    </div>
+    <div class="tb-field"><label for="f-when">לאיזה אירוע</label>
+      <select class="tb-input" id="f-when" name="when">
+        <option>מסיבת סוף שנה</option><option>חנוכה</option><option>פורים</option><option>ימי הולדת לאורך השנה</option>
+      </select>
+    </div>
+    <div class="tb-field"><label for="f-name">השם שלך</label><input class="tb-input" id="f-name" name="name" required autocomplete="name" /></div>
+    <div class="tb-field"><label for="f-phone">טלפון</label><input class="tb-input" id="f-phone" name="phone" required type="tel" autocomplete="tel" dir="ltr" /></div>
+    <div class="cl-error" id="error" role="alert"></div>
+    <button type="submit" class="tb-btn tb-btn--primary tb-btn--full"><span>שלחו</span></button>
+  </form>
+  <div class="tb-sheet cl-sheet cl-done" id="done" hidden>
+    <div class="tb-sheet-grip" aria-hidden="true"></div>
+    <div class="cl-done-mark"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
+    <h2 class="cl-h2">קיבלנו, תודה!</h2>
+    <p class="cl-line">נחזור אליכם תוך יום עבודה.</p>
+    <button type="button" class="tb-btn tb-btn--secondary tb-btn--full" id="done-close"><span>סגירה</span></button>
+  </div>
+</div>
+
+<script type="module" src="/src/classlanding.ts"></script>
+</body>
+</html>

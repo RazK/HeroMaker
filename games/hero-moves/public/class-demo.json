@@ -1,0 +1,65 @@
+{
+ "title": "גן הרימון",
+ "heroes": [
+  {
+   "name": "מאיה",
+   "id": "b466d13b-fdd6-4729-9bdd-8270eafdfd0f",
+   "user": "8ddf800b-e552-4439-b319-b1a4a3535183"
+  },
+  {
+   "name": "אורי",
+   "id": "7dec21b0-6d62-4b12-b221-bea47a249b91",
+   "user": "2d0d516c-d264-485e-a603-e3e7b6a925fe"
+  },
+  {
+   "name": "תמר",
+   "id": "d1792cf1-fac1-4d6e-9118-eeb9086ad674",
+   "user": "82075b90-3bb7-4313-b3da-78080dc0c607"
+  },
+  {
+   "name": "איתי",
+   "id": "8c0ec284-56f6-4e90-9a86-79f2447ebd93",
+   "user": "d94b4dec-776d-4a94-9ed0-5e4dfc133127"
+  },
+  {
+   "name": "ליה",
+   "id": "2d3811c4-fdab-4c3b-80c3-9c288953988e",
+   "user": "b92e875b-b705-4d03-9305-fce655258ff4"
+  },
+  {
+   "name": "דניאל",
+   "id": "2765a545-9a8d-48f0-91f9-f9a81f373331",
+   "user": "8ddf800b-e552-4439-b319-b1a4a3535183"
+  },
+  {
+   "name": "נועה",
+   "id": "88f44fcd-dfaf-43f4-bdf6-777c7a32249d",
+   "user": "d94b4dec-776d-4a94-9ed0-5e4dfc133127"
+  },
+  {
+   "name": "יעל",
+   "id": "26eef3df-315f-40f8-a6bd-b87716d34976",
+   "user": "8ddf800b-e552-4439-b319-b1a4a3535183"
+  },
+  {
+   "name": "שירה",
+   "id": "94dcedbf-9a0e-4bd1-af55-eff83e61e509",
+   "user": "27390ffa-3d4b-4941-bdf8-12b2a3bc7b0a"
+  },
+  {
+   "name": "רועי",
+   "id": "6d2a3b85-474d-4ce1-b049-5ba9ee68373a",
+   "user": "2d0d516c-d264-485e-a603-e3e7b6a925fe"
+  },
+  {
+   "name": "עומר",
+   "id": "77e90ac3-c81e-4f4d-89a8-fa5d6bb3358b",
+   "user": "d94b4dec-776d-4a94-9ed0-5e4dfc133127"
+  },
+  {
+   "name": "יונתן",
+   "id": "493a5a20-0aa0-435f-b22b-ba1c321c56b0",
+   "user": "27390ffa-3d4b-4941-bdf8-12b2a3bc7b0a"
+  }
+ ]
+}

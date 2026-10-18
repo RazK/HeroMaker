@@ -1,0 +1,95 @@
+/*
+ * Hero Class landing. Toy Box (ui/toybox.css), Hebrew right to left: logical
+ * properties only. Display text Fredoka (Barriecito has no Hebrew), body Rubik.
+ */
+:root { --cl-he: 'Rubik', var(--tb-font-body); }
+*, *::before, *::after { box-sizing: border-box; }
+html body { font-family: var(--cl-he); background: var(--tb-cream); color: var(--tb-ink); margin: 0; }
+html.cl-locked { overflow: hidden; }
+
+.cl-page { max-width: 560px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+@media (min-width: 900px) { .cl-page { max-width: 720px; } }
+
+.cl-header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--tb-space) var(--tb-gutter); background: var(--tb-cream);
+  box-shadow: 0 2px 0 var(--tb-line);
+}
+.cl-header .tb-logo { text-decoration: none; }
+/* The wordmark is a logo: never mirrored, whatever the page's direction. */
+.cl-header .tb-logo { direction: ltr; }
+
+main { flex: 1; display: flex; flex-direction: column; gap: calc(var(--tb-space) * 2); padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) * 2); }
+
+.cl-hero { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.cl-hero .tb-eyebrow { letter-spacing: 0; }
+.cl-h1 { font-family: var(--tb-font-display); font-weight: 600; font-synthesis: none; font-size: clamp(32px, 9vw, 46px); line-height: 1.08; margin: 0; }
+.cl-h2 { font-family: var(--tb-font-display); font-weight: 600; font-synthesis: none; font-size: 26px; line-height: 1.15; margin: 0; }
+.cl-line { margin: 0; font-size: 17px; font-weight: 600; color: var(--tb-ink-2); }
+
+.cl-poster {
+  position: relative; display: block; width: 100%; margin-block-start: var(--tb-space);
+  border-radius: var(--tb-radius-card); overflow: hidden;
+  border: 3px solid var(--tb-ink); box-shadow: 0 var(--tb-depth) 0 var(--tb-ink);
+  background: var(--tb-plate-1);
+}
+.cl-poster img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: contain; }
+.cl-play {
+  position: absolute; inset-inline-start: 10px; bottom: 10px;
+  display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px;
+  border-radius: 999px; background: var(--tb-white); color: var(--tb-grape-text);
+  font-family: var(--tb-font-display); font-weight: 600; font-size: 15px;
+  border: 2.5px solid var(--tb-ink); box-shadow: 0 4px 0 var(--tb-ink);
+}
+.cl-play svg { color: var(--tb-grape); }
+.cl-poster:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 var(--tb-depth) 0 var(--tb-ink); }
+
+.cl-pack { display: flex; flex-direction: column; gap: var(--tb-space); }
+.cl-items { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cl-item {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 22px;
+}
+.cl-item div { display: flex; flex-direction: column; gap: 4px; }
+.cl-item strong { font-family: var(--tb-font-display); font-weight: 600; font-size: 19px; line-height: 1.15; }
+.cl-item span { font-size: 15px; font-weight: 600; color: var(--tb-ink-2); line-height: 1.3; }
+.cl-icon { width: 30px; height: 30px; fill: none; stroke: var(--tb-ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+.cl-price-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: 20px var(--tb-gutter) 22px; border-radius: var(--tb-radius-card);
+  background: var(--tb-white); border: 3px solid var(--tb-ink); box-shadow: 0 var(--tb-depth) 0 var(--tb-sun-deep);
+  position: relative; overflow: hidden;
+}
+.cl-price-card::before {
+  content: ''; position: absolute; inset-inline-end: -40px; top: -40px; width: 130px; height: 130px;
+  border-radius: 50%; background: var(--tb-sun); opacity: 0.9;
+}
+.cl-price-card > * { position: relative; }
+.cl-price-card .tb-eyebrow { letter-spacing: 0; }
+.cl-amount { font-family: var(--tb-font-display); font-weight: 600; font-size: 64px; line-height: 1; direction: ltr; }
+.cl-shekel { font-size: 40px; margin-inline-end: 2px; }
+.cl-price-line { font-size: 16px; font-weight: 700; }
+.cl-quiet { color: var(--tb-ink-2); font-weight: 600; font-size: 15px; }
+
+.cl-bar {
+  position: sticky; bottom: 0; display: flex; flex-direction: column; gap: 12px;
+  padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+  background: var(--tb-cream); box-shadow: 0 -2px 0 var(--tb-line);
+}
+.cl-bar .tb-btn span, .cl-sheet .tb-btn span { font-family: var(--tb-font-display); }
+
+.cl-scrim[hidden] { display: none; }
+.cl-sheet { gap: var(--tb-space); }
+.cl-sheet[hidden] { display: none; }
+.cl-sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.cl-sheet-head .tb-sheet-title { margin: 0; padding: 0; }
+.cl-sheet .tb-input { font-family: var(--cl-he); }
+.cl-sheet select.tb-input { appearance: none; background-image: none; }
+.cl-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; }
+.cl-error { min-height: 20px; color: var(--tb-red); font-weight: 700; font-size: 15px; }
+.cl-error:empty { display: none; }
+.cl-done { align-items: center; text-align: center; }
+.cl-done-mark { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: var(--tb-green); color: var(--tb-white); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

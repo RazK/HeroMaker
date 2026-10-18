@@ -28,6 +28,8 @@ const PATHS = {
   star: '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />',
   play: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none" />',
   pause: '<path d="M8.5 5v14" /><path d="M15.5 5v14" />',
+  share: '<path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7" /><path d="M16 7l-4-4-4 4" /><path d="M12 3v12" />',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5" />',
 } as const
 export type IconName = keyof typeof PATHS
 

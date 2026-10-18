@@ -71,6 +71,33 @@ npm run build        # dist/, multi-page
 | `reel.html` | **Hero Stunt Reel** — a camera-free prototype. Pick clips, arrange a routine, watch your hero perform it, discover combos. |
 | `animlab.html` | Retargeted animation clips playing on any hero, with their sources. |
 | `herostage.js` | Not a page: the live hero on the HeroMaker app's hero page (the intro, the idle dance, the eight moves). The app imports it at run time from `/play/herostage.js`, so it shares three.js, the clips and the hero's VRM with the Dance party page. See `src/herostage.ts`. |
+| `class-stage.html` | **Hero Class prototype.** A whole kindergarten class's heroes dancing together on one stage, every child's first name under their hero, a solo now and then, tap a hero for its own page with a share link. TV (16:9) and phone (9:16) layouts. See below. |
+| `class.html` | Hero Class landing page mockup, in Hebrew: what the class pack includes, ₪990, and a reservation form that sends nothing. |
+| `class-card.html` | Printable A6 hero cards: the hero on the sun, the child's name, a QR code to that hero's own page. |
+
+## Hero Class prototype
+
+`class-stage.html` reads a class from `?manifest=<same-origin json>`, `?heroes=<user>/<id>:<name>,...`
+or, by default, `public/class-demo.json` (twelve staging heroes renamed as class kids). Every
+file comes through the app's own `/api/files/...`, the optimized `opt_avatar.vrm`, so on the app it
+works as `/play/class-stage.html` with no configuration.
+
+* **Tiers, not rows.** Each tier is a full hero taller than the one in front, like a class photo, so
+  no hero ever stands in front of another one's face and each name sits on the tier edge under its
+  hero. Heroes are scaled to a common height and narrowed if they dance wider than their slot
+  (measured through the clips, not the T-pose).
+* **One clock.** Everything on screen is a function of show time (`src/class/program.ts`), so the
+  live page and a frame-stepped video render are the same code. Clips are stretched to whole beats
+  so twelve heroes stay in step through every change of dance.
+* **No fist pumps.** On a hero whose head is a third of its height, a fist pumped in front of the
+  chest covers the face the child drew; the show uses jumps instead.
+* **Cheap set.** Unlit backdrop, no shadow map, a painted contact shadow per hero; each clip file is
+  parsed once for the class and bound per hero.
+
+Tools: `tools/classshot.mjs` (stills at show times), `tools/record-class.mjs` (frame-stepped video
+frames, split across browsers), `tools/classcards.mjs` (card PNG + PDF), `tools/classlanding.mjs`
+(landing screenshots, fails on sideways scroll). They answer the page's `/api` requests from a local
+copy of the files (`CLASS_FILES=<dir>`) or from staging (`CLASS_API=https://...`).
 
 The reel exists because the market evidence points away from the webcam: the
 shipping "webcam drives your avatar" product peaks near a thousand concurrent
