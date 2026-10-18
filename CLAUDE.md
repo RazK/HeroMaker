@@ -163,11 +163,13 @@ same way. Then fix `project.json` — only `project.json`.
 | rollback | same workflow, earlier SHA |
 
 **Quote the version when you report a merge or deploy** ("live on staging as
-v178 · 3f9c2ab"), so Raz can refresh and see it in the footer. It is
-`v<commits on main's first-parent line> · <short sha>`, made by
-`devops/scripts/app-version.sh <sha>`; read the deployed one from the footer or
-`GET /api/version` (backend). Production shows the same version as the staging
-build it promoted.
+v1.0.12 · 3f9c2ab"), so Raz can refresh and see it in the footer. It is semantic:
+`v<MAJOR>.<MINOR>.<PATCH> · <short sha>`, made by
+`devops/scripts/app-version.sh <sha>`. MAJOR.MINOR lives in `devops/VERSION`
+(bump it by hand for a feature launch or a big change); PATCH counts the merges
+to main since that file last changed, so every merge is a new patch. Read the
+deployed one from the footer or `GET /api/version` (backend). Production shows
+the same version as the staging build it promoted.
 
 Never add a workflow that deploys to production on push. Railway service and
 environment IDs come from `devops/railway/project.json` via the

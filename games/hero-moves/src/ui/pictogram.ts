@@ -1,12 +1,14 @@
 import { LIMBS, type Skeleton } from '../pose/keypoints'
 import type { Move } from '../pose/moves'
+import { onScreen } from '../pose/mirror'
 
 /**
  * The move icons on the strip.
  *
  * Drawn from `move.skeleton` — the same canonical shape the leader is posed
  * from and the player is scored against — so an icon can never disagree with
- * the move it stands for. They are stick figures rather than little renders of
+ * the move it stands for. It is drawn mirrored (pose/mirror.ts), the way the
+ * preview shows the player. They are stick figures rather than little renders of
  * the avatar on purpose: at 44 pixels a chibi hero is an unreadable blob, while
  * a silhouette is exactly the information the player needs, which is the shape
  * to make.
@@ -33,6 +35,13 @@ function extent(s: Skeleton) {
   return { minX, maxX, minY, maxY }
 }
 
+/**
+ * The shape an icon draws: the move as the player sees it, mirrored like the
+ * camera preview, so the arm a player raises to copy it is the one on the same
+ * side of the screen. See pose/mirror.ts; tools/mirror.test.ts pins it.
+ */
+export const pictogramSkeleton = (move: Move): Skeleton => onScreen(move.skeleton)
+
 export function pictogram(move: Move, color = '#fff8ec'): string {
   const key = `${move.id}:${color}`
   const hit = cache.get(key)
@@ -41,7 +50,7 @@ export function pictogram(move: Move, color = '#fff8ec'): string {
   const c = document.createElement('canvas')
   c.width = c.height = SIZE
   const g = c.getContext('2d')!
-  const s = move.skeleton
+  const s = pictogramSkeleton(move)
   const { minX, maxX, minY, maxY } = extent(s)
 
   // Fit the pose into the tile with a margin, keeping the aspect so a star

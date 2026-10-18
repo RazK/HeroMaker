@@ -20,6 +20,7 @@ OUT="$ROOT/frontend/public/play"
 
 cd "$GAME"
 npm ci --no-audit --no-fund
+npm test
 npm run build
 # Same pruning as the GitHub Pages publish (.github/workflows/pages.yml): the
 # pose-tracker weights and the developer harness pages are not the game.
