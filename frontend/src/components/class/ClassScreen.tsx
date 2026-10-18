@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { ClassView, SeatPrice, Student, dollars, seatsCents, teacherApi } from '../../api/classes';
 import { Icon } from '../tb/Icon';
@@ -7,6 +7,18 @@ import { PaySeatsDialog, PinDigits, seatsBeforeCheckout, Qr, Stepper, StudentTil
 import './class.css';
 
 const DURATIONS = [30, 45, 60];
+
+/**
+ * The class this screen last showed, kept while one of its heroes is open:
+ * back from the hero, the class shows at once, scrolled where it was left
+ * (as the gallery does), and refreshes behind the scenes. `body` is the
+ * screen's scroller; `roster` scrolls on its own beside the join card on a
+ * desktop.
+ */
+const memory = { id: '', view: null as ClassView | null, body: 0, roster: 0 };
+const SCROLLERS = { body: '.tb-screen-body', roster: '.cls-roster' } as const;
+/** Tiles this close to the top load their pictures at once (as the gallery's). */
+const EAGER_TILES = 6;
 
 /**
  * One class, for its teacher. Not live: the class gallery (every hero its
@@ -21,7 +33,10 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
   onBack: () => void;
   onOpenHero: (creationId: string) => void;
 }) {
-  const [c, setC] = useState<ClassView | null>(null);
+  const [c, setC] = useState<ClassView | null>(() => {
+    if (memory.id !== classId) Object.assign(memory, { id: classId, view: null, body: 0, roster: 0 });
+    return memory.view;
+  });
   const [seatPrice, setSeatPrice] = useState<SeatPrice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'more' | 'start' | 'seats' | 'end' | null>(null);
@@ -31,10 +46,31 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
 
   const load = useCallback(() => teacherApi.get(classId).then((v) => {
     setC(v);
+    Object.assign(memory, { id: classId, view: v });
     if (v.seat_price !== undefined) setSeatPrice(v.seat_price);
     setError(null);
   }).catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load the class.')), [classId]);
   const live = !!c?.live?.open;
+  const root = useRef<HTMLDivElement>(null);
+  const shown = !!c;
+  // Back where it was left, before the first paint, so it never jumps.
+  useLayoutEffect(() => {
+    if (!shown) return;
+    const each = (fn: (el: HTMLElement, k: 'body' | 'roster') => void) => {
+      for (const k of ['body', 'roster'] as const) {
+        const el = root.current?.querySelector<HTMLElement>(SCROLLERS[k]);
+        if (el) fn(el, k);
+      }
+    };
+    each((el, k) => { el.scrollTop = memory[k]; });
+    // Read once more on the way out: a tap right after a scroll can come
+    // before that scroll's event.
+    return () => each((el, k) => { memory[k] = el.scrollTop; });
+  }, [shown]);
+  const remember = (e: React.UIEvent) => {
+    const el = e.target as HTMLElement;
+    for (const k of ['body', 'roster'] as const) if (el.matches?.(SCROLLERS[k])) memory[k] = el.scrollTop;
+  };
   useEffect(() => {
     load();
     const t = window.setInterval(load, live || waitingSeats === 'waiting' ? 2000 : 8000);
@@ -67,7 +103,7 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
 
   const header = (
     <Header
-      left={<NavButton icon="back" label="Back to classes" onClick={onBack} />}
+      left={<NavButton icon="back" label="Back to classes" onClick={() => { Object.assign(memory, { body: 0, roster: 0 }); onBack(); }} />}
       title={c?.title ?? ''}
       right={<NavButton icon="more" label="More" onClick={() => setSheet('more')} />}
     />
@@ -90,12 +126,12 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
 
   const roster = c.roster ?? [];
   return (
-    <div className={`tb-screen tb-screen--wide tb-screen--app cls-class${live ? ' cls-class--live' : ''}`} data-live={live || undefined}>
+    <div ref={root} onScrollCapture={remember} className={`tb-screen tb-screen--wide tb-screen--app cls-class${live ? ' cls-class--live' : ''}`} data-live={live || undefined}>
       <NoPageScroll />
       {header}
       {notice}
       {live && c.live
-        ? <Live c={c} roster={roster} busy={busy} onAction={(s, a) => act(() => teacherApi.student(c.id, s.id, a), 'Could not update')} />
+        ? <Live c={c} roster={roster} busy={busy} onOpenHero={onOpenHero} onAction={(s, a) => act(() => teacherApi.student(c.id, s.id, a), 'Could not update')} />
         : <ClassGallery c={c} roster={roster} onOpenHero={onOpenHero} />}
       <div className="tb-bar">
         {live ? (
@@ -158,18 +194,19 @@ function ClassGallery({ c, roster, onOpenHero }: { c: ClassView; roster: Student
         </div>
       ) : (
         <div className="cls-grid">
-          {made.map((s, i) => <StudentTile key={s.id} student={s} index={i} onOpen={() => s.hero && onOpenHero(s.hero.creation_id)} />)}
+          {made.map((s, i) => <StudentTile key={s.id} student={s} index={i} eager={i < EAGER_TILES} onOpen={() => s.hero && onOpenHero(s.hero.creation_id)} />)}
         </div>
       )}
     </div>
   );
 }
 
-function Live({ c, roster, busy, onAction }: {
+function Live({ c, roster, busy, onAction, onOpenHero }: {
   c: ClassView;
   roster: Student[];
   busy: boolean;
   onAction: (s: Student, a: 'approve' | 'block') => void;
+  onOpenHero: (creationId: string) => void;
 }) {
   const left = useSecondsLeft(c.live?.ends_at);
   const session = c.live!;
@@ -204,8 +241,9 @@ function Live({ c, roster, busy, onAction }: {
           ? <div className="cls-roster-empty">Students appear here as they join.</div>
           : (
             <div className="cls-grid">
-              {ordered.map((s) => (
-                <StudentTile key={s.id} student={s} index={roster.indexOf(s)} busy={busy}
+              {ordered.map((s, i) => (
+                <StudentTile key={s.id} student={s} index={roster.indexOf(s)} busy={busy} eager={i < EAGER_TILES}
+                  onOpen={() => s.hero && onOpenHero(s.hero.creation_id)}
                   onApprove={() => onAction(s, 'approve')} onBlock={() => onAction(s, 'block')} />
               ))}
             </div>

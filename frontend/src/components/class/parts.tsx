@@ -1,11 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import qrcode from 'qrcode-generator';
-import { ApiError } from '../../api/client';
-import { HeroSummary, SeatsCheckout, Student, dollars, heroFile } from '../../api/classes';
+import { api, ApiError } from '../../api/client';
+import { HeroSummary, SeatsCheckout, Student, dollars } from '../../api/classes';
 import { STEP_UI } from '../tb/pipeline';
+import { TileFade, imgLoading } from '../tb/Gallery';
 import { Icon } from '../tb/Icon';
 import { Dialog } from '../tb/parts';
 import './class.css';
+
+/** Each fitted QR's last size, by `fit` and module count. */
+const lastFit = new Map<string, number>();
 
 /**
  * A QR code as crisp SVG: ink on white, a quiet zone of four modules.
@@ -28,7 +32,10 @@ export function Qr({ text, size = 220, label, fit }: { text: string; size?: numb
   }, [text]);
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
-  const [fitted, setFitted] = useState(0);
+  // Back on the class screen, the QR is drawn at its size at once: grown in
+  // a moment later, it would push the roster down and lose its scroll.
+  const fitKey = `${fit}:${svg.view}`;
+  const [fitted, setFitted] = useState(() => lastFit.get(fitKey) ?? 0);
   useLayoutEffect(() => {
     const el = box.current;
     if (!fit || !el) return;
@@ -46,7 +53,9 @@ export function Qr({ text, size = 220, label, fit }: { text: string; size?: numb
       const room = Math.min(w, h, fit) - plate;
       const dpr = window.devicePixelRatio || 1;
       const perModule = Math.max(1, Math.floor((room * dpr) / svg.view));
-      setFitted((perModule * svg.view) / dpr);
+      const px = (perModule * svg.view) / dpr;
+      lastFit.set(fitKey, px);
+      setFitted(px);
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -54,7 +63,7 @@ export function Qr({ text, size = 220, label, fit }: { text: string; size?: numb
     // Dragged from the laptop's screen to the projector: a new pixel ratio.
     window.addEventListener('resize', measure);
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
-  }, [fit, svg.view]);
+  }, [fit, svg.view, fitKey]);
   const px = fit ? fitted : size;
   const image = (
     <svg className="cls-qr" width={px} height={px} viewBox={`0 0 ${svg.view} ${svg.view}`} role="img" aria-label={label} shapeRendering="crispEdges">
@@ -101,18 +110,28 @@ const painted = (h: HeroSummary) => h.steps_done >= 2;
 /** "Maya, 7": the name a hero is labelled with everywhere in a class. */
 export const kidLabel = (s: Pick<Student, 'label' | 'age'>) => (s.age ? `${s.label}, ${s.age}` : s.label);
 
+/** A class hero's file, versioned like the gallery's (api.heroFileUrl), so a
+ * thumbnail is fetched once and then comes from the browser's cache. */
+const studentFile = (h: HeroSummary, f: string) =>
+  api.heroFileUrl({ id: h.creation_id, user_id: h.user_id, file_versions: h.file_versions }, f);
+
 /**
- * One student on the roster or in the class gallery, as a gallery tile: their
- * plate, their hero once it exists, their name on the card. A student who has
- * not made one yet shows their initial on the plate.
+ * One student on the roster or in the class gallery, as a gallery tile (the
+ * gallery's look and loading: tb/Gallery.tsx): their plate, their hero once it
+ * exists, their name and age on the card, its making progress. A ready hero
+ * cross-fades from the drawing to the hero, as in the gallery. A student who
+ * has not made one yet shows their initial on the plate. With `onOpen`, a
+ * tile with a hero opens it, in any state: the steps while it is made.
  */
-export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy }: {
+export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy, eager = false }: {
   student: Student;
   index: number;
   onOpen?: () => void;
   onApprove?: () => void;
   onBlock?: () => void;
   busy?: boolean;
+  /** Near the top: load the pictures at once (Gallery's first rows). */
+  eager?: boolean;
 }) {
   const hero = student.hero;
   const state = hero ? hero.state : student.status === 'waiting' ? 'waiting' : student.status === 'blocked' ? 'blocked' : 'joined';
@@ -128,12 +147,17 @@ export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy }
 
   const body = (
     <>
-      {hero ? (
+      {hero && ready ? (
+        <span className="cls-pop cls-tile-pic">
+          <TileFade drawing={studentFile(hero, 'thumb_original.jpg')} hero={studentFile(hero, 'thumb_rendered.png')}
+            name={`${student.label}'s hero`} index={index} eager={eager} />
+        </span>
+      ) : hero ? (
         <img
-          key={ready ? 'hero' : 'art'}
-          className={`tb-tile-img${ready ? ' cls-pop' : ' cls-tile-dim'}${state === 'failed' ? ' tb-hero-faded' : ''}`}
-          src={heroFile(hero, hero && (ready || painted(hero)) ? 'thumb_rendered.png' : 'thumb_original.jpg')}
-          alt={ready ? `${student.label}'s hero` : `${student.label}'s drawing`}
+          className={`tb-tile-img cls-tile-dim${state === 'failed' ? ' tb-hero-faded' : ''}`}
+          src={studentFile(hero, painted(hero) ? 'thumb_rendered.png' : 'thumb_original.jpg')}
+          alt={`${student.label}'s drawing`}
+          {...imgLoading(eager, true)}
         />
       ) : (
         <span className="cls-tile-initial" aria-hidden="true">{student.first_name.slice(0, 1).toUpperCase()}</span>
@@ -148,8 +172,8 @@ export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy }
 
   return (
     <div className="cls-tile-wrap" data-state={state}>
-      {onOpen && ready ? (
-        <button type="button" className={`tb-tile ${plate}`} onClick={onOpen} aria-label={`Open ${student.label}'s hero`}>{body}</button>
+      {onOpen && hero ? (
+        <button type="button" className={`tb-tile ${plate} cls-tile-open`} data-state={state} onClick={onOpen} aria-label={`Open ${student.label}'s hero`}>{body}</button>
       ) : (
         <div className={`tb-tile ${plate} cls-tile-static`}>{body}</div>
       )}

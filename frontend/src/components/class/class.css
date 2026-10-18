@@ -141,6 +141,8 @@
 .cls-live-grid .cls-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
 .cls-tile-wrap { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 8px; animation: cls-in 260ms cubic-bezier(.2, 1.4, .4, 1) both; }
 .cls-live-grid .tb-tile { height: 210px; }
+/* A ready hero pops in once, then cross-fades with its drawing (Gallery.css). */
+.cls-tile-pic { position: absolute; inset: 0; display: block; }
 .cls-tile-static { cursor: default; }
 .cls-tile-static:active { transform: none; }
 .cls-tile-dim { opacity: 0.55; filter: saturate(0.7); }

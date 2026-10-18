@@ -120,7 +120,10 @@ everyone else's.
    `…/join` address, the time left, and heroes made out of seats. Below that is
    the roster grid: tiles appear as children join and fill with their hero as it
    finishes. Children waiting for approval get **Approve** and **Block** on their
-   tile. The bar holds **+15 min** and **End class**.
+   tile. The bar holds **+15 min** and **End class**. Tapping a child's hero
+   (here or in the class gallery) opens the gallery's hero page, read-only: its
+   steps while it is made, then the hero live with its moves, **Share** and
+   **Play**. Back returns to the class where it was left.
 7. When time is up, or the teacher taps **End class**, no new heroes start.
    Heroes already being made finish. The class screen goes back to the class
    gallery.

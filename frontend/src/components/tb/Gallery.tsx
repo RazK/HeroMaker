@@ -243,7 +243,7 @@ function StarToggle({ on, busy, onToggle }: { on: boolean; busy: boolean; onTogg
  * until they are scrolled near. Decoding never holds up the page.
  * (fetchpriority in lower case: React 18 does not know the attribute yet.)
  */
-function imgLoading(eager: boolean, first: boolean) {
+export function imgLoading(eager: boolean, first: boolean) {
   return {
     loading: eager ? 'eager' : 'lazy',
     decoding: 'async',
@@ -318,7 +318,7 @@ function wavePhaseDelay(index: number): string {
  * drawing preferred (the story starts there, and it is asked for first); if
  * it fails, the tile shows the render for good.
  */
-function TileFade({ drawing, hero, name, index, eager }: { drawing: string; hero: string; name: string; index: number; eager: boolean }) {
+export function TileFade({ drawing, hero, name, index, eager }: { drawing: string; hero: string; name: string; index: number; eager: boolean }) {
   const [loaded, setLoaded] = useState({ drawing: false, hero: false });
   const [drawingFailed, setDrawingFailed] = useState(false);
   const drawingRef = useRef<HTMLImageElement>(null);

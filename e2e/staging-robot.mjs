@@ -6,7 +6,9 @@
 //   the game chooser -> Dance party, and the camera-free Robot Rumble ->
 //   Teacher home -> a new class whose seats it cannot cover from its credits,
 //   paid for in money on Lemon Squeezy -> the seats land on the class (not on
-//   the robot's balance) -> Start class shows a PIN and a QR -> End class
+//   the robot's balance) -> Start class shows a PIN and a QR -> a student
+//   joins on a phone and makes a hero -> the teacher opens it from the class
+//   -> End class
 //
 // It talks to nothing but the public frontend URL, like a person would. No
 // API shortcuts: a step passes only if the UI shows it passed (the class step
@@ -797,6 +799,54 @@ try {
     if (live.live?.pin !== pin) throw new Error(`the screen shows code ${pin}, the API ${live.live?.pin}`);
     await linger(page, 3000);
     await snap(page, 'class-live');
+
+    // A student joins on a phone of their own (no account) and makes a hero;
+    // the teacher opens it from the class: the gallery's hero page, its steps
+    // while it is made, then live, read-only. The robot's drawing in its
+    // default style is in the staging result cache, as in 'create', so this
+    // hero calls no provider; the class's seats pay for it.
+    const kidName = 'Robo';
+    const kidCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'en-US' });
+    let kidReady = '';
+    try {
+      const kid = await kidCtx.newPage();
+      await kid.goto(`${BASE_URL}/join/${pin}`, { waitUntil: 'domcontentloaded' });
+      await kid.locator('.cls-name-input').fill(kidName);
+      await kid.locator('.cls-ages').getByRole('radio', { name: '7', exact: true }).click();
+      await kid.locator('.cls-go').click();
+      await kid.locator('.cls-draw').waitFor({ timeout: 30000 });
+      await kid.locator('.cls-draw input[type=file]').setInputFiles(DRAWING);
+      await kid.locator('.cls-make').click();
+      await kid.locator('.cls-draw').waitFor({ state: 'detached', timeout: 60000 });
+      await snap(kid, 'class-student');
+
+      const tile = page.getByRole('button', { name: new RegExp(`^Open ${kidName}.*'s hero$`) });
+      await tile.waitFor({ timeout: 30000 });
+      await tile.click();
+      await page.locator('.tb-hero-screen').waitFor({ timeout: 30000 });
+      const startedAt = Date.now();
+      const ready = page.locator('.tb-hero-screen[data-state="ready"]');
+      while (Date.now() - startedAt < PIPELINE_TIMEOUT_MS && !(await ready.isVisible().catch(() => false))) {
+        if (await page.locator('.tb-failed').count()) {
+          throw new Error(`the student's hero failed at "${await page.locator('.tb-failed').getAttribute('data-step')}"`);
+        }
+        await page.waitForTimeout(5000);
+      }
+      if (!(await ready.isVisible().catch(() => false))) throw new Error(`the student's hero not ready after ${PIPELINE_TIMEOUT_MS / 60000} min`);
+      kidReady = `${((Date.now() - startedAt) / 1000).toFixed(0)}s`;
+      // The teacher looks and shares; making it again, renaming or deleting is the owner's.
+      if (await page.locator('.tb-make-own').count()) throw new Error('the teacher is offered "Make your own" on a student\'s hero');
+      if (!(await page.locator('.tb-share').isVisible()) || !(await page.locator('.tb-play').isVisible())) {
+        throw new Error(`no Share and Play on the student's hero: ${await describe(page)}`);
+      }
+      await page.locator('.tb-hero-screen canvas').first().waitFor({ timeout: 60000 });
+      await snap(page, 'class-hero');
+      await page.locator('.tb-back').click();
+      await pinBox.waitFor({ timeout: 15000 });
+    } finally {
+      await kidCtx.close();
+    }
+
     await page.locator('.cls-end').click();
     await page.locator('.cls-end-confirm').click();
     await start.waitFor({ timeout: 15000 });
@@ -809,7 +859,7 @@ try {
       await page.getByRole('button', { name: /teacher home/i }).click();
       await newClass.waitFor({ state: 'detached', timeout: 15000 });
     }
-    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; ended`;
+    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; ended`;
   });
 } catch {
   exitCode = 1;
