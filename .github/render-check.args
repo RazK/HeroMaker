@@ -1,0 +1,13 @@
+# One argument per line (render-check/** branches only).
+--find
+Captain Courage
+--find
+Speedy Sister
+--drawing
+sketch-man=https://frontend-staging-7cb8.up.railway.app/api/files/27390ffa-3d4b-4941-bdf8-12b2a3bc7b0a/31680753-5083-42e1-8414-6b26cd2c876c/original.jpg
+--drawing
+tall-knight=https://heromaker-backend.up.railway.app/api/files/debug-user-uuid/2cce83ff-591a-4a24-ad41-5c3bd0c36fb9/original.jpg
+--styles
+anime,pixar,original
+--before
+anime
