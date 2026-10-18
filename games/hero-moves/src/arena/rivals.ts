@@ -161,7 +161,9 @@ export async function loadRival(src: RivalSource): Promise<Rival | null> {
   try {
     const r = await fetch(src.url)
     if (!r.ok) return null
-    const hero = await parseHero(await r.arrayBuffer())
+    // No drawn outline on rivals: it doubles a skinned mesh, and the
+    // player's hero is the one that should stand out.
+    const hero = await parseHero(await r.arrayBuffer(), { outline: false })
     const rival = new Rival(hero, src.name)
     return (await rival.load()) ? rival : null
   } catch {

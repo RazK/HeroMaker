@@ -166,17 +166,23 @@ and every sound is synthesised (`src/arena/sfx.ts`).
 
 ## Performance
 
-One skinned VRM (plus its drawn outline), the room, and every toy as one
-merged vertex-coloured mesh with a painted blob shadow; all particles in one
-`Points` call; no shadow maps. Measured with `tools/arena-perf.mjs`:
+The player's skinned VRM (plus its drawn outline), up to three rival VRMs (no
+outline: it would double each one), the room, and every toy as one merged
+vertex-coloured mesh with a painted blob shadow; all particles in one
+`Points` call; no shadow maps. Clips are parsed once per page and bound per
+hero. Measured with `tools/arena-perf.mjs` at 390x844, panda as the player:
 
-* **26-28 draw calls, ~64k triangles** with the panda (the heaviest of the
-  three), **1.6-1.9 ms of JavaScript per frame** — a tenth of a 60 fps budget.
-* This sandbox has no GPU; in software rendering (SwiftShader) the page runs
-  at 6-8 fps at 390x844, which is the rasteriser, not the game. Not measured on
-  a phone yet.
-* If a device averages under ~40 fps for two seconds of play, the page drops
-  its pixel ratio once.
+| | Draw calls | Triangles | JS per frame | SwiftShader fps |
+|---|---|---|---|---|
+| Robots only (before rivals) | 26-28 | ~64k | 1.6-1.9 ms | 6-8 |
+| With rival heroes on screen | 43-53 | ~190k | 3.2-3.3 ms | 4.6-4.9 |
+
+The JavaScript stays a fifth of a 60 fps budget. The triangles roughly treble
+with rivals, which is the real cost on a phone GPU; this sandbox has no GPU, so
+**phone frame rate is still unmeasured**. If a device averages under ~40 fps
+for two seconds of play, the page drops its pixel ratio once. If phones
+struggle, the levers are: two rivals instead of three, or decimated rival
+meshes.
 
 ## Harnesses
 
