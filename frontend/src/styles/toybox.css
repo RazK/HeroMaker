@@ -650,7 +650,10 @@ button, a, [role='button'], [role='tab'] { -webkit-user-select: none; user-selec
 
 /* ---------- Pull to refresh (PullToRefresh) ----------
    A round button-style dot that follows the finger down from under the
-   header; grape once letting go will reload, spinning while it does. */
+   header; grape once letting go will reload, spinning while it does. It
+   works on every screen, so on the few whose page does scroll (admin) the
+   browser's own pull-to-refresh is turned off: one indicator, one reload. */
+html { overscroll-behavior-y: contain; }
 .tb-ptr {
   position: fixed;
   left: 50%;

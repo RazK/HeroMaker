@@ -15,7 +15,7 @@ import { JoinFlow, JOIN_PATH } from './components/class/JoinFlow';
 import { ClaimScreen, CLAIM_PATH } from './components/class/ClaimScreen';
 import { HeroScreen } from './components/tb/HeroScreen';
 import { Icon } from './components/tb/Icon';
-import { Header, NavButton, NoPageScroll, PullToRefresh, Sheet } from './components/tb/parts';
+import { Header, NavButton, NoPageScroll, Sheet } from './components/tb/parts';
 import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/StylePicker';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
@@ -446,7 +446,6 @@ function MainApp() {
     screen = (
       <div className="tb-screen tb-screen--wide tb-screen--app">
         <NoPageScroll />
-        <PullToRefresh />
         {appHeader}
         {notices}
         <div className="tb-screen-body">
