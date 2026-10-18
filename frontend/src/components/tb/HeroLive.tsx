@@ -38,20 +38,36 @@ function markIntroSeen(id: string) {
 }
 
 /**
+ * What the live stage needs of a hero: whose it is and which of its files
+ * exist (file_versions, as GET /api/creations/{id} and the class claim link
+ * both return it). Older responses without file_versions fall back to steps.
+ */
+export type LiveHero = Pick<CreationResponse, 'id' | 'user_id' | 'name' | 'age' | 'file_versions'> & {
+  steps?: Array<Pick<CreationResponse['steps'][number], 'step_name' | 'status'>>;
+};
+
+const STEP_FILE: Record<string, string> = { openai_render: 'rendered.png', meshy_3d: 'model.glb' };
+
+/**
  * The ready hero's page body: one stage that tells how the hero was made the
  * first time (drawing, painting, 3D sculpt, alive), then is the hero, live and
  * dancing; and under it the moves. Renders the screen body and the move row
  * as siblings so the screen grid can put the moves beside the stage on a
  * phone held sideways.
  */
-export function HeroLive({ creation, introRequest, notice }: {
-  creation: CreationResponse;
+export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m) => m.id) }: {
+  creation: LiveHero;
   /** Bumped by the ⋯ sheet's "How it was made": play the intro again. */
   introRequest: number;
   notice?: ReactNode;
+  /** Which moves the row offers (ids of MOVES); none hides the row. */
+  moves?: string[];
 }) {
   const file = (f: string) => api.heroFileUrl(creation, f);
-  const done = (step: string) => creation.steps.find((s) => s.step_name === step)?.status === 'completed';
+  const done = (step: string) => (creation.file_versions
+    ? STEP_FILE[step] in creation.file_versions
+    : creation.steps?.find((s) => s.step_name === step)?.status === 'completed');
+  const offered = MOVES.filter((m) => moves.includes(m.id));
   const vrm = heroVrmUrl(creation);
   const hasSculpt = done('meshy_3d');
   // Relative and opt_, like the VRM: ~5x smaller, same look, same URL everywhere.
@@ -193,9 +209,9 @@ export function HeroLive({ creation, introRequest, notice }: {
           )}
         </div>
       </div>
-      <div className="tb-hero-moves">
-        <div className="tb-moves" role="toolbar" aria-label="Moves">
-          {MOVES.map((m) => (
+      {offered.length > 0 && <div className="tb-hero-moves">
+        <div className={`tb-moves${offered.length < 4 ? ' tb-moves--few' : ''}`} role="toolbar" aria-label="Moves">
+          {offered.map((m) => (
             <button
               key={m.id}
               type="button"
@@ -210,7 +226,7 @@ export function HeroLive({ creation, introRequest, notice }: {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
     </>
   );
 }

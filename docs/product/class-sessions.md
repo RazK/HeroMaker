@@ -142,11 +142,29 @@ everyone else's.
 7. A second attempt: "You already made your hero!" and **See my hero**.
 
 ### Parent (parent voice)
-1. `/claim/<token>` shows the painting, "Maya, 7 · Grade 2B", and **Keep Maya's
-   hero**.
-2. Signed out, that opens the existing sign-up sheet; afterwards the claim runs.
-3. The hero moves into **My heroes**, name and age included. "It's yours." The
-   bar holds **Make another** (Buy credits) and **See my heroes**.
+1. `/claim/<token>` shows the hero **live**, as its own page does (`HeroLive`:
+   how it was made the first time, then dancing, with the drawing's polaroid
+   "Maya, 7") and three moves to try (Dance, Wave, Flip). While it is still
+   being made, the drawing and "Still being made. This page will update."
+   The one primary is **Keep Maya's hero**.
+2. **The account step is always visible.**
+   - Signed out: "Free. Saved to the account you sign in with." Keep opens the
+     sign-up sheet (Google first) with "Maya's hero will be saved to this
+     account."; once signed in, the claim runs.
+   - Signed in: the bar names the account before the tap, "Saved to
+     dana@…. Not you? Switch account". Switch account signs out, opens sign-in
+     with the same line, then claims into the account chosen. (A parent often
+     opens the link on a phone where a teacher or a sibling is signed in.)
+3. The hero moves into **My heroes**, name and age included: "Ruby Rocket is in
+   your heroes" and "Sign in as <email> on any device to find it." The bar
+   holds **Make more** (Buy credits) and **Open the hero** (its own page; Back
+   lands on My heroes). Opening the link again signed in to that account shows
+   the same confirmation (`kept_by_you`).
+
+The claim token is the link's only credential. Its view holds the child's first
+name and age, the class's title, and this one hero's summary and
+`file_versions` (which of its public files exist): nothing about the class, the
+teacher, other children or the account that kept it.
 
 ## 5. Money
 
