@@ -1,0 +1,53 @@
+name: Make style samples (staging)
+
+# Paints the style picker's example images (frontend/public/styles/*.webp)
+# with backend/scripts/make_style_samples.py: the REAL render path, run on the
+# runner with the staging backend's variables (the OpenAI key) injected by
+# `railway run`. STAGING token only; it never touches a database or a user.
+# The images come back as the run's artifact, to be committed in a PR.
+#
+# Default drawing: the hero girl from the logo (frontend/public/logo.png).
+
+on:
+  workflow_dispatch:
+    inputs:
+      drawing:
+        description: 'Drawing to paint, path in the repo'
+        default: 'frontend/public/logo.png'
+      only:
+        description: 'Only these styles, comma-separated (empty = all)'
+        required: false
+        default: ''
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  samples:
+    needs: config
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+      SERVICE: ${{ needs.config.outputs.backend }}
+      ENVIRONMENT: ${{ needs.config.outputs.staging }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: npm install -g @railway/cli
+      - name: Paint the samples
+        env:
+          DRAWING: ${{ inputs.drawing }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          args=(--drawing "$DRAWING" --out-dir out/styles --raw-dir out/raw)
+          [ -n "$ONLY" ] && args+=(--only "$ONLY")
+          railway run --service="$SERVICE" --environment="$ENVIRONMENT" -- python backend/scripts/make_style_samples.py "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: style-samples
+          path: out/
