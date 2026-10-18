@@ -93,7 +93,7 @@ html body { font-family: var(--cs-he); }
   display: flex; align-items: center; justify-content: center;
   height: calc(48px + 2 * var(--tb-space)); padding-top: env(safe-area-inset-top, 0px);
 }
-.cs-solo-back { position: absolute; inset-inline-start: var(--tb-gutter); top: calc(var(--tb-space) + env(safe-area-inset-top, 0px)); width: 48px; height: 48px; }
+.cs-solo .cs-solo-back { position: absolute; inset-inline-start: var(--tb-gutter); top: calc(var(--tb-space) + env(safe-area-inset-top, 0px)); width: 48px; height: 48px; }
 /* Back points the way a Hebrew reader came from: mirrored. */
 [dir='rtl'] .cs-solo-back svg { transform: scaleX(-1); }
 .cs-solo-title {

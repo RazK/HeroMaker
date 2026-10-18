@@ -103,7 +103,8 @@ scene.add(key)
 const fill = new THREE.DirectionalLight(0xe9e3ff, 0.7)
 fill.position.set(-5, 3, 4)
 scene.add(fill)
-{
+/** The soft room reflection. Made after the heroes are in, not before: it is the costliest thing at boot. */
+function makeEnvironment() {
   const pmrem = new THREE.PMREMGenerator(renderer)
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
   scene.environmentIntensity = 0.25
@@ -227,11 +228,11 @@ function groupFrame(): Frame {
 }
 
 /** One hero, with room for the tallest thing it does (or a given height). */
-function soloFrame(k: Kid, room = 1.25, moves: string[] = SOLO_MOVES, top?: number): Frame {
+function soloFrame(k: Kid, room = 1.25, moves: string[] = SOLO_MOVES, top?: number, minW = SLOT * 1.6): Frame {
   const d = k.dancer
   const reach = (top ?? Math.max(d?.top ?? 1.7, ...moves.map((m) => d?.tops[m] ?? 0))) * k.scale
   const h = reach * room
-  return { x: k.x, y: k.y + reach * 0.5, z: k.z + 0.5, h, w: Math.max(SLOT * 1.6, (k.dancer?.half ?? 0.6) * 2 * k.scale * 1.4) }
+  return { x: k.x, y: k.y + reach * 0.5, z: k.z + 0.5, h, w: Math.max(minW, (k.dancer?.half ?? 0.6) * 2 * k.scale * 1.3) }
 }
 
 /**
@@ -486,7 +487,7 @@ function render(t: number, draw = true) {
   insetBottom = solo ? Math.min(stageEl.clientHeight * 0.32, 190) * soloK : 0
   let f = groupFrame()
   if (spot && sk > 0) f = lerpFrame(f, soloFrame(kids[spot.hero], 1.5, spot.moves), sk * (layoutKind === 'phone' ? 0.3 : 0.6))
-  if (solo) f = lerpFrame(f, soloFrame(kids[solo.hero], 1.22, [], soloTop(kids[solo.hero], solo.track, t)), soloK)
+  if (solo) f = lerpFrame(f, soloFrame(kids[solo.hero], 1.18, [], soloTop(kids[solo.hero], solo.track, t), SLOT * 1.1), soloK)
   aim(f, t)
   // A recorder warming up (spring bones settling) needs the poses and the page, not the pixels.
   if (draw) renderer.render(scene, camera)
@@ -728,6 +729,7 @@ async function boot() {
   }
   arrange()
   newProgram()
+  makeEnvironment()
   // Compile every shader before the show starts, so the first frame does not hitch.
   for (const k of kids) k.dancer!.hero.root.visible = true
   renderer.compile(scene, camera)
@@ -753,6 +755,5 @@ async function boot() {
 }
 
 void boot()
-// Something on screen from the first frame: the set, while the heroes arrive.
+// The loading card covers the stage until the class is in; nothing to draw before that.
 resize()
-render(0)

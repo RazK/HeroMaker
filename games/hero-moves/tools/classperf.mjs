@@ -20,7 +20,7 @@ const ready = Object.keys(perf).filter((k) => /^ready\d+$/.test(k)).map((k) => p
 const dl = Object.keys(perf).filter((k) => /^dl\d+$/.test(k)).map((k) => perf[k])
 const vrms = log.filter((l) => l.path.endsWith('.vrm'))
 console.log(JSON.stringify({
-  heroes: perf.heroes, failed: perf.failed, wallToReadyMs: wall,
+  heroes: perf.heroes, failed: perf.failed, wallToReadyMs: wall, scriptStartMs: Math.round(perf.start),
   classListMs: perf.manifest, firstHeroReadyMs: Math.min(...ready), allHeroesReadyMs: perf.allReady,
   lastDownloadMs: Math.max(...dl), firstFrameMs: perf.compiled,
   vrmMB: +(vrms.reduce((s, l) => s + l.bytes, 0) / 1e6).toFixed(1),
