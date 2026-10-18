@@ -1,0 +1,63 @@
+name: Clean up test accounts (staging)
+
+# Deletes the staging robot's leftover accounts (robot_<stamp> /
+# robot+<stamp>@example.com) through account_deletion, exactly as a person's
+# own "Delete account" would (backend/scripts/cleanup_test_accounts.py).
+# Dry run unless dry_run is unticked. STAGING ONLY: it uses
+# RAILWAY_STAGING_TOKEN, which cannot reach production. There is no production
+# variant.
+#
+# Runs on the GitHub runner with the backend's staging variables injected by
+# `railway run` (so stored files are deleted from staging's bucket); the
+# database is reached through its public TCP proxy, as in backup.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only list what would be deleted'
+        type: boolean
+        default: true
+      keep:
+        description: 'Robot usernames to leave alone, space-separated (e.g. one reused with LOGIN_AS)'
+        required: false
+        default: ''
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  cleanup:
+    needs: config
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+      SERVICE: ${{ needs.config.outputs.backend }}
+      ENVIRONMENT: ${{ needs.config.outputs.staging }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: npm install -g @railway/cli
+      - name: Resolve the staging database's public URL
+        run: |
+          set -euo pipefail
+          url=$(railway variables --service Postgres --environment "$ENVIRONMENT" --json | jq -r '.DATABASE_PUBLIC_URL // empty')
+          if [ -z "$url" ]; then echo "::error::No DATABASE_PUBLIC_URL on staging Postgres."; exit 1; fi
+          echo "::add-mask::$url"
+          echo "PUBLIC_DB=$url" >> "$GITHUB_ENV"
+      - name: Clean up test accounts
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          KEEP: ${{ inputs.keep }}
+        run: |
+          set -euo pipefail
+          args=(--database-url "$PUBLIC_DB")
+          for u in $KEEP; do args+=(--keep "$u"); done
+          [ "$DRY_RUN" = "true" ] || args+=(--apply)
+          railway run --service="$SERVICE" --environment="$ENVIRONMENT" -- python backend/scripts/cleanup_test_accounts.py "${args[@]}" | tee cleanup.txt
+          { echo '## Test account cleanup (staging)'; echo; echo '```'; cat cleanup.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
