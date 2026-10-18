@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import qrcode from 'qrcode-generator';
-import { HeroSummary, Student, heroFile } from '../../api/classes';
+import { ApiError } from '../../api/client';
+import { HeroSummary, SeatsCheckout, Student, dollars, heroFile } from '../../api/classes';
 import { STEP_UI } from '../tb/pipeline';
 import { Icon } from '../tb/Icon';
+import { Dialog } from '../tb/parts';
 import './class.css';
 
 /** A QR code as crisp SVG: ink on white, a quiet zone of four modules. */
@@ -139,5 +141,62 @@ export function Stepper({ value, min, max, onChange, label }: { value: number; m
       />
       <button type="button" className="tb-nav cls-stepper-btn" aria-label="More" disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}><Icon name="plus" /></button>
     </div>
+  );
+}
+
+/**
+ * "Pay $35.50 for 28 seats?": spending money confirms first (BRANDBOOK.md).
+ * Paying opens Lemon Squeezy's checkout. The seats arrive on the class by the
+ * signed webhook, never because this browser says it paid.
+ */
+const PAYING_KEY = 'heromaker.class.paying';
+
+/** The class's seat count when its teacher left for the checkout, so the
+ * class screen can tell when the bought seats have landed. */
+export function seatsBeforeCheckout(classId: string): number {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(PAYING_KEY) || 'null');
+    return v && v.id === classId ? Number(v.seats) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function PaySeatsDialog({ seats, cents, title, seatsBefore, open, onClose }: {
+  seats: number;
+  cents: number;
+  title: string;
+  seatsBefore: number;
+  open: () => Promise<SeatsCheckout>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const price = dollars(cents);
+  const go = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const checkout = await open();
+      try { sessionStorage.setItem(PAYING_KEY, JSON.stringify({ id: checkout.class_id, seats: seatsBefore })); } catch { /* fine */ }
+      window.location.href = checkout.checkout_url;
+    } catch (e) {
+      // 502 and 503 are ours, never the teacher's.
+      setError(e instanceof ApiError && e.status === 400 ? e.message : 'Payments are unavailable right now.');
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog label={`Pay ${price} for ${seats} seats?`} onClose={onClose}>
+      <div className="tb-h2">Pay {price} for {seats} {seats === 1 ? 'seat' : 'seats'}?</div>
+      <div className="tb-muted">Teacher price. The seats are for {title} only.</div>
+      {error && <div className="tb-muted" role="alert" style={{ color: 'var(--tb-red)' }}>{error}</div>}
+      <div className="tb-stack">
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Not now</button>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-pay-money" disabled={busy} onClick={go}>
+          <Icon name="lock" />{busy ? 'Opening…' : `Pay ${price}`}
+        </button>
+      </div>
+    </Dialog>
   );
 }

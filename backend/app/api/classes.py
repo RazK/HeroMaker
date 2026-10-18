@@ -21,7 +21,8 @@ from sqlalchemy.orm import Session
 from app.api.creations import _checked_style, create_with_drawing, start_pipeline
 from app.database import get_db
 from app.models import ClassGuest, ClassRoom, Creation, User
-from app.services import classes, demo_library
+from app.config import packs as packs_config
+from app.services import classes, demo_library, lemonsqueezy
 from app.services.auth import get_current_user_required
 from app.services.task_manager import get_task_manager
 
@@ -65,6 +66,13 @@ class SeatsRequest(BaseModel):
     seats: int
 
 
+class BuySeatsRequest(BaseModel):
+    seats: int
+    title: Optional[str] = None
+    ages: Optional[str] = None
+    redirect_url: Optional[str] = None
+
+
 class StartRequest(BaseModel):
     minutes: int = 45
     approve_first: bool = False
@@ -78,7 +86,7 @@ class ExtendRequest(BaseModel):
 def list_classes(db: Session = Depends(get_db), user: User = Depends(get_current_user_required)):
     rows = db.query(ClassRoom).filter(ClassRoom.owner_id == user.id).order_by(ClassRoom.created_at.desc()).all()
     return {"classes": [classes.class_view(db, c) for c in rows], "hero_cost": classes.hero_cost(),
-            "school": classes.school_view(user)}
+            "school": classes.school_view(user), "seat_price": seat_price()}
 
 
 @teacher_router.get("/school")
@@ -94,6 +102,65 @@ def put_school(body: SchoolRequest, db: Session = Depends(get_db),
         return {"school": classes.set_school(db, user, body.name, body.type, body.city, body.country)}
 
 
+def seat_price() -> Optional[dict]:
+    """The class price, for "Pay $X for N seats": a part per order plus a part
+    per seat, in cents (app/config/packs.py has the numbers and their margin).
+    None hides the option: no class-seats variant, or no store, configured,
+    exactly as GET /api/payments/packs omits a pack it cannot sell."""
+    if not (lemonsqueezy.is_configured() and packs_config.class_seats_variant_id()):
+        return None
+    return {
+        "order_cents": packs_config.price_cents(packs_config.CLASS_ORDER_USD_MICROS),
+        "seat_cents": packs_config.price_cents(packs_config.CLASS_SEAT_USD_MICROS),
+        "max_seats": packs_config.CLASS_MAX_SEATS,
+    }
+
+
+def _open_seats_checkout(db: Session, user: User, classroom: ClassRoom, seats: int,
+                         redirect_url: Optional[str]) -> dict:
+    """A Lemon Squeezy checkout for `seats` seats of `classroom`. Nothing is
+    granted here: the signed webhook adds the seats when the money arrives."""
+    if redirect_url:
+        # The app asks to come back to the class, whose id it may not know yet.
+        redirect_url = redirect_url.replace("{class_id}", classroom.id)
+    try:
+        url, quote = lemonsqueezy.create_class_seats_checkout(
+            class_id=classroom.id, class_title=classroom.title, seats=seats,
+            user_id=user.id, email=user.email, redirect_url=redirect_url,
+        )
+    except lemonsqueezy.NotConfiguredError as exc:
+        logger.error("Class seat checkout unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail="Payments are unavailable right now.") from exc
+    except lemonsqueezy.LemonSqueezyError as exc:
+        logger.error("Class seat checkout failed for class %s: %s", classroom.id, exc)
+        raise HTTPException(status_code=502, detail="Payments are unavailable right now.") from exc
+    classes.funnel("class_checkout_opened", class_id=classroom.id, seats=quote["seats"], cents=quote["price_cents"])
+    return {
+        "checkout_url": url,
+        "class_id": classroom.id,
+        "seats": quote["seats"],
+        "price_cents": quote["price_cents"],
+        "price_display": quote["price_display"],
+        "test_mode": lemonsqueezy.test_mode(),
+    }
+
+
+@teacher_router.post("/buy", status_code=201)
+def buy_new_class(body: BuySeatsRequest, db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user_required)):
+    """A new class, paid with money at the class price: the class is made now
+    with no seats, and the seats arrive with the payment."""
+    if seat_price() is None:
+        raise HTTPException(status_code=503, detail="Payments are unavailable right now.")
+    with _refusals():
+        classroom = classes.create_class_to_buy(db, user, body.title or "", body.seats, body.ages)
+    try:
+        return _open_seats_checkout(db, user, classroom, body.seats, body.redirect_url)
+    except HTTPException:
+        classes.discard_unpaid_class(db, classroom)
+        raise
+
+
 @teacher_router.post("", status_code=201)
 def create_class(body: CreateClassRequest, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user_required)):
@@ -106,7 +173,7 @@ def create_class(body: CreateClassRequest, db: Session = Depends(get_db),
 def get_class(class_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user_required)):
     with _refusals():
         classroom = classes.owned_class(db, user, class_id)
-    return classes.class_view(db, classroom, with_roster=True)
+    return {**classes.class_view(db, classroom, with_roster=True), "seat_price": seat_price()}
 
 
 @teacher_router.post("/{class_id}/seats")
@@ -116,6 +183,20 @@ def add_seats(class_id: str, body: SeatsRequest, db: Session = Depends(get_db),
         classroom = classes.owned_class(db, user, class_id)
         classes.add_seats(db, classroom, user, body.seats)
     return classes.class_view(db, classroom, with_roster=True)
+
+
+@teacher_router.post("/{class_id}/buy")
+def buy_seats(class_id: str, body: BuySeatsRequest, db: Session = Depends(get_db),
+              user: User = Depends(get_current_user_required)):
+    """More seats for an existing class, paid with money at the class price."""
+    if seat_price() is None:
+        raise HTTPException(status_code=503, detail="Payments are unavailable right now.")
+    with _refusals():
+        classroom = classes.owned_class(db, user, class_id)
+        if classroom.owner_id != user.id:
+            raise classes.ClassError(404, "Class not found", "not_found")
+        classes.check_seats(body.seats, already=classroom.seats)
+    return _open_seats_checkout(db, user, classroom, body.seats, body.redirect_url)
 
 
 @teacher_router.post("/{class_id}/start")

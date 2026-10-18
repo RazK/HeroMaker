@@ -27,7 +27,8 @@ from sqlalchemy.orm import Session
 
 from app.config import packs as packs_config
 from app.database import get_db
-from app.models import Payment, User
+from app.models import ClassRoom, Payment, User
+from app.services import classes as class_service
 from app.services import ledger, lemonsqueezy
 from app.services.auth import get_current_user_required
 
@@ -182,6 +183,9 @@ async def lemonsqueezy_webhook(
     if event["event"] not in lemonsqueezy.HANDLED_EVENTS:
         return {"status": "ignored", "reason": f"unhandled event {event['event']}"}
 
+    if event["kind"] == packs_config.CLASS_SEATS_SLUG:
+        return _class_seats_event(db, event)
+
     if event["event"] == lemonsqueezy.EVENT_ORDER_REFUNDED:
         # Refunds are not clawed back automatically. Taking credits a child has
         # already spent on a hero would fail, and silently leaving them is a
@@ -271,6 +275,93 @@ async def lemonsqueezy_webhook(
 
 
 # --------------------------------------------------------------------------
+# Money arriving for a class's seats
+# --------------------------------------------------------------------------
+
+def _class_seats_event(db: Session, event: dict) -> dict:
+    """
+    An order for seats of ONE class, at the class price (app/api/classes.py
+    opened it). The seats go to that class's wallet, never to the teacher.
+
+    custom_data says which class and how many seats, but custom_data is not
+    proof: anyone can open the variant's public buy link and add whatever
+    custom data they like. So the price is recomputed here from the seat count,
+    and the seats are granted only if the order's pre-tax subtotal, less any
+    discount code, paid at least that. A short order grants nothing and is
+    logged for a human. Paying for seats on someone else's class is a gift,
+    not an attack: the most anyone gets is what they paid for.
+    """
+    order_id = event["order_id"]
+    if event["event"] == lemonsqueezy.EVENT_ORDER_REFUNDED:
+        if not event["refunded"] and event["status"] != "refunded":
+            # A partial refund. Which seats it pays back is a judgement call,
+            # so it is left to an admin, exactly like a refunded pack.
+            logger.warning("Class seat order %s was partly refunded; seats NOT taken back (class %s)",
+                           order_id, event["class_id"])
+            return {"status": "logged", "reason": "partial refund needs an admin decision"}
+        result = class_service.refund_bought_seats(db, order_id)
+        logger.warning("Class seat order %s refunded: %s", order_id, result)
+        return result
+
+    if event["status"] not in (None, "paid"):
+        return {"status": "ignored", "reason": f"order status {event['status']}"}
+
+    seats, class_id, user_id = event["seats"], event["class_id"], event["user_id"]
+    if not class_id or not seats or seats < 1 or seats > packs_config.CLASS_MAX_SEATS:
+        logger.error("Class seat order %s has unusable custom_data (class=%r seats=%r); nothing granted",
+                     order_id, class_id, seats)
+        return {"status": "ignored", "reason": "order carries no usable class seats"}
+
+    classroom = db.query(ClassRoom).filter(ClassRoom.id == class_id).first()
+    if classroom is None:
+        logger.error("Class seat order %s names class %s, which does not exist; money taken, nothing granted",
+                     order_id, class_id)
+        return {"status": "ignored", "reason": "unknown class"}
+
+    expected = packs_config.class_seats_price_usd_micros(seats)
+    subtotal = event["subtotal_usd_micros"]
+    paid = (subtotal if subtotal is not None else event["total_usd_micros"]) - event["discount_usd_micros"]
+    # One cent of slack, for an order paid in another currency and converted.
+    if paid < expected - 10_000:
+        logger.error(
+            "Class seat order %s paid %s for %s seats of class %s, which cost %s; nothing granted",
+            order_id, paid, seats, class_id, expected,
+        )
+        return {"status": "ignored", "reason": "amount paid does not cover the seats"}
+
+    quote = packs_config.class_seats_quote(seats)
+    tx, granted = class_service.grant_bought_seats(
+        db, classroom, seats, order_id,
+        metadata={
+            "provider": "lemonsqueezy",
+            "kind": packs_config.CLASS_SEATS_SLUG,
+            "order_id": order_id,
+            "order_number": event["order_number"],
+            "teacher_id": classroom.owner_id,
+            "buyer_user_id": user_id,
+            "gross_usd_micros": event["total_usd_micros"],
+            "price_usd_micros": expected,
+            "currency": event["currency"],
+            "test_mode": event["test_mode"],
+            "processor_fee_usd_micros": packs_config.processor_fee_usd_micros(event["total_usd_micros"]),
+        },
+    )
+    _record_payment(db, event, {"slug": quote["slug"], "credits": quote["credits"]},
+                    user_id or classroom.owner_id,
+                    extra={"class_id": class_id, "seats": seats})
+    db.expire_all()
+    classroom = db.query(ClassRoom).filter(ClassRoom.id == class_id).one()
+    logger.info("Class seat order %s: %s seats for class %s (%s)", order_id, seats, class_id,
+                "granted" if granted else "already granted")
+    return {
+        "status": "ok",
+        "class_id": class_id,
+        "seats_granted": seats if granted else 0,
+        "seats": classroom.seats,
+    }
+
+
+# --------------------------------------------------------------------------
 # Looking back
 # --------------------------------------------------------------------------
 
@@ -281,6 +372,10 @@ class ReceiptOut(BaseModel):
     paid_display: Optional[str] = None
     test_mode: bool = False
     created_at: str
+    # Seats bought for one class: they sit on the class, not on this balance.
+    class_id: Optional[str] = None
+    class_title: Optional[str] = None
+    seats: Optional[int] = None
 
 
 @router.get("/receipts", response_model=list[ReceiptOut])
@@ -288,27 +383,36 @@ def list_receipts(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user_required),
 ):
-    """This user's own purchases, newest first. Read straight off the ledger."""
+    """This user's own purchases, newest first. Read straight off the ledger:
+    their own balance's, and their classes' wallets' (seats they bought)."""
     from app.config import pricing
 
+    titles = {c.wallet_user_id: c for c in db.query(ClassRoom).filter(ClassRoom.owner_id == user.id).all()}
+    rows = []
+    for account in [user.id, *titles]:
+        rows.extend(tx for tx in ledger.list_transactions(account, db, limit=100) if tx.reason == "purchase")
+    rows.sort(key=lambda tx: tx.created_at, reverse=True)
+
     out = []
-    for tx in ledger.list_transactions(user.id, db, limit=100):
-        if tx.reason != "purchase":
-            continue
+    for tx in rows[:100]:
         meta = tx.metadata_json or {}
         gross = meta.get("gross_usd_micros")
+        classroom = titles.get(tx.user_id)
         out.append(ReceiptOut(
             order_number=meta.get("order_number"),
-            pack=meta.get("pack"),
+            pack=meta.get("pack") or meta.get("kind"),
             credits=tx.delta,
             paid_display=(pricing.micros_to_usd_str(gross, places=2) if gross else None),
             test_mode=bool(meta.get("test_mode", False)),
             created_at=tx.created_at.isoformat(),
+            class_id=classroom.id if classroom else None,
+            class_title=classroom.title if classroom else None,
+            seats=meta.get("seats") if classroom else None,
         ))
     return out
 
 
-def _record_payment(db: Session, event: dict, pack: dict, user_id: str) -> None:
+def _record_payment(db: Session, event: dict, pack: dict, user_id: str, extra: Optional[dict] = None) -> None:
     """
     Write the dollars beside the credits.
 
@@ -346,6 +450,7 @@ def _record_payment(db: Session, event: dict, pack: dict, user_id: str) -> None:
                 # the truth; this is close enough to steer by and is marked so
                 # nobody mistakes it for a settled number.
                 "fee_is_estimated": True,
+                **(extra or {}),
             },
         ))
         db.commit()
