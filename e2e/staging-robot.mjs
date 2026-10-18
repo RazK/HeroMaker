@@ -2,7 +2,8 @@
 //
 //   landing page -> heroes gallery -> sign up -> buy credits (Lemon Squeezy
 //   test mode) -> upload a drawing -> every pipeline stage completes -> the
-//   hero is in "My Creations" -> its page: the intro, then moves -> Dance party
+//   hero is in "My Creations" -> its page: the intro, then moves -> Play ->
+//   the game chooser -> Dance party, and the camera-free Robot Rumble
 //
 // It talks to nothing but the public frontend URL, like a person would. No
 // API shortcuts: a step passes only if the UI shows it passed. Every step
@@ -601,26 +602,50 @@ try {
       await page.waitForTimeout(2000);
     }
 
-    // Dance party is the bottom-most button on the page, and its page loads.
+    // Play is the bottom-most button on the page. It opens the game chooser:
+    // two games, each opened with the same hero parameters.
     const lowest = await page.evaluate(() => {
       const all = [...document.querySelectorAll('.tb-hero-screen button, .tb-hero-screen a')];
       return all.reduce((a, b) => (b.getBoundingClientRect().bottom > a.getBoundingClientRect().bottom ? b : a)).className;
     });
-    if (!/\btb-play\b/.test(lowest)) throw new Error(`the bottom-most button is "${lowest}", not Dance party`);
+    if (!/\btb-play\b/.test(lowest)) throw new Error(`the bottom-most button is "${lowest}", not Play`);
     const play = page.locator('.tb-play');
     const playText = (await play.innerText()).trim();
-    if (playText !== 'Dance party') throw new Error(`the primary reads "${playText}"`);
-    const href = await play.getAttribute('href');
-    if (!href || !/^\/play\/index\.html\?vrm=[^&]*opt_avatar\.vrm/.test(href)) throw new Error(`Dance party links to ${href}`);
-    await play.click();
-    await page.waitForURL(/\/play\/index\.html/, { timeout: 30000 });
+    if (playText !== 'Play') throw new Error(`the primary reads "${playText}"`);
+    const openChooser = async () => {
+      await play.click();
+      await page.locator('.tb-games').waitFor({ timeout: 5000 });
+    };
+    await openChooser();
+    await snap(page, 'game-chooser');
+    const games = await page.locator('.tb-game').evaluateAll((as) => Object.fromEntries(as.map((a) => [a.dataset.game, a.getAttribute('href')])));
+    if (!games.dance || !/^\/play\/index\.html\?vrm=[^&]*opt_avatar\.vrm/.test(games.dance)) throw new Error(`Dance party links to ${games.dance}`);
+    if (!games.arena || !/^\/play\/arena\.html\?vrm=[^&]*opt_avatar\.vrm/.test(games.arena)) throw new Error(`Robot Rumble links to ${games.arena}`);
+    if (games.dance.split('?')[1] !== games.arena.split('?')[1]) throw new Error('the two games are not opened with the same hero');
+
+    // Robot Rumble, the camera-free game: a tap on its card opens it on the
+    // same hero, and a tap on Start begins a round.
+    await page.locator('.tb-game[data-game="arena"]').click();
+    await page.waitForURL(/\/play\/arena\.html/, { timeout: 30000 });
+    await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 90000 });
+    const arenaReady = await page.evaluate(() => window.__ready);
+    if (arenaReady !== true) throw new Error(`Robot Rumble did not start: ${arenaReady}`);
+    await snap(page, 'robot-rumble-start');
+    await page.locator('.rr-start').click();
+    await page.waitForFunction(() => window.__phase === 'play', null, { timeout: 30000 });
+    await page.waitForTimeout(DEMO ? 3000 : 1000);
+    await snap(page, 'robot-rumble');
+
+    // Dance party's page loads from its card's link. (The app keeps no route
+    // for the hero screen, so going back would land on the gallery.)
+    await page.goto(`${BASE_URL}${games.dance}`);
     await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 90000 });
     const ready = await page.evaluate(() => window.__ready);
     if (ready !== true) throw new Error(`Dance party did not start: ${ready}`);
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Dance party is the bottom-most button and its page started`;
+    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began and Dance party started`;
   });
 } catch {
   exitCode = 1;

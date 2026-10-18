@@ -1,3 +1,5 @@
+import { icon } from '../ui/tb'
+
 /**
  * On-screen controls: a thumb stick on the left, Punch and Jump on the right.
  *
@@ -15,13 +17,6 @@ export interface Input {
   punch: boolean
   jump: boolean
 }
-
-const ICON = {
-  punch: '<rect x="9" y="7" width="11" height="10" rx="3.5"/><path d="M13 7v4"/><path d="M16.5 7v4"/><path d="M9 11.5h6"/><path d="M3 9h3"/><path d="M2 12h4"/><path d="M3 15h3"/>',
-  jump: '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20.5h14"/>',
-}
-const svg = (inner: string, size: number) =>
-  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`
 
 export class Controls {
   readonly el: HTMLElement
@@ -47,8 +42,8 @@ export class Controls {
         <div class="rr-stick"><div class="rr-knob"></div></div>
       </div>
       <div class="rr-buttons">
-        <button type="button" class="rr-btn rr-btn--jump" aria-label="Jump">${svg(ICON.jump, 30)}<span>Jump</span></button>
-        <button type="button" class="rr-btn rr-btn--punch" aria-label="Punch">${svg(ICON.punch, 36)}<span>Punch</span></button>
+        <button type="button" class="rr-btn rr-btn--jump" aria-label="Jump">${icon('jump', 30)}<span>Jump</span></button>
+        <button type="button" class="rr-btn rr-btn--punch" aria-label="Punch">${icon('punch', 36)}<span>Punch</span></button>
       </div>`
     parent.appendChild(el)
     this.el = el

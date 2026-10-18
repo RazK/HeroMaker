@@ -142,14 +142,14 @@ export class Game {
   // ------------------------------------------------------------- the frame
 
   /**
-   * `dt` is game time for this frame. The caller clamps it for the physics;
-   * the round clock it advances is the same clamped value, because a frame
-   * the physics skipped is a frame the player could not act in either.
+   * Two clocks (games/PLAYBOOK.md): `dt` is clamped and decides *how far*
+   * things move, so a stalled frame cannot fling the rig; `clockDt` is wall
+   * time and decides *when* — the round lasts 75 real seconds on any device.
    */
-  update(dt: number, input: Input) {
+  update(dt: number, input: Input, clockDt = dt) {
     const now = this.time
     const playing = this.phase === 'play'
-    if (playing) this.time += dt
+    if (playing) this.time += clockDt
 
     this.updateHero(dt, playing ? input : { x: 0, y: 0, punch: false, jump: false })
     if (playing) this.spawnThings()
@@ -241,7 +241,9 @@ export class Game {
     this.pos.z += this.vel.z * dt
     const r = this.radius
     this.pos.x = THREE.MathUtils.clamp(this.pos.x, ARENA.minX + r, ARENA.maxX - r)
-    this.pos.z = THREE.MathUtils.clamp(this.pos.z, ARENA.minZ + r, ARENA.maxZ - r)
+    // The front strip is the robots' doorway: the hero meets them just inside
+    // it, where the camera can see both, rather than camping the edge.
+    this.pos.z = THREE.MathUtils.clamp(this.pos.z, ARENA.minZ + r, ARENA.maxZ - 0.85)
     // The chest is solid.
     const dc = new THREE.Vector2(this.pos.x - CHEST.x, this.pos.z - CHEST.z)
     if (dc.length() < 1.1 + r) { dc.setLength(1.1 + r); this.pos.x = CHEST.x + dc.x; this.pos.z = CHEST.z + dc.y }
@@ -456,7 +458,8 @@ export class Game {
       const n = k > 0.5 && r() < 0.35 ? 2 : 1
       for (let i = 0; i < n && live('robot') < 9; i++) {
         const th = this.add('robot')
-        th.pos.set(ARENA.minX + 0.6 + r() * (ARENA.maxX - ARENA.minX - 1.2), 0, ARENA.maxZ + 1.0 + i * 0.5)
+        th.pos.set(ARENA.minX + 0.6 + r() * (ARENA.maxX - ARENA.minX - 1.2), 0, ARENA.maxZ - 0.1 - i * 0.6)
+        this.particles.burst(th.pos.clone().setY(0.3), 8, [0xffffff, PAL.sun], 2, 2)
         const sp = 0.6 + 0.45 * k + r() * 0.15
         th.vel.set(0, 0, -sp)
       }
@@ -590,7 +593,7 @@ export class Game {
         if (Math.abs(th.pos.x) > ARENA.maxX + 1.5) this.remove(th)
         const dx = th.pos.x - this.pos.x, dz = th.pos.z - this.pos.z
         const near = Math.hypot(dx, dz) < heroR + th.radius
-        if (near && this.pos.y < 0.45 && this.time >= this.invulnUntil && this.phase === 'play') this.hurt(th)
+        if (near && !th.jumped && this.pos.y < 0.45 && this.time >= this.invulnUntil && this.phase === 'play') this.hurt(th)
         else if (near && this.pos.y >= 0.45 && !th.jumped) {
           th.jumped = true
           const pts = POINTS.ball * this.multiplier
@@ -620,7 +623,10 @@ export class Game {
       // Squash and stretch on every hit.
       if (!th.dying) {
         const s = th.squash
-        th.body.scale.set(1 + 0.3 * s, 1 - 0.3 * s, 1 + 0.3 * s)
+        // A robot pops in at the doorway with a little bounce.
+        const k = th.kind === 'robot' ? Math.min(1, th.age / 0.35) : 1
+        const pop = k < 1 ? 0.3 + 0.7 * (1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2) : 1
+        th.body.scale.set(pop * (1 + 0.3 * s), pop * (1 - 0.3 * s), pop * (1 + 0.3 * s))
       }
       th.obj.position.set(th.pos.x, th.kind === 'robot' || th.kind === 'crate' ? th.pos.y : 0, th.pos.z)
       if (th.kind === 'balloon' || th.kind === 'gold' || th.kind === 'ball') th.body.position.y = th.pos.y

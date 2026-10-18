@@ -28,3 +28,52 @@
   .tb-hero-screen .tb-bar-row .tb-btn svg { display: none; }
 }
 .tb-btn-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Pick a game: two equal cards side by side (brand book: paired things are
+   the same size). The picture is a plate with the game's line icon; Dance
+   party carries a camera badge because it turns the camera on. */
+.tb-games { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: var(--tb-depth); }
+.tb-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 12px 14px;
+  border-radius: var(--tb-radius-card);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-ink);
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  text-decoration: none;
+  text-align: center;
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.tb-game:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-ink); }
+.tb-game:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 var(--tb-depth) 0 var(--tb-ink); }
+.tb-game-pic {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tb-grape);
+  margin-bottom: 6px;
+}
+.tb-game[data-game='dance'] .tb-game-pic { color: var(--tb-ink); }
+.tb-game-badge {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tb-game-name { font-family: var(--tb-font-display); font-weight: 600; font-size: 20px; line-height: 24px; }
+.tb-game-line { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }

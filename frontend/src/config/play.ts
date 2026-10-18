@@ -21,8 +21,20 @@ export function heroVrmUrl(creation: Pick<CreationResponse, 'id' | 'user_id'>): 
  * with ?name=. The moves a hero can do without a camera live on its own page.
  */
 export function playUrl(creation: HeroRef): string {
+  return gameUrl('index.html', creation);
+}
+
+/**
+ * The camera-free game, Robot Rumble: another page of the same build, opened
+ * with exactly the same hero parameters as Dance party.
+ */
+export function arenaUrl(creation: HeroRef): string {
+  return gameUrl('arena.html', creation);
+}
+
+function gameUrl(page: string, creation: HeroRef): string {
   const name = creation.character_name || creation.name || 'Your hero';
-  return `/play/index.html?vrm=${encodeURIComponent(heroVrmUrl(creation))}&name=${encodeURIComponent(name)}`;
+  return `/play/${page}?vrm=${encodeURIComponent(heroVrmUrl(creation))}&name=${encodeURIComponent(name)}`;
 }
 
 export function canPlay(creation: Pick<CreationResponse, 'steps'>): boolean {

@@ -2,12 +2,12 @@
  * Robot Rumble on the app's own Toy Box sheet.
  *
  * The tokens and the parts (.tb-header, .tb-nav, .tb-btn, .tb-chip, .tb-bar,
- * .tb-eyebrow, .tb-h1) are the app's — main.ts imports
- * frontend/src/styles/toybox.css itself, so the game cannot drift from the
- * app. This file only adds what a game has and the app does not: the stage,
- * the HUD, the thumb stick and the two big round buttons.
+ * .tb-panel, .tb-eyebrow, .tb-h1) are the app's: main.ts imports ui/toybox.css,
+ * which imports frontend/src/styles/toybox.css, and builds them with ui/tb.ts —
+ * the same as Dance party. This file only adds what this game has and the app
+ * does not: the stage, the HUD, the thumb stick and the two big round buttons.
  */
-html, body {
+html, html body {
   margin: 0;
   background: var(--tb-cream);
   color: var(--tb-ink);
@@ -171,7 +171,14 @@ button { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------------- bar */
 .rr-bar { position: relative; z-index: 2; }
-.rr-card { display: none; flex-direction: column; gap: 12px; width: 100%; max-width: 520px; margin: 0 auto; }
+/* Start and end are the app's docked bottom sheet (.tb-panel), as in Dance
+   party: the bar steps back and lets the white sheet sit on the stage. */
+.rr-screen[data-phase="menu"] .rr-bar,
+.rr-screen[data-phase="loading"] .rr-bar,
+.rr-screen[data-phase="error"] .rr-bar,
+.rr-screen[data-phase="end"] .rr-bar { padding: 0; background: none; box-shadow: none; margin-top: calc(-1 * var(--tb-radius-card)); }
+.rr-card { display: none; }
+.rr-card.tb-panel { gap: 12px; }
 .rr-screen[data-phase="menu"] .rr-card--start,
 .rr-screen[data-phase="loading"] .rr-card--start,
 .rr-screen[data-phase="end"] .rr-card--end { display: flex; }
@@ -182,6 +189,7 @@ button { font: inherit; color: inherit; }
 .rr-chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; font-size: 15px; pointer-events: none; }
 .rr-chip svg { color: var(--tb-grape); }
 .rr-card .tb-btn--primary { margin-top: 6px; }
+.rr-card .tb-sheet-grip { align-self: center; }
 .rr-end-score { display: flex; align-items: baseline; justify-content: center; gap: 10px; }
 .rr-end-value { font-family: var(--tb-font-display); font-weight: 600; font-size: 56px; line-height: 1; }
 .rr-end-label { font-size: 18px; font-weight: 800; color: var(--tb-ink-2); }
@@ -277,24 +285,10 @@ button { font: inherit; color: inherit; }
 @media (orientation: landscape) and (max-height: 559px) {
   .rr-screen.tb-screen--fit { display: flex; flex-direction: column; max-width: none; }
   .rr-screen > .tb-header { padding-top: 8px; padding-bottom: calc(8px + var(--tb-depth-sm)); }
-  /* Menu and end: the card sits beside the stage, as the app's hero screen does. */
-  .rr-screen[data-phase="menu"] .rr-bar,
-  .rr-screen[data-phase="loading"] .rr-bar,
-  .rr-screen[data-phase="end"] .rr-bar {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 340px;
-    justify-content: center;
-    box-shadow: -2px 0 0 var(--tb-line);
-  }
-  .rr-screen[data-phase="menu"] .rr-stage,
-  .rr-screen[data-phase="loading"] .rr-stage,
-  .rr-screen[data-phase="end"] .rr-stage { margin-right: 340px; }
-  .rr-card { gap: 8px; }
+  .rr-card.tb-panel { gap: 8px; }
   .rr-card .tb-h1 { font-size: 28px; line-height: 32px; }
   .rr-end-value { font-size: 44px; }
+  .rr-chips { display: none; }
   /* Play: the controls float over the stage, one under each thumb. */
   .rr-screen[data-phase="play"] .rr-bar,
   .rr-screen[data-phase="countdown"] .rr-bar {
@@ -311,6 +305,36 @@ button { font: inherit; color: inherit; }
   .rr-stick-zone, .rr-btn { pointer-events: auto; }
 }
 
+/* Any landscape screen: the sheet docks to the right of the stage, as Dance
+   party's does (ui/toybox.css), and the stage keeps the rest. */
+@media (orientation: landscape) {
+  .rr-screen[data-phase="menu"] .rr-bar,
+  .rr-screen[data-phase="loading"] .rr-bar,
+  .rr-screen[data-phase="error"] .rr-bar,
+  .rr-screen[data-phase="end"] .rr-bar {
+    position: absolute; right: 0; top: 78px; bottom: 0; margin: 0;
+    width: min(400px, 46vw);
+  }
+  .rr-screen[data-phase="menu"] .rr-stage,
+  .rr-screen[data-phase="loading"] .rr-stage,
+  .rr-screen[data-phase="error"] .rr-stage,
+  .rr-screen[data-phase="end"] .rr-stage { margin-inline-end: min(400px, 46vw); }
+  .rr-screen > .tb-header { z-index: 3; }
+  .rr-card.tb-panel { height: 100%; }
+}
+@media (orientation: landscape) and (max-height: 559px) {
+  .rr-screen[data-phase] .rr-bar { top: 62px; }
+  .rr-screen[data-phase="play"] .rr-bar, .rr-screen[data-phase="countdown"] .rr-bar { top: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rr-timer.is-low { animation: none; }
+}
+
+/* A 360px phone: the stick and the two buttons still fit side by side. */
+@media (max-width: 380px) {
+  .rr-stick { left: 60px; width: 112px; height: 112px; margin: -56px 0 0 -56px; }
+  .rr-btn--punch { width: 94px; height: 94px; }
+  .rr-btn--jump { width: 76px; height: 76px; }
+  .rr-buttons { gap: 12px; }
 }

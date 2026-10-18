@@ -1,6 +1,7 @@
 import * as THREE from 'three'
-import '../../../../frontend/src/styles/toybox.css'
+import '../ui/toybox.css'
 import './arena.css'
+import { icon, tbButton, tbGrip, tbNav } from '../ui/tb'
 import { parseHero, type Hero } from '../avatar/loader'
 import { OWN_HERO, OWN_NAME, goBack } from '../ownhero'
 import { Controls, type Input } from './controls'
@@ -32,18 +33,6 @@ const SAMPLE = params.get('sample') || 'Crayon_Kid'
 const HERO_URL = OWN_HERO ?? sampleUrl(SAMPLE) ?? Object.values(samples)[0]
 const HERO_NAME = OWN_HERO ? OWN_NAME : (params.get('name') || SAMPLE.replace(/_/g, ' '))
 
-const ICONS = {
-  back: '<path d="M15 18l-6-6 6-6"/>',
-  play: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none"/>',
-  redo: '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/>',
-  punch: '<rect x="9" y="7" width="11" height="10" rx="3.5"/><path d="M13 7v4"/><path d="M16.5 7v4"/><path d="M9 11.5h6"/><path d="M3 9h3"/><path d="M2 12h4"/><path d="M3 15h3"/>',
-  jump: '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20.5h14"/>',
-  land: '<path d="M12 3v11"/><path d="M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 20h16"/><path d="M5.5 16.5L3.5 15"/><path d="M18.5 16.5l2-1.5"/>',
-  run: '<circle cx="14" cy="4.5" r="1.8"/><path d="M8 21l3-6 3 2v4"/><path d="M6 11l3-3 4 1 2 4 3 1"/>',
-  star: '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
-}
-const icon = (name: keyof typeof ICONS, size = 22) =>
-  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 // ------------------------------------------------------------------ DOM
@@ -53,7 +42,7 @@ const app = document.getElementById('app')!
 app.innerHTML = `
   <div class="tb-screen tb-screen--fit rr-screen" data-phase="loading">
     <header class="tb-header">
-      <div class="tb-header-side"><button type="button" class="tb-nav rr-back" aria-label="Back to your hero">${'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS.back + '</svg>'}</button></div>
+      <div class="tb-header-side rr-back-slot"></div>
       <div class="tb-header-title rr-title">Robot Rumble</div>
       <div class="rr-hud" aria-live="off">
         <div class="rr-score"><span class="rr-score-label">Score</span><span class="rr-score-value">0</span></div>
@@ -70,7 +59,7 @@ app.innerHTML = `
       </div>
     </div>
     <div class="tb-bar rr-bar">
-      <div class="rr-card rr-card--start">
+      <div class="rr-card rr-card--start tb-panel">
         <div class="tb-eyebrow">Robot Rumble</div>
         <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
         <div class="rr-line">Stop the robots before they reach your toys!</div>
@@ -78,16 +67,13 @@ app.innerHTML = `
           <span class="tb-chip rr-chip">${icon('punch', 18)}Punch</span>
           <span class="tb-chip rr-chip">${icon('jump', 18)}+${icon('punch', 18)}Smash</span>
         </div>
-        <button type="button" class="tb-btn tb-btn--primary tb-btn--full rr-start" disabled>${icon('play')}Start</button>
+        <div class="rr-start-slot"></div>
       </div>
-      <div class="rr-card rr-card--end">
+      <div class="rr-card rr-card--end tb-panel">
         <div class="tb-eyebrow rr-end-eyebrow">Time’s up!</div>
         <div class="rr-end-score"><span class="rr-end-value">0</span><span class="rr-end-label">points</span></div>
         <div class="rr-line rr-end-best">Best 0</div>
-        <div class="rr-end-buttons">
-          <button type="button" class="tb-btn tb-btn--secondary tb-btn--full rr-back2">Back</button>
-          <button type="button" class="tb-btn tb-btn--primary tb-btn--full rr-again">${icon('redo')}Play again</button>
-        </div>
+        <div class="rr-end-buttons"></div>
       </div>
     </div>
   </div>`
@@ -100,12 +86,19 @@ const comboEl = app.querySelector<HTMLElement>('.rr-combo')!
 const countEl = app.querySelector<HTMLElement>('.rr-count')!
 const scoreEl = app.querySelector<HTMLElement>('.rr-score-value')!
 const timerEl = app.querySelector<HTMLElement>('.rr-timer')!
-const startBtn = app.querySelector<HTMLButtonElement>('.rr-start')!
-const againBtn = app.querySelector<HTMLButtonElement>('.rr-again')!
+// The app's own parts (ui/tb.ts): the round back button, the big pill buttons,
+// the sheet grip. Primary last, as in every bottom bar of the app.
+app.querySelector('.rr-back-slot')!.append(tbNav('back', 'Back to your hero', goBack))
+for (const card of app.querySelectorAll('.rr-card')) card.prepend(tbGrip())
+const startBtn = tbButton('Start', { icon: 'play' })
+startBtn.classList.add('rr-start')
+startBtn.disabled = true
+app.querySelector('.rr-start-slot')!.replaceWith(startBtn)
+const againBtn = tbButton('Play again', { icon: 'redo' })
+againBtn.classList.add('rr-again')
+app.querySelector('.rr-end-buttons')!.append(tbButton('Back', { kind: 'secondary', onClick: goBack }), againBtn)
 const ringFill = app.querySelector<SVGCircleElement>('.rr-ring-fill')!
 const ringPct = app.querySelector<HTMLElement>('.rr-ring-pct')!
-app.querySelector('.rr-back')!.addEventListener('click', goBack)
-app.querySelector('.rr-back2')!.addEventListener('click', goBack)
 
 const controls = new Controls(bar)
 const sfx = new Sfx()
@@ -143,7 +136,8 @@ const cam = { pos: new THREE.Vector3(0, 3, 9), look: new THREE.Vector3(0, 1, 0),
 function aimCamera(dt: number, snap = false) {
   const g = game
   const aspect = size.w / size.h
-  const portrait = aspect < 0.9
+  // The stage, not the phone: a 360x640 phone leaves a squarish stage.
+  const portrait = aspect < 1.3
   const hx = g?.pos.x ?? 0, hz = g?.pos.z ?? 0.6
   const heroH = g?.hero.height ?? 1.7
 
@@ -151,11 +145,11 @@ function aimCamera(dt: number, snap = false) {
   // coming, follow the hero part of the way so the near edge stays in view.
   const vfov = portrait ? 50 : 40
   const tanV = Math.tan(THREE.MathUtils.degToRad(vfov / 2))
-  const halfW = portrait ? 1.75 : 4.2
+  const halfW = portrait ? 1.75 * Math.max(1, aspect / 0.75) : 5.2
   const dist = THREE.MathUtils.clamp(halfW / (tanV * aspect), 5.4, 12)
-  const elev = THREE.MathUtils.degToRad(portrait ? 24 : 24)
+  const elev = THREE.MathUtils.degToRad(portrait ? 24 : 27)
   const tx = THREE.MathUtils.clamp(hx * (portrait ? 0.7 : 0.3), ARENA.minX + halfW * 0.6, ARENA.maxX - halfW * 0.6)
-  const tz = THREE.MathUtils.lerp(0.3, hz, portrait ? 0.6 : 0.4)
+  const tz = THREE.MathUtils.lerp(0.3, hz, portrait ? 0.6 : 0.75)
   const playLook = new THREE.Vector3(tx, 0.95, tz)
   const playPos = playLook.clone().add(new THREE.Vector3(0, Math.sin(elev) * dist, Math.cos(elev) * dist))
 
@@ -280,8 +274,10 @@ const NO_INPUT: Input = { x: 0, y: 0, punch: false, jump: false }
 function frame(dtReal: number, render = true) {
   const t0 = performance.now()
   resize()
-  // Animation dt is clamped so a stalled frame cannot fling the rig. The round
-  // clock uses the same clamped step — see Game.update.
+  // Animation dt is clamped so a stalled frame cannot fling the rig; the
+  // countdown and the round clock run on wall time (see Game.update), capped
+  // only so a backgrounded tab does not lose the round in one frame.
+  const clockDt = Math.min(dtReal, 0.25)
   let dt = Math.min(dtReal, 1 / 20)
   gameClock += dt
   if (hitStop > 0) { hitStop -= dt; dt *= 0.08 }
@@ -289,7 +285,7 @@ function frame(dtReal: number, render = true) {
   if (game) {
     if (phase === 'countdown') {
       const before = Math.ceil(countdown)
-      countdown -= dt
+      countdown -= clockDt
       const n = Math.ceil(countdown)
       countEl.textContent = countdown > 0.4 ? String(Math.min(3, n)) : 'Go!'
       countEl.classList.toggle('is-on', countdown > -0.5)
@@ -298,10 +294,10 @@ function frame(dtReal: number, render = true) {
     } else if (countEl.classList.contains('is-on') && (phase !== 'play' || countdown < -0.5)) {
       countEl.classList.remove('is-on')
     }
-    if (phase === 'play') countdown -= dt
+    if (phase === 'play') countdown -= clockDt
 
     const input = phase === 'play' ? controls.read() : (controls.read(), NO_INPUT)
-    game.update(dt, input)
+    game.update(dt, input, clockDt)
     if (phase === 'play' && game.remaining <= 0) finish()
 
     // End: cheer, then dance until the player chooses.
