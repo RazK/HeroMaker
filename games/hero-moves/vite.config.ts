@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 
 const bundled = (mode: string) => mode === 'single' || mode === 'artifact'
@@ -39,6 +39,11 @@ export default defineConfig(({ mode }) => ({
     assetsInlineLimit: mode === 'artifact' ? 200000 : mode === 'single' ? 100000000 : 4096,
     chunkSizeWarningLimit: 6000,
   },
-  server: { host: '127.0.0.1', port: 5182 },
+  // ui/toybox.css imports the app's own stylesheet from frontend/, so the dev
+  // server has to be allowed to read it. A build reads it like any import.
+  server: {
+    host: '127.0.0.1', port: 5182,
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), '../../frontend/src/styles'] },
+  },
   preview: { host: '127.0.0.1', port: 5183 },
 }))
