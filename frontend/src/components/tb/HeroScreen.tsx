@@ -126,7 +126,7 @@ export function HeroScreen(props: HeroScreenProps) {
       ready && <SheetRow key="vrm" icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />,
       // The per-step admin view is a debugging tool, not designed for users.
       isAdmin && <SheetRow key="steps" icon="grid" label="Admin: every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />,
-      isAdmin && ready && (
+      isAdmin && ready && !creation.in_class && (
         <SheetRow
           key="featured"
           icon="star"

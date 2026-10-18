@@ -35,6 +35,9 @@ os.environ.setdefault("MESHY_USD_MICROS_PER_CREDIT", "20000")
 
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402
+    ClassGuest,
+    ClassRoom,
+    ClassSession,
     Coupon,
     CouponRedemption,
     Creation,
@@ -55,8 +58,11 @@ _WIPE_ORDER = (
     Payment,
     CouponRedemption,
     Coupon,
+    ClassGuest,
+    ClassSession,
     CreationStep,
     Creation,
+    ClassRoom,
     PasswordResetToken,
     RecurringExpense,
     User,

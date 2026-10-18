@@ -27,6 +27,13 @@ class User(Base):
     # point at it and are kept for tax. A deleted user cannot sign in. See
     # app/services/account_deletion.py and m012_user_soft_delete.
     deleted_at = Column(DateTime, nullable=True, index=True)
+    # A teacher's home is their classes (app/services/classes.py). Chosen at
+    # sign-up or from the account sheet; anyone may switch it.
+    is_teacher = Column(Boolean, nullable=False, default=False, server_default=false())
+    # "person" for everyone who signs in. "class_wallet" is the account a class
+    # holds its prepaid seats in: no email, no password, it can never sign in,
+    # and it owns the class's heroes until a parent claims one. See m015_classes.
+    kind = Column(String(20), nullable=False, default="person", server_default="person", index=True)
 
     creations = relationship("Creation", back_populates="user")
     
@@ -65,6 +72,11 @@ class Creation(Base):
     # view. New heroes start unstarred; m013_creation_featured starred every
     # finished hero that existed when it ran.
     featured = Column(Boolean, nullable=False, default=False, server_default=false(), index=True)
+    # Set while the hero belongs to a class: made by a student, paid from the
+    # class's prepaid seats. Cleared when a parent claims it into their own
+    # account. A class hero is in no public gallery, only in its class's. See
+    # app/services/classes.py and m015_classes.
+    class_id = Column(String, ForeignKey("classes.id"), nullable=True, index=True)
 
     user = relationship("User", back_populates="creations")
     steps = relationship("CreationStep", back_populates="creation", cascade="all, delete-orphan", lazy="select")
@@ -228,6 +240,10 @@ CREDIT_REASONS = (
     # The person deleted their account; the balance left is forfeited, as the
     # delete dialog says. A row, so sum(delta) == users.credits still holds.
     "account_deleted",
+    # Credits moved between a teacher and a class's wallet: negative on the
+    # teacher when they pay for a class's seats, positive on the class.
+    # app/services/classes.py.
+    "class_seats",
 )
 
 
@@ -415,3 +431,83 @@ class RecurringExpense(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+
+class ClassRoom(Base):
+    """
+    A teacher's class: a name and seats paid for up front, one hero per seat.
+
+    The seats' credits sit in the class's own wallet account (`wallet_user_id`,
+    a User of kind "class_wallet"), moved there from the teacher through the
+    ledger when the class is paid for. A student's hero is a Creation owned by
+    that wallet, so the ordinary pipeline charges it and refunds it on failure.
+    Unused seats stay on the class for its next session. See
+    docs/product/class-sessions.md.
+    """
+    __tablename__ = "classes"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    wallet_user_id = Column(String, ForeignKey("users.id"), nullable=False, unique=True)
+    title = Column(String(60), nullable=False)
+    # Seats paid for, and seats taken by a hero. seats_used <= seats always:
+    # it only moves through one conditional UPDATE (classes._take_seat).
+    seats = Column(Integer, nullable=False, default=0)
+    seats_used = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    owner = relationship("User", foreign_keys=[owner_id])
+    sessions = relationship("ClassSession", back_populates="classroom", order_by="ClassSession.created_at")
+
+
+class ClassSession(Base):
+    """One live slot of a class: a PIN, a QR code and a window to make heroes in."""
+    __tablename__ = "class_sessions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    class_id = Column(String, ForeignKey("classes.id"), nullable=False, index=True)
+    # Six digits, unique among OPEN sessions only (checked when one starts).
+    pin = Column(String(6), nullable=False, index=True)
+    starts_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    ends_at = Column(DateTime, nullable=False, index=True)
+    # Every student waits for the teacher's tap before making a hero.
+    approve_first = Column(Boolean, nullable=False, default=False)
+    status = Column(String(16), nullable=False, default="open")  # open | ended
+    ended_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    classroom = relationship("ClassRoom", back_populates="sessions")
+
+
+class ClassGuest(Base):
+    """
+    One student: a first name, an optional age, and a one-hero pass held by
+    their browser. No account, no email, no password; only hashes are stored.
+    """
+    __tablename__ = "class_guests"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    class_id = Column(String, ForeignKey("classes.id"), nullable=False, index=True)
+    session_id = Column(String, ForeignKey("class_sessions.id"), nullable=False, index=True)
+    first_name = Column(String(20), nullable=False)
+    age = Column(Integer, nullable=True)
+    # sha256 of the pass (httpOnly cookie + localStorage). Good for one hero.
+    token_hash = Column(String(64), nullable=False, unique=True)
+    # sha256 of the browser marker that joined, to spot a second student on
+    # the same browser (who then waits for the teacher). Not a fingerprint: a
+    # random value we issued, sent only to /api/class.
+    device_hash = Column(String(64), nullable=True, index=True)
+    shared_device = Column(Boolean, nullable=False, default=False)
+    status = Column(String(16), nullable=False, default="approved")  # approved | waiting | blocked
+    # Set by the atomic one-hero guard, before the creation exists.
+    hero_started_at = Column(DateTime, nullable=True)
+    creation_id = Column(String, ForeignKey("creations.id"), nullable=True, index=True)
+    # sha256 of the parent link's token (derived: classes.claim_token).
+    claim_hash = Column(String(64), nullable=True, unique=True)
+    claimed_by = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    claimed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    session = relationship("ClassSession")
+    classroom = relationship("ClassRoom")

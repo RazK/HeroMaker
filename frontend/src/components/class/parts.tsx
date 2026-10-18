@@ -1,0 +1,143 @@
+import { useEffect, useMemo, useState } from 'react';
+import qrcode from 'qrcode-generator';
+import { HeroSummary, Student, heroFile } from '../../api/classes';
+import { STEP_UI } from '../tb/pipeline';
+import { Icon } from '../tb/Icon';
+import './class.css';
+
+/** A QR code as crisp SVG: ink on white, a quiet zone of four modules. */
+export function Qr({ text, size = 220, label }: { text: string; size?: number; label: string }) {
+  const svg = useMemo(() => {
+    const qr = qrcode(0, 'M');
+    qr.addData(text);
+    qr.make();
+    const n = qr.getModuleCount();
+    const q = 4;
+    let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + q} ${r + q}h1v1h-1z`;
+    return { d, view: n + q * 2 };
+  }, [text]);
+  return (
+    <svg className="cls-qr" width={size} height={size} viewBox={`0 0 ${svg.view} ${svg.view}`} role="img" aria-label={label} shapeRendering="crispEdges">
+      <rect width={svg.view} height={svg.view} fill="#fff" />
+      <path d={svg.d} fill="var(--tb-ink)" />
+    </svg>
+  );
+}
+
+/** The class code, one big digit per box: what a child copies off the board. */
+export function PinDigits({ pin, size = 'lg' }: { pin: string; size?: 'lg' | 'md' }) {
+  const digits = pin.padEnd(6, ' ').slice(0, 6).split('');
+  return (
+    <div className={`cls-pin cls-pin--${size}`} aria-label={`Class code ${pin.split('').join(' ')}`}>
+      {digits.map((d, i) => (
+        <span key={i} className={`cls-pin-box${d.trim() ? ' cls-pin-box--on' : ''}${i === 2 ? ' cls-pin-box--gap' : ''}`} aria-hidden="true">{d.trim()}</span>
+      ))}
+    </div>
+  );
+}
+
+/** Seconds left, ticking every second from the server's end time. */
+export function useSecondsLeft(endsAt: string | null | undefined): number {
+  const end = useMemo(() => (endsAt ? Date.parse(endsAt.endsWith('Z') ? endsAt : `${endsAt}Z`) : 0), [endsAt]);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!end) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [end]);
+  return end ? Math.max(0, Math.round((end - now) / 1000)) : 0;
+}
+
+export function clock(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+const painted = (h: HeroSummary) => h.steps_done >= 2;
+
+/** "Maya, 7": the name a hero is labelled with everywhere in a class. */
+export const kidLabel = (s: Pick<Student, 'label' | 'age'>) => (s.age ? `${s.label}, ${s.age}` : s.label);
+
+/**
+ * One student on the roster or in the class gallery, as a gallery tile: their
+ * plate, their hero once it exists, their name on the card. A student who has
+ * not made one yet shows their initial on the plate.
+ */
+export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy }: {
+  student: Student;
+  index: number;
+  onOpen?: () => void;
+  onApprove?: () => void;
+  onBlock?: () => void;
+  busy?: boolean;
+}) {
+  const hero = student.hero;
+  const state = hero ? hero.state : student.status === 'waiting' ? 'waiting' : student.status === 'blocked' ? 'blocked' : 'joined';
+  const plate = `tb-plate-${(index % 6) + 1}`;
+  const ready = hero?.state === 'ready';
+  const pct = hero ? Math.round(((hero.steps_done + (hero.state === 'making' ? 0.5 : 0)) / hero.steps_total) * 100) : 0;
+  const status =
+    state === 'making' ? (hero?.step ? STEP_UI[hero.step]?.label ?? 'Making' : 'Making') :
+    state === 'failed' ? 'Didn’t finish' :
+    state === 'waiting' ? (student.shared_device ? 'Shared tablet' : 'Wants to join') :
+    state === 'blocked' ? 'Blocked' :
+    state === 'joined' ? 'Drawing…' : student.claimed ? 'Kept by a parent' : (hero?.character_name || '');
+
+  const body = (
+    <>
+      {hero ? (
+        <img
+          key={ready ? 'hero' : 'art'}
+          className={`tb-tile-img${ready ? ' cls-pop' : ' cls-tile-dim'}${state === 'failed' ? ' tb-hero-faded' : ''}`}
+          src={heroFile(hero, hero && (ready || painted(hero)) ? 'thumb_rendered.png' : 'thumb_original.jpg')}
+          alt={ready ? `${student.label}'s hero` : `${student.label}'s drawing`}
+        />
+      ) : (
+        <span className="cls-tile-initial" aria-hidden="true">{student.first_name.slice(0, 1).toUpperCase()}</span>
+      )}
+      <span className="tb-tile-card">
+        <span className="tb-tile-name" dir="auto">{kidLabel(student)}</span>
+        {state === 'making' && <span className="tb-tile-progress"><span style={{ width: `${pct}%` }} /></span>}
+        <span className={`tb-tile-status${state === 'failed' || state === 'blocked' ? ' tb-tile-status--failed' : ''}${ready ? ' cls-tile-by' : ''}`}>{status}</span>
+      </span>
+    </>
+  );
+
+  return (
+    <div className="cls-tile-wrap" data-state={state}>
+      {onOpen && ready ? (
+        <button type="button" className={`tb-tile ${plate}`} onClick={onOpen} aria-label={`Open ${student.label}'s hero`}>{body}</button>
+      ) : (
+        <div className={`tb-tile ${plate} cls-tile-static`}>{body}</div>
+      )}
+      {state === 'waiting' && onApprove && (
+        <div className="cls-tile-actions">
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm cls-approve" disabled={busy} onClick={onApprove}><Icon name="check" size={18} />Approve</button>
+          {onBlock && <button type="button" className="tb-link cls-block" disabled={busy} onClick={onBlock}>Block</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** − n + : a number a thumb can set. */
+export function Stepper({ value, min, max, onChange, label }: { value: number; min: number; max: number; onChange: (n: number) => void; label: string }) {
+  return (
+    <div className="cls-stepper" role="group" aria-label={label}>
+      <button type="button" className="tb-nav cls-stepper-btn" aria-label="Fewer" disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}><span className="cls-minus" /></button>
+      <input
+        className="cls-stepper-value"
+        inputMode="numeric"
+        aria-label={label}
+        value={value}
+        onChange={(e) => {
+          const n = parseInt(e.target.value.replace(/\D/g, '') || '0', 10);
+          onChange(Math.min(max, Math.max(min, n)));
+        }}
+      />
+      <button type="button" className="tb-nav cls-stepper-btn" aria-label="More" disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}><Icon name="plus" /></button>
+    </div>
+  );
+}

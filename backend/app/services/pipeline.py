@@ -34,6 +34,7 @@ from app.services import meshy
 from app.services import vrm_conversion
 from app.services import result_cache
 from app.services import hero_naming
+from app.services import demo_library
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
 from app.config import pricing
@@ -772,6 +773,11 @@ async def execute_step(
                 raise ValueError(f"Step {step_name} has no output file to copy")
             
             logger.info(f"[{creation_id}] Mock mode: Copying {output_filename} from {mock_creation_id}")
+            # Optional pacing for recorded demos (app/services/demo_library.py);
+            # 0 unless PIPELINE_MOCK_STEP_SECONDS is set.
+            hold = demo_library.mock_step_seconds()
+            if hold:
+                await asyncio.sleep(hold)
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,

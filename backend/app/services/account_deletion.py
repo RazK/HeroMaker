@@ -33,6 +33,14 @@ What happens, table by table:
                                 creation_id cleared.
     coupon_redemptions          KEPT, pointing at the anonymous row, so a coupon's
                                 use count still adds up.
+    classes (a teacher's)       DELETED with their sessions and students (first
+                                names, passes). Each class's wallet account is
+                                deleted by this same function, so the class's
+                                unclaimed heroes and their files go too and its
+                                unspent seats are forfeited like a balance.
+                                Heroes parents have claimed are theirs: KEPT.
+    class_guests (a parent's)   A claimed hero is deleted like any other; the
+                                student row only lets go of it.
 """
 import logging
 import uuid
@@ -73,7 +81,14 @@ def delete_account(db: Session, user: User, task_manager: Optional[object] = Non
     # 2. Files first: if storage fails, nothing else has happened yet.
     removed = get_storage().delete_user_files(user_id)
 
-    # 3. The database, in one transaction.
+    # 3. Classes: students and sessions go, then each class's wallet is
+    # deleted as an account of its own (its heroes, its files, its seats).
+    from app.services import classes
+    for wallet in classes.detach_for_account_deletion(db, user, creation_ids):
+        delete_account(db, wallet, task_manager)
+    classes.delete_classes_of(db, user)
+
+    # 4. The database, in one transaction.
     if creation_ids:
         db.query(CreditTransaction).filter(CreditTransaction.creation_id.in_(creation_ids)).update(
             {CreditTransaction.creation_id: None}, synchronize_session=False
@@ -99,7 +114,7 @@ def delete_account(db: Session, user: User, task_manager: Optional[object] = Non
     user.deleted_at = datetime.utcnow()
     db.commit()
 
-    # 4. Forfeit the balance through the ledger, the only writer of balances.
+    # 5. Forfeit the balance through the ledger, the only writer of balances.
     # After the commit above the account is already gone; a failure here only
     # leaves a stale number on a row nobody can sign in to.
     db.refresh(user)

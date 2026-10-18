@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState } from './pipeline';
 import './Gallery.css';
 
-type Filter = 'featured' | 'all' | 'mine' | 'failed';
+export type Filter = 'featured' | 'all' | 'mine' | 'failed';
 
 /** How long an unstarred hero stays in Editors' choice before it leaves, in ms. */
 const LEAVE_MS = 700;
@@ -13,6 +13,8 @@ interface GalleryProps {
   isLoggedIn: boolean;
   isAdmin: boolean;
   onSelect: (c: CreationResponse) => void;
+  /** Where it opens: Editors' choice unless asked (a parent who just kept a hero opens on My heroes). */
+  initialFilter?: Filter;
 }
 
 /**
@@ -21,8 +23,8 @@ interface GalleryProps {
  * still being made and the ones that failed, because those are the owner's
  * to finish. Admins get a star on every tile to curate Editors' choice.
  */
-export function Gallery({ isLoggedIn, isAdmin, onSelect }: GalleryProps) {
-  const [filter, setFilter] = useState<Filter>('featured');
+export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featured' }: GalleryProps) {
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [creations, setCreations] = useState<CreationResponse[] | null>(null);
   const [error, setError] = useState(false);
   // Unstarred while viewing Editors' choice: still shown for a beat, then gone.
@@ -128,7 +130,7 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect }: GalleryProps) {
           {shown.map((c, i) => (
             <div key={c.id} className={`tb-tile-wrap${leaving.has(c.id) ? ' tb-tile-wrap--leaving' : ''}`}>
               <Tile creation={c} index={i} onClick={() => onSelect(c)} />
-              {isAdmin && c.status === 'completed' && (
+              {isAdmin && c.status === 'completed' && !c.in_class && (
                 <StarToggle on={!!c.featured} busy={pending.has(c.id)} onToggle={() => toggleStar(c)} />
               )}
             </div>

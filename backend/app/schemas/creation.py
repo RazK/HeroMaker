@@ -92,6 +92,8 @@ class CreationResponse(BaseModel):
     error_message: Optional[str] = None  # Derived from failed step
     style: str = DEFAULT_STYLE  # Key of the painting's style; a NULL column reads as the default
     featured: bool = False  # Starred by an admin: shown under Editors' choice
+    # Made in a class and not yet kept by a parent: private, never featured.
+    in_class: bool = False
 
     @classmethod
     def from_creation(cls, creation):
@@ -111,6 +113,7 @@ class CreationResponse(BaseModel):
             error_message=creation.error_message,
             style=resolve_style(creation.style),
             featured=bool(creation.featured),
+            in_class=bool(getattr(creation, "class_id", None)),
             steps=[],
         )
         

@@ -10,6 +10,8 @@ class SignupRequest(BaseModel):
     password: str
     name: str  # User's real name
     date_of_birth: date  # User's date of birth
+    # "I'm a teacher": their home is their classes (docs/product/class-sessions.md).
+    is_teacher: bool = False
     
     @field_validator('password')
     @classmethod
@@ -76,6 +78,7 @@ class UserResponse(BaseModel):
     name: Optional[str]
     credits: int
     is_admin: bool
+    is_teacher: bool = False
     created_at: str
     
     @classmethod
@@ -87,6 +90,7 @@ class UserResponse(BaseModel):
             name=user.name,
             credits=user.credits,
             is_admin=user.is_admin,
+            is_teacher=bool(getattr(user, "is_teacher", False)),
             created_at=user.created_at.isoformat() if user.created_at else None
         )
 
@@ -113,6 +117,7 @@ class UpdateProfileRequest(BaseModel):
     date_of_birth: Optional[date] = None
     current_password: Optional[str] = None  # Required if changing password
     new_password: Optional[str] = None
+    is_teacher: Optional[bool] = None  # switch between the teacher's home and the gallery
     
     @field_validator('username')
     @classmethod

@@ -7,7 +7,11 @@ import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Privacy, PRIVACY_PATH } from './components/tb/Privacy';
-import { Gallery } from './components/tb/Gallery';
+import { Gallery, Filter } from './components/tb/Gallery';
+import { TeacherHome } from './components/class/TeacherHome';
+import { ClassScreen } from './components/class/ClassScreen';
+import { JoinFlow, JOIN_PATH } from './components/class/JoinFlow';
+import { ClaimScreen, CLAIM_PATH } from './components/class/ClaimScreen';
 import { HeroScreen } from './components/tb/HeroScreen';
 import { Icon } from './components/tb/Icon';
 import { Header, NavButton, NoPageScroll, PullToRefresh, Sheet } from './components/tb/parts';
@@ -18,13 +22,38 @@ import { loadStepConfig, getTotalCost } from './config/steps';
 import './styles/toybox.css';
 import './App.css';
 
-type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | 'privacy';
+type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | 'privacy' | 'class' | 'claim';
 
 // The only URL the app routes on: the link in a "Forgot password?" email.
 const isResetUrl = () => window.location.pathname === RESET_PASSWORD_PATH;
 
+// A student joining a class (/join, /join/123456): no account, nothing else of the app.
+const joinPin = (): string | null => {
+  const p = window.location.pathname;
+  if (p !== JOIN_PATH && !p.startsWith(`${JOIN_PATH}/`)) return null;
+  return p.slice(JOIN_PATH.length + 1).replace(/\D/g, '').slice(0, 6);
+};
+// A parent keeping a child's class hero (/claim/<token>).
+const claimToken = (): string | null => {
+  const p = window.location.pathname;
+  return p.startsWith(CLAIM_PATH) ? decodeURIComponent(p.slice(CLAIM_PATH.length)) : null;
+};
+
 function App() {
-  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : window.location.pathname === PRIVACY_PATH ? 'privacy' : 'gallery');
+  const pin = joinPin();
+  if (pin !== null) return <div className="app"><JoinFlow initialPin={pin} /></div>;
+  return <MainApp />;
+}
+
+function MainApp() {
+  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : window.location.pathname === PRIVACY_PATH ? 'privacy' : claimToken() ? 'claim' : 'gallery');
+  const [claim] = useState(claimToken);
+  const [classId, setClassId] = useState<string | null>(null);
+  // Where Back from a hero goes: the gallery, or the class it was opened from.
+  const [heroFrom, setHeroFrom] = useState<'gallery' | 'class'>('gallery');
+  // A teacher looking at the public gallery instead of their classes.
+  const [teacherBrowsing, setTeacherBrowsing] = useState(false);
+  const [galleryFilter, setGalleryFilter] = useState<Filter>('featured');
   const [resetToken] = useState(() => (isResetUrl() ? new URLSearchParams(window.location.search).get('token') ?? '' : ''));
   const [creation, setCreation] = useState<CreationResponse | null>(null);
   const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
@@ -36,7 +65,7 @@ function App() {
   const [showPostUploadActions, setShowPostUploadActions] = useState(false);
   const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
-  const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean; is_teacher: boolean } | null>(null);
   const [galleryKey, setGalleryKey] = useState(0);
   const renderStyles = useRenderStyles();
   const [renderStyle, setRenderStyle] = useState<string>(DEFAULT_STYLE);
@@ -68,7 +97,7 @@ function App() {
     try {
       const user = await api.getMe();
       setCreditBalance(user.credits);
-      setUserInfo({ id: user.id, is_admin: user.is_admin });
+      setUserInfo({ id: user.id, is_admin: user.is_admin, is_teacher: !!user.is_teacher });
       window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
     } catch {
       setCreditBalance(undefined);
@@ -153,7 +182,7 @@ function App() {
   }, []);
 
   const goHome = () => {
-    if (isResetUrl() || window.location.pathname === PRIVACY_PATH) window.history.replaceState(null, '', '/');
+    if (isResetUrl() || window.location.pathname === PRIVACY_PATH || claimToken()) window.history.replaceState(null, '', '/');
     setView('gallery');
     setCreation(null);
     setError(null);
@@ -161,7 +190,8 @@ function App() {
     window.scrollTo({ top: 0 });
   };
 
-  const openHero = (c: CreationResponse) => {
+  const openHero = (c: CreationResponse, from: 'gallery' | 'class' = 'gallery') => {
+    setHeroFrom(from);
     setCreation(c);
     setError(null);
     setView('hero');
@@ -271,8 +301,57 @@ function App() {
     </>
   );
 
+  const openClass = (id: string) => {
+    setClassId(id);
+    setView('class');
+    window.scrollTo({ top: 0 });
+  };
+  const backFromHero = () => {
+    if (heroFrom === 'class' && classId) { setCreation(null); setView('class'); return; }
+    goHome();
+  };
+  const appHeader = (
+    <Header
+      left={(
+        <button type="button" className="tb-logo app-header-center" onClick={goHome} aria-label="HeroMaker home">
+          <img src="/logo-head-transparent.png" alt="" />
+          <span>HeroMaker</span>
+        </button>
+      )}
+      right={<HeaderAuth onOpenAdmin={() => setView('admin')} />}
+    />
+  );
+  const footer = (extra?: JSX.Element) => (
+    <footer className="tb-footer">
+      {extra}
+      <div>Made by Raz Karl &amp; Elad Shikley</div>
+      <div><a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a> · <span className="tb-version">{__APP_VERSION__}</span></div>
+    </footer>
+  );
+  const teacherHome = !!userInfo?.is_teacher && !teacherBrowsing;
+
   let screen;
-  if (view === 'privacy') {
+  if (view === 'claim' && claim) {
+    screen = <ClaimScreen token={claim} onSeeHeroes={() => { setGalleryFilter('mine'); setTeacherBrowsing(true); goHome(); }} />;
+  } else if (view === 'class' && classId && userInfo) {
+    screen = (
+      <ClassScreen
+        classId={classId}
+        credits={creditBalance}
+        onBack={goHome}
+        onOpenHero={(id) => api.getCreation(id).then((c) => openHero(c, 'class')).catch(() => setError('Could not open that hero'))}
+      />
+    );
+  } else if (view === 'gallery' && teacherHome) {
+    screen = (
+      <TeacherHome
+        header={<>{appHeader}{notices}</>}
+        credits={creditBalance}
+        onOpen={(c) => openClass(c.id)}
+        footer={footer(<div><button type="button" className="tb-link" onClick={() => setTeacherBrowsing(true)}>See the hero gallery</button></div>)}
+      />
+    );
+  } else if (view === 'privacy') {
     screen = <Privacy onBack={goHome} />;
   } else if (view === 'reset') {
     screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
@@ -320,9 +399,9 @@ function App() {
         currentUserId={userInfo?.id}
         isAdmin={userInfo?.is_admin ?? false}
         creditBalance={creditBalance}
-        onBack={goHome}
+        onBack={backFromHero}
         onRefresh={refreshCreation}
-        onDeleted={goHome}
+        onDeleted={backFromHero}
         onShowSteps={() => setView('steps')}
         onMakeOwn={startNewHero}
         onCreditsChanged={refreshCreditBalance}
@@ -333,15 +412,7 @@ function App() {
       <div className="tb-screen tb-screen--wide tb-screen--app">
         <NoPageScroll />
         <PullToRefresh />
-        <Header
-          left={(
-            <button type="button" className="tb-logo app-header-center" onClick={goHome} aria-label="HeroMaker home">
-              <img src="/logo-head-transparent.png" alt="" />
-              <span>HeroMaker</span>
-            </button>
-          )}
-          right={<HeaderAuth onOpenAdmin={() => setView('admin')} />}
-        />
+        {appHeader}
         {notices}
         <div className="tb-screen-body">
           {!isLoggedIn && (
@@ -350,11 +421,8 @@ function App() {
               <p className="tb-muted">Snap a photo of any drawing. In a few minutes it is a 3D hero that moves, and your kid can play with it.</p>
             </section>
           )}
-          <Gallery key={galleryKey} isLoggedIn={isLoggedIn} isAdmin={userInfo?.is_admin ?? false} onSelect={openHero} />
-          <footer className="tb-footer">
-            <div>Made by Raz Karl &amp; Elad Shikley</div>
-            <div><a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a> · <span className="tb-version">{__APP_VERSION__}</span></div>
-          </footer>
+          <Gallery key={`${galleryKey}:${galleryFilter}`} initialFilter={galleryFilter} isLoggedIn={isLoggedIn} isAdmin={userInfo?.is_admin ?? false} onSelect={(c) => openHero(c)} />
+          {footer(userInfo?.is_teacher ? <div><button type="button" className="tb-link" onClick={() => setTeacherBrowsing(false)}>Back to my classes</button></div> : undefined)}
         </div>
         <div className="tb-bar">
           <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-new-hero" disabled={isUploading} onClick={startNewHero}>

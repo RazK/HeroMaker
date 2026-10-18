@@ -46,6 +46,8 @@ export interface CreationResponse {
   style?: string;
   /** Starred by an admin: shown under Editors' choice. */
   featured?: boolean;
+  /** Made in a class, not yet kept by a parent: private, never featured. */
+  in_class?: boolean;
 }
 
 /** A look the painting can be made in. The first one is the default. */
@@ -70,7 +72,7 @@ class ApiError extends Error {
   }
 }
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+export async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const method = options?.method || 'GET';
   const isPolling = url.includes('/api/creations/') && method === 'GET';
   
@@ -446,7 +448,7 @@ export const api = {
   /**
    * Authentication methods
    */
-  async signup(username: string, email: string, password: string, name: string, dateOfBirth: string): Promise<{ access_token: string; user: any }> {
+  async signup(username: string, email: string, password: string, name: string, dateOfBirth: string, isTeacher = false): Promise<{ access_token: string; user: any }> {
     console.log('[API] signup:', { username, email, name });
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
       `${API_BASE_URL}/api/auth/signup`,
@@ -455,7 +457,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, password, name, date_of_birth: dateOfBirth }),
+        body: JSON.stringify({ username, email, password, name, date_of_birth: dateOfBirth, is_teacher: isTeacher }),
       }
     );
     setAuthToken(result.access_token);
@@ -652,6 +654,7 @@ export const api = {
     date_of_birth?: string;
     current_password?: string;
     new_password?: string;
+    is_teacher?: boolean;
   }): Promise<any> {
     console.log('[API] updateProfile:', { ...data, current_password: data.current_password ? '***' : undefined, new_password: data.new_password ? '***' : undefined });
     const result = await fetchJson<any>(
@@ -918,7 +921,7 @@ export { ApiError };
  * applied by createImageBitmap), so uploads are fast on mobile data and stay
  * well under the server's body limit. Anything that fails returns the file as is.
  */
-async function shrinkPhoto(file: File, maxSide = 2048): Promise<File> {
+export async function shrinkPhoto(file: File, maxSide = 2048): Promise<File> {
   try {
     if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
     const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });

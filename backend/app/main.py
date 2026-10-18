@@ -141,7 +141,7 @@ except Exception as e:
 
 # Import routers after lifespan is defined (but before app creation)
 # This avoids circular imports since routers import get_task_manager from task_manager module
-from app.api import creations, files, auth, coupons, health, admin, payments, styles
+from app.api import creations, files, auth, coupons, health, admin, payments, styles, classes
 
 app = FastAPI(title="HeroMaker API", lifespan=lifespan)
 
@@ -165,6 +165,8 @@ app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(payments.router, prefix="/api/payments", tags=["payments"])
 app.include_router(health.router, tags=["health"])
 app.include_router(styles.router, tags=["styles"])
+app.include_router(classes.teacher_router, prefix="/api/classes", tags=["classes"])
+app.include_router(classes.student_router, prefix="/api/class", tags=["classes"])
 
 @app.get("/")
 def root():
