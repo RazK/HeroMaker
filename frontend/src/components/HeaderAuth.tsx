@@ -5,7 +5,7 @@ import { CouponRedeem } from './CouponRedeem';
 import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
 import { Icon } from './tb/Icon';
-import { Dialog, NavButton, Sheet, SheetRow } from './tb/parts';
+import { Dialog, Sheet, SheetRow } from './tb/parts';
 import './HeaderAuth.css';
 
 /**
@@ -70,6 +70,23 @@ interface User {
   name: string | null;
   credits: number;
   is_admin: boolean;
+}
+
+/**
+ * The signed-in person in the header: their initials on one of the gallery's
+ * plate colours, the same one every time (picked from their id). A hero's
+ * picture was tried here and read worse: auto-cropping to the head is not
+ * reliable across heroes.
+ */
+function AccountButton({ user, onClick }: { user: User; onClick: () => void }) {
+  const words = (user.name?.trim() || user.username).split(/[\s._-]+/).filter(Boolean);
+  const initials = (words.length > 1 ? words[0][0] + words[1][0] : words[0]?.slice(0, 2) || '?').toUpperCase();
+  const plate = ([...user.id].reduce((n, ch) => n + ch.charCodeAt(0), 0) % 6) + 1;
+  return (
+    <button type="button" className={`tb-nav tb-avatar tb-plate-${plate} header-auth-user-button`} aria-label="Account" title="Account" onClick={onClick}>
+      <span>{initials}</span>
+    </button>
+  );
 }
 
 interface HeaderAuthProps {
@@ -211,7 +228,7 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
           <button type="button" className="tb-credits header-auth-credits" aria-label={`${user.credits} credits. Buy more`} onClick={handleOpenBuyModal}>
             <Icon name="coin" size={18} />{user.credits}
           </button>
-          <NavButton icon="user" label="Account" className="header-auth-user-button" onClick={() => setShowUserMenu(true)} />
+          <AccountButton user={user} onClick={() => setShowUserMenu(true)} />
         </>
       )}
 

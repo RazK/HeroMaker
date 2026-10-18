@@ -32,93 +32,63 @@
 
 /* ---------------------------------------------------------------- lobby */
 /*
- * The lobby is a title, the camera preview and Start. Everything else has a
- * default and lives in the settings sheet, which takes the card's place rather
- * than stacking on it.
- *
- * The card does not scroll. Exactly one thing inside it may (the hero gallery,
- * when there is no hero of your own to dance), and tools/screenaudit.mjs rule 1
- * fails the build for any control clipped by anything else.
+ * The lobby is the app's docked sheet (ui/toybox.css .tb-panel): the hero's
+ * name and the gear button, the camera preview, and Start. The card never
+ * scrolls; exactly one thing inside it may (the hero gallery, only without a
+ * hero of your own), and tools/screenaudit.mjs rule 1 fails the build for any
+ * control clipped by anything else.
  */
-#title .card { padding: var(--space-3) var(--space-4); gap: 0; overflow: hidden; }
-.menu-main, .menu-settings {
+.menu-main {
   display: flex; flex-direction: column; gap: 12px;
-  min-height: 0; flex: 1 1 auto;
+  min-height: 0; flex: 1 1 auto; justify-content: flex-end;
 }
-.menu-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  text-align: start;
-}
-#title h1 { font-size: clamp(26px, 4.6vmin, 36px); text-align: start; min-width: 0; }
-#title h1 em {
-  font-size: .5em; letter-spacing: .04em; margin-bottom: .15em;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-/* The way into the settings: a small labelled pill at the head of the card. */
-.menu-gear {
-  pointer-events: auto; cursor: pointer; flex: 0 0 auto;
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 44px; padding: 0 14px 0 11px;
-  border: 0; border-radius: 999px;
-  font: inherit; font-weight: 800; font-size: 14px;
-}
-.menu-gear svg { flex: 0 0 auto; }
+.menu-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.menu-title { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.menu-gear { flex: 0 0 auto; }
 
 /*
  * The preview.
  *
  * Its only job is "can it see me", which needs the player's whole body, so it
- * is as big as the card can make it and always the camera's own shape: main.ts
- * contain-fits the stream's aspect ratio into the card's width and this
- * max-height, so nothing is stretched and nothing is cropped. A phone held
- * upright gets a tall box; a laptop gets a wide one.
+ * is as big as the sheet can make it and always the camera's own shape: main.ts
+ * contain-fits the stream's aspect ratio into the sheet's width and this
+ * max-height, so nothing is stretched and nothing is cropped.
  */
 .menu-camwrap {
-  --cam-max: min(40vh, 400px);
+  --cam-max: min(36vh, 380px);
   position: relative; flex: 0 0 auto; align-self: center;
   width: 100%; height: var(--cam-max); max-height: var(--cam-max);
-  border-radius: 22px; overflow: hidden;
-  background: #1b1430;
+  border-radius: var(--tb-radius-input); overflow: hidden;
+  background: var(--tb-plate-1);
   display: grid; place-items: center;
 }
 /* With a hero gallery to fit as well, the preview gives up most of its room. */
-.roster .menu-camwrap { --cam-max: min(20vh, 190px); }
+.roster .menu-camwrap { --cam-max: min(18vh, 170px); }
 .menu-cam { width: 100%; height: 100%; display: block; }
-/* A ring that turns mint once the whole body is in the picture. */
+/* An ink outline like every app control, that turns green once the whole body is in. */
 .menu-camwrap::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
-  box-shadow: inset 0 0 0 3px rgba(253, 247, 236, .14);
+  box-shadow: inset 0 0 0 2px var(--tb-line);
   pointer-events: none; transition: box-shadow .2s ease;
 }
-.menu-camwrap.seen::after { box-shadow: inset 0 0 0 4px var(--mint); }
+.menu-camwrap.seen::after { box-shadow: inset 0 0 0 4px var(--tb-green); }
 /* One short sentence on the picture: step back, step in, or we can see you. */
 .cam-hint {
   position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
   width: max-content; max-width: calc(100% - 24px); margin: 0;
-  padding: .4em .95em; border-radius: 999px;
-  font-weight: 800; font-size: 13px; line-height: 1.25; text-align: center;
-  background: rgba(18, 12, 32, .82); color: var(--paper);
+  padding: 6px 14px; border-radius: 999px;
+  font-family: var(--tb-font-body); font-weight: 800; font-size: 15px; line-height: 1.3; text-align: center;
+  background: var(--tb-white); color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink); border: 2px solid var(--tb-ink);
 }
 .cam-hint:empty { display: none; }
-.menu-camwrap.seen .cam-hint { background: var(--mint); color: var(--ink); }
+.menu-camwrap.seen .cam-hint { background: var(--tb-green); color: var(--tb-white); border-color: var(--tb-green); box-shadow: none; }
+.menu-camwrap.off .cam-hint { position: static; transform: none; margin-top: 12px; box-shadow: none; border: 0; background: none; }
 
-/* The one control that turns the camera on, sitting in the empty preview. */
-.cam-btn {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  pointer-events: auto; cursor: pointer; white-space: nowrap;
-  min-height: 44px; padding: .5em 1.2em; border: 0; border-radius: 999px;
-  font: inherit; font-weight: 800; font-size: 15px;
-}
-.cam-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+/* The one control that turns the camera on, in the middle of the empty preview. */
+.menu-camwrap.off { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; }
+.menu-camwrap.off .menu-cam { display: none; }
 .menu-camwrap:not(.off) .cam-btn { display: none; }
-
-/* ---------------------------------------------------------------- settings */
-.menu-settings h2 { text-align: start; font-size: clamp(22px, 3.4vmin, 28px); }
-.menu-settings .segmented .seg { min-height: 40px; font-size: 12px; }
-.menu-settings .stance .seg { font-size: 14px; }
-/* "1P" needs less room than "Normal / 40s", so the round length gets more of it. */
-.menu-settings .setting-pair { grid-template-columns: 2fr 3fr; }
 
 /* ---------------------------------------------------------------- picker */
 /*
@@ -263,32 +233,35 @@
 /*
  * A player's score rides above that player's own head. Projected every frame
  * from the hero's skull, so it tracks a hero that jumps, and colour-matched to
- * the lane so it survives two heroes crossing.
+ * the lane so it survives two heroes crossing. In the display face with an ink
+ * outline, the app's look given the size a score on a stage deserves.
  */
 #plates { pointer-events: none; }
 .p-plate {
   position: absolute; left: 0; top: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
   transition: opacity .2s ease;
   will-change: transform;
 }
 .p-score {
-  font-weight: 800; line-height: 1;
-  font-size: clamp(18px, 3.1vmin, 32px);
-  color: var(--lane, var(--gold));
-  -webkit-text-stroke: 5px rgba(16, 10, 28, .92);
+  font-family: var(--tb-font-display); font-weight: 600; line-height: 1;
+  font-size: clamp(30px, 5vmin, 44px);
+  color: var(--lane, var(--tb-sun));
+  -webkit-text-stroke: 6px var(--tb-ink);
   paint-order: stroke fill;
 }
+/* The combo is a small white pill, like the app's chips. */
 .p-combo {
-  font-weight: 800; font-size: clamp(11px, 1.7vmin, 15px);
-  color: var(--paper);
-  -webkit-text-stroke: 4px rgba(16, 10, 28, .9);
-  paint-order: stroke fill;
+  font-family: var(--tb-font-body); font-weight: 800; font-size: 15px; line-height: 1;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--tb-white); color: var(--tb-ink); border: 2px solid var(--tb-ink);
 }
+.p-combo:empty { display: none; }
 .p-grade {
-  font-weight: 800; font-size: clamp(15px, 2.6vmin, 26px);
-  letter-spacing: .02em; opacity: 0; white-space: nowrap;
-  -webkit-text-stroke: 5px rgba(16, 10, 28, .92);
+  font-family: var(--tb-font-display); font-weight: 600;
+  font-size: clamp(28px, 4.6vmin, 40px); line-height: 1;
+  opacity: 0; white-space: nowrap;
+  -webkit-text-stroke: 6px var(--tb-ink);
   paint-order: stroke fill;
 }
 .p-grade.show { animation: platePop calc(.9s / var(--time-scale)) ease-out; }
@@ -298,174 +271,116 @@
   68% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: translateY(-22px) scale(1); }
 }
-/* An empty lane is the one failure a player can actually fix, so it is said
-   loudly and over the hero it belongs to. */
+/* An empty lane is the one failure a player can fix, so it is said over the
+   hero it belongs to, in the app's danger colour. */
 .p-lost {
-  padding: .22em .6em; border-radius: 999px;
-  font-size: clamp(9px, 1.4vmin, 12px); font-weight: 800;
-  letter-spacing: .12em; background: var(--pop); color: var(--paper);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+  padding: 6px 14px; border-radius: 999px;
+  font-family: var(--tb-font-body); font-size: 15px; font-weight: 800;
+  background: var(--tb-red); color: var(--tb-white);
+  box-shadow: 0 var(--tb-depth-sm) 0 #8e1b1b;
 }
-.p-plate.missing .p-score { opacity: .45; }
+.p-plate.missing .p-score { opacity: .5; }
 
 /* ---------------------------------------------------------------- hud */
+/*
+ * The round's corners are the app's header: the camera picture where the back
+ * button sits, the round pause button where the app keeps its right-hand one.
+ */
+#hud .hud-top {
+  position: absolute; left: 0; right: 0;
+  top: calc(var(--tb-space) + env(safe-area-inset-top, 0px));
+  padding: 0 var(--tb-gutter);
+  align-items: flex-start;
+}
+#hud { padding: 0; }
+#pauseBtn { pointer-events: auto; }
+/*
+ * The camera picture-in-picture: small, a 3:4 cell per player cropped to the
+ * body (see PartyHud.drawCamera), framed like the app's controls.
+ */
 #camStrip {
-  border-radius: 12px; overflow: hidden;
-  background: rgba(0, 0, 0, .45);
-  box-shadow: 0 0 0 2px rgba(253, 247, 236, .22), 0 8px 24px rgba(0, 0, 0, .5);
+  border-radius: var(--tb-radius-input); overflow: hidden;
+  background: var(--tb-ink);
+  border: 2px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
   line-height: 0;
 }
-#camStrip canvas { width: clamp(150px, 30vmin, 340px); height: auto; }
-
-.icon-btn {
-  pointer-events: auto; cursor: pointer;
-  flex: 0 0 auto;
-  min-width: 44px; min-height: 44px;
-  border: 0; border-radius: 999px;
-  font: inherit; font-weight: 800; font-size: 15px; letter-spacing: .06em;
-  background: rgba(253, 247, 236, .93); color: var(--ink);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+#camStrip canvas { display: block; width: 84px; height: auto; }
+#camStrip[data-players="2"] canvas { width: 132px; }
+#camStrip[data-players="3"] canvas { width: 180px; }
+@media (min-height: 700px) and (min-width: 700px) {
+  #camStrip canvas { width: 120px; }
+  #camStrip[data-players="2"] canvas { width: 200px; }
+  #camStrip[data-players="3"] canvas { width: 270px; }
 }
-.icon-btn:active { transform: translateY(2px); }
-.icon-btn:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
 
 /* ---------------------------------------------------------------- podium */
-.podium { display: flex; flex-direction: column; gap: 6px; }
+/* Each player on one of the app's coloured plates, names and scores in the display face. */
+.podium { display: flex; flex-direction: column; gap: 8px; }
 .podium-row {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: .4em .6em; border-radius: 14px;
-  background: rgba(23, 16, 31, .06);
-  text-align: left;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: var(--tb-radius-input);
+  text-align: start;
 }
-.podium-row.win {
-  background: rgba(255, 210, 63, .22);
-  box-shadow: inset 0 0 0 2px rgba(160, 107, 0, .5);
-}
-.podium-row img { border-radius: 10px; flex: 0 0 auto; }
+.podium-row.win { box-shadow: inset 0 0 0 3px var(--tb-sun-deep); }
+.podium-row img { border-radius: 12px; flex: 0 0 auto; background: var(--tb-white); }
 .place {
-  flex: 0 0 auto; width: 1.9em; height: 1.9em; border-radius: 50%;
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
   display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(12px, 1.9vmin, 15px);
-  background: var(--lane, var(--gold)); color: var(--ink);
+  font-family: var(--tb-font-display); font-size: 19px;
+  background: var(--tb-white); color: var(--tb-ink); border: 2px solid var(--tb-ink);
 }
 .place:empty { display: none; }
-.podium-who { flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.15; }
-.podium-who b { font-size: clamp(13px, 2.1vmin, 17px); }
-.podium-who .muted { font-size: clamp(10px, 1.5vmin, 12px); }
+.podium-who { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.podium-who b {
+  font-family: var(--tb-font-display); font-weight: 600; font-size: 22px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .podium-nums {
   flex: 0 0 auto; display: flex; flex-direction: column;
-  align-items: flex-end; line-height: 1.15;
+  align-items: flex-end; line-height: 1.2;
 }
-.podium-nums b { font-size: clamp(15px, 2.5vmin, 22px); }
-.podium-nums span { font-size: clamp(10px, 1.5vmin, 12px); opacity: .7; font-weight: 700; }
+.podium-nums b { font-family: var(--tb-font-display); font-weight: 600; font-size: 28px; }
+.podium-row .tb-muted { font-size: 14px; font-weight: 700; }
 
-/*
- * Every control is at least a thumb.
- *
- * The short-screen rules in the base sheet shrink type to make a card fit, and
- * twice that has taken the primary button down to 30px — measured, not guessed,
- * by the fit rule in tools/screenaudit.mjs. Type may shrink; the target may not.
- */
-.btn { min-height: 44px; }
+/* Every control is at least a thumb. */
 .seg { min-height: 34px; }
 .pick { min-height: 44px; }
 
 /*
- * Portrait is the hard case: the card owns the bottom of the screen and the
- * heroes own what is left, and with three pick rows and a camera preview the
- * card will happily take the lot. The stage is the reason anyone chose a hero,
- * so the card is capped and its insides give way instead.
+ * How tall the preview may be: what the sheet leaves after its title, its
+ * button and the 30% of the screen the stage is always kept.
  */
-/* The results card is short enough that letting it scroll is harmless, and its
-   two buttons ride the bottom of it. Opaque paper, matching the card exactly:
-   at 97% this gradient painted a paler rectangle that read as a rendering bug.
-   It is the last deliberate overlay in a card, and carries the mark the audit's
-   allowlist keys on. */
-#results .actions {
-  position: sticky; bottom: calc(var(--space-3) * -1); z-index: 1;
-  padding-bottom: var(--space-1);
-  background: linear-gradient(rgba(253, 247, 236, 0), var(--paper) 32%);
+@media (orientation: landscape) {
+  .menu-camwrap { --cam-max: clamp(100px, calc(100vh - 184px), 420px); }
+  .roster .menu-camwrap { --cam-max: min(22vh, 190px); }
 }
-
 @media (orientation: portrait) {
-  #title .card { max-height: 68vh; }
-  #title h1 { font-size: clamp(22px, 5vmin, 34px); }
-  /* Three columns of 100px images is 250px of gallery on a 380px card. The
-     artwork stays legible well under that. */
   .gtile img { max-height: clamp(52px, 8.5vh, 92px); }
   /* Three chips across a phone leave no room for a name; the thumbnail says
      who it is, and the gallery underneath spells it out. */
   .who-name { display: none; }
   .who img { width: 30px; height: 30px; }
-  #camStrip canvas { width: clamp(120px, 46vw, 240px); }
-}
-/*
- * Landscape: the card is a column beside the heroes, as tall as the screen, so
- * the preview gets whatever height the title and Start leave it.
- */
-@media (orientation: landscape) {
-  .menu-camwrap { --cam-max: clamp(100px, calc(100vh - 190px), 420px); }
-  .roster .menu-camwrap { --cam-max: min(22vh, 190px); }
 }
 @media (max-height: 620px) {
   .who img { width: 26px; height: 26px; }
   .who-name { display: none; }
-  .gname { font-size: 9px; }
-  /*
-   * The lobby card cannot scroll, so on a short screen every pixel it wants has
-   * to come from somewhere it is not needed: a smaller title and tighter gaps.
-   */
-  #title .card { padding: 10px 16px; }
-  .menu-main, .menu-settings { gap: 8px; }
-  #title h1 { font-size: clamp(20px, 4.4vmin, 26px); }
   .gtile img { max-height: clamp(52px, 8.5vh, 72px); }
   .who { min-height: 38px; }
-  /* The results card holds a podium of three and two buttons, and on a 320x480
-     phone that left the celebrating heroes 28% of the screen — under the 30%
-     the fit rule holds every card to, and the heroes are the prize. */
-  #results .card { padding: 10px 16px; gap: var(--space-2); }
-  .podium { gap: 4px; }
-  .podium-row { padding: .2em .45em; gap: 8px; }
-  .podium-row img { width: 34px; height: 34px; }
-  #results h1 { font-size: clamp(20px, 4.4vmin, 30px); }
+  .podium { gap: 6px; }
+  .podium-row { padding: 6px 12px; }
+  .podium-row img { width: 36px; height: 36px; }
 }
-/* A landscape phone: the presenter line goes, the title shares a row with Settings. */
-@media (orientation: landscape) and (max-height: 500px) {
-  .roster h1 em { display: none; }
-  .menu-settings .segmented .seg, .stage-pick { min-height: 34px; }
-  .menu-settings h2 { font-size: 20px; }
+/* A short screen: the eyebrow over the title goes in the gallery version, which needs the room. */
+@media (max-height: 500px) {
+  .roster .menu-title .tb-eyebrow { display: none; }
+}
+@media (orientation: portrait) and (max-height: 500px) {
+  .roster .menu-camwrap { --cam-max: 52px; }
+  .who { min-height: 34px; }
+  .who img { width: 24px; height: 24px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .p-grade.show { animation: none; opacity: 1; }
   .menu-camwrap::after { transition: none; }
-}
-
-/*
- * Only portrait gives the stage its height back. In landscape the card is a
- * column beside the heroes, so capping its height there shrinks it for nothing.
- */
-@media (orientation: portrait) and (max-height: 620px) {
-  #title .card { max-height: 70vh; }
-}
-
-/*
- * The last stop: a 320x480 phone, where one full row of hero portraits at the
- * size they stop being smudges needs every pixel the head of the card holds.
- */
-@media (orientation: portrait) and (max-height: 500px) {
-  #title h1 { font-size: 18px; }
-  .roster h1 em { display: none; }
-  .roster .menu-camwrap { --cam-max: 64px; }
-  .who { min-height: 34px; }
-  .who img { width: 24px; height: 24px; }
-  .gname { font-size: 8px; }
-}
-
-/*
- * Below 360px the card is 294px wide, which is 37px per round-length segment.
- * At that width the horizontal padding is the only thing standing between
- * "Normal" and "Norma…", so it goes.
- */
-@media (max-width: 360px) {
-  .setting .seg { padding: .45em .1em; letter-spacing: -.01em; }
 }

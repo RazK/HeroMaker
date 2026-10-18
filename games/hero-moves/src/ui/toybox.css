@@ -1,112 +1,178 @@
 /*
- * The dance game in the HeroMaker app's Toy Box look, laid over its own
- * stage-light sheet rather than replacing it.
+ * The games in the HeroMaker app's Toy Box look — the app's own stylesheet,
+ * not a copy of it.
  *
- * Only the chrome a player touches changes: cream cards, grape for the action
- * and for what is chosen, chunky buttons with a pressable depth, Fredoka for
- * headings and Nunito for everything else, and a round back button to the app
- * in the top-left corner where the app keeps it. The stage, the move strip and
- * the score plates keep their dark-theatre styling, which is what they were
- * measured for (tools/contrast.mjs).
+ * frontend/src/styles/toybox.css is the one source of the tokens (colours,
+ * fonts, spacing, depth, radii) and of the parts (.tb-btn, .tb-nav, .tb-chip,
+ * .tb-sheet, .tb-dialog, .tb-eyebrow, .tb-h1 ...). It is imported here so a
+ * change in the app is a change in every game, and ui/tb.ts builds the same
+ * markup the app's React parts make. A new game imports this file and ui/tb.ts
+ * and gets the whole system.
  *
- * Tokens match frontend/src/styles/toybox.css.
+ * Below the import: only what a game has that the app does not — a 3D stage
+ * behind everything, a camera picture, and the in-round HUD.
  */
-:root {
-  --tb-grape: #5b3df5;
-  --tb-deep: #3a22b8;
-  --tb-sun: #ffc233;
-  --tb-ink: #231942;
-  --tb-cream: #fff6e9;
-  --tb-white: #ffffff;
-  --tb-line: #e9e0fb;
-  --tb-space: 16px;
-  --tb-depth: 4px;
-  --tb-nav: 48px;
+@import '../../../../frontend/src/styles/toybox.css';
 
-  /* The game's own tokens, pointed at the app's palette. */
+/* ---------------------------------------------------------------- page */
+/* The app's stylesheet paints the page cream with ink text, which is right for
+   every sheet and wrong behind a 3D stage whose HUD sets its own colours. */
+html body { background: var(--stage-deep); color: var(--tb-ink); font-family: var(--tb-font-body); }
+/* The game's older names for things, pointed at the app's tokens. */
+:root {
   --ink: var(--tb-ink);
   --paper: var(--tb-cream);
   --gold: var(--tb-sun);
   --grape-ink: var(--tb-grape);
-  --radius: 28px;
+  --pop: var(--tb-red);
 }
+.num { font-variant-numeric: tabular-nums; }
 
-html, body { font-family: 'Nunito', system-ui, sans-serif; }
-html { font-synthesis: none; }
-h1, h2, .boot-title, #countdown, #grade, .readout .value, .p-score, .btn {
-  font-family: 'Barriecito', 'Fredoka', 'Nunito', system-ui, sans-serif;
-  font-weight: 600;
-}
-h1 { letter-spacing: 0; }
-.card h1 em, h1 em { color: var(--tb-grape); letter-spacing: .08em; }
-
-/* ---------------------------------------------------------------- buttons */
-.btn {
-  background: var(--tb-grape); color: var(--tb-white);
-  border-radius: 20px;
-  box-shadow: 0 var(--tb-depth) 0 var(--tb-deep);
-  transition: transform .08s ease, box-shadow .08s ease;
-}
-.btn:hover { filter: none; }
-.btn:active { transform: translateY(var(--tb-depth)); box-shadow: 0 0 0 var(--tb-deep); }
-.btn:focus-visible { outline: 3px solid var(--tb-sun); }
-.btn.secondary {
-  background: var(--tb-white); color: var(--tb-grape);
-  box-shadow: 0 0 0 2px var(--tb-line) inset, 0 var(--tb-depth) 0 var(--tb-line);
-}
-.btn.secondary:active { box-shadow: 0 0 0 2px var(--tb-line) inset, 0 0 0 var(--tb-line); }
-/* Buttons draw their depth below their box, so the column leaves room for it. */
-.actions { gap: calc(var(--space-2) + var(--tb-depth)); padding-bottom: var(--tb-depth); }
-
-/* Secondary on purpose: Start is the screen's one grape button, and it turns
-   the camera on too. */
-.cam-btn, .menu-gear {
-  background: var(--tb-white); color: var(--tb-grape);
-  box-shadow: 0 0 0 2px var(--tb-line) inset, 0 var(--tb-depth) 0 var(--tb-line);
-  transition: transform .08s ease, box-shadow .08s ease;
-}
-.cam-btn:active, .menu-gear:active {
-  box-shadow: 0 0 0 2px var(--tb-line) inset, 0 0 0 var(--tb-line);
-}
-.cam-btn:active { transform: translate(-50%, calc(-50% + var(--tb-depth))); }
-.menu-gear:active { transform: translateY(var(--tb-depth)); }
-.menu-gear:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 3px; }
-.menu-settings .actions, .menu-main .actions { margin-top: auto; }
-.seg.on { color: var(--tb-grape); }
-.stage-pick.on { background: var(--tb-grape); color: var(--tb-white); }
-.gtile.on { background: rgba(91, 61, 245, .08); }
-
-/* ---------------------------------------------------------------- back */
-.tb-back {
-  position: absolute; z-index: 30;
-  left: calc(var(--tb-space) + env(safe-area-inset-left, 0px));
+/* ---------------------------------------------------------------- corners */
+/* Round buttons sit where the app's header puts them: 16px down, 20px in. */
+.tb-corner {
+  position: absolute; z-index: 30; pointer-events: auto;
   top: calc(var(--tb-space) + env(safe-area-inset-top, 0px));
-  width: var(--tb-nav); height: var(--tb-nav); border-radius: 50%;
-  display: grid; place-items: center; padding: 0; border: 0; cursor: pointer;
-  background: var(--tb-white); color: var(--tb-grape);
-  box-shadow: 0 var(--tb-depth) 0 var(--tb-line);
-  pointer-events: auto;
-  transition: transform .08s ease, box-shadow .08s ease;
 }
-.tb-back:active { transform: translateY(var(--tb-depth)); box-shadow: 0 0 0 var(--tb-line); }
-.tb-back:focus-visible { outline: 3px solid var(--tb-sun); outline-offset: 3px; }
+.tb-corner--start { inset-inline-start: calc(var(--tb-gutter) + env(safe-area-inset-left, 0px)); }
+.tb-nav:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 var(--tb-depth-sm) 0 var(--tb-ink); }
 
+/* ---------------------------------------------------------------- panels */
 /*
- * With the back button showing, the lobby card keeps clear of its corner. In
- * portrait the card already sits at the foot of the screen; in landscape it
- * hugs the left edge, right under the button, so it steps down a row.
+ * The lobby and the results are the app's bottom sheet, docked: white, the
+ * card radius on top, the grip, the gutter, and the bottom padding that gives a
+ * button's depth back. Nothing behind them is dimmed — the stage is the point.
  */
+#title, #results {
+  padding: 0; justify-content: flex-end; align-items: stretch;
+  background: none;
+}
+.tb-panel {
+  /* Overrides the game's older .card. */
+  width: 100%; max-width: 560px; margin: 0 auto; max-height: none;
+  background: var(--tb-white); color: var(--tb-ink);
+  border-radius: var(--tb-radius-card) var(--tb-radius-card) 0 0;
+  padding: var(--tb-space) var(--tb-gutter)
+    calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -2px 0 var(--tb-line), 0 -12px 32px rgba(35, 25, 66, 0.18);
+  display: flex; flex-direction: column; gap: 12px;
+  text-align: start; overflow: hidden;
+}
+.tb-panel .tb-sheet-grip { margin-bottom: 0; }
+.tb-panel .actions, .tb-dialog .actions { display: flex; flex-direction: column; gap: var(--tb-stack); padding: 0; }
+.tb-panel h1, .tb-dialog h2 { color: var(--tb-ink); margin: 0; }
+.tb-h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The app's buttons, never shrunk by the game's older short-screen rules. */
+.tb-btn { height: var(--tb-btn-h); min-height: 0; width: auto; padding: 0 24px; font-size: 19px; }
+.tb-btn--full { width: 100%; }
+.tb-btn span { overflow: hidden; text-overflow: ellipsis; }
+
+/* Landscape phone: the sheet docks to the right of the stage, as the app's bar does. */
 @media (orientation: landscape) {
-  .has-back #results {
-    padding-top: calc(var(--tb-nav) + 2 * var(--tb-space));
-    padding-bottom: var(--tb-space);
+  #title, #results { justify-content: stretch; align-items: flex-end; }
+  .tb-panel {
+    width: min(400px, 46vw); max-width: none; height: 100%; margin: 0;
+    border-radius: var(--tb-radius-card) 0 0 var(--tb-radius-card);
+    padding: var(--tb-space) var(--tb-gutter)
+      calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+    box-shadow: -2px 0 0 var(--tb-line), -12px 0 32px rgba(35, 25, 66, 0.18);
+    justify-content: flex-end;
   }
-  /* The lobby steps right of the button instead, so the camera preview keeps
-     the full height of the screen. */
-  .has-back #title {
-    padding-top: var(--tb-space); padding-bottom: var(--tb-space);
-    padding-left: calc(var(--tb-nav) + 2 * var(--tb-space) + env(safe-area-inset-left, 0px));
-    justify-content: center;
-  }
-  .has-back .card { max-height: 100%; }
+  .tb-panel .tb-sheet-grip { display: none; }
+}
+
+/* ---------------------------------------------------------------- dialog */
+/* Pause: the app's centred dialog over the app's scrim. */
+#pause { background: rgba(35, 25, 66, 0.55); padding: var(--tb-gutter); }
+.pause-card.card {
+  width: 100%; max-width: 420px; max-height: none; overflow: visible;
+  padding: 24px; gap: 20px; border-radius: var(--tb-radius-card);
+  background: var(--tb-white); box-shadow: none; text-align: center;
+}
+
+/* ---------------------------------------------------------------- settings */
+.settings-layer { z-index: 50; }
+.settings-layer[hidden] { display: none; }
+.menu-settings { gap: 12px; }
+.menu-settings .tb-sheet-title { padding-bottom: 0; }
+.tb-fields { display: flex; flex-wrap: wrap; gap: 16px 28px; }
+.tb-field { flex: 0 1 auto; min-width: 0; }
+.tb-field label { color: var(--tb-ink); font-size: 15px; font-weight: 800; }
+.tb-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.tb-chip { height: 40px; font-size: 15px; transition: background 80ms ease; }
+/* A phone on its side: wider sheet, so the settings sit two rows deep and nothing scrolls. */
+@media (orientation: landscape) {
+  .menu-settings { max-width: 760px; }
+  .menu-settings .tb-sheet-grip { display: none; }
+  .menu-settings .tb-fields { display: grid; grid-template-columns: auto 1fr; gap: 14px 28px; }
+}
+
+/* ---------------------------------------------------------------- round */
+/* The move's name under the strip and the count-in: display face, sun on an ink outline. */
+#moveName {
+  font-family: var(--tb-font-display); font-weight: 600;
+  font-size: 22px; letter-spacing: 0; text-transform: none;
+  color: var(--tb-sun); bottom: -1.3em;
+  -webkit-text-stroke: 5px var(--tb-ink); paint-order: stroke fill; text-shadow: none;
+}
+#stripLine { background: var(--tb-sun); box-shadow: 0 0 0 2px var(--tb-ink); }
+#stripLine::before { border-top-color: var(--tb-sun); }
+#stripLine::after { border-bottom-color: var(--tb-sun); }
+#countdown {
+  font-family: var(--tb-font-display); font-weight: 600;
+  color: var(--tb-sun); -webkit-text-stroke: 12px var(--tb-ink);
+  text-shadow: none;
+}
+
+/* ---------------------------------------------------------------- boot */
+/* Loading looks like the app loading: cream page, the name in the display
+   face, a grape bar on the app's track. */
+#boot { background: var(--tb-cream); color: var(--tb-ink); }
+.boot-card { gap: 12px; width: min(320px, calc(100vw - 2 * var(--tb-gutter))); }
+.boot-eyebrow { margin: 0; }
+.boot-title {
+  font-family: var(--tb-font-display); font-weight: 600; font-size: 32px; line-height: 36px;
+  color: var(--tb-ink); max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.boot-title em { color: var(--tb-grape-text); }
+.boot-dots i { background: var(--tb-grape); }
+.boot-dots i:nth-child(2) { background: var(--tb-sun); }
+.boot-dots i:nth-child(3) { background: var(--tb-green); }
+.boot-bar { height: 10px; background: var(--tb-track); }
+#bootFill { background: var(--tb-grape); }
+#bootWhat { font-family: var(--tb-font-body); font-size: 15px; font-weight: 700; color: var(--tb-ink-2); opacity: 1; }
+
+/* The move's name sits under the strip; keep the pair clear of the bottom edge. */
+#strip { bottom: calc(36px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---------------------------------------------------------------- fit */
+/*
+ * Portrait keeps 30% of the screen for the stage (tools/screenaudit.mjs's fit
+ * rule): the sheet is capped, and only the hero gallery gives way.
+ */
+@media (orientation: portrait) {
+  .tb-panel { max-height: 70vh; }
+  #title .gallery { min-height: 76px; }
+}
+.cam-btn { max-width: calc(100% - 16px); }
+/* The results' two buttons side by side, as the app's .tb-bar-row pairs them: primary last. */
+.tb-panel .result-actions { flex-direction: row; gap: 12px; }
+.result-actions > * { flex: 1 1 0; min-width: 0; padding: 0 12px; }
+/* Short phones: the eyebrows go and the podium tightens, so three players fit. */
+@media (orientation: portrait) and (max-height: 700px) {
+  #results .tb-eyebrow, .roster .menu-title .tb-eyebrow { display: none; }
+  #results .tb-panel, .roster.tb-panel { gap: 8px; padding-top: 8px; }
+  .podium-row { padding: 4px 10px; }
+  .podium-row img { width: 32px; height: 32px; }
+  .podium-who b { font-size: 19px; }
+  .podium-nums b { font-size: 22px; }
+  .roster .cam-btn { height: 44px; font-size: 16px; }
+}
+@media (orientation: portrait) and (max-height: 560px) {
+  #results .tb-sheet-grip, .roster .tb-sheet-grip { display: none; }
+  .podium-who .tb-muted { display: none; }
+  .podium-row img { display: none; }
+  #results .tb-h1, .roster .tb-h1 { font-size: 26px; line-height: 30px; }
 }

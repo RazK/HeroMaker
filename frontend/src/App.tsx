@@ -339,7 +339,10 @@ function App() {
             </section>
           )}
           <Gallery key={galleryKey} isLoggedIn={isLoggedIn} isAdmin={userInfo?.is_admin ?? false} onSelect={openHero} />
-          <footer className="tb-footer">Made by Raz Karl &amp; Elad Shikley · <a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a> · <span className="tb-version">{__APP_VERSION__}</span></footer>
+          <footer className="tb-footer">
+            <div>Made by Raz Karl &amp; Elad Shikley</div>
+            <div><a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a> · <span className="tb-version">{__APP_VERSION__}</span></div>
+          </footer>
         </div>
         <div className="tb-bar">
           <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-new-hero" disabled={isUploading} onClick={startNewHero}>

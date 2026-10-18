@@ -669,11 +669,18 @@ export const api = {
    */
   admin: {
     // Users
-    async listUsers(): Promise<AdminUserResponse[]> {
-      console.log('[API] admin.listUsers');
-      const result = await fetchJson<AdminUserResponse[]>(`${API_BASE_URL}/api/admin/users`);
+    // Live accounts only. Test accounts (robot_*, @example.com) only when asked.
+    async listUsers(includeTest = false): Promise<AdminUserResponse[]> {
+      console.log('[API] admin.listUsers', { includeTest });
+      const result = await fetchJson<AdminUserResponse[]>(
+        `${API_BASE_URL}/api/admin/users${includeTest ? '?include_test=true' : ''}`,
+      );
       console.log('[API] admin.listUsers success:', { count: result.length });
       return result;
+    },
+
+    async countUsers(): Promise<AdminUserCounts> {
+      return fetchJson<AdminUserCounts>(`${API_BASE_URL}/api/admin/users/count`);
     },
 
     async updateUser(userId: string, data: { credits?: number; is_admin?: boolean }): Promise<AdminUserResponse> {
@@ -878,6 +885,12 @@ export interface AdminUserResponse {
   is_admin: boolean;
   created_at: string;
   creation_stats: CreationStats;
+  is_test_account?: boolean;
+}
+
+export interface AdminUserCounts {
+  users: number;
+  test_accounts: number;
 }
 
 export interface AdminCouponResponse {

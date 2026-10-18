@@ -1,11 +1,12 @@
 """Admin API endpoints for managing users and coupons."""
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, Coupon
 from app.schemas.admin import (
     AdminUserResponse,
+    AdminUserCounts,
     AdminUserUpdate,
     AdminCouponResponse,
     AdminCouponCreate,
@@ -18,7 +19,7 @@ import secrets
 from app.services import account_deletion
 from app.services.auth import get_current_user
 from app.services.task_manager import get_task_manager
-from app.services.users import list_users_with_stats, update_user
+from app.services.users import count_users, list_users_with_stats, update_user
 from app.api import finance, money
 
 logger = logging.getLogger(__name__)
@@ -55,11 +56,16 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 
 @router.get("/users", response_model=List[AdminUserResponse])
 def list_users(
+    include_test: bool = Query(
+        False,
+        description="Also list test accounts (robot_* usernames, @example.com emails).",
+    ),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
-    """List all users with creation statistics."""
-    users_data = list_users_with_stats(db)
+    """List live users with creation statistics. Deleted accounts never appear;
+    test accounts only with include_test=true, so they cannot bury real people."""
+    users_data = list_users_with_stats(db, include_test=include_test)
     return [
         AdminUserResponse(
             id=u["id"],
@@ -71,9 +77,20 @@ def list_users(
             is_admin=u["is_admin"],
             created_at=u["created_at"],
             creation_stats=CreationStats(**u["creation_stats"]),
+            is_test_account=u["is_test_account"],
         )
         for u in users_data
     ]
+
+
+@router.get("/users/count", response_model=AdminUserCounts)
+def users_count(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """How many live accounts there are, real and test: the numbers behind the
+    list's "Show test accounts (N)" toggle."""
+    return AdminUserCounts(**count_users(db))
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserResponse)
@@ -118,6 +135,7 @@ def admin_update_user(
         is_admin=updated_user.is_admin,
         created_at=updated_user.created_at,
         creation_stats=CreationStats(**user_data["creation_stats"]) if user_data else CreationStats(completed=0, failed=0, in_progress=0),
+        is_test_account=user_data["is_test_account"] if user_data else False,
     )
 
 

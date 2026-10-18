@@ -12,16 +12,25 @@ export function UsersSection({ currentUserId }: { currentUserId: string }) {
   const [creditsFor, setCreditsFor] = useState<AdminUserResponse | null>(null);
   const [deleting, setDeleting] = useState<AdminUserResponse | null>(null);
   const [busy, setBusy] = useState(false);
+  // Test accounts (the staging robot's robot_*, anything @example.com) are
+  // hidden by default, server-side, so leftovers never bury real people.
+  const [showTest, setShowTest] = useState(false);
+  const [testCount, setTestCount] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setUsers(await api.admin.listUsers());
+      const [list, counts] = await Promise.all([
+        api.admin.listUsers(showTest),
+        api.admin.countUsers().catch(() => null),
+      ]);
+      setUsers(list);
+      setTestCount(counts ? counts.test_accounts : null);
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not load users.');
       setUsers((u) => u ?? []);
     }
-  }, []);
+  }, [showTest]);
   useEffect(() => { load(); }, [load]);
 
   const act = async (fn: () => Promise<unknown>) => {
@@ -61,13 +70,26 @@ export function UsersSection({ currentUserId }: { currentUserId: string }) {
         <><div className="adm-card adm-skel" style={{ height: 84 }} /><div className="adm-card adm-skel" style={{ height: 84 }} /><div className="adm-card adm-skel" style={{ height: 84 }} /></>
       ) : (
         <>
-          <div className="adm-summary-line">{shown.length} {shown.length === 1 ? 'user' : 'users'}</div>
+          <div className="adm-users-bar">
+            <div className="adm-summary-line">{shown.length} {shown.length === 1 ? 'user' : 'users'}</div>
+            {(showTest || (testCount ?? 0) > 0) && (
+              <button
+                type="button"
+                className={`tb-chip${showTest ? ' tb-chip--on' : ''}`}
+                aria-pressed={showTest}
+                onClick={() => { setUsers(null); setShowTest((s) => !s); }}
+              >
+                Show test accounts{testCount !== null ? ` (${testCount})` : ''}
+              </button>
+            )}
+          </div>
           {shown.map((u) => (
             <div key={u.id} className="adm-card adm-user">
               <div className="adm-user-main">
                 <div className="adm-user-name">
                   {u.username}
                   {u.is_admin && <span className="adm-pill">Admin</span>}
+                  {u.is_test_account && <span className="adm-pill adm-pill--off">Test</span>}
                   {u.id === currentUserId && <span className="adm-pill adm-pill--active">You</span>}
                 </div>
                 <div className="adm-user-email">{u.email}</div>

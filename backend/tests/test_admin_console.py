@@ -379,3 +379,62 @@ def test_admin_can_delete_a_paying_user(client, db, as_admin, make_user, make_cr
 
 def test_admin_cannot_delete_themselves(client, admin, as_admin, tasks):
     assert client.delete(f"/api/admin/users/{admin.id}", headers=as_admin).status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# The Users list: live accounts only, test accounts behind a toggle
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mixed_users(db, make_user):
+    """A real person, three kinds of test account, and a deleted account."""
+    def user(username, email, deleted=False):
+        u = make_user(username=username)
+        u.email = email
+        if deleted:
+            u.deleted_at = datetime.utcnow()
+        db.commit()
+        return u
+    return {
+        "real": user("maya", "maya@gmail.com"),
+        "lookalike": user("robotXfan", "robotxfan@gmail.com"),   # `_` must not act as a wildcard
+        "robot": user("robot_mfz3k9", "robot+mfz3k9@example.com"),
+        "robot_name_only": user("robot_abc", "abc@gmail.com"),
+        "example_email": user("tester", "Tester@Example.com"),
+        "deleted": user("deleted-abc", None, deleted=True),
+    }
+
+
+def _names(r):
+    assert r.status_code == 200, r.text
+    return {u["username"] for u in r.json()}
+
+
+def test_users_list_hides_test_accounts_by_default(client, admin, as_admin, mixed_users):
+    assert _names(client.get("/api/admin/users", headers=as_admin)) == {"theadmin", "maya", "robotXfan"}
+
+
+def test_users_list_shows_test_accounts_when_asked_and_marks_them(client, admin, as_admin, mixed_users):
+    r = client.get("/api/admin/users?include_test=true", headers=as_admin)
+    assert _names(r) == {"theadmin", "maya", "robotXfan", "robot_mfz3k9", "robot_abc", "tester"}
+    marked = {u["username"] for u in r.json() if u["is_test_account"]}
+    assert marked == {"robot_mfz3k9", "robot_abc", "tester"}
+
+
+def test_users_list_never_shows_deleted_accounts(client, admin, as_admin, mixed_users):
+    for url in ("/api/admin/users", "/api/admin/users?include_test=true"):
+        ids = {u["id"] for u in client.get(url, headers=as_admin).json()}
+        assert mixed_users["deleted"].id not in ids
+
+
+def test_users_count_counts_live_accounts_only(client, admin, as_admin, mixed_users):
+    r = client.get("/api/admin/users/count", headers=as_admin)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"users": 3, "test_accounts": 3}
+
+
+def test_users_count_is_admin_only(client, make_user):
+    assert client.get("/api/admin/users/count").status_code == 401
+    token = create_access_token(make_user(username="plain").id)
+    r = client.get("/api/admin/users/count", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 403

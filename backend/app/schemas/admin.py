@@ -26,6 +26,13 @@ class AdminUserResponse(BaseModel):
     is_admin: bool
     created_at: datetime
     creation_stats: CreationStats
+    is_test_account: bool = False
+
+
+class AdminUserCounts(BaseModel):
+    """Live accounts: real ones, and the test accounts the list hides by default."""
+    users: int
+    test_accounts: int
 
 
 class AdminUserUpdate(BaseModel):

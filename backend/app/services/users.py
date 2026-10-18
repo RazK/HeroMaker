@@ -4,14 +4,32 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import User, Creation
 from app.services import ledger
+from app.services.account_kinds import is_test_account, sql_is_test_account
 
 
-def list_users_with_stats(db: Session) -> List[Dict[str, Any]]:
+def live_users(db: Session):
+    """Accounts that still exist. A deleted account is an anonymous row kept
+    only for its payments and ledger (see account_deletion), never a user."""
+    return db.query(User).filter(User.deleted_at.is_(None))
+
+
+def count_users(db: Session) -> Dict[str, int]:
+    """Live accounts, split into real ones and test ones (see account_kinds)."""
+    total = live_users(db).count()
+    test = live_users(db).filter(sql_is_test_account()).count()
+    return {"users": total - test, "test_accounts": test}
+
+
+def list_users_with_stats(db: Session, include_test: bool = True) -> List[Dict[str, Any]]:
     """
-    List all users with creation statistics.
+    List all live users with creation statistics.
     Returns users with counts of completed/failed/in-progress creations.
+    With include_test=False, test accounts (robot_*, @example.com) are left out.
     """
-    users = db.query(User).filter(User.deleted_at.is_(None)).order_by(User.created_at.desc()).all()
+    query = live_users(db)
+    if not include_test:
+        query = query.filter(~sql_is_test_account())
+    users = query.order_by(User.created_at.desc()).all()
     
     result = []
     for user in users:
@@ -41,6 +59,7 @@ def list_users_with_stats(db: Session) -> List[Dict[str, Any]]:
             "is_admin": user.is_admin,
             "created_at": user.created_at,
             "creation_stats": stats,
+            "is_test_account": is_test_account(user.username, user.email),
         })
     
     return result

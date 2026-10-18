@@ -19,7 +19,8 @@ import { el } from './ui/dom'
 import { clamp, damp } from './core/math'
 import { bodyConfidence, type Skeleton } from './pose/keypoints'
 import { classify } from './pose/vocab'
-import { OWN_HERO, OWN_NAME, goBack, BACK_ICON } from './ownhero'
+import { OWN_HERO, OWN_NAME, goBack } from './ownhero'
+import { tbButton, tbNav, tbChips, tbField, tbGrip } from './ui/tb'
 
 /**
  * Hero Moves — one to three players, one lane each.
@@ -169,56 +170,48 @@ const resultsLayer = el('div', { class: 'layer sheet', id: 'results', hidden: tr
 app.append(hud.hud, hud.platesLayer, hud.countdownLayer, menuLayer, pauseLayer, resultsLayer)
 
 /**
- * Back to the app, where the app keeps it: a round button in the top-left.
- * Only when the app opened the game, and only between rounds - mid-song the
- * corner belongs to the HUD, and pause already has a way out.
+ * Back to the app: the app's own round header button, in the place the app
+ * keeps it. Only when the app opened the game, and only between rounds — mid-song
+ * the corner belongs to the camera picture, and pause already has a way out.
  */
-const backBtn = el('button', { class: 'tb-back', title: 'Back', onclick: goBack })
-backBtn.setAttribute('aria-label', 'Back')
-backBtn.innerHTML = BACK_ICON
+const backBtn = tbNav('back', 'Back', goBack)
+backBtn.classList.add('tb-corner', 'tb-corner--start')
 backBtn.hidden = !OWN_HERO
 if (OWN_HERO) { app.append(backBtn); app.classList.add('has-back') }
 
 // ---- menu ------------------------------------------------------------------
 /**
- * The lobby is one question and one button: "can it see you?" and Start.
+ * The lobby, built from the app's Toy Box parts (ui/tb.ts) on the app's own
+ * stylesheet, so it reads as one more HeroMaker screen rather than a game that
+ * borrowed the colours: a white sheet docked to the bottom with the app's grip,
+ * the hero's name as its title, the camera preview, and the app's primary button
+ * at the foot. On a phone on its side the sheet docks to the right instead, the
+ * way the app moves its bottom bar beside the stage.
  *
- * It used to show every setting at once — players, round length, stance and six
- * stages around a camera strip so short it showed a forehead — and it was
- * rejected as dense and ugly. Every setting has a default that is right for the
- * child holding the phone (one player, a normal round, the theatre, standing
- * unless the camera sees a desk), so they all moved behind one labelled
- * Settings pill and the space went to the preview, which is the only thing on
- * the card a player has to look at before dancing.
+ * Every setting has a default that is right for the child holding the phone
+ * (one player, a normal round, the theatre, standing unless the camera sees a
+ * desk), so they live in the app's bottom sheet behind the round gear button.
  */
-const countRow = el('div', { class: 'segmented' })
-const stanceRow = el('div', { class: 'segmented stance' })
-const stageRow = el('div', { class: 'stage-row' })
 const whoRow = el('div', { class: 'pick-who' })
 /**
- * The hero gallery: the one scrolling list in the lobby.
- *
- * `data-scroll` is the single entry in tools/screenaudit.mjs's rule-1
- * allowlist. Everything else in the card has to be on screen at all times; the
- * gallery is a list of six characters with the next row peeking out under the
- * fold, which is an affordance a player reads. Nothing else gets that licence.
+ * The hero gallery: the one scrolling list in the lobby, and only without a
+ * hero of your own. `data-scroll` is the single entry in tools/screenaudit.mjs's
+ * rule-1 allowlist.
  */
 const gallery = el('div', { class: 'gallery' })
 gallery.dataset.scroll = 'hero-gallery'
-const lengthRow = el('div', { class: 'segmented' })
 const menuCam = el('canvas', { width: 480, height: 360, class: 'menu-cam' }) as HTMLCanvasElement
 const camHint = el('p', { class: 'cam-hint' }, '')
-const startBtn = el('button', { class: 'btn', onclick: () => beginRun() }, 'Start dancing')
+const startBtn = tbButton('Start dancing', { icon: 'music', onClick: () => void beginRun() })
+startBtn.classList.add('btn')
 /**
- * The camera comes on in the lobby, not at the whistle.
- *
- * Everything the lobby is for — is it seeing me, are all three lanes filled —
- * needs the camera on to answer, and finding out after the music has started is
- * finding out too late. Secondary, not grape: Start turns the camera on too,
- * and a screen gets one grape button.
+ * The camera comes on in the lobby, not at the whistle: "can it see me" has to
+ * be answered before the music starts. Secondary, because Start is the screen's
+ * one grape button and turns the camera on too.
  */
-const camBtn = el('button', { class: 'cam-btn', onclick: () => void ensureCamera() },
-  'Turn the camera on')
+const camBtn = tbButton('Turn the camera on', { kind: 'secondary', icon: 'camera', full: false,
+  onClick: () => void ensureCamera() })
+camBtn.classList.add('cam-btn')
 /**
  * The preview keeps the camera's own shape: a phone held upright gives a tall
  * picture and gets a tall box, a laptop gives a wide one. fitPreview() sizes it.
@@ -227,84 +220,70 @@ const camWrap = el('div', { class: 'menu-camwrap off' }, menuCam, camBtn, camHin
 camBtn.dataset.overlay = 'preview-chip'
 camHint.dataset.overlay = 'preview-chip'
 
-/** A line icon in the app's style: 24 viewBox, stroke 2.4, round caps. */
-const SLIDERS_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
+const settingsBtn = tbNav('gear', 'Settings', () => openSettings(true))
+settingsBtn.classList.add('menu-gear')
+
 /**
- * The way into the settings. Labelled, not a bare icon: the brand book keeps
- * icon-only buttons for back, close, more and play.
+ * The hero is the star, so its name is the title (the app's 32px display
+ * heading, one line, ellipsis) and the game is the eyebrow above it.
  */
-const settingsBtn = el('button', { class: 'menu-gear', onclick: () => openSettings(true) })
-settingsBtn.innerHTML = SLIDERS_ICON
-settingsBtn.append(el('span', {}, 'Settings'))
+const menuTitle = el('div', { class: 'menu-title' },
+  el('div', { class: 'tb-eyebrow' }, OWN_HERO ? 'Dance party' : 'HeroMaker presents'),
+  el('h1', { class: 'tb-h1 hero-name', title: OWN_HERO ? OWN_NAME : 'Hero Moves' },
+    OWN_HERO ? OWN_NAME : 'Hero Moves'))
 
-const menuTitle = OWN_HERO
-  ? el('h1', {}, el('em', {}, OWN_NAME), 'Dance party')
-  : el('h1', {}, el('em', {}, 'HeroMaker presents'), 'Hero Moves')
-
-/** What the lobby shows: title, preview, (the gallery, without an own hero), Start. */
 const menuMain = el('div', { class: 'menu-main' },
+  tbGrip(),
   el('div', { class: 'menu-head' }, menuTitle, settingsBtn),
   camWrap,
   whoRow,
   gallery,
   el('div', { class: 'actions' }, startBtn),
 )
-
-/** Everything that has a sensible default, in one compact sheet. */
-const menuSettings = el('div', { class: 'menu-settings', hidden: true },
-  el('h2', {}, 'Settings'),
-  el('div', { class: 'setting-pair' },
-    el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Players'), countRow),
-    el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Round length'), lengthRow)),
-  el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'How you dance'), stanceRow),
-  el('div', { class: 'setting' }, el('div', { class: 'reel-label' }, 'Stage'), stageRow),
-  el('div', { class: 'actions' },
-    el('button', { class: 'btn', onclick: () => openSettings(false) }, 'Done')),
-)
-
-const menuCard = el('div', { class: `card${OWN_HERO ? ' own' : ' roster'}` }, menuMain, menuSettings)
+const menuCard = el('div', { class: `card tb-panel${OWN_HERO ? ' own' : ' roster'}` }, menuMain)
 menuLayer.append(menuCard)
 
-/** Swap the lobby for the settings sheet and back, in the same card. */
+/** The settings: the app's bottom sheet over its scrim. */
+const settingsBody = el('div', { class: 'tb-fields' })
+const settingsSheet = el('div', { class: 'tb-sheet menu-settings' },
+  tbGrip(),
+  el('div', { class: 'tb-sheet-title' }, 'Settings'),
+  settingsBody,
+  el('div', { class: 'actions' }, tbButton('Done', { onClick: () => openSettings(false) })),
+)
+settingsSheet.setAttribute('role', 'dialog')
+settingsSheet.setAttribute('aria-modal', 'true')
+settingsSheet.setAttribute('aria-label', 'Settings')
+settingsSheet.addEventListener('click', (e) => e.stopPropagation())
+const settingsLayer = el('div', { class: 'tb-scrim settings-layer', hidden: true }, settingsSheet)
+settingsLayer.addEventListener('click', () => openSettings(false))
+app.append(settingsLayer)
+
 function openSettings(open: boolean) {
   audio.uiClick()
-  menuSettings.hidden = !open
-  menuMain.hidden = open
-  menuCard.classList.toggle('settings-open', open)
-  // The card changes height, and the stage is framed against its top edge.
-  reframe()
+  settingsLayer.hidden = !open
 }
 
 function renderMenu() {
-  countRow.replaceChildren(...[1, 2, 3].map((n) =>
-    el('button', {
-      class: `seg${n === playerCount ? ' on' : ''}`,
-      onclick: () => { playerCount = n; audio.uiClick(); applyCount(); renderMenu() },
-    }, `${n}P`)))
-
-  // Standing or sitting. Guessed from what the camera can see of you, because
-  // nobody reads a settings row before they dance, but always overridable —
-  // the guess is about a desk edge, and a desk edge is not always where the
-  // player wants the line drawn.
-  stanceRow.replaceChildren(...([[false, 'Standing'], [true, 'Sitting']] as const).map(([v, label]) =>
-    el('button', {
-      class: `seg${v === seated ? ' on' : ''}`,
-      onclick: () => { seated = v; stanceIsMine = true; audio.uiClick(); renderMenu() },
-      title: v ? 'Arms only — no calls that need your legs' : 'Whole body',
-    }, label)))
-
-  // The switch says how long the round is, in seconds, because "Short" is not
-  // an answer to the only question anyone asks of it. The number is solved
-  // from the real generator (see roundSeconds) rather than written down, and
-  // it moves with the stance, since a seated routine draws from a smaller pool.
-  lengthRow.replaceChildren(...LENGTHS.map((l) =>
-    el('button', {
-      class: `seg${l.id === lengthId ? ' on' : ''}`,
-      onclick: () => { lengthId = l.id; audio.uiClick(); renderMenu() },
+  // The set changes behind the sheet as you tap, so the sheet is its own preview.
+  settingsBody.replaceChildren(
+    tbField('Players', tbChips([1, 2, 3].map((n) => ({ value: n, label: String(n) })), playerCount,
+      (n) => { playerCount = n; audio.uiClick(); applyCount(); renderMenu() })),
+    // Each length says how long it really is, solved from the real generator
+    // (see roundSeconds), because "Short" does not answer the only question
+    // anyone asks of it. It moves with the stance: a seated routine is shorter.
+    tbField('Round length', tbChips(LENGTHS.map((l) => ({
+      value: l.id, label: `${l.label} · ${lengthBlurb(l.id, seated)}`,
       title: `${l.moves} calls, about ${lengthBlurb(l.id, seated)}`,
-    },
-      el('span', { class: 'seg-name' }, l.label),
-      el('span', { class: 'seg-sub num' }, lengthBlurb(l.id, seated)))))
+    })), lengthId, (id) => { lengthId = id; audio.uiClick(); renderMenu() })),
+    // Guessed from what the camera can see of you, and always overridable.
+    tbField('How you dance', tbChips([
+      { value: false, label: 'Standing', title: 'Whole body' },
+      { value: true, label: 'Sitting', title: 'Arms only — no calls that need your legs' },
+    ], seated, (v) => { seated = v; stanceIsMine = true; audio.uiClick(); renderMenu() })),
+    tbField('Stage', tbChips(BACKDROPS.map((b) => ({ value: b.id, label: b.short, title: `${b.name} — ${b.blurb}` })),
+      backdropId, (id) => { backdropId = id; audio.uiClick(); stage.setBackdrop(id); renderMenu() })),
+  )
 
   // One big gallery for everybody, and a row saying who is choosing.
   activeLane = Math.min(activeLane, playerCount - 1)
@@ -323,19 +302,6 @@ function renderMenu() {
     b.append(el('span', { class: 'who-name' }, hero?.name ?? ''))
     return b
   }))
-
-  // The set changes behind the card as you tap, so the sheet is its own preview.
-  stageRow.replaceChildren(...BACKDROPS.map((b) =>
-    el('button', {
-      class: `stage-pick${b.id === backdropId ? ' on' : ''}`,
-      title: `${b.name} — ${b.blurb}`,
-      onclick: () => {
-        backdropId = b.id
-        audio.uiClick()
-        stage.setBackdrop(b.id)
-        renderMenu()
-      },
-    }, b.short)))
 
   gallery.className = `gallery lane-${activeLane}`
   gallery.replaceChildren(...ROSTER.map((r, k) => {
@@ -378,51 +344,49 @@ function applyCount() {
 }
 
 // ---- pause -----------------------------------------------------------------
+/** The app's centred dialog over its scrim. Primary last, as on every app screen. */
 pauseLayer.append(
-  el('div', { class: 'card' },
-    el('h1', {}, 'PAUSED'),
-    el('div', { class: 'actions' },
-      el('button', { class: 'btn', onclick: () => game.resume(clock) }, 'RESUME'),
-      el('button', { class: 'btn secondary', onclick: () => game.finish() }, 'END & SEE SCORES'),
-      el('button', { class: 'btn secondary', onclick: () => showMenu() }, 'QUIT TO MENU'),
+  el('div', { class: 'card tb-dialog pause-card' },
+    el('h2', { class: 'tb-h2' }, 'Paused'),
+    el('div', { class: 'actions tb-stack' },
+      tbButton('Menu', { kind: 'secondary', onClick: () => showMenu() }),
+      tbButton('See my score', { kind: 'secondary', icon: 'star', onClick: () => game.finish() }),
+      tbButton('Keep dancing', { icon: 'play', onClick: () => game.resume(clock) }),
     ),
   ),
 )
 
 // ---- results ---------------------------------------------------------------
-const resultTitle = el('h1', {}, 'NICE MOVES!')
+const resultTitle = el('h1', { class: 'tb-h1' }, 'Nice moves!')
 const podium = el('div', { class: 'podium' })
-/**
- * The results card keeps its sticky footer: a podium of three plus two buttons
- * is short enough that the card scrolling is harmless, and the two buttons ride
- * the bottom of it. That is the one deliberate overlay left in a card, so it
- * carries the mark tools/screenaudit.mjs checks against its allowlist.
- */
-const resultActions = el('div', { class: 'actions' },
-  el('button', { class: 'btn', onclick: () => beginRun() }, 'DANCE AGAIN'),
-  el('button', { class: 'btn secondary', onclick: () => showMenu() }, 'CHANGE HEROES'))
-resultActions.dataset.overlay = 'sticky-footer'
-resultsLayer.append(el('div', { class: 'card' }, resultTitle, podium, resultActions))
+/** Same sheet as the lobby: title, the podium on the app's plates, then the buttons. */
+const resultActions = el('div', { class: 'actions result-actions' },
+  tbButton(OWN_HERO ? 'Menu' : 'Change heroes', { kind: 'secondary', onClick: () => showMenu() }),
+  tbButton('Dance again', { icon: 'redo', onClick: () => void beginRun() }))
+resultsLayer.append(el('div', { class: 'card tb-panel' },
+  tbGrip(),
+  el('div', { class: 'tb-eyebrow' }, OWN_HERO ? 'Dance party' : 'Hero Moves'),
+  resultTitle, podium, resultActions))
 
 function showResults() {
   const ranked = game.ranking
   const solo = ranked.length === 1
   resultTitle.textContent = solo
-    ? (game.accuracy(ranked[0]) >= 0.75 ? 'SUPERSTAR!' : 'NICE MOVES!')
-    : `${ROSTER[ranked[0].heroIndex]?.name ?? 'P1'} WINS!`
+    ? (game.accuracy(ranked[0]) >= 0.75 ? 'Superstar!' : 'Nice moves!')
+    : `${ROSTER[ranked[0].heroIndex]?.name ?? 'Player 1'} wins!`
   podium.replaceChildren(...ranked.map((p, place) => {
     const hero = ROSTER[p.heroIndex]
     const thumb = thumbFor(hero?.id)
-    const row = el('div', { class: `podium-row${place === 0 && !solo ? ' win' : ''}` })
+    const row = el('div', { class: `podium-row tb-plate-${(p.lane % 6) + 1}${place === 0 && !solo ? ' win' : ''}` })
     row.append(el('div', { class: `place lane-${p.lane}` }, solo ? '' : `${place + 1}`))
     if (thumb) row.append(el('img', { src: thumb, alt: hero?.name ?? '', width: 46, height: 46 }))
     row.append(
       el('div', { class: 'podium-who' },
         el('b', {}, hero?.name ?? `Player ${p.lane + 1}`),
-        el('span', { class: 'muted' }, `P${p.lane + 1}`)),
+        el('span', { class: 'tb-muted' }, `Player ${p.lane + 1}`)),
       el('div', { class: 'podium-nums' },
         el('b', { class: 'num' }, Math.round(p.score).toLocaleString('en-US')),
-        el('span', { class: 'num' }, `${Math.round(game.accuracy(p) * 100)}% · ×${p.bestCombo}`)),
+        el('span', { class: 'tb-muted num' }, `${Math.round(game.accuracy(p) * 100)}% · best ×${p.bestCombo}`)),
     )
     return row
   }))
@@ -436,11 +400,7 @@ function showMenu() {
 game.onPhase = (p: PartyPhase) => {
   menuLayer.hidden = p !== 'menu'
   // A round never starts with the settings sheet left open behind it.
-  if (p !== 'menu' && !menuSettings.hidden) {
-    menuSettings.hidden = true
-    menuMain.hidden = false
-    menuCard.classList.remove('settings-open')
-  }
+  if (p !== 'menu') settingsLayer.hidden = true
   backBtn.hidden = !OWN_HERO || (p !== 'menu' && p !== 'results')
   pauseLayer.hidden = p !== 'paused'
   resultsLayer.hidden = p !== 'results'
@@ -479,7 +439,7 @@ function togglePause() {
 addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' && e.key !== ' ') return
   const phase = game.state.phase
-  if (e.key === 'Escape' && phase === 'menu' && !menuSettings.hidden) { openSettings(false); return }
+  if (e.key === 'Escape' && phase === 'menu' && !settingsLayer.hidden) { openSettings(false); return }
   if (phase === 'dancing' || phase === 'countdown' || phase === 'paused') {
     e.preventDefault()
     togglePause()
@@ -931,7 +891,7 @@ function drawMenuCamera() {
     g.strokeRect(x0 + 2 * scale, 2 * scale, lw - 4 * scale, h - 4 * scale)
     g.setLineDash([])
     const label = ok ? `P${i + 1} ready` : lastFramed[i] === 'back' ? `P${i + 1} step back` : `P${i + 1} step in`
-    g.font = `800 ${Math.round(13 * scale)}px Nunito, system-ui`
+    g.font = `800 ${Math.round(14 * scale)}px Nunito, system-ui`
     g.textAlign = 'center'
     const tw = g.measureText(label).width
     g.fillStyle = ok ? 'rgba(61,220,151,.95)' : 'rgba(18,12,32,.8)'

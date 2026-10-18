@@ -50,6 +50,8 @@ jobs:
               - *ci
               - 'games/hero-moves/**'
               - 'devops/scripts/bundle-game.sh'
+              # The game's stylesheet imports the app's Toy Box sheet.
+              - 'frontend/src/styles/toybox.css'
             vrm-converter:
               - *ci
               - 'vrm-converter-service/**'

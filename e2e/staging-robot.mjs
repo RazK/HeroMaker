@@ -313,6 +313,66 @@ const user = LOGIN_AS
   : { username: `robot_${stamp}`, email: `robot+${stamp}@example.com`, password: `robot-${stamp}-pw` };
 let heroName = null;
 
+// The run's own token: from the page if signed in, else by signing in over
+// the API, because a run can fail after the account was made but before the
+// page shows it - and that account must not be left behind either.
+async function robotToken() {
+  try {
+    const state = await context.storageState();
+    const origin = state.origins.find((o) => BASE_URL.startsWith(o.origin));
+    const token = origin?.localStorage.find((e) => e.name === 'heromaker_jwt_token')?.value;
+    if (token) return token;
+  } catch { /* the page may be gone; fall through to the API */ }
+  const r = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: user.username, password: user.password }),
+  });
+  if (r.status === 401) return null;  // no such account: sign-up never happened
+  if (!r.ok) throw new Error(`sign-in for cleanup answered ${r.status}`);
+  return (await r.json()).access_token || null;
+}
+
+async function cleanup() {
+  const started = Date.now();
+  const done = (status, note) => {
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    results.push({ name: 'cleanup', status, secs, ...(status === 'failed' ? { error: note } : { note }) });
+    console.log(`${status === 'failed' ? 'FAIL' : status === 'skipped' ? 'SKIP' : 'PASS'} cleanup: ${note}`);
+  };
+  console.log('\n=== cleanup ===');
+  if (LOGIN_AS) return done('skipped', `signed in to an existing account (${LOGIN_AS}): kept, with its heroes`);
+  if (!/^robot_[a-z0-9]+$/.test(user.username)) return done('failed', `refusing to delete "${user.username}": not this run's robot`);
+  try {
+    const token = await robotToken();
+    if (!token) return done('passed', `no account to delete: ${user.username} was never created`);
+    const auth = { Authorization: `Bearer ${token}` };
+    let heroes = 0;
+    const list = await (await fetch(`${BASE_URL}/api/creations/?mine_only=true`, { headers: auth })).json();
+    const mine = (Array.isArray(list) ? list : list.creations || []).filter((c) => c.username === user.username);
+    for (const c of mine) {
+      const r = await fetch(`${BASE_URL}/api/creations/${c.id}`, { method: 'DELETE', headers: auth });
+      console.log(`cleanup: deleted hero ${c.id} -> ${r.status}`);
+      if (!r.ok) throw new Error(`hero ${c.id} could not be deleted (${r.status})`);  // a bug
+      heroes++;
+    }
+    const r = await fetch(`${BASE_URL}/api/auth/me`, {
+      method: 'DELETE',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: user.username }),
+    });
+    console.log(`cleanup: deleted account ${user.username} -> ${r.status}`);
+    if (r.status !== 204) throw new Error(`account ${user.username} could not be deleted (${r.status})`);
+    // The deleted account's token must stop working: that is the promise.
+    const after = await fetch(`${BASE_URL}/api/auth/me`, { headers: auth });
+    if (after.ok) throw new Error(`account ${user.username} still answers /me after deletion`);
+    done('passed', `deleted ${heroes} hero(es) and the account ${user.username}`);
+  } catch (e) {
+    exitCode = 1;  // a robot that cannot clean up leaves clutter: fail the run
+    done('failed', `${user.username} left behind: ${e.message}`);
+  }
+}
+
 let exitCode = 0;
 try {
   await step(page, 'landing', async () => {
@@ -565,29 +625,15 @@ try {
 } catch {
   exitCode = 1;
 } finally {
-  // Leave no trace: every run makes the same hero from the same drawing, and
+  // Leave no trace. Every run makes the same hero from the same drawing, and
   // ten identical robots in the public gallery is exactly what a visitor
-  // should never see. Deletes only this run's user's own heroes, and never
-  // when signed in to an existing account (LOGIN_AS): those heroes are a
-  // person's, not this run's.
-  try {
-    if (LOGIN_AS) throw new Error('skipped: signed in to an existing account');
-    const state = await context.storageState();
-    const origin = state.origins.find((o) => BASE_URL.startsWith(o.origin));
-    const token = origin?.localStorage.find((e) => e.name === 'heromaker_jwt_token')?.value;
-    if (token) {
-      const auth = { Authorization: `Bearer ${token}` };
-      const list = await (await fetch(`${BASE_URL}/api/creations/?mine_only=true`, { headers: auth })).json();
-      const mine = (Array.isArray(list) ? list : list.creations || []).filter((c) => c.username === user.username);
-      for (const c of mine) {
-        const r = await fetch(`${BASE_URL}/api/creations/${c.id}`, { method: 'DELETE', headers: auth });
-        console.log(`cleanup: deleted ${c.id} -> ${r.status}`);
-        if (!r.ok) exitCode = 1;  // a hero that cannot be deleted is a bug
-      }
-    }
-  } catch (e) {
-    console.log(`cleanup failed: ${e.message}`);
-  }
+  // should never see; every run also signs up a fresh account (that tests
+  // sign-up), and fifty robot_* accounts in the admin Users list hide the
+  // real people. So the run deletes its own heroes, then its own account,
+  // through the same endpoints a person uses - also when a step failed.
+  // Never when signed in to an existing account (LOGIN_AS): that account and
+  // its heroes are a person's, not this run's.
+  await cleanup();
   report();
   if (DEMO) {
     writeFileSync(path.join(OUT, 'marks.json'), JSON.stringify(marks));

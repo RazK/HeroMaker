@@ -10,3 +10,7 @@
   padding: 0 4px 8px;
   overflow-wrap: anywhere;
 }
+
+/* Account button: a round nav button holding the person's initials. */
+.tb-avatar { padding: 0; }
+.tb-avatar span { font-family: var(--tb-font-body); font-weight: 800; font-size: 15px; letter-spacing: 0.5px; color: var(--tb-ink); }
