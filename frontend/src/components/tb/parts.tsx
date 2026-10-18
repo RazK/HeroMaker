@@ -242,47 +242,102 @@ export function NoPageScroll() {
 }
 
 /**
- * Pull down at the top of an app screen's list to reload the page.
+ * Pull down from the top of any screen, hard, and let go to reload the page.
  *
  * App screens never scroll the page itself (see NoPageScroll: that keeps the
  * phone's toolbar from shrinking and eating taps), so the browser's own
- * pull-to-refresh has nothing to pull. This puts it back on the list that
- * does scroll: drag down from the top past the threshold and let go.
+ * pull-to-refresh has nothing to pull. This puts it back, once for the whole
+ * app (mounted beside <App /> in main.tsx): a pull counts only when whatever
+ * scrolls under the finger is already at its top, and never on a surface that
+ * uses drags itself. Touch only: a mouse never fires touch events.
  */
-/** How far (after the 0.5 drag resistance) the list must be pulled to reload. */
+/** How far (after the 0.5 drag resistance) the screen must be pulled to reload. */
 const PULL_READY_PX = 60;
+/** Finger travel before a touch is read as a pull, a scroll or a swipe. */
+const PULL_SLOP_PX = 10;
+/**
+ * Where a drag means something else: the 3D stage turns the hero, sheets and
+ * dialogs scroll and close on their own, a range input slides, the class code
+ * keypad is tapped fast. `data-no-pull` opts anything else out.
+ */
+const NO_PULL = [
+  '.tb-stage', '.tb-live-stage', 'canvas', 'video', 'input[type="range"]', '.cls-keypad',
+  '.tb-scrim', '[aria-modal="true"]', '[role="dialog"]', '[role="alertdialog"]',
+  '[class*="modal-overlay"]', '[class*="modal-backdrop"]', '[data-no-pull]',
+].join(',');
+
+/** Whether a drag from here can be a pull, and if so what must be at its top. */
+function pullSurface(target: EventTarget | null): (() => boolean) | null {
+  let el = target instanceof Element ? target : null;
+  if (!el || el.closest(NO_PULL)) return null;
+  for (; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    const css = getComputedStyle(el);
+    // A drag of its own: touch-action none, or one that leaves the browser
+    // no vertical pan (the moves strip's pan-x).
+    const ta = css.touchAction;
+    if (ta === 'none' || (ta !== 'auto' && ta !== 'manipulation' && !ta.includes('pan-y'))) return null;
+    // The nearest ancestor that really scrolls vertically decides.
+    if (/(auto|scroll|overlay)/.test(css.overflowY) && el.scrollHeight > el.clientHeight + 1) {
+      const scroller = el;
+      return () => scroller.scrollTop <= 0;
+    }
+  }
+  // Nothing scrolls under the finger: the page decides. On a fit or app
+  // screen it never moves, so it is always at its top.
+  return () => window.scrollY <= 0;
+}
+
 export function PullToRefresh() {
   const [pull, setPull] = useState(0);
   const [reloading, setReloading] = useState(false);
   const pullRef = useRef(0);
   useEffect(() => {
-    const list = document.querySelector<HTMLElement>('.tb-screen--app > .tb-screen-body');
-    if (!list) return;
-    let startY: number | null = null;
-    const set = (v: number) => { pullRef.current = v; setPull(v); };
-    const onStart = (e: TouchEvent) => { startY = list.scrollTop <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null; };
+    // A touch is undecided until it moves PULL_SLOP_PX. Then it is a pull
+    // (down, from the top) or, for the rest of that touch, nothing at all.
+    let start: { x: number; y: number; atTop: () => boolean } | null = null;
+    let pulling = false;
+    const set = (v: number) => { if (v !== pullRef.current) { pullRef.current = v; setPull(v); } };
+    const reset = () => { start = null; pulling = false; set(0); };
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) { reset(); return; }
+      const atTop = pullSurface(e.target);
+      if (!atTop || !atTop()) { reset(); return; }
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY, atTop };
+      pulling = false;
+    };
     const onMove = (e: TouchEvent) => {
-      if (startY === null) return;
-      const dy = e.touches[0].clientY - startY;
-      if (dy <= 0 || list.scrollTop > 0) { set(0); return; }
-      set(Math.min(120, dy * 0.5));
+      if (!start) return;
+      if (e.touches.length !== 1) { reset(); return; }
+      const dx = e.touches[0].clientX - start.x;
+      const dy = e.touches[0].clientY - start.y;
+      if (!pulling) {
+        if (Math.abs(dx) < PULL_SLOP_PX && Math.abs(dy) < PULL_SLOP_PX) return;
+        // Up is a scroll, sideways a swipe: neither is a pull.
+        if (dy <= 0 || Math.abs(dx) > dy || !start.atTop()) { reset(); return; }
+        pulling = true;
+      }
+      set(dy <= 0 || !start.atTop() ? 0 : Math.min(120, dy * 0.5));
     };
     const onEnd = () => {
-      if (startY !== null && pullRef.current >= PULL_READY_PX) {
+      if (pulling && pullRef.current >= PULL_READY_PX) {
+        start = null;
+        pulling = false;
         setReloading(true);
         window.location.reload();
-      } else set(0);
-      startY = null;
+        return;
+      }
+      reset();
     };
-    list.addEventListener('touchstart', onStart, { passive: true });
-    list.addEventListener('touchmove', onMove, { passive: true });
-    list.addEventListener('touchend', onEnd);
-    list.addEventListener('touchcancel', onEnd);
+    const opts = { passive: true, capture: true };
+    document.addEventListener('touchstart', onStart, opts);
+    document.addEventListener('touchmove', onMove, opts);
+    document.addEventListener('touchend', onEnd, opts);
+    document.addEventListener('touchcancel', reset, opts);
     return () => {
-      list.removeEventListener('touchstart', onStart);
-      list.removeEventListener('touchmove', onMove);
-      list.removeEventListener('touchend', onEnd);
-      list.removeEventListener('touchcancel', onEnd);
+      document.removeEventListener('touchstart', onStart, opts);
+      document.removeEventListener('touchmove', onMove, opts);
+      document.removeEventListener('touchend', onEnd, opts);
+      document.removeEventListener('touchcancel', reset, opts);
     };
   }, []);
   if (!pull && !reloading) return null;
