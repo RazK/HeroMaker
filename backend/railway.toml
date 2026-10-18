@@ -14,7 +14,9 @@ dockerContext = "backend"
 [deploy]
 startCommand = ""
 healthcheckPath = "/health"
-healthcheckTimeout = 10
+# Migrations run before the server listens, and may wait up to ~60 s for a
+# lock the backend being replaced still holds (app/migrations/runner.run_ddl).
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
