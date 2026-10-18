@@ -62,9 +62,16 @@ jobs:
 
           # Refuse to promote anything that has not landed on main. Without
           # this, workflow_dispatch would happily ship an unmerged branch
-          # straight to production.
-          if ! git merge-base --is-ancestor "$sha" origin/main; then
-            echo "::error::$sha is not an ancestor of main. Merge it first — production only ever runs commits that went through main and staging."
+          # straight to production. The one exception is a hotfix: a branch
+          # named hotfix/* cut from the commit production runs, for a fix that
+          # cannot wait for what staging holds. It is merged to main as well,
+          # so the fix is never lost (see CLAUDE.md, "Releasing").
+          if git merge-base --is-ancestor "$sha" origin/main; then
+            echo "Promoting $sha from main."
+          elif git branch -r --contains "$sha" | grep -q 'origin/hotfix/'; then
+            echo "::notice::Promoting hotfix $sha (on a hotfix/* branch, not yet on main)."
+          else
+            echo "::error::$sha is neither on main nor on a hotfix/* branch. Merge it first: production only ever runs commits that went through main and staging, or a hotfix branch."
             exit 1
           fi
 

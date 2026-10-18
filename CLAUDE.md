@@ -154,6 +154,27 @@ open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
 
+## Releasing: how a change reaches production
+
+Raz's flow, agreed 2026-10-18. Production stays stable; staging is the next
+release.
+
+1. Every change merges to `main` and lands on **staging**; the robot
+   (`staging-e2e.yml`) runs the whole flow on it.
+2. When Raz wants a release, send ONE short message: "Promote v2.0.9?
+   Includes: … Robot passed." with the staging link.
+3. On his **"yes" in chat**, dispatch `promote-production.yml` with the
+   staging SHA yourself (`gh api -X POST
+   repos/RazK/HeroMaker/actions/workflows/promote-production.yml/dispatches
+   -f ref=main -f 'inputs[ref]=<sha>'`), wait for it, then check production
+   yourself (`/api/version`, sign-in, gallery, packs) and reply with the
+   version now live. Never promote without that yes.
+4. **Hotfix** (production is broken and staging holds unreleased work): cut
+   `hotfix/<topic>` from the commit production runs, fix it, CI green, robot
+   it if possible, ask Raz, promote that SHA (the workflow accepts
+   `hotfix/*`), then merge the same fix to `main` so staging gets it too.
+5. Rollback: promote the previous production SHA the same way.
+
 ## Deployments
 
 **A merge to `main` goes to staging. Production needs a human to approve it.**
