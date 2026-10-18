@@ -29,6 +29,8 @@ One theme. No dark mode.
 | `--tb-green` | `#15997A` | Done |
 | `--tb-red` | `#C62828` | Danger, failure |
 | `--tb-plate-1..6` | `#E9E3FF` `#FFE9A8` `#CFF5EA` `#FFDCC7` `#D6ECFF` `#FFD6E7` | Plates heroes stand on; gallery tiles cycle 1 to 6 |
+| `--tb-rumble` / `--tb-rumble-deep` | `#FF7A1A` / `#D9480F` | Robot Rumble's own colour: its poster and its card footer (ink text, 6.9:1) |
+| `--tb-dance` / `--tb-dance-deep` | `#D6247F` / `#1E0B3A` | Dance party's own colour: magenta and its night-club dark (white text, 4.8:1) |
 | `--tb-font-display` | Barriecito 400 (Fredoka fallback, and for Hebrew) | The wordmark, names, titles, buttons, numbers (never ones people copy, below). One weight only: `font-synthesis: none`, never fake bold |
 | `--tb-font-body` | Nunito 600/700/800 | Text. Never weight 400 |
 | `--tb-space` | `16px` | THE visible gap, everywhere |
@@ -62,6 +64,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - Heroes are transparent and stand on a plate or a sun.
 - The drawing is a polaroid (white frame, -6deg, artist's name and age).
 - Thumbnail first, full size swapped in when loaded.
+- Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
 
 ## Text and voice
 
