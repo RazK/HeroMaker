@@ -4,7 +4,8 @@ name: Make style samples (staging)
 # with backend/scripts/make_style_samples.py: the REAL render path, run on the
 # runner with the staging backend's variables (the OpenAI key) injected by
 # `railway run`. STAGING token only; it never touches a database or a user.
-# The images come back as the run's artifact, to be committed in a PR.
+# The images are pushed to the branch `style-samples/<run id>` (never main), to
+# be reviewed and merged as a PR; the full-size paintings stay an artifact.
 #
 # Default drawing: the hero girl from the logo (frontend/public/logo.png).
 
@@ -26,6 +27,8 @@ jobs:
   samples:
     needs: config
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
       SERVICE: ${{ needs.config.outputs.backend }}
@@ -51,3 +54,14 @@ jobs:
         with:
           name: style-samples
           path: out/
+      - name: Push the samples to a review branch
+        run: |
+          branch="style-samples/${GITHUB_RUN_ID}"
+          cp out/styles/*.webp frontend/public/styles/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add frontend/public/styles/
+          git commit -m "Style samples painted from ${{ inputs.drawing }}"
+          git push origin "$branch"
+          echo "Pushed $branch" >> "$GITHUB_STEP_SUMMARY"
