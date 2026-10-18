@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hero Statue studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; background: #fff6e9; overflow: hidden; }
+    #stage {
+      position: absolute; inset: 0;
+      background: radial-gradient(70% 62% at 50% 40%, #fffdf9 0%, #fff4e4 52%, #efdcc0 100%);
+    }
+    #stage canvas { display: block; width: 100%; height: 100%; }
+    #caption {
+      position: absolute; inset-inline: 0; inset-block-end: 4.5%; text-align: center;
+      font-family: Fredoka, Nunito, sans-serif; font-weight: 600; color: #231942; opacity: 0;
+      font-size: 3.4vmin; letter-spacing: .02em;
+    }
+    #caption small { display: block; font-family: Nunito, sans-serif; font-weight: 700; font-size: 2.2vmin; color: #5C5578; margin-top: .6vmin; }
+    #mark { position: absolute; inset-block-start: 4%; inset-inline-start: 4.5%; font-family: Barriecito, Fredoka, sans-serif; font-size: 3.6vmin; color: #5B3DF5; }
+  </style>
+</head>
+<body>
+  <!-- Dev-only product-shot studio for the Hero Statue (ads, turntable videos).
+       ?model=<glb url>  live base + engraving   |  ?print=<statue.glb>  the print file
+       &name=&credit=&manual=1 (render frames via window.statue.renderAt(angle)) -->
+  <div id="stage"></div>
+  <div id="mark">HeroMaker</div>
+  <div id="caption"></div>
+  <script type="module" src="/src/statue-demo.ts"></script>
+</body>
+</html>

@@ -1,9 +1,10 @@
 """Admin API endpoints for managing users and coupons."""
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import re
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import User, Coupon
+from app.models import User, Coupon, Creation
 from app.schemas.admin import (
     AdminUserResponse,
     AdminUserCounts,
@@ -20,6 +21,7 @@ from app.services import account_deletion
 from app.services.auth import get_current_user
 from app.services.task_manager import get_task_manager
 from app.services.users import count_users, list_users_with_stats, update_user
+from app.utils.storage import get_storage
 from app.api import finance, money
 
 logger = logging.getLogger(__name__)
@@ -264,3 +266,51 @@ def admin_delete_coupon(
     db.commit()
     
     return {"message": "Coupon deleted successfully"}
+
+
+# ============ Hero Statue (prototype) ============
+
+@router.get("/creations/{creation_id}/print-file")
+def statue_print_file(
+    creation_id: str,
+    height_mm: float = Query(90.0, ge=30, le=250, description="Total height, base included"),
+    name: Optional[str] = Query(None, max_length=40, description="Engraved hero name (default: the hero's)"),
+    child: Optional[str] = Query(None, max_length=40, description="'drawn by ...' (default: the creator's first name)"),
+    age: Optional[int] = Query(None, ge=1, le=120),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """A print-ready Hero Statue package for one hero (admin only).
+
+    model.glb (the textured Meshy sculpt) -> repaired, watertight, scaled,
+    on an engraved base -> zip of OBJ+MTL+texture, 3MF, preview GLB and
+    report.json. Upload the zip to a full-colour resin service. Takes ~10 s;
+    sync on purpose (a `def` endpoint runs in the threadpool).
+    """
+    from app.services import statue
+
+    creation = db.query(Creation).filter(Creation.id == creation_id, Creation.deleted_at.is_(None)).first()
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
+    storage = get_storage()
+    if not storage.file_exists(creation.user_id, creation.id, "model.glb"):
+        raise HTTPException(status_code=409, detail="This hero has no 3D model yet")
+    glb = storage.download_file(creation.user_id, creation.id, "model.glb")
+    hero = name if name is not None else (creation.character_name or "")
+    kid = child if child is not None else (creation.name or "")
+    try:
+        data, report = statue.make_statue_package(glb, height_mm, hero, kid, age if age is not None else creation.age)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"Could not make a print file: {e}")
+    slug = re.sub(r"[^a-z0-9]+", "-", (hero or "hero").lower()).strip("-") or "hero"
+    logger.info("statue print file: creation=%s height=%s watertight=%s volume_cm3=%s",
+                creation.id, height_mm, report.get("watertight"), report.get("volume_cm3"))
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="statue-{slug}-{int(round(height_mm))}mm.zip"',
+            "X-Statue-Watertight": str(report.get("watertight")).lower(),
+            "X-Statue-Volume-Cm3": str(report.get("volume_cm3")),
+        },
+    )
