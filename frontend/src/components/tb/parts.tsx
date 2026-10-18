@@ -155,7 +155,8 @@ export function Polaroid({ src, artist, age, onClick, label }: { src: string; ar
  * Keeps the stage's picture (`.tb-stage-img`, contained, never cropped) clear
  * of the polaroid in its corner. The whole stage is used when the picture does
  * not reach the polaroid; otherwise the picture's box gives up the least room
- * that clears it: from the bottom, or from both sides so it stays centred.
+ * that clears it - from the bottom, from both sides so it stays centred, or
+ * from the polaroid's side only - and the biggest picture wins.
  *
  * Paintings are always a T-pose: the legs stand in the middle and the arms are
  * in the top half, so the picture's lower outer corner is empty floor. The
@@ -183,12 +184,14 @@ export function useClearOfPolaroid(stage: RefObject<HTMLElement>, key: unknown) 
       const ar = img.naturalWidth / img.naturalHeight;
       // The polaroid's footprint (tilt included) in stage coordinates, plus a gap.
       const p = { l: r.left - s.left - POLAROID_GAP, r: r.right - s.left + POLAROID_GAP, t: r.top - s.top - POLAROID_GAP };
-      const place = (side: number, bottom: number) => {
-        const bw = Math.max(0, W - 2 * side);
+      // A box from `left` to `right` (px from each edge) above `bottom`; the
+      // picture is contained and centred in it.
+      const place = (left: number, right: number, bottom: number) => {
+        const bw = Math.max(0, W - left - right);
         const bh = Math.max(0, H - STAGE_PAD - bottom);
         const w = Math.min(bw, bh * ar);
         const h = w / ar;
-        return { side, bottom, bw, bh, w, x: side + (bw - w) / 2, y: STAGE_PAD + (bh - h) / 2, h };
+        return { left, right, bottom, bw, bh, w, x: left + (bw - w) / 2, y: STAGE_PAD + (bh - h) / 2, h };
       };
       type Box = ReturnType<typeof place>;
       const clear = (b: Box) => {
@@ -197,16 +200,29 @@ export function useClearOfPolaroid(stage: RefObject<HTMLElement>, key: unknown) 
         if (across <= 0 || down <= 0) return true;
         return across <= CORNER_W * b.w && p.t >= b.y + CORNER_H * b.h;
       };
-      let best: Box | null = null;
+      // Three ways to give the polaroid room, and the biggest picture wins:
+      // give up the bottom, give up both sides (stays centred), or give up
+      // only the polaroid's side and keep the full height. The last is what a
+      // tall stage on a phone needs: lifting the picture over the polaroid
+      // there left the lower half of the stage empty.
+      const onLeft = p.l < W / 2;
+      const beside = onLeft ? p.r : W - p.l;
+      const candidates: Box[] = [];
       for (let bottom = STAGE_PAD; bottom <= H; bottom += 4) {
-        const b = place(STAGE_PAD, bottom);
-        if (clear(b)) { best = b; break; }
+        const b = place(STAGE_PAD, STAGE_PAD, bottom);
+        if (clear(b)) { candidates.push(b); break; }
       }
-      const fromSides = place(Math.max(STAGE_PAD, p.l < W / 2 ? p.r : W - p.l), STAGE_PAD);
-      if (clear(fromSides) && (!best || fromSides.w > best.w)) best = fromSides;
-      if (!best || (best.side === STAGE_PAD && best.bottom === STAGE_PAD)) return;
+      candidates.push(place(Math.max(STAGE_PAD, beside), Math.max(STAGE_PAD, beside), STAGE_PAD));
+      // One side only: as little of it as clears, from nothing up to the
+      // polaroid's whole width.
+      for (let give = STAGE_PAD; give <= Math.max(STAGE_PAD, beside); give += 4) {
+        const b = onLeft ? place(give, STAGE_PAD, STAGE_PAD) : place(STAGE_PAD, give, STAGE_PAD);
+        if (clear(b)) { candidates.push(b); break; }
+      }
+      const best = candidates.filter(clear).reduce<Box | null>((a, b) => (!a || b.w > a.w ? b : a), null);
+      if (!best || (best.left === STAGE_PAD && best.right === STAGE_PAD && best.bottom === STAGE_PAD)) return;
       Object.assign(img.style, {
-        left: `${best.side}px`, right: `${best.side}px`, top: `${STAGE_PAD}px`, bottom: `${best.bottom}px`,
+        left: `${best.left}px`, right: `${best.right}px`, top: `${STAGE_PAD}px`, bottom: `${best.bottom}px`,
         width: `${best.bw}px`, height: `${best.bh}px`,
       });
     };
