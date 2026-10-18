@@ -455,15 +455,15 @@ export class Game {
     const r = this.rnd
 
     if (t >= this.spawn.robot) {
-      const n = k > 0.5 && r() < 0.35 ? 2 : 1
-      for (let i = 0; i < n && live('robot') < 9; i++) {
+      const n = k > 0.35 && r() < 0.4 ? 2 : 1
+      for (let i = 0; i < n && live('robot') < 10; i++) {
         const th = this.add('robot')
         th.pos.set(ARENA.minX + 0.6 + r() * (ARENA.maxX - ARENA.minX - 1.2), 0, ARENA.maxZ - 0.1 - i * 0.6)
         this.particles.burst(th.pos.clone().setY(0.3), 8, [0xffffff, PAL.sun], 2, 2)
         const sp = 0.6 + 0.45 * k + r() * 0.15
         th.vel.set(0, 0, -sp)
       }
-      this.spawn.robot = t + lerp(2.3, 0.85, k) * (0.8 + r() * 0.4)
+      this.spawn.robot = t + lerp(1.7, 0.8, k) * (0.8 + r() * 0.4)
     }
     if (t >= this.spawn.balloon) {
       if (live('balloon') < 4) {

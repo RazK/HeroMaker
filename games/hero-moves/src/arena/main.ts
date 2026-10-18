@@ -146,10 +146,12 @@ function aimCamera(dt: number, snap = false) {
   const vfov = portrait ? 50 : 40
   const tanV = Math.tan(THREE.MathUtils.degToRad(vfov / 2))
   const halfW = portrait ? 1.75 * Math.max(1, aspect / 0.75) : 5.2
-  const dist = THREE.MathUtils.clamp(halfW / (tanV * aspect), 5.4, 12)
+  const dist = THREE.MathUtils.clamp(halfW / (tanV * aspect), 6.0, 12)
   const elev = THREE.MathUtils.degToRad(portrait ? 24 : 27)
   const tx = THREE.MathUtils.clamp(hx * (portrait ? 0.7 : 0.3), ARENA.minX + halfW * 0.6, ARENA.maxX - halfW * 0.6)
-  const tz = THREE.MathUtils.lerp(0.3, hz, portrait ? 0.6 : 0.75)
+  // Look a little ahead of the hero, toward the camera: the robots' doorway
+  // is the front edge, and it should be on screen, not under the controls.
+  const tz = THREE.MathUtils.lerp(0.3, hz, portrait ? 0.6 : 0.75) + (portrait ? 0.6 : 0.3)
   const playLook = new THREE.Vector3(tx, 0.95, tz)
   const playPos = playLook.clone().add(new THREE.Vector3(0, Math.sin(elev) * dist, Math.cos(elev) * dist))
 
@@ -432,7 +434,7 @@ function setProgress(f: number) {
     return {
       phase, time: game.time, remaining: game.remaining, score: game.score, combo: game.combo,
       hero: { x: game.pos.x, y: game.pos.y, z: game.pos.z, heading: game.heading, airborne: game.airborne, playing: game.moves.playing, height: game.hero.height, width: game.hero.width, radius: game.radius, screen: project(game.pos) },
-      things: game.things.filter((t) => !t.dead && !t.dying).map((t) => ({ kind: t.kind, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp })),
+      things: game.things.filter((t) => !t.dead && !t.dying).map((t) => ({ kind: t.kind, age: t.age, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp })),
       stats: game.stats,
       facing: { front: game.facing.front, total: game.facing.total, detail: game.facing.detail },
       perf: { frames: perf.frames, avgMs: perf.frames ? perf.ms / perf.frames : 0, worstFrameMs: perf.worst, drawCalls: perf.calls, fps: perf.fps, pixelRatio, triangles: renderer.info.render.triangles },

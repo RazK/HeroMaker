@@ -172,6 +172,8 @@ function makeBot() {
     // Pick a target: the most dangerous robot, a crate, or a low balloon.
     let best = null, bestScore = Infinity
     for (const x of live) {
+      // A person needs a moment to notice a new robot.
+      if (x.kind === 'robot' && x.age < 0.9) continue
       const d = Math.hypot(x.x - h.x, x.z - h.z)
       let score = d
       if (x.kind === 'robot') score -= Math.max(0, 3.2 - Math.hypot(x.x - chest.x, x.z - chest.z)) * 0.3
@@ -193,7 +195,7 @@ function makeBot() {
     if (dTarget > reach + 0.2 && dGoal > 0.25) act.move = norm(gx - h.x, -(gz - h.z), Math.min(1, dGoal * 1.2 + 0.3))
     if (dTarget < reach + 0.35 && t >= nextPunch) {
       act.punch = true
-      nextPunch = t + 0.28 + Math.random() * 0.08
+      nextPunch = t + 0.3 + Math.random() * 0.15
     }
     return act
   }

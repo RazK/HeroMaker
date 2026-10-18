@@ -53,9 +53,9 @@ real touch input (`tools/arena-record.mjs`); over three full 75 s rounds:
 
 | Hero | Facing the camera's half | Front (within 60°) | Front 3/4 or profile | Back 3/4 | Full back |
 |---|---|---|---|---|---|
-| Curly Carl (tall human) | **77%** | 60% | 17% | 12% | 11% |
-| Panda Pals (wide, round) | **75%** | 64% | 11% | 14% | 11% |
-| Cuppy Penguin (blocky) | **74%** | 56% | 18% | 16% | 9% |
+| Curly Carl (tall human) | **78%** | 62% | 15% | 15% | 7% |
+| Panda Pals (wide, round) | **81%** | 64% | 16% | 14% | 5% |
+| Cuppy Penguin (blocky) | **74%** | 62% | 13% | 15% | 11% |
 
 The first version (robots killed while still off-screen, toys spawning
 anywhere, an idle that faced the last direction run) measured 55%. Every change
@@ -106,8 +106,8 @@ and every sound is synthesised (`src/arena/sfx.ts`).
 * A robot that reaches the chest dives in ("Oh no!") and breaks the combo.
   Being bumped by a ball breaks it too. Nothing ends the round early — kids
   always get their 75 seconds and their dance.
-* Spawns escalate over the round: robots every 2.3 s down to 0.85 s, two at a
-  time after half-time; balls from 12 s.
+* Spawns escalate over the round: robots every 1.7 s down to 0.8 s, often two
+  at a time after the first third; balls from 12 s.
 * Best score: `localStorage`, guarded; a private window keeps it for the visit.
 
 ## Performance
