@@ -1,0 +1,7 @@
+# One argument per line (render-check/** branches only).
+--drawing
+tall-girl=https://heromaker-backend.up.railway.app/api/files/debug-user-uuid/c08817b1-6a1f-4e1b-93ed-7d14a4473ece/original.jpg
+--drawing
+princess=https://heromaker-backend.up.railway.app/api/files/debug-user-uuid/26750e96-323d-4695-ad31-968d4699bd2a/original.jpg
+--styles
+anime,lego,minecraft
