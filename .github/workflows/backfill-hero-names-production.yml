@@ -38,6 +38,19 @@ jobs:
       ENVIRONMENT: ${{ needs.config.outputs.production }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Run the code production runs, not main: main's models can be ahead of
+      # production's schema (a column staging has and production does not yet),
+      # and then every query fails. Production's /api/version names its commit.
+      - name: Check out the commit production runs
+        run: |
+          set -euo pipefail
+          backend=$(jq -r '.environments.production.urls.backend' devops/railway/project.json)
+          version=$(curl -fsS "$backend/api/version" | jq -r .version)
+          sha=${version##* }
+          echo "Production runs $version"
+          git checkout --quiet "$sha"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
