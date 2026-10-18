@@ -292,7 +292,8 @@ def test_a_second_student_on_the_same_tablet_waits_for_the_teacher(db, make_user
     assert tablet.make().status_code == 201
 
     # "Next student": the app drops Maya's pass; the browser marker stays.
-    tablet.client.cookies.delete(classes.GUEST_COOKIE, path="/api/class")
+    assert tablet.client.post("/api/class/leave").status_code == 200
+    assert tablet.me().status_code == 403
     r = tablet.join(pin, "Noa", 8)
     assert r.status_code == 200
     assert r.json()["guest"]["status"] == "waiting" and r.json()["can_make"] is False

@@ -70,6 +70,7 @@ interface User {
   name: string | null;
   credits: number;
   is_admin: boolean;
+  is_teacher?: boolean;
 }
 
 /**
@@ -187,6 +188,16 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
     setShowProfileModal(true);
   };
 
+  // A teacher's home is their classes (docs/product/class-sessions.md).
+  const handleToggleTeacher = async () => {
+    setShowUserMenu(false);
+    try {
+      await api.updateProfile({ is_teacher: !user?.is_teacher });
+      await checkAuth();
+      window.dispatchEvent(new CustomEvent('auth:login'));
+    } catch { /* the row keeps its old state */ }
+  };
+
   const handleOpenDeleteAccount = () => {
     setShowUserMenu(false);
     setShowDeleteAccount(true);
@@ -238,6 +249,7 @@ export function HeaderAuth({ onOpenAdmin, controls = true }: HeaderAuthProps = {
           <SheetRow icon="coin" label="Buy credits" onClick={handleOpenBuyModal} />
           <SheetRow icon="ticket" label="Redeem a coupon" onClick={handleOpenCouponModal} />
           <SheetRow icon="pencil" label="Edit profile" onClick={handleOpenProfile} />
+          <SheetRow icon="school" label="Teacher home" trail={user.is_teacher ? 'On' : 'Off'} onClick={handleToggleTeacher} />
           {user.is_admin && <SheetRow icon="gear" label="Admin" onClick={handleOpenAdmin} />}
           <div className="tb-sheet-divider" />
           <SheetRow icon="logout" label="Sign out" onClick={handleLogout} />

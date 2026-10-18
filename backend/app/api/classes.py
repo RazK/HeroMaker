@@ -216,6 +216,15 @@ def join_class(body: JoinRequest, request: Request, response: Response, db: Sess
     return {**classes.guest_view(db, guest), "pass": token, "device_token": device}
 
 
+@student_router.post("/leave")
+def leave(request: Request, response: Response):
+    """"Next student" on a shared tablet: this browser drops its pass (the
+    student and their hero are untouched). The browser marker stays, so the
+    next child on it waits for the teacher's approval."""
+    response.delete_cookie(classes.GUEST_COOKIE, path=COOKIE_PATH)
+    return {"ok": True}
+
+
 @student_router.get("/me")
 def my_hero(request: Request, db: Session = Depends(get_db)):
     return classes.guest_view(db, _guest(request, db))
