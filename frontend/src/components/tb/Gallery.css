@@ -101,24 +101,6 @@
 .tb-tile-status--failed { color: var(--tb-red); }
 .tb-tile-progress { height: 6px; border-radius: 3px; background: var(--tb-track); overflow: hidden; }
 .tb-tile-progress span { display: block; height: 100%; background: var(--tb-grape); }
-/* Play sits in the picture's lower trailing corner, just above the card. A painting
-   is a T-pose: arms and head fill the top of the picture, and that corner,
-   beside the feet, is the only part of it that is always empty. */
-.tb-tile-play {
-  position: absolute;
-  inset-inline-end: 12px;
-  bottom: 72px;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: var(--tb-grape);
-  color: var(--tb-white);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 3px 0 var(--tb-grape-deep);
-}
-
 /* ---------- Ready tile: drawing <-> hero cross-fade ----------
    Drawing first, then the hero: each holds 1.5 s with a 0.5 s cross-fade, a
    4 s cycle. Raz: a longer hold loses people before they see the change.
