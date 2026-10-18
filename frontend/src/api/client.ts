@@ -23,6 +23,10 @@ export interface CreationStepResponse {
   estimated_completion_time: string | null;
   error_message: string | null;
   metadata_json?: { [key: string]: any } | null;
+  /** 0-100 as the provider reported it (Meshy); null when the provider reports nothing. */
+  progress?: number | null;
+  /** The step's typical length, seconds. */
+  estimated_duration?: number | null;
 }
 
 export interface CreationResponse {
@@ -42,6 +46,8 @@ export interface CreationResponse {
   style?: string;
   /** Starred by an admin: shown under Editors' choice. */
   featured?: boolean;
+  /** Made in a class, not yet kept by a parent: private, never featured. */
+  in_class?: boolean;
 }
 
 /** A look the painting can be made in. The first one is the default. */

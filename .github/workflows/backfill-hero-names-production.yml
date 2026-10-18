@@ -1,0 +1,63 @@
+name: Backfill hero names (production)
+
+# Names PRODUCTION's completed heroes that have no name, with the same OpenAI
+# naming the pipeline runs for every new hero (backend/scripts/backfill_hero_names.py).
+# A name a user set is never touched. Production writes need Raz's yes, so the
+# job runs in the `production` GitHub environment: it waits for a required
+# reviewer to approve, exactly like Promote to production. The staging twin is
+# backfill-hero-names.yml.
+#
+# Runs on the GitHub runner with the backend's production variables injected by
+# `railway run`; the database is reached through its public TCP proxy, as in
+# backup.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would be named; no OpenAI calls, no writes'
+        type: boolean
+        default: true
+      limit:
+        description: 'Name at most this many (empty = all)'
+        required: false
+        default: ''
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  backfill:
+    needs: config
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICE: ${{ needs.config.outputs.backend }}
+      ENVIRONMENT: ${{ needs.config.outputs.production }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: npm install -g @railway/cli
+      - name: Resolve the production database's public URL
+        run: |
+          set -euo pipefail
+          url=$(railway variables --service Postgres --environment "$ENVIRONMENT" --json | jq -r '.DATABASE_PUBLIC_URL // empty')
+          if [ -z "$url" ]; then echo "::error::No DATABASE_PUBLIC_URL on production Postgres."; exit 1; fi
+          echo "::add-mask::$url"
+          echo "PUBLIC_DB=$url" >> "$GITHUB_ENV"
+      - name: Backfill
+        env:
+          DRY: ${{ inputs.dry_run }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          args=(--database-url "$PUBLIC_DB")
+          [ "$DRY" = "true" ] && args+=(--dry-run)
+          [ -n "$LIMIT" ] && args+=(--limit "$LIMIT")
+          railway run --service="$SERVICE" --environment="$ENVIRONMENT" -- python backend/scripts/backfill_hero_names.py "${args[@]}"

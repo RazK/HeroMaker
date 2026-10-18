@@ -146,6 +146,6 @@ Mock-ups of each are in the artifact's "Rejected" card.
 - The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.
 - `--tb-line` borders on inputs and chips are 1.3:1, under the 3:1 a control border needs.
 - toybox.css's header comment says "Header 64px" and "32px from the bottom"; real: 80px + 4px depth, 16px visible.
-- Physical left/right in CSS: `.tb-btn-trail`, `.tb-header-title`, `.tb-sheet-row`, `.tb-stage-img`, `.tb-polaroid`, `.tb-notice button`, `.tb-tile`, `.tb-tile-img`, `.tb-tile-card`, `.tb-tile-play`, `.tb-pill`, `.tb-scanline`, `.buy-credits-pack`. No Hebrew text font loaded yet.
+- Physical left/right in CSS: `.tb-btn-trail`, `.tb-header-title`, `.tb-sheet-row`, `.tb-stage-img`, `.tb-polaroid`, `.tb-notice button`, `.tb-tile`, `.tb-tile-img`, `.tb-tile-card`, `.tb-tile-play`, `.tb-pill`, `.buy-credits-pack`. No Hebrew text font loaded yet.
 
 More screenshots: [`img/`](img/) (gallery signed in/out and loading, sign up, buy credits, account, new hero, How it was made, the game in portrait and landscape).

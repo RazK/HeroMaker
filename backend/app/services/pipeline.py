@@ -227,8 +227,10 @@ def _poll_meshy_task_with_progress(
     while True:
         status = status_func(task_id)
         current_status = status.get("status", "UNKNOWN")
-        progress = status.get("progress", 0)
-        
+        # A queued task can report "progress": null. Stored as 0: Meshy has
+        # answered, it has just not started. The hero screen shows this value.
+        progress = status.get("progress") or 0
+
         # Update progress in DB (only when progress changes)
         if step.estimated_progress != progress:
             step.estimated_progress = progress

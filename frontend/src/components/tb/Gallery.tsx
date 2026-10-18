@@ -130,7 +130,7 @@ export function Gallery({ isLoggedIn, isAdmin, onSelect, initialFilter = 'featur
           {shown.map((c, i) => (
             <div key={c.id} className={`tb-tile-wrap${leaving.has(c.id) ? ' tb-tile-wrap--leaving' : ''}`}>
               <Tile creation={c} index={i} onClick={() => onSelect(c)} />
-              {isAdmin && c.status === 'completed' && (
+              {isAdmin && c.status === 'completed' && !c.in_class && (
                 <StarToggle on={!!c.featured} busy={pending.has(c.id)} onToggle={() => toggleStar(c)} />
               )}
             </div>

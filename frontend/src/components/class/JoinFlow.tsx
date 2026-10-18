@@ -4,8 +4,8 @@ import { GuestView, studentApi } from '../../api/classes';
 import { FileUpload } from '../FileUpload';
 import { HeroLive } from '../tb/HeroLive';
 import { Icon } from '../tb/Icon';
-import { Header, NavButton, Polaroid, Sheet, Stepper, useClearOfPolaroid, useFitScreen } from '../tb/parts';
-import { STEP_UI, currentStep, etaText, heroState, stepViews } from '../tb/pipeline';
+import { Header, NavButton, Polaroid, ProgressBar, Sheet, Stepper, useClearOfPolaroid, useFitScreen } from '../tb/parts';
+import { STEP_UI, StepProgress, currentStep, etaText, heroState, holdSteady, stepProgress, stepViews } from '../tb/pipeline';
 import { StylePicker, useRenderStyles, DEFAULT_STYLE } from '../tb/StylePicker';
 import { PinDigits, Qr } from './parts';
 import '../tb/HeroScreen.css';
@@ -336,9 +336,11 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
   const stageRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [, tick] = useState(0);
+  const shown = useRef<(StepProgress & { key: string }) | null>(null);
+  // The bar and the time left move every second, between polls (as HeroScreen).
   useEffect(() => {
     if (state !== 'making') return;
-    const t = window.setInterval(() => tick((n) => n + 1), 5000);
+    const t = window.setInterval(() => tick((n) => n + 1), 1000);
     return () => window.clearInterval(t);
   }, [state]);
   const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
@@ -347,6 +349,11 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
   useClearOfPolaroid(stageRef, `${state}:${art}`);
   const step = currentStep(creation);
   const title = `${name}’s hero`;
+  const now = Date.now();
+  const measured = stepProgress(step, now);
+  const stepKey = `${step?.step_name}:${step?.started_at}`;
+  const progress = measured ? (shown.current = holdSteady(shown.current, stepKey, measured)) : null;
+  const eta = progress ? etaText(progress.endsAt, now) : '';
 
   if (state === 'ready') {
     return (
@@ -369,15 +376,24 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
       <div className="tb-screen-body">
         <div ref={stageRef} className="tb-stage tb-hero-stage">
           <img className={`tb-stage-img${failed ? ' tb-hero-faded' : ''}`} src={art} alt={title} />
-          {!failed && !painted && <div className="tb-scanline" />}
+          {!failed && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
           {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
         </div>
         <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name}>
           <Stepper steps={stepViews(creation)} />
           <div className="tb-status">
             <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
-            <div className="tb-status-eta">{failed ? '' : etaText(step)}</div>
+            <div className="tb-status-eta">{failed ? '' : eta}</div>
           </div>
+          {!failed && (
+            <ProgressBar
+              key={stepKey}
+              pct={progress?.pct ?? 0}
+              showPct={progress?.real}
+              label={label}
+              valueText={progress ? `${Math.floor(progress.pct)}%${eta ? `, ${eta}` : ''}` : undefined}
+            />
+          )}
         </div>
       </div>
       <div className="tb-bar">

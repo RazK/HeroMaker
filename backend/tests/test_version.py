@@ -18,18 +18,18 @@ def test_falls_back_to_dev(version_file):
 
 
 def test_reads_the_file_the_deploy_job_writes(version_file):
-    version_file.write_text("v177 · aadc82c\n", encoding="utf-8")
-    assert version_mod.get_version() == "v177 · aadc82c"
+    version_file.write_text("v1.0.12 · aadc82c\n", encoding="utf-8")
+    assert version_mod.get_version() == "v1.0.12 · aadc82c"
 
 
 def test_env_var_wins(version_file, monkeypatch):
-    version_file.write_text("v1 · 0000000\n", encoding="utf-8")
-    monkeypatch.setenv("APP_VERSION", "v2 · 1111111")
-    assert version_mod.get_version() == "v2 · 1111111"
+    version_file.write_text("v1.0.1 · 0000000\n", encoding="utf-8")
+    monkeypatch.setenv("APP_VERSION", "v1.0.2 · 1111111")
+    assert version_mod.get_version() == "v1.0.2 · 1111111"
 
 
 def test_endpoint(version_file):
-    version_file.write_text("v177 · aadc82c\n", encoding="utf-8")
+    version_file.write_text("v1.0.12 · aadc82c\n", encoding="utf-8")
     client = TestClient(app)
-    assert client.get("/api/version").json() == {"version": "v177 · aadc82c"}
-    assert client.get("/health").json()["version"] == "v177 · aadc82c"
+    assert client.get("/api/version").json() == {"version": "v1.0.12 · aadc82c"}
+    assert client.get("/health").json()["version"] == "v1.0.12 · aadc82c"

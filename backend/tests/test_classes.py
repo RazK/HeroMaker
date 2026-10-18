@@ -253,9 +253,14 @@ def test_student_makes_one_hero_paid_by_the_class(db, make_user, api, steps_succ
     # A class hero is in no gallery: not the teacher's own, not Editors' choice.
     mine = client.get("/api/creations/?mine_only=true", headers=_auth(teacher)).json()
     assert creation.id not in {x["id"] for x in mine}
+    featured = client.get("/api/creations/?featured_only=true").json()
+    assert creation.id not in {x["id"] for x in featured}
+    # An admin's "All heroes" lists it, marked, and it cannot be starred public.
     admin = make_user(is_admin=True)
-    everything = client.get("/api/creations/", headers=_auth(admin)).json()
-    assert creation.id not in {x["id"] for x in everything}
+    everything = {x["id"]: x for x in client.get("/api/creations/", headers=_auth(admin)).json()}
+    assert everything[creation.id]["in_class"] is True
+    r = client.put(f"/api/creations/{creation.id}/featured", json={"featured": True}, headers=_auth(admin))
+    assert r.status_code == 409
     # ...but it is on the class's roster.
     roster = client.get(f"/api/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
     assert [(s["label"], s["age"], s["hero"]["state"]) for s in roster] == [("Maya", 7, "ready")]

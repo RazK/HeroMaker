@@ -153,15 +153,17 @@ def list_creations(
       so a shared link keeps working.
     """
     # A class hero (made by a student, not yet claimed by a parent) is in no
-    # gallery, not even its paying teacher's: it is on the class roster and on
-    # the child's own page, and nowhere else. docs/product/class-sessions.md.
-    live = db.query(Creation).filter(Creation.deleted_at.is_(None), Creation.class_id.is_(None))
+    # public gallery and not in its paying teacher's "My heroes": it is on the
+    # class roster and the child's own page. Only an admin's "All heroes" (and
+    # so "Failed") lists it, marked in_class. docs/product/class-sessions.md.
+    live = db.query(Creation).filter(Creation.deleted_at.is_(None))
+    personal = live.filter(Creation.class_id.is_(None))
     if mine_only and user:
-        creations = live.filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
+        creations = personal.filter(Creation.user_id == user.id).order_by(Creation.updated_at.desc()).all()
     elif not featured_only and user is not None and user.is_admin:
         creations = live.order_by(Creation.updated_at.desc()).all()
     else:
-        creations = live.filter(Creation.featured.is_(True)).order_by(Creation.updated_at.desc()).all()
+        creations = personal.filter(Creation.featured.is_(True)).order_by(Creation.updated_at.desc()).all()
         # status is derived from the steps, so "finished" is checked here.
         creations = [c for c in creations if c.status == "completed"]
 
@@ -181,6 +183,8 @@ def set_featured(
     creation = _live_creation(db, creation_id)
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
+    if body.featured and creation.class_id:
+        raise HTTPException(status_code=409, detail="A class hero stays private until a parent keeps it")
 
     # Write updated_at back as it was: the gallery orders by it, and starring
     # a hero must not move it to the top of every view.

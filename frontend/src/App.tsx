@@ -14,7 +14,7 @@ import { JoinFlow, JOIN_PATH } from './components/class/JoinFlow';
 import { ClaimScreen, CLAIM_PATH } from './components/class/ClaimScreen';
 import { HeroScreen } from './components/tb/HeroScreen';
 import { Icon } from './components/tb/Icon';
-import { Header, NavButton, NoPageScroll, Sheet } from './components/tb/parts';
+import { Header, NavButton, NoPageScroll, PullToRefresh, Sheet } from './components/tb/parts';
 import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/StylePicker';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
@@ -127,7 +127,18 @@ function MainApp() {
     window.addEventListener('auth:logout', handleAuthChange);
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     window.addEventListener('auth:account-deleted', handleAccountDeleted);
+    // Anything that changes the balance outside App (a redeemed coupon) says
+    // so; and coming back to the tab (from checkout, or another device's
+    // purchase) re-reads it, so the app never acts on a stale balance.
+    // ('auth:credits-updated' is App's own broadcast, so it is not listened to
+    // here: that would loop.)
+    const handleCreditsChanged = () => refreshCreditBalance();
+    const handleVisible = () => { if (document.visibilityState === 'visible') refreshCreditBalance(); };
+    window.addEventListener('credits:changed', handleCreditsChanged);
+    document.addEventListener('visibilitychange', handleVisible);
     return () => {
+      window.removeEventListener('credits:changed', handleCreditsChanged);
+      document.removeEventListener('visibilitychange', handleVisible);
       window.removeEventListener('auth:login', handleAuthChange);
       window.removeEventListener('auth:logout', handleAuthChange);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
@@ -400,6 +411,7 @@ function MainApp() {
     screen = (
       <div className="tb-screen tb-screen--wide tb-screen--app">
         <NoPageScroll />
+        <PullToRefresh />
         {appHeader}
         {notices}
         <div className="tb-screen-body">

@@ -86,7 +86,7 @@ function ClassCard({ c, index, onOpen }: { c: ClassView; index: number; onOpen: 
       <div className="cls-card-body">
         <div className="cls-card-text">
           <div className="cls-card-title" dir="auto">{c.title}</div>
-          <div className="cls-card-sub">{c.heroes_ready} of {c.seats} heroes · {c.seats_left} seats left</div>
+          <div className="cls-card-sub">{c.heroes_ready} of {c.seats} heroes · {c.seats_left} {c.seats_left === 1 ? 'seat' : 'seats'} left</div>
         </div>
         {live
           ? <span className="cls-live"><span className="cls-live-dot" />Live</span>
@@ -116,7 +116,7 @@ function NewClassSheet({ credits, heroCost, onClose, onCreated }: {
     setError(null);
     try {
       const c = await teacherApi.create(title.trim(), seats);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
+      window.dispatchEvent(new CustomEvent('credits:changed'));
       onCreated(c);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Payments are unavailable right now.');

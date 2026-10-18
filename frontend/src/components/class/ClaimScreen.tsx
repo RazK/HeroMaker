@@ -38,7 +38,7 @@ export function ClaimScreen({ token, onSeeHeroes }: { token: string; onSeeHeroes
     try {
       setView(await claimApi.keep(token));
       setMine(true);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
+      window.dispatchEvent(new CustomEvent('credits:changed'));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not keep the hero. Try again.');
     } finally {

@@ -108,7 +108,7 @@ export function ClassScreen({ classId, credits, onBack, onOpenHero }: {
         </Dialog>
       )}
       {sheet === 'seats' && <AddSeats c={c} credits={credits} onClose={() => setSheet(null)}
-        onPaid={(v) => { setC(v); setSheet(null); window.dispatchEvent(new CustomEvent('auth:credits-updated')); }} />}
+        onPaid={(v) => { setC(v); setSheet(null); window.dispatchEvent(new CustomEvent('credits:changed')); }} />}
     </div>
   );
 }
@@ -119,7 +119,7 @@ function ClassGallery({ c, roster, onOpenHero }: { c: ClassView; roster: Student
     <div className="tb-screen-body cls-gallery">
       <div className="cls-stats">
         <span className="cls-stat"><Icon name="star" />{c.heroes_ready} {c.heroes_ready === 1 ? 'hero' : 'heroes'}</span>
-        <span className="cls-stat"><Icon name="users" />{c.seats_left} seats left</span>
+        <span className="cls-stat"><Icon name="users" />{c.seats_left} {c.seats_left === 1 ? 'seat' : 'seats'} left</span>
       </div>
       {made.length === 0 ? (
         <div className="cls-empty">

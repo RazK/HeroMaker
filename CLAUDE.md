@@ -20,10 +20,13 @@ These came straight from the product owner. They override your defaults.
   so the rest of the work runs without him.
 - **Don't stop mid-task.** If you say you are starting something, start it in
   the same turn.
-- **Production → staging is always allowed; staging → production never is
-  without his explicit yes.** Copying data or files from production into
-  staging (to make staging look real) needs no approval — just do it and
-  say so. Anything that writes to production does.
+- **Production only ever receives a promotion of staging.** Every feature
+  and fix lands on staging first; Raz tests there; then it is promoted
+  as-is. Nothing reaches production any other way, and anything that writes
+  to production needs his explicit yes.
+- **The two databases stay separate.** Copying creations between them (in
+  either direction, e.g. a few real heroes into staging for testing) is
+  allowed only with Raz's permission, asked for each time.
 - **Flow:** feature branch → PR → CI green → **you merge it** → `main`
   auto-deploys to staging → you robot-test staging → he reviews staging →
   he approves *Promote to production*. Everything except his review is yours
@@ -151,6 +154,27 @@ open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
 
+## Releasing: how a change reaches production
+
+Raz's flow, agreed 2026-10-18. Production stays stable; staging is the next
+release.
+
+1. Every change merges to `main` and lands on **staging**; the robot
+   (`staging-e2e.yml`) runs the whole flow on it.
+2. When Raz wants a release, send ONE short message: "Promote v2.0.9?
+   Includes: … Robot passed." with the staging link.
+3. On his **"yes" in chat**, dispatch `promote-production.yml` with the
+   staging SHA yourself (`gh api -X POST
+   repos/RazK/HeroMaker/actions/workflows/promote-production.yml/dispatches
+   -f ref=main -f 'inputs[ref]=<sha>'`), wait for it, then check production
+   yourself (`/api/version`, sign-in, gallery, packs) and reply with the
+   version now live. Never promote without that yes.
+4. **Hotfix** (production is broken and staging holds unreleased work): cut
+   `hotfix/<topic>` from the commit production runs, fix it, CI green, robot
+   it if possible, ask Raz, promote that SHA (the workflow accepts
+   `hotfix/*`), then merge the same fix to `main` so staging gets it too.
+5. Rollback: promote the previous production SHA the same way.
+
 ## Deployments
 
 **A merge to `main` goes to staging. Production needs a human to approve it.**
@@ -163,11 +187,13 @@ same way. Then fix `project.json` — only `project.json`.
 | rollback | same workflow, earlier SHA |
 
 **Quote the version when you report a merge or deploy** ("live on staging as
-v178 · 3f9c2ab"), so Raz can refresh and see it in the footer. It is
-`v<commits on main's first-parent line> · <short sha>`, made by
-`devops/scripts/app-version.sh <sha>`; read the deployed one from the footer or
-`GET /api/version` (backend). Production shows the same version as the staging
-build it promoted.
+v1.0.12 · 3f9c2ab"), so Raz can refresh and see it in the footer. It is semantic:
+`v<MAJOR>.<MINOR>.<PATCH> · <short sha>`, made by
+`devops/scripts/app-version.sh <sha>`. MAJOR.MINOR lives in `devops/VERSION`
+(bump it by hand for a feature launch or a big change); PATCH counts the merges
+to main since that file last changed, so every merge is a new patch. Read the
+deployed one from the footer or `GET /api/version` (backend). Production shows
+the same version as the staging build it promoted.
 
 Never add a workflow that deploys to production on push. Railway service and
 environment IDs come from `devops/railway/project.json` via the
