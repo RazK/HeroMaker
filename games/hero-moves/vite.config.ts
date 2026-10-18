@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => ({
           input: { main: 'index.html', moveslab: 'moveslab.html', dancers: 'dancers.html', thumbs: 'thumbs.html',
                    posecheck: 'posecheck.html', animlab: 'animlab.html',
                    posegate: 'posegate.html', reel: 'reel.html', backdrops: 'backdrops.html',
+                   // Robot Rumble, the camera-free arena game (src/arena/).
+                   arena: 'arena.html',
                    // Not a page: the HeroMaker app imports it at run time from
                    // /play/herostage.js (see src/herostage.ts), so it keeps a
                    // fixed name and its exports, and shares three.js and the
@@ -39,6 +41,8 @@ export default defineConfig(({ mode }) => ({
     assetsInlineLimit: mode === 'artifact' ? 200000 : mode === 'single' ? 100000000 : 4096,
     chunkSizeWarningLimit: 6000,
   },
-  server: { host: '127.0.0.1', port: 5182 },
+  // The arena imports the app's own Toy Box stylesheet from frontend/, so the
+  // game cannot drift from the app; the dev server must be allowed to read it.
+  server: { host: '127.0.0.1', port: 5182, fs: { allow: ['.', '../../frontend/src/styles'] } },
   preview: { host: '127.0.0.1', port: 5183 },
 }))

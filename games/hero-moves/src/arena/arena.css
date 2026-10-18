@@ -1,0 +1,316 @@
+/*
+ * Robot Rumble on the app's own Toy Box sheet.
+ *
+ * The tokens and the parts (.tb-header, .tb-nav, .tb-btn, .tb-chip, .tb-bar,
+ * .tb-eyebrow, .tb-h1) are the app's — main.ts imports
+ * frontend/src/styles/toybox.css itself, so the game cannot drift from the
+ * app. This file only adds what a game has and the app does not: the stage,
+ * the HUD, the thumb stick and the two big round buttons.
+ */
+html, body {
+  margin: 0;
+  background: var(--tb-cream);
+  color: var(--tb-ink);
+  font-family: var(--tb-font-body);
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+*, *::before, *::after { box-sizing: border-box; }
+/* The app's fit screen is 100% of its parent under html.tb-no-scroll. */
+#app { height: 100%; }
+button { font: inherit; color: inherit; }
+
+.rr-screen { max-width: none; position: relative; }
+.rr-screen > .tb-header { position: relative; }
+
+/* ---------------------------------------------------------------- header */
+.rr-hud {
+  position: absolute;
+  left: 76px;
+  right: 76px;
+  display: none;
+  justify-content: center;
+  pointer-events: none;
+}
+.rr-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+}
+.rr-score-label { font-family: var(--tb-font-body); font-weight: 800; font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--tb-grape-text); }
+.rr-score-value { font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.rr-timer {
+  height: var(--tb-header-ctl);
+  min-width: 72px;
+  padding: 0 14px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--tb-sun);
+  color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-sun-deep);
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.rr-timer.is-low { background: var(--tb-red); color: var(--tb-white); box-shadow: 0 var(--tb-depth-sm) 0 #8e1b1b; animation: rr-beat 1s ease-in-out infinite; }
+@keyframes rr-beat { 50% { transform: scale(1.08); } }
+.rr-screen[data-phase="play"] .rr-title,
+.rr-screen[data-phase="countdown"] .rr-title { display: none; }
+.rr-screen[data-phase="play"] .rr-hud,
+.rr-screen[data-phase="countdown"] .rr-hud { display: flex; }
+.rr-screen[data-phase="play"] .rr-timer,
+.rr-screen[data-phase="countdown"] .rr-timer { display: inline-flex; }
+
+/* ---------------------------------------------------------------- stage */
+.rr-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--tb-cream);
+}
+.rr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.rr-pops { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.rr-pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 4px 0 var(--tb-ink);
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.15;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+.rr-pop--combo { background: var(--tb-sun); font-size: 24px; }
+.rr-pop--bonus { background: var(--tb-sun); }
+.rr-pop--bad { color: var(--tb-red); border-color: var(--tb-red); box-shadow: 0 4px 0 var(--tb-red); }
+
+.rr-combo {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translate(-50%, -8px) scale(.9);
+  opacity: 0;
+  height: 36px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--tb-sun);
+  color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-sun-deep);
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: transform 160ms cubic-bezier(.3, 1.6, .5, 1), opacity 120ms;
+}
+.rr-combo.is-on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+.rr-count {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 132px;
+  height: 132px;
+  margin: -66px 0 0 -66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--tb-sun);
+  color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-sun-deep);
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 60px;
+  opacity: 0;
+  transform: scale(.6);
+  transition: opacity 120ms, transform 200ms cubic-bezier(.3, 1.6, .5, 1);
+  pointer-events: none;
+}
+.rr-count.is-on { opacity: 1; transform: scale(1); }
+
+.rr-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tb-space);
+  background: var(--tb-cream);
+}
+.rr-screen:not([data-phase="loading"]):not([data-phase="error"]) .rr-loading { display: none; }
+.rr-ring { position: relative; width: 96px; height: 96px; }
+.rr-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.rr-ring circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+.rr-ring-track { stroke: var(--tb-track); }
+.rr-ring-fill { stroke: var(--tb-grape); transition: stroke-dashoffset 200ms; }
+.rr-ring-pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; }
+.rr-screen[data-phase="error"] .rr-ring { display: none; }
+
+/* ---------------------------------------------------------------- bar */
+.rr-bar { position: relative; z-index: 2; }
+.rr-card { display: none; flex-direction: column; gap: 12px; width: 100%; max-width: 520px; margin: 0 auto; }
+.rr-screen[data-phase="menu"] .rr-card--start,
+.rr-screen[data-phase="loading"] .rr-card--start,
+.rr-screen[data-phase="end"] .rr-card--end { display: flex; }
+.rr-card .tb-eyebrow { text-align: center; }
+.rr-hero-name { text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr-line { text-align: center; font-size: 16px; color: var(--tb-ink-2); font-weight: 700; }
+.rr-chips { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.rr-chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; font-size: 15px; pointer-events: none; }
+.rr-chip svg { color: var(--tb-grape); }
+.rr-card .tb-btn--primary { margin-top: 6px; }
+.rr-end-score { display: flex; align-items: baseline; justify-content: center; gap: 10px; }
+.rr-end-value { font-family: var(--tb-font-display); font-weight: 600; font-size: 56px; line-height: 1; }
+.rr-end-label { font-size: 18px; font-weight: 800; color: var(--tb-ink-2); }
+.rr-end-buttons { display: flex; flex-direction: column; gap: var(--tb-stack); margin-top: 6px; }
+
+/* ---------------------------------------------------------------- controls */
+.rr-controls {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tb-space);
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  height: 150px;
+}
+.rr-screen[data-phase="play"] .rr-controls,
+.rr-screen[data-phase="countdown"] .rr-controls { display: flex; }
+.rr-stick-zone {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 220px;
+  height: 100%;
+  touch-action: none;
+}
+.rr-stick {
+  position: absolute;
+  left: 70px;
+  top: 50%;
+  width: 124px;
+  height: 124px;
+  margin: -62px 0 0 -62px;
+  border-radius: 50%;
+  background: var(--tb-white);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink), inset 0 0 0 10px var(--tb-plate-1);
+  pointer-events: none;
+}
+.rr-stick.is-active { box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink), inset 0 0 0 10px var(--tb-plate-2); }
+.rr-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: var(--tb-grape);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep);
+}
+.rr-buttons { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+.rr-btn {
+  position: relative;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  touch-action: none;
+  font-family: var(--tb-font-display);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.rr-btn--punch {
+  width: 104px;
+  height: 104px;
+  background: var(--tb-grape);
+  color: var(--tb-white);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-grape-deep);
+  font-size: 18px;
+}
+.rr-btn--punch.is-down { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-grape-deep); }
+.rr-btn--jump {
+  width: 84px;
+  height: 84px;
+  margin-top: 30px;
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  border: 2.5px solid var(--tb-ink);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-ink);
+}
+.rr-btn--jump.is-down { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-ink); }
+.rr-btn:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, .25); }
+.rr-controls.is-off .rr-btn { opacity: .55; }
+
+/* ---------------------------------------------------------------- landscape phone */
+@media (orientation: landscape) and (max-height: 559px) {
+  .rr-screen.tb-screen--fit { display: flex; flex-direction: column; max-width: none; }
+  .rr-screen > .tb-header { padding-top: 8px; padding-bottom: calc(8px + var(--tb-depth-sm)); }
+  /* Menu and end: the card sits beside the stage, as the app's hero screen does. */
+  .rr-screen[data-phase="menu"] .rr-bar,
+  .rr-screen[data-phase="loading"] .rr-bar,
+  .rr-screen[data-phase="end"] .rr-bar {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 340px;
+    justify-content: center;
+    box-shadow: -2px 0 0 var(--tb-line);
+  }
+  .rr-screen[data-phase="menu"] .rr-stage,
+  .rr-screen[data-phase="loading"] .rr-stage,
+  .rr-screen[data-phase="end"] .rr-stage { margin-right: 340px; }
+  .rr-card { gap: 8px; }
+  .rr-card .tb-h1 { font-size: 28px; line-height: 32px; }
+  .rr-end-value { font-size: 44px; }
+  /* Play: the controls float over the stage, one under each thumb. */
+  .rr-screen[data-phase="play"] .rr-bar,
+  .rr-screen[data-phase="countdown"] .rr-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .rr-controls { max-width: none; height: 140px; padding-inline: max(8px, env(safe-area-inset-left, 0px)); }
+  .rr-stick-zone, .rr-btn { pointer-events: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rr-timer.is-low { animation: none; }
+}

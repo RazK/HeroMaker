@@ -1,0 +1,448 @@
+import * as THREE from 'three'
+import '../../../../frontend/src/styles/toybox.css'
+import './arena.css'
+import { parseHero, type Hero } from '../avatar/loader'
+import { OWN_HERO, OWN_NAME, goBack } from '../ownhero'
+import { Controls, type Input } from './controls'
+import { Game, ROUND_SECONDS, type Phase } from './game'
+import { MOVE_FILES } from './moves'
+import { Sfx } from './sfx'
+import { ARENA, World } from './world'
+
+/**
+ * Robot Rumble: a camera-free arena game starring the player's own hero.
+ *
+ * Opened by the HeroMaker app exactly like Dance party — `?vrm=<same-origin
+ * opt_avatar.vrm>&name=<hero name>` — and, with no `?vrm`, on one of the
+ * sample heroes shipped with this build (`?sample=Superstar` picks one).
+ *
+ * The page is the app's Toy Box screen: header with a round back button,
+ * the stage, a bottom bar. The bar holds the start card, then the thumb
+ * stick and the two buttons, then the score card.
+ */
+
+const params = new URLSearchParams(location.search)
+const MANUAL = params.get('manual') === '1'
+const DPR = Number(params.get('dpr')) || Math.min(devicePixelRatio, 2)
+
+const samples = import.meta.glob('../../assets/avatars/*.opt.vrm', { query: '?url', import: 'default', eager: true }) as Record<string, string>
+const sampleUrl = (name: string) =>
+  Object.entries(samples).find(([k]) => k.includes(`/${name}.opt.vrm`))?.[1]
+const SAMPLE = params.get('sample') || 'Crayon_Kid'
+const HERO_URL = OWN_HERO ?? sampleUrl(SAMPLE) ?? Object.values(samples)[0]
+const HERO_NAME = OWN_HERO ? OWN_NAME : (params.get('name') || SAMPLE.replace(/_/g, ' '))
+
+const ICONS = {
+  back: '<path d="M15 18l-6-6 6-6"/>',
+  play: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none"/>',
+  redo: '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/>',
+  punch: '<rect x="9" y="7" width="11" height="10" rx="3.5"/><path d="M13 7v4"/><path d="M16.5 7v4"/><path d="M9 11.5h6"/><path d="M3 9h3"/><path d="M2 12h4"/><path d="M3 15h3"/>',
+  jump: '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20.5h14"/>',
+  land: '<path d="M12 3v11"/><path d="M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 20h16"/><path d="M5.5 16.5L3.5 15"/><path d="M18.5 16.5l2-1.5"/>',
+  run: '<circle cx="14" cy="4.5" r="1.8"/><path d="M8 21l3-6 3 2v4"/><path d="M6 11l3-3 4 1 2 4 3 1"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
+}
+const icon = (name: keyof typeof ICONS, size = 22) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+
+// ------------------------------------------------------------------ DOM
+
+document.documentElement.classList.add('tb-no-scroll')
+const app = document.getElementById('app')!
+app.innerHTML = `
+  <div class="tb-screen tb-screen--fit rr-screen" data-phase="loading">
+    <header class="tb-header">
+      <div class="tb-header-side"><button type="button" class="tb-nav rr-back" aria-label="Back to your hero">${'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS.back + '</svg>'}</button></div>
+      <div class="tb-header-title rr-title">Robot Rumble</div>
+      <div class="rr-hud" aria-live="off">
+        <div class="rr-score"><span class="rr-score-label">Score</span><span class="rr-score-value">0</span></div>
+      </div>
+      <div class="tb-header-side tb-header-side--end"><div class="rr-timer" role="timer" aria-label="Time left">1:15</div></div>
+    </header>
+    <div class="rr-stage">
+      <div class="rr-pops"></div>
+      <div class="rr-combo" aria-hidden="true"></div>
+      <div class="rr-count" aria-live="assertive"></div>
+      <div class="rr-loading" role="status">
+        <div class="rr-ring"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" class="rr-ring-track"/><circle cx="32" cy="32" r="28" class="rr-ring-fill"/></svg><span class="rr-ring-pct">0%</span></div>
+        <div class="tb-muted rr-loading-what">Getting ${esc(HERO_NAME)} ready</div>
+      </div>
+    </div>
+    <div class="tb-bar rr-bar">
+      <div class="rr-card rr-card--start">
+        <div class="tb-eyebrow">Robot Rumble</div>
+        <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
+        <div class="rr-line">Stop the robots before they reach your toys!</div>
+        <div class="rr-chips">
+          <span class="tb-chip rr-chip">${icon('punch', 18)}Punch</span>
+          <span class="tb-chip rr-chip">${icon('jump', 18)}+${icon('punch', 18)}Smash</span>
+        </div>
+        <button type="button" class="tb-btn tb-btn--primary tb-btn--full rr-start" disabled>${icon('play')}Start</button>
+      </div>
+      <div class="rr-card rr-card--end">
+        <div class="tb-eyebrow rr-end-eyebrow">Time’s up!</div>
+        <div class="rr-end-score"><span class="rr-end-value">0</span><span class="rr-end-label">points</span></div>
+        <div class="rr-line rr-end-best">Best 0</div>
+        <div class="rr-end-buttons">
+          <button type="button" class="tb-btn tb-btn--secondary tb-btn--full rr-back2">Back</button>
+          <button type="button" class="tb-btn tb-btn--primary tb-btn--full rr-again">${icon('redo')}Play again</button>
+        </div>
+      </div>
+    </div>
+  </div>`
+
+const screen = app.querySelector<HTMLElement>('.rr-screen')!
+const stageEl = app.querySelector<HTMLElement>('.rr-stage')!
+const bar = app.querySelector<HTMLElement>('.rr-bar')!
+const popsEl = app.querySelector<HTMLElement>('.rr-pops')!
+const comboEl = app.querySelector<HTMLElement>('.rr-combo')!
+const countEl = app.querySelector<HTMLElement>('.rr-count')!
+const scoreEl = app.querySelector<HTMLElement>('.rr-score-value')!
+const timerEl = app.querySelector<HTMLElement>('.rr-timer')!
+const startBtn = app.querySelector<HTMLButtonElement>('.rr-start')!
+const againBtn = app.querySelector<HTMLButtonElement>('.rr-again')!
+const ringFill = app.querySelector<SVGCircleElement>('.rr-ring-fill')!
+const ringPct = app.querySelector<HTMLElement>('.rr-ring-pct')!
+app.querySelector('.rr-back')!.addEventListener('click', goBack)
+app.querySelector('.rr-back2')!.addEventListener('click', goBack)
+
+const controls = new Controls(bar)
+const sfx = new Sfx()
+
+// ------------------------------------------------------------------ 3D
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.outputColorSpace = THREE.SRGBColorSpace
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.0
+let pixelRatio = DPR
+renderer.setPixelRatio(pixelRatio)
+stageEl.prepend(renderer.domElement)
+renderer.domElement.className = 'rr-canvas'
+
+const world = new World()
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60)
+let game: Game | null = null
+let size = { w: 1, h: 1 }
+
+function resize() {
+  const w = Math.max(1, stageEl.clientWidth)
+  const h = Math.max(1, stageEl.clientHeight)
+  if (w === size.w && h === size.h) return
+  size = { w, h }
+  renderer.setSize(w, h, false)
+  camera.aspect = w / h
+  camera.updateProjectionMatrix()
+}
+new ResizeObserver(resize).observe(stageEl)
+
+// ---- camera: three-quarters from the front, always. Two framings, blended:
+// the showcase (hero big, menu and end) and the arena (play).
+const cam = { pos: new THREE.Vector3(0, 3, 9), look: new THREE.Vector3(0, 1, 0), show: 1, shake: 0 }
+function aimCamera(dt: number, snap = false) {
+  const g = game
+  const aspect = size.w / size.h
+  const portrait = aspect < 0.9
+  const hx = g?.pos.x ?? 0, hz = g?.pos.z ?? 0.6
+  const heroH = g?.hero.height ?? 1.7
+
+  // Arena framing: see enough of the floor around the hero to meet what is
+  // coming, follow the hero part of the way so the near edge stays in view.
+  const vfov = portrait ? 50 : 40
+  const tanV = Math.tan(THREE.MathUtils.degToRad(vfov / 2))
+  const halfW = portrait ? 1.75 : 4.2
+  const dist = THREE.MathUtils.clamp(halfW / (tanV * aspect), 5.4, 12)
+  const elev = THREE.MathUtils.degToRad(portrait ? 24 : 24)
+  const tx = THREE.MathUtils.clamp(hx * (portrait ? 0.7 : 0.3), ARENA.minX + halfW * 0.6, ARENA.maxX - halfW * 0.6)
+  const tz = THREE.MathUtils.lerp(0.3, hz, portrait ? 0.6 : 0.4)
+  const playLook = new THREE.Vector3(tx, 0.95, tz)
+  const playPos = playLook.clone().add(new THREE.Vector3(0, Math.sin(elev) * dist, Math.cos(elev) * dist))
+
+  // Showcase framing: the hero fills about half the stage height, seen from
+  // a little above and to the side — the three-quarter view a toy box shows.
+  const showFov = portrait ? 34 : 30
+  const tanS = Math.tan(THREE.MathUtils.degToRad(showFov / 2))
+  const sd = Math.max((heroH * 0.62 / 0.5) / 2 / tanS, ((g?.hero.width ?? 1) * 0.75) / (tanS * aspect)) + 0.8
+  const showLook = new THREE.Vector3(hx, heroH * 0.52, hz)
+  const yaw = 0.32
+  const showPos = showLook.clone().add(new THREE.Vector3(Math.sin(yaw) * sd, heroH * 0.25 + 0.3, Math.cos(yaw) * sd))
+
+  const k = cam.show
+  const fov = THREE.MathUtils.lerp(vfov, showFov, k)
+  const pos = playPos.clone().lerp(showPos, k)
+  const look = playLook.clone().lerp(showLook, k)
+  const rate = snap ? 1 : 1 - Math.exp(-5 * dt)
+  cam.pos.lerp(pos, rate)
+  cam.look.lerp(look, rate)
+  if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix() }
+  camera.position.copy(cam.pos)
+  if (cam.shake > 0) {
+    const s = cam.shake * 0.12
+    camera.position.x += (Math.random() - 0.5) * s
+    camera.position.y += (Math.random() - 0.5) * s
+    cam.shake = Math.max(0, cam.shake - dt * 3)
+  }
+  camera.lookAt(cam.look)
+  if (g) g.cameraPos.copy(camera.position)
+}
+
+// ------------------------------------------------------------------ popups
+
+interface Pop { el: HTMLElement; at: THREE.Vector3; t: number }
+const pops: Pop[] = []
+const _v = new THREE.Vector3()
+function popup(at: THREE.Vector3, text: string, tone: string) {
+  const el = document.createElement('div')
+  el.className = `rr-pop rr-pop--${tone}`
+  el.textContent = text
+  popsEl.appendChild(el)
+  pops.push({ el, at: at.clone(), t: 0 })
+  while (pops.length > 8) pops.shift()!.el.remove()
+}
+function updatePops(dt: number) {
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const p = pops[i]
+    p.t += dt
+    const life = 0.9
+    if (p.t > life) { p.el.remove(); pops.splice(i, 1); continue }
+    _v.copy(p.at).setY(p.at.y + p.t * 0.9).project(camera)
+    const x = (_v.x * 0.5 + 0.5) * size.w
+    const y = (-_v.y * 0.5 + 0.5) * size.h
+    const grow = p.t < 0.12 ? 0.6 + 0.4 * (p.t / 0.12) * 1.15 : 1
+    const fade = p.t > life - 0.25 ? (life - p.t) / 0.25 : 1
+    p.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${grow})`
+    p.el.style.opacity = String(fade)
+  }
+}
+
+// ------------------------------------------------------------------ state
+
+const BEST_KEY = 'heromaker.robotRumble.best'
+function readBest(): number {
+  try { return Number(localStorage.getItem(BEST_KEY)) || 0 } catch { return 0 }
+}
+function writeBest(v: number) {
+  try { localStorage.setItem(BEST_KEY, String(v)) } catch { /* private mode: best lasts the visit */ }
+}
+
+let phase: Phase | 'loading' = 'loading'
+let countdown = 0
+let endAt = 0
+let hitStop = 0
+let lastShownSecond = -1
+const perf = { frames: 0, ms: 0, worst: 0, calls: 0, fps: 0, dropped: false }
+
+function setPhase(p: Phase) {
+  phase = p
+  screen.dataset.phase = p
+  if (game) game.phase = p
+  controls.setEnabled(p === 'play' || p === 'countdown')
+  ;(window as unknown as { __phase?: string }).__phase = p
+}
+
+function start(seed = Math.floor(Math.random() * 1e9)) {
+  if (!game) return
+  sfx.unlock()
+  game.reset(seed)
+  for (const p of pops.splice(0)) p.el.remove()
+  countdown = 2.4
+  setPhase('countdown')
+  game.phase = 'countdown'
+}
+
+function finish() {
+  if (!game) return
+  setPhase('end')
+  endAt = performance.now()
+  game.celebrate()
+  sfx.fanfare()
+  const best = readBest()
+  const isBest = game.score > best
+  if (isBest) writeBest(game.score)
+  app.querySelector('.rr-end-value')!.textContent = game.score.toLocaleString('en-US')
+  app.querySelector('.rr-end-eyebrow')!.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
+  app.querySelector('.rr-end-best')!.textContent = isBest
+    ? `${game.stats.robots} robots stopped`
+    : `Best ${best.toLocaleString('en-US')} · ${game.stats.robots} robots stopped`
+  againBtn.focus({ preventScroll: true })
+}
+
+startBtn.addEventListener('click', () => start())
+againBtn.addEventListener('click', () => start())
+
+// ------------------------------------------------------------------ the frame
+
+let last = performance.now()
+let gameClock = 0
+const NO_INPUT: Input = { x: 0, y: 0, punch: false, jump: false }
+
+function frame(dtReal: number, render = true) {
+  const t0 = performance.now()
+  resize()
+  // Animation dt is clamped so a stalled frame cannot fling the rig. The round
+  // clock uses the same clamped step — see Game.update.
+  let dt = Math.min(dtReal, 1 / 20)
+  gameClock += dt
+  if (hitStop > 0) { hitStop -= dt; dt *= 0.08 }
+
+  if (game) {
+    if (phase === 'countdown') {
+      const before = Math.ceil(countdown)
+      countdown -= dt
+      const n = Math.ceil(countdown)
+      countEl.textContent = countdown > 0.4 ? String(Math.min(3, n)) : 'Go!'
+      countEl.classList.toggle('is-on', countdown > -0.5)
+      if (n !== before && countdown > 0) sfx.tick()
+      if (countdown <= 0) { setPhase('play'); sfx.tick() }
+    } else if (countEl.classList.contains('is-on') && (phase !== 'play' || countdown < -0.5)) {
+      countEl.classList.remove('is-on')
+    }
+    if (phase === 'play') countdown -= dt
+
+    const input = phase === 'play' ? controls.read() : (controls.read(), NO_INPUT)
+    game.update(dt, input)
+    if (phase === 'play' && game.remaining <= 0) finish()
+
+    // End: cheer, then dance until the player chooses.
+    if (phase === 'end' && !game.moves.playing && game.moves.has('dance')) game.moves.play('dance', { loop: true, fadeIn: 0.3 })
+
+    // HUD
+    scoreEl.textContent = game.score.toLocaleString('en-US')
+    const rem = phase === 'play' ? game.remaining : phase === 'countdown' ? ROUND_SECONDS : 0
+    const sec = Math.ceil(rem)
+    if (sec !== lastShownSecond) {
+      lastShownSecond = sec
+      timerEl.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+      timerEl.classList.toggle('is-low', phase === 'play' && sec <= 10)
+      if (phase === 'play' && sec <= 5 && sec > 0) sfx.tick()
+    }
+    const mult = game.multiplier
+    comboEl.textContent = game.combo >= 2 ? `${game.combo} hits${mult > 1 ? ` · x${mult}` : ''}` : ''
+    comboEl.classList.toggle('is-on', game.combo >= 2 && phase === 'play')
+  }
+  const showTarget = phase === 'play' || phase === 'countdown' ? 0 : 1
+  cam.show += (showTarget - cam.show) * (1 - Math.exp(-(showTarget ? 2.2 : 3.2) * dt))
+  aimCamera(dt)
+  updatePops(dt)
+  if (render) renderer.render(world.scene, camera)
+
+  // Performance: frame cost and draw calls, and a cheaper pixel ratio if the
+  // device cannot keep up (never in manual/recording mode).
+  const ms = performance.now() - t0
+  perf.frames++
+  perf.ms += ms
+  perf.worst = Math.max(perf.worst, dtReal * 1000)
+  perf.calls = renderer.info.render.calls
+}
+
+function loop() {
+  const now = performance.now()
+  const dt = (now - last) / 1000
+  last = now
+  frame(dt)
+  // Degrade once if the device is slow: two seconds averaging under ~40 fps.
+  fpsWindow.push(dt)
+  if (fpsWindow.length > 120) fpsWindow.shift()
+  if (!perf.dropped && fpsWindow.length === 120 && phase === 'play') {
+    const avg = fpsWindow.reduce((a, b) => a + b, 0) / fpsWindow.length
+    perf.fps = 1 / avg
+    if (avg > 1 / 40 && pixelRatio > 1) {
+      pixelRatio = Math.max(1, pixelRatio * 0.7)
+      renderer.setPixelRatio(pixelRatio)
+      size = { w: 0, h: 0 }
+      perf.dropped = true
+    }
+  }
+}
+const fpsWindow: number[] = []
+if (!MANUAL) renderer.setAnimationLoop(loop)
+
+// ------------------------------------------------------------------ boot
+
+async function download(url: string, onProgress: (f: number) => void): Promise<ArrayBuffer> {
+  const r = await fetch(url)
+  if (!r.ok || !r.body) throw new Error(`hero file: ${r.status}`)
+  const total = Number(r.headers.get('content-length')) || 0
+  const reader = r.body.getReader()
+  const parts: Uint8Array[] = []
+  let got = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    parts.push(value)
+    got += value.length
+    onProgress(total ? Math.min(0.95, got / total) : Math.min(0.9, got / 2e6))
+  }
+  const out = new Uint8Array(got)
+  let at = 0
+  for (const p of parts) { out.set(p, at); at += p.length }
+  return out.buffer
+}
+
+function setProgress(f: number) {
+  const c = 2 * Math.PI * 28
+  ringFill.style.strokeDasharray = `${c}`
+  ringFill.style.strokeDashoffset = `${c * (1 - f)}`
+  ringPct.textContent = `${Math.round(f * 100)}%`
+}
+
+;(async () => {
+  try {
+    setProgress(0)
+    const buf = await download(HERO_URL, (f) => setProgress(f * 0.85))
+    const hero: Hero = await parseHero(buf)
+    setProgress(0.9)
+    game = new Game(hero, world, sfx, {
+      popup,
+      shake: (a) => { cam.shake = Math.max(cam.shake, a) },
+      hitStop: (s) => { hitStop = Math.max(hitStop, s) },
+    })
+    game.reset()
+    const loaded = await game.moves.load()
+    setProgress(1)
+    if (!game.moves.ready) throw new Error('the moves did not load')
+    setPhase('menu')
+    resize()
+    aimCamera(0, true)
+    startBtn.disabled = false
+    ;(window as unknown as { __ready?: unknown; __moves?: number }).__moves = loaded
+    ;(window as unknown as { __ready?: unknown }).__ready = true
+  } catch (err) {
+    const message = (err as Error).message
+    screen.dataset.phase = 'error'
+    app.querySelector('.rr-loading-what')!.textContent = 'This hero can’t play right now.'
+    ;(window as unknown as { __ready?: unknown }).__ready = `error:${message}`
+  }
+})()
+
+// ------------------------------------------------------------------ harness
+
+/**
+ * For tools/arena-*.mjs: read the game, start it with a seed, and in
+ * `?manual=1` step it frame by frame so a slow software renderer still
+ * records smooth footage.
+ */
+;(window as unknown as Record<string, unknown>).__arena = {
+  start: (seed?: number) => start(seed),
+  step: (n = 1, dt = 1 / 30, render = true) => { for (let i = 0; i < n; i++) frame(dt, render && i === n - 1) },
+  state: () => {
+    if (!game) return null
+    const project = (p: THREE.Vector3) => {
+      const v = p.clone().project(camera)
+      const r = renderer.domElement.getBoundingClientRect()
+      return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height }
+    }
+    return {
+      phase, time: game.time, remaining: game.remaining, score: game.score, combo: game.combo,
+      hero: { x: game.pos.x, y: game.pos.y, z: game.pos.z, heading: game.heading, airborne: game.airborne, playing: game.moves.playing, height: game.hero.height, width: game.hero.width, radius: game.radius, screen: project(game.pos) },
+      things: game.things.filter((t) => !t.dead && !t.dying).map((t) => ({ kind: t.kind, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp })),
+      stats: game.stats,
+      facing: { front: game.facing.front, total: game.facing.total, detail: game.facing.detail },
+      perf: { frames: perf.frames, avgMs: perf.frames ? perf.ms / perf.frames : 0, worstFrameMs: perf.worst, drawCalls: perf.calls, fps: perf.fps, pixelRatio, triangles: renderer.info.render.triangles },
+      clock: gameClock,
+      files: MOVE_FILES,
+    }
+  },
+  resetPerf: () => { perf.frames = 0; perf.ms = 0; perf.worst = 0 },
+}
