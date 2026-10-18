@@ -10,6 +10,7 @@ import { Privacy, PRIVACY_PATH } from './components/tb/Privacy';
 import { Gallery, Filter, forgetGallery, resetGalleryScroll } from './components/tb/Gallery';
 import { TeacherHome } from './components/class/TeacherHome';
 import { ClassScreen } from './components/class/ClassScreen';
+import { CLASS_PAID_PARAM } from './api/classes';
 import { JoinFlow, JOIN_PATH } from './components/class/JoinFlow';
 import { ClaimScreen, CLAIM_PATH } from './components/class/ClaimScreen';
 import { HeroScreen } from './components/tb/HeroScreen';
@@ -39,6 +40,9 @@ const claimToken = (): string | null => {
   return p.startsWith(CLAIM_PATH) ? decodeURIComponent(p.slice(CLAIM_PATH.length)) : null;
 };
 
+// The class a teacher comes back to from a seat checkout (?class_paid=<id>).
+const CLASS_PAID_ON_LOAD = new URLSearchParams(window.location.search).get(CLASS_PAID_PARAM);
+
 function App() {
   const pin = joinPin();
   if (pin !== null) return <div className="app"><JoinFlow initialPin={pin} /></div>;
@@ -46,9 +50,19 @@ function App() {
 }
 
 function MainApp() {
-  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : window.location.pathname === PRIVACY_PATH ? 'privacy' : claimToken() ? 'claim' : 'gallery');
+  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : CLASS_PAID_ON_LOAD ? 'class' : window.location.pathname === PRIVACY_PATH ? 'privacy' : claimToken() ? 'claim' : 'gallery');
   const [claim] = useState(claimToken);
-  const [classId, setClassId] = useState<string | null>(null);
+  // Back from paying for a class's seats (?class_paid=<id>): open that class,
+  // which watches its seats arrive by webhook. Read once per page load.
+  const [classPaid] = useState(CLASS_PAID_ON_LOAD);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has(CLASS_PAID_PARAM)) return;
+    params.delete(CLASS_PAID_PARAM);
+    const query = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+  }, []);
+  const [classId, setClassId] = useState<string | null>(classPaid);
   // Where Back from a hero goes: the gallery, or the class it was opened from.
   const [heroFrom, setHeroFrom] = useState<'gallery' | 'class'>('gallery');
   // A teacher looking at the public gallery instead of their classes.
@@ -345,6 +359,7 @@ function MainApp() {
       <ClassScreen
         classId={classId}
         credits={creditBalance}
+        paid={classPaid === classId}
         onBack={goHome}
         onOpenHero={(id) => api.getCreation(id).then((c) => openHero(c, 'class')).catch(() => setError('Could not open that hero'))}
       />

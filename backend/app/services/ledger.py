@@ -54,7 +54,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -240,6 +240,7 @@ def post(
     creation_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
     allow_negative: bool = False,
+    in_transaction: Optional[Callable[[Session], None]] = None,
 ) -> CreditTransaction:
     """
     Append one movement to the ledger and update the cached balance atomically.
@@ -256,6 +257,12 @@ def post(
         allow_negative: escape hatch for admin corrections that legitimately
             need to push a balance below zero (e.g. clawing back credits already
             spent). Off by default; a spend must never set it.
+        in_transaction: more writes that must land together with this one, or
+            not at all (a class's seat count beside its credits). Called with
+            the session after the balance moves and before the commit; if it
+            raises, nothing is written and the error propagates. It runs only
+            when a row is actually written, never on a replay, and again on
+            each lock retry, so it must be one idempotent statement or two.
 
     Returns:
         The CreditTransaction row - either the new one, or the pre-existing one
@@ -285,6 +292,7 @@ def post(
                 creation_id=creation_id,
                 metadata=metadata,
                 allow_negative=allow_negative,
+                in_transaction=in_transaction,
             )
         except OperationalError as exc:
             db.rollback()
@@ -305,6 +313,7 @@ def _post_once(
     creation_id: Optional[str],
     metadata: Optional[Dict[str, Any]],
     allow_negative: bool,
+    in_transaction: Optional[Callable[[Session], None]] = None,
 ) -> CreditTransaction:
     """One attempt at posting. Everything here is a single DB transaction."""
 
@@ -361,6 +370,14 @@ def _post_once(
         raise InsufficientCreditsError(
             user_id=user_id, requested=abs(delta), available=available
         )
+
+    # ---- 3b. The caller's own writes, in this same transaction -----------
+    if in_transaction is not None:
+        try:
+            in_transaction(db)
+        except Exception:
+            db.rollback()
+            raise
 
     # ---- 4. Read the post-update balance INSIDE the same transaction -----
     # Safe because step 3 took (Postgres) or holds (SQLite write lock) the lock

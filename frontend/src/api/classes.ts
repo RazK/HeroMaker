@@ -60,7 +60,37 @@ export interface ClassView {
   heroes_ready: number;
   preview: Array<{ creation_id: string; user_id: string; label: string }>;
   roster?: Student[];
+  /** Only on GET /api/classes/{id}. */
+  seat_price?: SeatPrice | null;
 }
+
+/**
+ * The teacher price for seats bought with money for one class: a part per
+ * order plus a part per seat (backend/app/config/packs.py has the numbers and
+ * proves their margin). null when the store has no class-seats variant: then
+ * the option is not shown at all.
+ */
+export interface SeatPrice {
+  order_cents: number;
+  seat_cents: number;
+  max_seats: number;
+}
+
+export const seatsCents = (p: SeatPrice, seats: number) => p.order_cents + p.seat_cents * seats;
+export const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+export interface SeatsCheckout {
+  checkout_url: string;
+  class_id: string;
+  seats: number;
+  price_display: string;
+  test_mode: boolean;
+}
+
+/** Where Lemon Squeezy sends the teacher back: the class, which shows its
+ * seats arriving. The backend fills in {class_id}. App.tsx reads it. */
+export const CLASS_PAID_PARAM = 'class_paid';
+const seatsReturnUrl = () => `${window.location.origin}/?${CLASS_PAID_PARAM}={class_id}`;
 
 export interface GuestView {
   guest: { id: string; first_name: string; age: number | null; status: Student['status'] };
@@ -87,10 +117,15 @@ const json = (body: unknown): RequestInit => ({
 });
 
 export const teacherApi = {
-  list: () => fetchJson<{ classes: ClassView[]; hero_cost: number }>(`${BASE}/api/classes`),
+  list: () => fetchJson<{ classes: ClassView[]; hero_cost: number; seat_price: SeatPrice | null }>(`${BASE}/api/classes`),
   get: (id: string) => fetchJson<ClassView>(`${BASE}/api/classes/${id}`),
   create: (title: string, seats: number) => fetchJson<ClassView>(`${BASE}/api/classes`, json({ title, seats })),
   addSeats: (id: string, seats: number) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/seats`, json({ seats })),
+  /** A checkout at the class price; the webhook adds the seats when paid. */
+  buyNew: (title: string, seats: number) =>
+    fetchJson<SeatsCheckout>(`${BASE}/api/classes/buy`, json({ title, seats, redirect_url: seatsReturnUrl() })),
+  buySeats: (id: string, seats: number) =>
+    fetchJson<SeatsCheckout>(`${BASE}/api/classes/${id}/buy`, json({ seats, redirect_url: seatsReturnUrl() })),
   start: (id: string, minutes: number, approveFirst: boolean) =>
     fetchJson<ClassView>(`${BASE}/api/classes/${id}/start`, json({ minutes, approve_first: approveFirst })),
   extend: (id: string, minutes = 15) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/extend`, json({ minutes })),

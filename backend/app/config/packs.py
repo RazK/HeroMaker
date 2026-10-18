@@ -203,6 +203,120 @@ def get_packs(include_unconfigured: bool = True) -> List[Dict]:
     return out
 
 
+# --------------------------------------------------------------------------
+# Class seats: the teacher price
+# --------------------------------------------------------------------------
+#
+# A teacher buys seats FOR ONE CLASS. The credits go straight to that class's
+# wallet, never to the teacher's spendable balance, so the discount is usable
+# only inside a live class session (PIN, time window, one hero per child).
+# That is what makes it safe to sell below Studio to anyone who ticks "I'm a
+# teacher". docs/product/class-sessions.md, section 5.
+#
+# PRICE = a fixed part per order + a price per seat, for exactly the seats the
+# teacher needs. The per-order part is Lemon Squeezy's own fixed fee ($0.50,
+# MOR_FIXED_USD_MICROS) passed through. Without it a small order sinks under
+# the margin floor: at a flat $1.27 a seat, 1 to 6 seats clear only 20% to 49%,
+# because the processor's 50c eats a small order. With it, every size from one
+# seat up clears the floor and the price per seat falls as the class grows.
+# 30 seats come to $38.00, 5% under Studio's $40 for the same 30 heroes.
+#
+#   seats   price    per seat   margin
+#       1   $1.75     $1.750     51.2%
+#      10  $13.00     $1.300     52.1%
+#      28  $35.50     $1.268     52.2%
+#      30  $38.00     $1.267     52.2%
+#      60  $75.50     $1.258     52.3%
+#
+# check_class_seats() proves the table for every size, at today's provider
+# prices, and fails if a price change breaks it.
+CLASS_SEATS_SLUG = "class_seats"
+CLASS_SEAT_USD_MICROS = 1_250_000               # $1.25 a seat
+CLASS_ORDER_USD_MICROS = MOR_FIXED_USD_MICROS   # + $0.50 an order
+CLASS_MAX_SEATS = 60                            # a class has 1 to 60 seats
+
+
+def class_seats_variant_id() -> Optional[str]:
+    """LEMONSQUEEZY_VARIANT_CLASS_SEATS, or None: then the option is hidden."""
+    return variant_id(CLASS_SEATS_SLUG)
+
+
+def class_seats_price_usd_micros(seats: int) -> int:
+    """What `seats` class seats cost, in USD micros (always whole cents)."""
+    seats = int(seats)
+    if seats < 1:
+        raise ValueError("A class seat order is for at least one seat")
+    return CLASS_ORDER_USD_MICROS + seats * CLASS_SEAT_USD_MICROS
+
+
+def class_seats_quote(seats: int) -> Dict:
+    """One class seat order, shaped like a pack so `margin()` reads it."""
+    price = class_seats_price_usd_micros(seats)
+    order = {
+        "slug": CLASS_SEATS_SLUG,
+        "name": "Class seats",
+        "seats": int(seats),
+        "credits": int(seats) * creation_credit_price(),
+        "price_usd_micros": price,
+    }
+    vid = class_seats_variant_id()
+    return {
+        **order,
+        "price_cents": price_cents(price),
+        "price_display": pricing.micros_to_usd_str(price, places=2),
+        "variant_id": vid,
+        "configured": vid is not None,
+        "margin": margin(order),
+    }
+
+
+def cheapest_as_packs_usd_micros(credits_needed: int) -> int:
+    """The least anyone could pay for at least `credits_needed` credits by
+    buying ordinary packs: any mix, any number of each."""
+    best: List[Optional[int]] = [0] + [None] * credits_needed
+    for c in range(1, credits_needed + 1):
+        for pack in _PACKS:
+            prev = best[max(0, c - pack["credits"])]
+            if prev is not None and (best[c] is None or prev + pack["price_usd_micros"] < best[c]):
+                best[c] = prev + pack["price_usd_micros"]
+    return best[credits_needed]
+
+
+def check_class_seats() -> List[str]:
+    """
+    Every reason the class seat price is wrong: the two pack rules, applied to
+    a price whose size is chosen per order instead of fixed per pack.
+
+    * Margin floor: every order, 1 to CLASS_MAX_SEATS seats, clears
+      MIN_GROSS_MARGIN_BPS after the processor's cut.
+    * Bigger is cheaper: the price per seat never rises as an order grows, and
+      no order costs more than the same heroes bought as packs (a teacher price
+      that is a penalty is a bug).
+    """
+    problems: List[str] = []
+    previous = None
+    for seats in range(1, CLASS_MAX_SEATS + 1):
+        quote = class_seats_quote(seats)
+        m = quote["margin"]
+        if m["gross_margin_bps"] < MIN_GROSS_MARGIN_BPS:
+            problems.append(
+                f"{seats} class seats at {quote['price_display']}: margin "
+                f"{m['gross_margin_bps'] / 100:.1f}%, below the "
+                f"{MIN_GROSS_MARGIN_BPS / 100:.0f}% floor."
+            )
+        # Compared as cross-products: per-seat prices are not whole micros.
+        if previous is not None and quote["price_usd_micros"] * previous["seats"] > previous["price_usd_micros"] * seats:
+            problems.append(f"{seats} class seats cost more per seat than {seats - 1}.")
+        previous = quote
+        as_packs = cheapest_as_packs_usd_micros(quote["credits"])
+        if quote["price_usd_micros"] > as_packs:
+            problems.append(
+                f"{seats} class seats cost {quote['price_display']}, more than the same "
+                f"heroes bought as packs ({pricing.micros_to_usd_str(as_packs, places=2)})."
+            )
+    return problems
+
+
 def get_pack(slug: str) -> Optional[Dict]:
     for pack in get_packs():
         if pack["slug"] == slug:
@@ -241,4 +355,5 @@ def check_packs() -> List[str]:
                 "a bigger pack should always be better value."
             )
 
+    problems.extend(check_class_seats())
     return problems

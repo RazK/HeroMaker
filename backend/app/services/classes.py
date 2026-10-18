@@ -41,7 +41,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from sqlalchemy import and_, update
 from sqlalchemy.orm import Session
 
-from app.config.packs import creation_credit_price
+from app.config.packs import CLASS_MAX_SEATS, creation_credit_price
 from app.config.settings import get_jwt_secret_key
 from app.config.steps import get_all_step_names
 from app.models import ClassGuest, ClassRoom, ClassSession, Creation, User
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 funnel_logger = logging.getLogger("class_funnel")
 
 PIN_LENGTH = 6
-MIN_SEATS, MAX_SEATS = 1, 60
+MIN_SEATS, MAX_SEATS = 1, CLASS_MAX_SEATS
 SESSION_MINUTES = (15, 30, 45, 60, 90)
 MAX_EXTEND_MINUTES = 60
 NAME_MAX = 20
@@ -214,14 +214,55 @@ def _need_credits(db: Session, teacher: User, seats: int) -> int:
     return need
 
 
+def check_seats(seats, already: int = 0) -> int:
+    seats = int(seats)
+    if seats < MIN_SEATS or already + seats > MAX_SEATS:
+        raise ClassError(400, f"A class has {MIN_SEATS} to {MAX_SEATS} students", "seats_range")
+    return seats
+
+
 def create_class(db: Session, teacher: User, title: str, seats: int) -> ClassRoom:
     """A class with `seats` paid for now, from the teacher's credits."""
     title = clean_title(title)
-    seats = int(seats)
-    if not MIN_SEATS <= seats <= MAX_SEATS:
-        raise ClassError(400, f"A class has {MIN_SEATS} to {MAX_SEATS} students", "seats_range")
+    seats = check_seats(seats)
     need = _need_credits(db, teacher, seats)
+    classroom = _new_class(db, teacher, title)
+    try:
+        _transfer(db, teacher.id, classroom.wallet_user_id, need, classroom.id, f"{seats} seats")
+    except ledger.InsufficientCreditsError:
+        raise ClassError(402, "You need more credits for this class.", "insufficient_credits")
+    classroom.seats = seats
+    db.commit()
+    db.refresh(classroom)
+    funnel("class_created", class_id=classroom.id, teacher=teacher.id, seats=seats, credits=need)
+    return classroom
 
+
+def create_class_to_buy(db: Session, teacher: User, title: str, seats: int) -> ClassRoom:
+    """A class with no seats yet, for a teacher about to pay for them at the
+    class price (Lemon Squeezy). The webhook adds the seats when the money
+    arrives; until then the class is there with nothing to start."""
+    title = clean_title(title)
+    check_seats(seats)
+    classroom = _new_class(db, teacher, title)
+    funnel("class_created", class_id=classroom.id, teacher=teacher.id, seats=0, credits=0, paying=int(seats))
+    return classroom
+
+
+def discard_unpaid_class(db: Session, classroom: ClassRoom) -> None:
+    """Undo create_class_to_buy when the checkout could not even open."""
+    db.rollback()
+    if classroom.seats or classroom.sessions or ledger.get_ledger_balance(classroom.wallet_user_id, db):
+        return
+    wallet_id = classroom.wallet_user_id
+    db.delete(classroom)
+    db.flush()
+    db.query(User).filter(User.id == wallet_id, User.kind == WALLET_KIND).delete(synchronize_session=False)
+    db.commit()
+
+
+def _new_class(db: Session, teacher: User, title: str) -> ClassRoom:
+    """The class row and its wallet, with no seats on it."""
     wallet = User(
         username=f"class-wallet-{uuid.uuid4().hex[:16]}", email=None, name=title,
         credits=0, kind=WALLET_KIND,
@@ -234,14 +275,6 @@ def create_class(db: Session, teacher: User, title: str, seats: int) -> ClassRoo
         teacher.is_teacher = True
     db.commit()
     db.refresh(classroom)
-    try:
-        _transfer(db, teacher.id, wallet.id, need, classroom.id, f"{seats} seats")
-    except ledger.InsufficientCreditsError:
-        raise ClassError(402, "You need more credits for this class.", "insufficient_credits")
-    classroom.seats = seats
-    db.commit()
-    db.refresh(classroom)
-    funnel("class_created", class_id=classroom.id, teacher=teacher.id, seats=seats, credits=need)
     return classroom
 
 
@@ -259,6 +292,122 @@ def add_seats(db: Session, classroom: ClassRoom, teacher: User, seats: int) -> C
     db.refresh(classroom)
     funnel("class_seats_added", class_id=classroom.id, seats=seats, credits=need)
     return classroom
+
+
+# ---------------------------------------------------------------------------
+# Teacher: seats bought with money, at the class price (Lemon Squeezy)
+# ---------------------------------------------------------------------------
+#
+# The checkout is opened by app/api/classes.py; the money arrives on the signed
+# webhook in app/api/payments.py, which calls these two. Seats bought this way
+# go STRAIGHT to the class wallet: the teacher's own balance never holds them,
+# so the class price buys nothing outside a live class session.
+
+def order_ref(order_id: str) -> str:
+    """The same idempotency key a pack purchase uses: one order, one grant."""
+    return f"lemonsqueezy:order:{order_id}"
+
+
+def refund_ref(order_id: str) -> str:
+    return f"lemonsqueezy:refund:{order_id}"
+
+
+class SeatsMoved(Exception):
+    """A child took a seat while a refund was being worked out; try again."""
+
+
+def grant_bought_seats(db: Session, classroom: ClassRoom, seats: int, order_id: str,
+                       metadata: Optional[dict] = None) -> Tuple[object, bool]:
+    """Put `seats` paid seats on the class: their credits on its wallet and
+    the seat count up by `seats`, in ONE transaction.
+
+    Replay-safe like a pack purchase: the ledger row's external_ref is the
+    order id, so a second delivery of the same order finds the first row and
+    changes nothing (and, the seat update living inside the same transaction,
+    the seats cannot be added twice either). Returns (ledger row, granted now).
+    """
+    seats = int(seats)
+    if seats < 1:
+        raise ValueError("seats must be positive")
+    credits = seats * hero_cost()
+    class_id = classroom.id
+    nonce = uuid.uuid4().hex
+
+    def add(session: Session) -> None:
+        session.execute(update(ClassRoom).where(ClassRoom.id == class_id).values(seats=ClassRoom.seats + seats))
+
+    tx = ledger.post(
+        db=db, user_id=classroom.wallet_user_id, delta=credits, reason="purchase",
+        external_ref=order_ref(order_id), in_transaction=add,
+        metadata={**(metadata or {}), "class_id": class_id, "seats": seats, "nonce": nonce},
+    )
+    granted = (tx.metadata_json or {}).get("nonce") == nonce
+    if granted:
+        funnel("class_seats_bought", class_id=class_id, seats=seats, credits=credits, order=order_id)
+    return tx, granted
+
+
+def refund_bought_seats(db: Session, order_id: str) -> dict:
+    """Lemon Squeezy refunded a class seat order: take back what is unused.
+
+    * Only seats no child has used: min(seats the order bought, seats left).
+      A hero already made from a refunded seat stays made; we have paid its
+      provider cost and there is nothing to take back from a child.
+    * Seats and credits leave together, in one transaction, and only if no
+      child took a seat in between (else it is recomputed).
+    * Once per order: the refund row's external_ref is the order id.
+
+    Returns what happened, for the webhook's response and its log line.
+    """
+    bought = ledger.find_by_external_ref(order_ref(order_id), db)
+    if bought is None or not (bought.metadata_json or {}).get("class_id"):
+        return {"status": "ignored", "reason": "no class seats were granted for this order"}
+    if ledger.find_by_external_ref(refund_ref(order_id), db) is not None:
+        return {"status": "ok", "reason": "already taken back", "seats_taken_back": 0}
+
+    meta = bought.metadata_json or {}
+    class_id, order_seats = meta["class_id"], int(meta.get("seats") or 0)
+    cost = hero_cost()
+    for _ in range(5):
+        db.expire_all()
+        classroom = db.query(ClassRoom).filter(ClassRoom.id == class_id).first()
+        if classroom is None:
+            return {"status": "ignored", "reason": "the class no longer exists"}
+        unused = max(0, classroom.seats - classroom.seats_used)
+        take = min(order_seats, unused)
+        if take == 0:
+            logger.warning("Order %s refunded; all %s of its seats on class %s are used, none taken back",
+                           order_id, order_seats, class_id)
+            return {"status": "ok", "seats_taken_back": 0, "seats_kept": order_seats}
+
+        def remove(session: Session, take=take) -> None:
+            moved = session.execute(
+                update(ClassRoom)
+                .where(and_(ClassRoom.id == class_id, ClassRoom.seats - take >= ClassRoom.seats_used))
+                .values(seats=ClassRoom.seats - take)
+            ).rowcount
+            if moved != 1:
+                raise SeatsMoved()
+
+        try:
+            ledger.post(
+                db=db, user_id=classroom.wallet_user_id, delta=-take * cost, reason="purchase_refunded",
+                external_ref=refund_ref(order_id), in_transaction=remove,
+                metadata={"class_id": class_id, "order_id": str(order_id), "seats": take,
+                          "seats_kept": order_seats - take},
+            )
+        except SeatsMoved:
+            continue
+        except ledger.InsufficientCreditsError:
+            logger.error("Order %s refunded but class %s's wallet cannot cover %s seats; nothing taken back",
+                         order_id, class_id, take)
+            return {"status": "logged", "reason": "wallet short", "seats_taken_back": 0}
+        funnel("class_seats_refunded", class_id=class_id, order=order_id, seats=take, kept=order_seats - take)
+        if take < order_seats:
+            logger.warning("Order %s refunded: took back %s seats from class %s; %s were already used and stay",
+                           order_id, take, class_id, order_seats - take)
+        return {"status": "ok", "seats_taken_back": take, "seats_kept": order_seats - take}
+    return {"status": "logged", "reason": "seats kept moving; try again"}
 
 
 def owned_class(db: Session, user: User, class_id: str) -> ClassRoom:
