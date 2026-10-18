@@ -64,7 +64,8 @@ def _fetch(src: str) -> bytes:
 def find_heroes(database_url: str, name: str) -> list:
     """[(label, user_id, creation_id, style)] of live heroes with this name."""
     from sqlalchemy import create_engine, text
-    engine = create_engine(database_url)
+    from app.config.settings import with_explicit_postgres_driver
+    engine = create_engine(with_explicit_postgres_driver(database_url))
     try:
         with engine.connect() as conn:
             rows = conn.execute(text(
