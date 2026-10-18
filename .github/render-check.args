@@ -1,0 +1,11 @@
+# One argument per line (render-check/** branches only).
+--find
+Captain Courage
+--find
+Speedy Sister
+--drawing
+striped-dog=https://frontend-staging-7cb8.up.railway.app/api/files/d94b4dec-776d-4a94-9ed0-5e4dfc133127/8c0ec284-56f6-4e90-9a86-79f2447ebd93/original.jpg
+--styles
+anime,pixar,original
+--before
+anime
