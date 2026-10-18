@@ -126,6 +126,7 @@ execFileSync(FFMPEG, ['-y', '-loglevel', 'error',
   '-framerate', String(fps), '-i', path.join(frameDir, 'f%05d.jpg'),
   '-ss', String(t0), '-t', String(t1 - t0), '-i', wav,
   '-c:v', 'libx264', '-preset', 'slow', '-crf', '19', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
-  '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', out])
+  // Phone speakers and social feeds expect about -16 LUFS; the synth mixes well below that.
+  '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-c:a', 'aac', '-b:a', '160k', '-ar', '44100', '-shortest', '-movflags', '+faststart', out])
 fs.rmSync(frameDir, { recursive: true, force: true })
 console.log(`${out}  ${(fs.statSync(out).size / 1e6).toFixed(1)} MB`)

@@ -3,7 +3,7 @@
   "label": "Saves the day",
   "title": "{hero} Saves the Day",
   "bpm": 112,
-  "paywallAt": 15.2,
+  "paywallAt": 14.4,
   "beats": [
     {
       "card": "title", "dur": 3.8, "backdrop": "sunset", "mood": "calm", "transition": "cut",

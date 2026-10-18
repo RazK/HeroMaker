@@ -3,7 +3,7 @@
   "label": "Birthday",
   "title": "{hero}'s Big Birthday",
   "bpm": 116,
-  "paywallAt": 15.0,
+  "paywallAt": 14.6,
   "beats": [
     {
       "card": "title", "dur": 3.8, "backdrop": "sunset", "mood": "calm", "transition": "cut",

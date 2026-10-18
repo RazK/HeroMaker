@@ -3,7 +3,7 @@
   "label": "Dance show",
   "title": "{hero}'s Dance Show",
   "bpm": 120,
-  "paywallAt": 14.8,
+  "paywallAt": 14.4,
   "beats": [
     {
       "card": "title", "dur": 3.8, "backdrop": "theatre", "mood": "calm", "transition": "cut",
