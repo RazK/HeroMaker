@@ -11,6 +11,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
+import { routeHeroes } from './arena-routes.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = (() => {
@@ -24,11 +25,12 @@ const browser = await chromium.launch({ args: launch })
 const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: Number(args.dpr ?? 1) })
 let q = `?dpr=${args.dpr ?? 1}`
 if (args.hero) {
-  await page.route('**/api/files/local/**', (r) => r.fulfill({ body: fs.readFileSync(args.hero) }))
+  await routeHeroes(page, args.hero, (args.rivals ?? '').split(',').filter(Boolean))
   q += `&vrm=${encodeURIComponent('/api/files/local/' + path.basename(args.hero))}&name=Perf`
 }
 await page.goto(`${args.base ?? 'http://127.0.0.1:4188'}/arena.html${q}`)
 await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 120000 })
+if (args.rivals) await page.waitForFunction(() => window.__rivals !== undefined, null, { timeout: 300000 })
 await page.evaluate(() => window.__arena.start(2))
 await page.waitForFunction(() => window.__phase === 'play', null, { timeout: 20000 })
 await page.evaluate(() => window.__arena.resetPerf())

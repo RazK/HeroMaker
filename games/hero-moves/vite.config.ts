@@ -20,6 +20,8 @@ export default defineConfig(({ mode }) => ({
                    posegate: 'posegate.html', reel: 'reel.html', backdrops: 'backdrops.html',
                    // Robot Rumble, the camera-free arena game (src/arena/).
                    arena: 'arena.html',
+                   // Offline key art for the app's game chooser (tools/make-posters.mjs).
+                   poster: 'poster.html',
                    // Not a page: the HeroMaker app imports it at run time from
                    // /play/herostage.js (see src/herostage.ts), so it keeps a
                    // fixed name and its exports, and shares three.js and the

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 /**
  * The play-room: a toy-box floor with a low wall round it, the toy chest the
@@ -12,9 +13,9 @@ import * as THREE from 'three'
  */
 
 /** Half-extents of the floor the hero and the toys can stand on, in metres. */
-export const ARENA = { minX: -3.4, maxX: 3.4, minZ: -3.0, maxZ: 3.2 }
+export const ARENA = { minX: -4.6, maxX: 4.6, minZ: -3.2, maxZ: 3.4 }
 /** Where the toy chest sits — the robots walk here. */
-export const CHEST = new THREE.Vector3(0, 0, -3.75)
+export const CHEST = new THREE.Vector3(0, 0, -3.95)
 
 /** Toy Box palette, as linear-ready hex for materials. */
 export const PAL = {
@@ -91,58 +92,96 @@ export class World {
     rim.position.set(-4, 3, -5)
     s.add(rim)
 
-    // ---- floor: a big rounded play-mat in checker tiles of plate colours
-    const W = ARENA.maxX - ARENA.minX + 1.2
-    const D = ARENA.maxZ - ARENA.minZ + 1.2
-    const tiles = [PAL.lilac, PAL.butter, PAL.mint, PAL.peach, PAL.sky, PAL.pink]
-      .map((c) => '#' + c.toString(16).padStart(6, '0'))
-    const mat = canvasTexture(1024, 1024, (g) => {
-      const n = 8
-      const cell = 1024 / n
-      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-        g.fillStyle = (x + y) % 2 ? '#fffaf1' : tiles[(x * 3 + y * 5) % tiles.length]
-        g.fillRect(x * cell, y * cell, cell, cell)
+    // ---- floor: a foam play-mat of one-metre tiles. Big, high-contrast
+    // squares are what make running read as running: the floor visibly
+    // slides under a camera that follows the hero.
+    const W = ARENA.maxX - ARENA.minX + 0.6
+    const D = ARENA.maxZ - ARENA.minZ + 1.6
+    const hex = (c: number) => '#' + c.toString(16).padStart(6, '0')
+    const mat = canvasTexture(512, 512, (g) => {
+      const cols = [[PAL.lilac, PAL.cream], [PAL.cream, PAL.butter]]
+      for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+        g.fillStyle = hex(cols[y][x])
+        g.fillRect(x * 256, y * 256, 256, 256)
       }
-      // A stitched border, like a foam play-mat.
       g.strokeStyle = 'rgba(35,25,66,0.10)'
       g.lineWidth = 6
-      g.setLineDash([18, 14])
-      g.strokeRect(22, 22, 1024 - 44, 1024 - 44)
+      for (let i = 0; i <= 2; i++) {
+        g.beginPath(); g.moveTo(i * 256, 0); g.lineTo(i * 256, 512); g.stroke()
+        g.beginPath(); g.moveTo(0, i * 256); g.lineTo(512, i * 256); g.stroke()
+      }
     })
+    mat.wrapS = mat.wrapT = THREE.RepeatWrapping
+    mat.repeat.set(W / 2, D / 2)
+    const edge = new THREE.MeshStandardMaterial({ color: PAL.grape, roughness: 0.7 })
     const floor = new THREE.Mesh(
       new THREE.BoxGeometry(W, 0.16, D),
-      [
-        new THREE.MeshStandardMaterial({ color: 0xf1e3cc, roughness: 1 }),
-        new THREE.MeshStandardMaterial({ color: 0xf1e3cc, roughness: 1 }),
-        new THREE.MeshStandardMaterial({ map: mat, roughness: 0.95 }),
-        new THREE.MeshStandardMaterial({ color: 0xe9d6b8, roughness: 1 }),
-        new THREE.MeshStandardMaterial({ color: 0xf1e3cc, roughness: 1 }),
-        new THREE.MeshStandardMaterial({ color: 0xf1e3cc, roughness: 1 }),
-      ],
+      [edge, edge, new THREE.MeshStandardMaterial({ map: mat, roughness: 0.95 }), edge, edge, edge],
     )
-    floor.position.set((ARENA.minX + ARENA.maxX) / 2, -0.08, (ARENA.minZ + ARENA.maxZ) / 2 - 0.3)
+    floor.position.set((ARENA.minX + ARENA.maxX) / 2, -0.08, (ARENA.minZ + ARENA.maxZ) / 2 - 0.5)
     s.add(floor)
 
-    // The room beyond the mat: a warm wooden floor that runs off into the fog.
+    // The room around the mat: a warm wooden floor.
     const room = new THREE.Mesh(
       new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: 0xf3e2c7, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ color: 0xf0d9b5, roughness: 1 }),
     )
     room.position.y = -0.17
     s.add(room)
+
+    // ---- walls: this is a room, and it ends. A papered back wall with a
+    // grape skirting board, and low toy-block walls down both sides, so the
+    // edges of the world read at a glance. The front stays open: the camera
+    // is there, and the robots come in that way.
+    const back = ARENA.minZ - 1.75
+    const paper = canvasTexture(256, 256, (g) => {
+      g.fillStyle = hex(PAL.cream); g.fillRect(0, 0, 256, 256)
+      g.fillStyle = hex(PAL.lilac)
+      for (let i = 0; i < 4; i++) g.fillRect(i * 64, 0, 32, 256)
+      g.fillStyle = 'rgba(91,61,245,0.18)'
+      for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(i * 64 + 48, 64, 6, 0, Math.PI * 2); g.arc(i * 64 + 48, 192, 6, 0, Math.PI * 2); g.fill() }
+    })
+    paper.wrapS = paper.wrapT = THREE.RepeatWrapping
+    const wallW = W + 2.4
+    paper.repeat.set(wallW / 1.2, 3.2 / 1.2)
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(wallW, 3.2), new THREE.MeshStandardMaterial({ map: paper, roughness: 1 }))
+    wall.position.set(0, 1.6 - 0.17, back)
+    s.add(wall)
+    const skirting = new THREE.Mesh(new THREE.BoxGeometry(wallW, 0.32, 0.12), edge)
+    skirting.position.set(0, 0.0, back + 0.06)
+    s.add(skirting)
+    const blockCols = [PAL.grape, PAL.sun, PAL.green, PAL.red, 0x2fa8e0]
+    const parts: THREE.BufferGeometry[] = []
+    for (const side of [-1, 1]) {
+      const x = side * (W / 2 + 0.28)
+      let i = side > 0 ? 2 : 0
+      for (let z = back + 0.3; z < ARENA.maxZ + 0.6; z += 0.56) {
+        const g = new THREE.BoxGeometry(0.5, 0.5, 0.5).toNonIndexed()
+        g.translate(x, 0.08, z)
+        const c = new THREE.Color(blockCols[i++ % blockCols.length])
+        const n = g.getAttribute('position').count
+        const col = new Float32Array(n * 3)
+        for (let k = 0; k < n; k++) { col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b }
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3))
+        g.deleteAttribute('uv')
+        parts.push(g)
+      }
+    }
+    const sideWalls = new THREE.Mesh(mergeGeometries(parts)!, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }))
+    s.add(sideWalls)
 
     // Big toy blocks as scenery behind the back edge: colour, depth, and
     // something the camera's eye can rest on above the hero's head.
     const blockGeo = new THREE.BoxGeometry(1, 1, 1)
     const letters = ['H', 'E', 'R', 'O']
-    const blockCols = ['#5b3df5', '#ffc233', '#15997a', '#e5484d']
+    const letterCols = ['#5b3df5', '#ffc233', '#15997a', '#e5484d']
     letters.forEach((ch, i) => {
       const tex = canvasTexture(128, 128, (g) => {
-        g.fillStyle = blockCols[i]
+        g.fillStyle = letterCols[i]
         g.fillRect(0, 0, 128, 128)
         g.fillStyle = '#fff6e9'
         g.beginPath(); g.roundRect(12, 12, 104, 104, 18); g.fill()
-        g.fillStyle = blockCols[i]
+        g.fillStyle = letterCols[i]
         g.font = '900 84px Nunito, system-ui, sans-serif'
         g.textAlign = 'center'; g.textBaseline = 'middle'
         g.fillText(ch, 64, 70)
@@ -151,7 +190,7 @@ export class World {
       const side = i < 2 ? -1 : 1
       m.scale.setScalar(0.8)
       const outer = side < 0 ? i === 0 : i === 3
-      m.position.set(side * (outer ? 3.2 : 2.25), 0.4, ARENA.minZ - 0.95 - (outer ? 0.2 : 0))
+      m.position.set(side * (outer ? 3.9 : 2.95), 0.4, ARENA.minZ - 1.05 - (outer ? 0.15 : 0))
       m.rotation.y = side * 0.25 + (i % 2 ? 0.15 : -0.1)
       s.add(m)
     })

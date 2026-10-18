@@ -214,17 +214,18 @@ export function HeroScreen(props: HeroScreenProps) {
         </Sheet>
       )}
       {sheet === 'games' && (
-        // Two games, side by side and the same size: one needs nothing but a
-        // thumb, the other turns the camera on, and the card says so.
+        // Two games, side by side and the same size, each behind its poster
+        // (key art rendered from a gallery hero: games/hero-moves/tools/make-posters.mjs).
+        // One needs nothing but a thumb; the other turns the camera on, and its badge says so.
         <Sheet title="Pick a game" onClose={() => setSheet(null)} className="tb-games-sheet">
           <div className="tb-games">
             <a className="tb-game" data-game="arena" href={arenaUrl(creation)}>
-              <span className="tb-game-pic tb-plate-1"><Icon name="punch" size={44} /></span>
+              <span className="tb-game-pic"><img src="/games/robot-rumble.webp" srcSet="/games/robot-rumble.webp 1x, /games/robot-rumble@2x.webp 2x" alt="" width={400} height={500} /></span>
               <span className="tb-game-name">Robot Rumble</span>
               <span className="tb-game-line">Punch, jump, score!</span>
             </a>
             <a className="tb-game" data-game="dance" href={playUrl(creation)}>
-              <span className="tb-game-pic tb-plate-2"><Icon name="music" size={44} /><span className="tb-game-badge" aria-label="Uses the camera"><Icon name="camera" size={16} /></span></span>
+              <span className="tb-game-pic"><img src="/games/dance-party.webp" srcSet="/games/dance-party.webp 1x, /games/dance-party@2x.webp 2x" alt="" width={400} height={500} /><span className="tb-game-badge" aria-label="Uses the camera"><Icon name="camera" size={16} /></span></span>
               <span className="tb-game-name">Dance party</span>
               <span className="tb-game-line">Dance on camera</span>
             </a>

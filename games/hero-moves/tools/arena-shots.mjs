@@ -14,6 +14,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
+import { routeHeroes } from './arena-routes.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = (() => {
@@ -30,6 +31,14 @@ fs.mkdirSync(OUT, { recursive: true })
 
 const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
 const report = []
+// CDP's capture does not wait for a fresh animation frame, which a page in
+// ?manual=1 never schedules; Playwright's screenshot sometimes waits forever.
+async function shot(page, file) {
+  const cdp = await page.context().newCDPSession(page)
+  const { data } = await cdp.send('Page.captureScreenshot', { format: 'png' })
+  fs.writeFileSync(file, Buffer.from(data, 'base64'))
+  await cdp.detach()
+}
 for (const heroFile of HEROES.length ? HEROES : [null]) {
   const name = heroFile ? path.basename(heroFile).replace(/\.(opt\.)?vrm$/, '').replace(/_/g, ' ') : 'sample'
   for (const [w, h] of VPS) {
@@ -37,16 +46,17 @@ for (const heroFile of HEROES.length ? HEROES : [null]) {
     const page = await ctx.newPage()
     page.on('pageerror', (e) => console.log('pageerror', e.message))
     if (heroFile) {
-      await page.route('**/api/files/local/**', (route) => route.fulfill({ body: fs.readFileSync(heroFile), contentType: 'application/octet-stream' }))
+      await routeHeroes(page, heroFile, (args.rivals ?? '').split(',').filter((f) => f && f !== heroFile))
     }
     const q = heroFile ? `?vrm=${encodeURIComponent('/api/files/local/' + path.basename(heroFile))}&name=${encodeURIComponent(name)}&manual=1&dpr=1` : '?manual=1&dpr=1'
     await page.goto(`${BASE}/arena.html${q}`)
     await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 120000 })
     const ready = await page.evaluate(() => window.__ready)
     if (ready !== true) { console.log(name, 'not ready:', ready); await ctx.close(); continue }
+    if (args.rivals) await page.waitForFunction(() => window.__rivals !== undefined, null, { timeout: 300000 })
     const tag = `${name.replace(/\W+/g, '_')}-${w}x${h}`
     await page.evaluate(() => window.__arena.step(40, 1 / 30))
-    await page.screenshot({ path: path.join(OUT, `${tag}-1-start.png`), timeout: 120000 }); console.error(tag, '1-start')
+    await shot(page, path.join(OUT, `${tag}-1-start.png`)); console.error(tag, '1-start')
     await page.evaluate(() => window.__arena.start(7))
     // A crude bot, in page: run at the nearest robot, punch when close, jump balls.
     const steps = Math.round((PLAY_SECONDS + 2.6) * 30)
@@ -75,7 +85,7 @@ for (const heroFile of HEROES.length ? HEROES : [null]) {
       }
       for (const k of keys) press(k, false)
     }, [steps])
-    await page.screenshot({ path: path.join(OUT, `${tag}-2-play.png`), timeout: 120000 }); console.error(tag, '2-play')
+    await shot(page, path.join(OUT, `${tag}-2-play.png`)); console.error(tag, '2-play')
     const state = await page.evaluate(() => window.__arena.state())
     const moves = await page.evaluate(() => window.__moves)
     report.push({ hero: name, vp: `${w}x${h}`, moves, score: state.score, stats: state.stats, facingFront: +(state.facing.front / Math.max(1e-6, state.facing.total)).toFixed(2), drawCalls: state.perf.drawCalls, avgFrameMs: +state.perf.avgMs.toFixed(1), heroH: +state.hero.height.toFixed(2), heroW: +state.hero.width.toFixed(2), radius: +state.hero.radius.toFixed(2) })
@@ -83,7 +93,7 @@ for (const heroFile of HEROES.length ? HEROES : [null]) {
       // Jump to the end of the round and let the cheer play.
       await page.evaluate(() => { const s = window.__arena.state(); window.__arena.step(Math.ceil((s.remaining + 0.2) * 30), 1 / 30) })
       await page.evaluate(() => window.__arena.step(60, 1 / 30))
-      await page.screenshot({ path: path.join(OUT, `${tag}-3-end.png`), timeout: 120000 }); console.error(tag, '3-end')
+      await shot(page, path.join(OUT, `${tag}-3-end.png`)); console.error(tag, '3-end')
     }
     await ctx.close()
   }

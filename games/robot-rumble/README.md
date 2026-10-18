@@ -1,10 +1,25 @@
 # Robot Rumble
 
-A camera-free mini-game starring the player's own hero. Wind-up toy robots
-march in from the front of a play-room toward the toy chest at the back; the
-hero runs them down with a thumb stick, punches them into confetti, jumps the
-bouncy balls that roll across, and ground-pounds a crowd. 75 seconds, a score,
-a best score, a victory dance.
+A camera-free mini-game starring the player's own hero. Other children's
+heroes from the gallery — and wind-up toy robots — come into a walled
+play-room and head for the toy chest at the back; the hero runs them down with
+a thumb stick and bops them, jumps the bouncy balls that roll across, and
+ground-pounds a crowd. 75 seconds, a score, a best score, a victory dance.
+
+## Rival heroes: tag, not a fight
+
+The characters you bop are real Editors' choice heroes
+(`GET /api/creations/?featured_only=true`, their `opt_avatar.vrm`, the same
+loader as the player's), so every round is a parade of what the gallery has
+made. They are other children's creations, so a bop is a game of tag: the
+rival tumbles onto its bottom (`Hit_Knockback`), sees stars turned toward the
+camera (`Dizzy`, three cartoon stars round its head), waves (`Greeting`) and
+runs off (`Run_Anime`) — never breaking, never "dying". Its name pops up
+small: "Bopped Panda Pals!". The player's own hero is never a rival. Up to
+four load in the background after the player's hero; until they arrive (or
+with no gallery, on GitHub Pages) the wind-up robots carry the round alone,
+and they stay in as fillers between rivals. Two rivals on screen at a time,
+three after the first half. `src/arena/rivals.ts`.
 
 **The code is not in this folder.** It is a page of the `games/hero-moves`
 build — `games/hero-moves/arena.html` and `games/hero-moves/src/arena/` —
@@ -37,15 +52,16 @@ An arena on its own does not guarantee the face: run up the screen and you
 see the back. So the arena is built so that **the work comes toward the
 camera**:
 
-* The robots enter at the *front* edge (the camera's side) and walk away
-  toward the chest at the back. To stop one, the hero stands between it and
-  the chest and faces it — which is facing the camera.
+* Rivals and robots enter at the *front* edge (the camera's side) and walk
+  away toward the chest at the back, so the hero meets them face to face; a
+  bopped rival turns to the camera to see stars and wave.
 * Balloons, crates and gold balloons only appear in the front half of the room.
 * Standing still, the hero turns to the nearest target *on the camera's side*,
   or settles three-quarters toward the camera.
 * The punch auto-aim breaks ties toward the camera.
-* Running straight away from the camera, the body leans up to ~30° back
-  toward it (a cross-step), so the worst case shows a cheek, not a full back.
+* Turned away from the camera, the body leans back toward it — up to ~40°
+  running, ~17° standing or punching (a cross-step) — so the worst case shows
+  a cheek, not a full back.
 
 **Measured, not hoped.** `Game.facing` integrates, every frame of play, where
 the hero's facing points relative to the camera. A bot plays whole rounds with
@@ -53,15 +69,35 @@ real touch input (`tools/arena-record.mjs`); over three full 75 s rounds:
 
 | Hero | Facing the camera's half | Front (within 60°) | Front 3/4 or profile | Back 3/4 | Full back |
 |---|---|---|---|---|---|
-| Curly Carl (tall human) | **78%** | 62% | 15% | 15% | 7% |
-| Panda Pals (wide, round) | **81%** | 64% | 16% | 14% | 5% |
-| Cuppy Penguin (blocky) | **74%** | 62% | 13% | 15% | 11% |
+| Curly Carl (tall human) | **68%** | 44% | 24% | 28% | 4% |
+| Panda Pals (wide, round) | **69%** | 43% | 26% | 29% | 3% |
+| Cuppy Penguin (blocky) | **67%** | 43% | 24% | 30% | 4% |
 
-The first version (robots killed while still off-screen, toys spawning
-anywhere, an idle that faced the last direction run) measured 55%. Every change
-in the list above was made against that number.
+That is the current game: a 9 m walled room, spawns spread wall to wall, and
+rival heroes. The small first room with robots only measured 74-81% facing the
+camera's half, but 5-11% full back; the bigger room sends the hero running
+sideways and diagonally more, which moved time from "front" into "back
+three-quarter" (a profile turned slightly away, face still partly visible)
+while the full back view fell to 3-4%. The very first version measured 55%.
+
+## The room
+
+A bounded toy room, not a floor that runs off into the fog: a papered back
+wall with a grape skirting board, low toy-block walls down both sides, and a
+foam mat of one-metre tiles in plate colours. The camera follows the hero most
+of the way, so the tiles visibly slide underneath when it runs, and stops
+short of the walls so they come into view at the room's edges. Spawns land
+more often on the far side of the room from the hero (`Game.awayX`), so a
+round is running wall to wall, not standing in one spot.
 
 ## Controls
+
+All three controls sit on one centre line in the app's bottom bar (cream,
+hairline), one diameter (104px; 92px under 380px wide), in the app's button
+language: Jump a secondary (white, ink outline, 6px depth), Punch the primary
+(grape, 6px depth), the stick a secondary ring with a grape thumb. Score and
+time are the app's credits pill (`.tb-credits`), twice, at the end of the
+header; the combo is a third one, centred under it.
 
 | | Phone | Desktop |
 |---|---|---|
@@ -91,6 +127,24 @@ the run without its legs freezing.
 | Hurt | `Hit_Knockback` | bumped by a ball: "Bonk!", a short knock-down, combo lost |
 | Victory | `Victory` | the round ends |
 | Dance | `Dance_Charleston` | the end card, until the player chooses |
+| Rival walk / dizzy / wave | `Walk`, `Dizzy`, `Greeting` | a rival hero waddles in; after a bop it sees stars and waves goodbye |
+
+## The chooser's posters
+
+The app's "Pick a game" sheet shows each game behind a poster, not a
+screenshot: key art rendered offline from a real gallery hero — Violet Volt
+(by Maya, 6), the girl from the HeroMaker logo. `poster.html` stages her at the
+best frame of a real clip (Robot Rumble: a flying cross punch with wind-up
+robots tumbling out of it; Dance party: a dance move under two spotlights with
+music notes), a low three-quarter-front camera, a hard warm rim light, brand
+rays and the app's sun behind her, a blurred far layer and a vignette. Both
+share the composition so they read as a set; the card itself carries the
+title in the display face.
+
+```bash
+node tools/make-posters.mjs /path/Violet_Volt.vrm out/ rumble dance
+.venv/bin/python games/hero-moves/tools/posters-webp.py out/   # -> frontend/public/games/*.webp, 1x and @2x
+```
 
 Source: Quaternius' **Universal Animation Library, CC0**, as redistributed by
 `scottpetrovic/mesh2motion-app` — fetched and trimmed to one clip per file by
@@ -100,7 +154,7 @@ and every sound is synthesised (`src/arena/sfx.ts`).
 
 ## Rules
 
-* Robot 100, balloon 50, crate 25 a knock and 250 to break (3 knocks or one
+* Rival hero bopped 150, robot 100, balloon 50, crate 25 a knock and 250 to break (3 knocks or one
   ground pound), ball jumped 50. Gold balloon: +5 seconds.
 * Hits within 2.6 s keep a combo; every 5 hits raises the multiplier (max x5).
 * A robot that reaches the chest dives in ("Oh no!") and breaks the combo.

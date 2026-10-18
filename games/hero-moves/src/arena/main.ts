@@ -8,6 +8,7 @@ import { Controls, type Input } from './controls'
 import { Game, ROUND_SECONDS, type Phase } from './game'
 import { MOVE_FILES } from './moves'
 import { Sfx } from './sfx'
+import { loadRival, rivalSources } from './rivals'
 import { ARENA, World } from './world'
 
 /**
@@ -44,14 +45,14 @@ app.innerHTML = `
     <header class="tb-header">
       <div class="tb-header-side rr-back-slot"></div>
       <div class="tb-header-title rr-title">Robot Rumble</div>
-      <div class="rr-hud" aria-live="off">
-        <div class="rr-score"><span class="rr-score-label">Score</span><span class="rr-score-value">0</span></div>
+      <div class="tb-header-side tb-header-side--end rr-pills">
+        <div class="tb-credits rr-pill rr-score" aria-label="Score">${icon('star', 18)}<span class="rr-score-value">0</span></div>
+        <div class="tb-credits rr-pill rr-timer" role="timer" aria-label="Time left">${icon('clock', 18)}<span class="rr-timer-value">1:15</span></div>
       </div>
-      <div class="tb-header-side tb-header-side--end"><div class="rr-timer" role="timer" aria-label="Time left">1:15</div></div>
     </header>
     <div class="rr-stage">
       <div class="rr-pops"></div>
-      <div class="rr-combo" aria-hidden="true"></div>
+      <div class="tb-credits rr-pill rr-combo" aria-hidden="true">${icon('punch', 18)}<span class="rr-combo-value"></span></div>
       <div class="rr-count" aria-live="assertive"></div>
       <div class="rr-loading" role="status">
         <div class="rr-ring"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" class="rr-ring-track"/><circle cx="32" cy="32" r="28" class="rr-ring-fill"/></svg><span class="rr-ring-pct">0%</span></div>
@@ -62,7 +63,7 @@ app.innerHTML = `
       <div class="rr-card rr-card--start tb-panel">
         <div class="tb-eyebrow">Robot Rumble</div>
         <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
-        <div class="rr-line">Stop the robots before they reach your toys!</div>
+        <div class="rr-line">Bop them before they reach your toys!</div>
         <div class="rr-chips">
           <span class="tb-chip rr-chip">${icon('punch', 18)}Punch</span>
           <span class="tb-chip rr-chip">${icon('jump', 18)}+${icon('punch', 18)}Smash</span>
@@ -83,9 +84,11 @@ const stageEl = app.querySelector<HTMLElement>('.rr-stage')!
 const bar = app.querySelector<HTMLElement>('.rr-bar')!
 const popsEl = app.querySelector<HTMLElement>('.rr-pops')!
 const comboEl = app.querySelector<HTMLElement>('.rr-combo')!
+const comboValue = app.querySelector<HTMLElement>('.rr-combo-value')!
 const countEl = app.querySelector<HTMLElement>('.rr-count')!
 const scoreEl = app.querySelector<HTMLElement>('.rr-score-value')!
 const timerEl = app.querySelector<HTMLElement>('.rr-timer')!
+const timerValue = app.querySelector<HTMLElement>('.rr-timer-value')!
 // The app's own parts (ui/tb.ts): the round back button, the big pill buttons,
 // the sheet grip. Primary last, as in every bottom bar of the app.
 app.querySelector('.rr-back-slot')!.append(tbNav('back', 'Back to your hero', goBack))
@@ -148,10 +151,12 @@ function aimCamera(dt: number, snap = false) {
   const halfW = portrait ? 1.75 * Math.max(1, aspect / 0.75) : 5.2
   const dist = THREE.MathUtils.clamp(halfW / (tanV * aspect), 6.0, 12)
   const elev = THREE.MathUtils.degToRad(portrait ? 24 : 27)
-  const tx = THREE.MathUtils.clamp(hx * (portrait ? 0.7 : 0.3), ARENA.minX + halfW * 0.6, ARENA.maxX - halfW * 0.6)
+  // Follow the hero most of the way, so the tiles slide by as it runs, but
+  // stop short of the walls so they come into view at the room's edges.
+  const tx = THREE.MathUtils.clamp(hx * (portrait ? 0.85 : 0.6), ARENA.minX + halfW * 0.55, ARENA.maxX - halfW * 0.55)
   // Look a little ahead of the hero, toward the camera: the robots' doorway
   // is the front edge, and it should be on screen, not under the controls.
-  const tz = THREE.MathUtils.lerp(0.3, hz, portrait ? 0.6 : 0.75) + (portrait ? 0.6 : 0.3)
+  const tz = THREE.MathUtils.lerp(0.3, hz, 0.8) + (portrait ? 0.15 : 0.1)
   const playLook = new THREE.Vector3(tx, 0.95, tz)
   const playPos = playLook.clone().add(new THREE.Vector3(0, Math.sin(elev) * dist, Math.cos(elev) * dist))
 
@@ -319,12 +324,12 @@ function frame(dtReal: number, render = true) {
     const sec = Math.ceil(rem)
     if (sec !== lastShownSecond) {
       lastShownSecond = sec
-      timerEl.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+      timerValue.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
       timerEl.classList.toggle('is-low', phase === 'play' && sec <= 10)
       if (phase === 'play' && sec <= 5 && sec > 0) sfx.tick()
     }
     const mult = game.multiplier
-    comboEl.textContent = game.combo >= 2 ? `${game.combo} hits${mult > 1 ? ` · x${mult}` : ''}` : ''
+    if (game.combo >= 2) comboValue.textContent = `${game.combo} hits${mult > 1 ? ` · x${mult}` : ''}`
     comboEl.classList.toggle('is-on', game.combo >= 2 && phase === 'play')
   }
   const showTarget = phase === 'play' || phase === 'countdown' ? 0 : 1
@@ -414,6 +419,16 @@ function setProgress(f: number) {
     startBtn.disabled = false
     ;(window as unknown as { __ready?: unknown; __moves?: number }).__moves = loaded
     ;(window as unknown as { __ready?: unknown }).__ready = true
+    // Rival heroes from the gallery, one after another behind the player's:
+    // the game is playable with robots alone while they arrive.
+    void (async () => {
+      const g = game!
+      for (const src of await rivalSources(OWN_HERO ?? HERO_URL, samples, params.has('rivals') ? Number(params.get('rivals')) : 4)) {
+        const r = await loadRival(src)
+        if (r) g.addRival(r)
+      }
+      ;(window as unknown as { __rivals?: number }).__rivals = g.rivals.length
+    })()
   } catch (err) {
     const message = (err as Error).message
     screen.dataset.phase = 'error'
@@ -442,7 +457,8 @@ function setProgress(f: number) {
     return {
       phase, time: game.time, remaining: game.remaining, score: game.score, combo: game.combo,
       hero: { x: game.pos.x, y: game.pos.y, z: game.pos.z, heading: game.heading, airborne: game.airborne, playing: game.moves.playing, height: game.hero.height, width: game.hero.width, radius: game.radius, screen: project(game.pos) },
-      things: game.things.filter((t) => !t.dead && !t.dying).map((t) => ({ kind: t.kind, age: t.age, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp })),
+      rivals: game.rivals.length,
+      things: game.things.filter((t) => !t.dead && !t.dying && !t.bopped).map((t) => ({ kind: t.kind, name: t.rival?.name, age: t.age, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp })),
       stats: game.stats,
       facing: { front: game.facing.front, total: game.facing.total, detail: game.facing.detail },
       perf: { frames: perf.frames, avgMs: perf.frames ? perf.ms / perf.frames : 0, worstFrameMs: perf.worst, drawCalls: perf.calls, fps: perf.fps, pixelRatio, triangles: renderer.info.render.triangles },

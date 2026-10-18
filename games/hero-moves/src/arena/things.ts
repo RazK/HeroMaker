@@ -8,7 +8,7 @@ import { PAL, makeBlob } from './world'
  * costs less than the hero's outline does.
  */
 
-export type Kind = 'robot' | 'balloon' | 'gold' | 'crate' | 'ball'
+export type Kind = 'robot' | 'balloon' | 'gold' | 'crate' | 'ball' | 'rival'
 
 export interface Thing {
   kind: Kind
@@ -36,6 +36,12 @@ export interface Thing {
   /** Balloon float height. */
   float?: number
   extra?: THREE.Object3D
+  /** A rival hero: who it is, what it is doing, and for how long. */
+  rival?: import('./rivals').Rival
+  rstate?: 'walk' | 'knock' | 'dizzy' | 'wave' | 'leave'
+  rt?: number
+  /** Bopped already: no longer a target, on its way out. */
+  bopped?: boolean
 }
 
 const lambert = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0 })

@@ -21,6 +21,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
+import { routeHeroes } from './arena-routes.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = (() => {
@@ -46,11 +47,14 @@ for (const seg of plan.segments) {
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.log('pageerror', e.message))
   const file = path.basename(seg.hero)
-  await page.route('**/api/files/local/**', (route) => route.fulfill({ body: fs.readFileSync(seg.hero), contentType: 'application/octet-stream' }))
+  const rivals = (plan.rivals ?? []).filter((f) => f !== seg.hero)
+  await routeHeroes(page, seg.hero, rivals)
   await page.goto(`${BASE}/arena.html?vrm=${encodeURIComponent('/api/files/local/' + file)}&name=${encodeURIComponent(seg.name)}&manual=1&dpr=${SCALE}`)
   await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 180000 })
   const ready = await page.evaluate(() => window.__ready)
   if (ready !== true) throw new Error(`${seg.name}: ${ready}`)
+  // Let the gallery heroes finish arriving, so every round has them.
+  if (rivals.length) await page.waitForFunction(() => window.__rivals !== undefined, null, { timeout: 300000 })
   const cdp = await ctx.newCDPSession(page)
 
   const grab = async () => {
@@ -152,7 +156,7 @@ function makeBot() {
     const act = { move: null, punch: false, jump: false }
     if (s.phase !== 'play') return act
     const t = s.clock
-    const chest = { x: 0, z: -3.75 }
+    const chest = { x: 0, z: -3.95 }
     const live = s.things.filter((x) => x.kind !== 'ball')
     // Balls: jump the one about to arrive.
     const ball = s.things.find((b) => b.kind === 'ball' && Math.abs(b.z - h.z) < h.radius + 0.55
@@ -188,11 +192,11 @@ function makeBot() {
     }
     // Nothing to hit: wait where you are; the next robot comes from the front.
     if (!best) return act
-    // Approach from the chest side: stand between it and the chest.
-    const toChest = norm(chest.x - best.x, chest.z - best.z, 1)
+    // Run straight at it, as a child would, and stop when it is in reach.
+    const toHero = norm(h.x - best.x, h.z - best.z, 1)
     const reach = h.radius + 0.36 + 0.75
-    const gx = best.x + toChest.x * reach * 0.8
-    const gz = best.z + toChest.y * reach * 0.8
+    const gx = best.x + toHero.x * reach * 0.8
+    const gz = best.z + toHero.y * reach * 0.8
     const dTarget = Math.hypot(best.x - h.x, best.z - h.z)
     const dGoal = Math.hypot(gx - h.x, gz - h.z)
     if (dTarget > reach + 0.2 && dGoal > 0.25) act.move = norm(gx - h.x, -(gz - h.z), Math.min(1, dGoal * 1.2 + 0.3))

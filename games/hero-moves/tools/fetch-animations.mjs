@@ -45,13 +45,17 @@ const PACKS = [
       // an anime run, a jump with a crouch in it and the ground pound.
       'Fighting Idle', 'Fighting Left Jab', 'Fighting Right Jab', 'Run_Anime',
       'Jump_2', 'Attack_Ground_Pound', 'Victory',
+      // Robot Rumble's rival heroes: dizzy after a bop, then a wave goodbye.
+      'Dizzy', 'Greeting',
     ],
   },
   {
     url: `${CDN}/scottpetrovic/mesh2motion-app@main/static/animations/human-base-animations.glb`,
     clips: ['Punch_Cross',
       // Robot Rumble: being bumped by a bouncy ball.
-      'Hit_Knockback'],
+      'Hit_Knockback',
+      // Robot Rumble's rival heroes waddle in.
+      'Walk'],
   },
 ]
 

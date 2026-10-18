@@ -5,7 +5,7 @@ Playable experiences built on top of the HeroMaker pipeline's rigged VRM output.
 | Game | Status | Why |
 |---|---|---|
 | [`hero-moves/`](./hero-moves) | **Live** — <https://razk.github.io/HeroMaker/hero-moves/> | A party dance game. One to three players stand side by side, each picks a hero, and every hero mirrors its own player. Also ships the camera-free Stunt Reel at `reel.html`. |
-| [`robot-rumble/`](./robot-rumble) | **New** — `/play/arena.html` in the app | Camera-free arena brawler: thumb stick, Punch, Jump. Robots come from the camera's side, so the hero spends 74-81% of the round facing the player (measured). Built as a page of `hero-moves`. |
+| [`robot-rumble/`](./robot-rumble) | **New** — `/play/arena.html` in the app | Camera-free arena game: thumb stick, Punch, Jump. Bop real gallery heroes (a friendly game of tag) and wind-up robots in a walled toy room; they come from the camera's side, so the hero faces the camera's half ~68% of the round and shows a full back 3-4% (measured). Built as a page of `hero-moves`. |
 | [`hero-dash/`](./hero-dash) | **Parked** — complete and playable, not the direction | An endless runner. The chase camera shows the back of the avatar almost all the time, and the back is the part the pipeline invents. See below. |
 
 ## Why Hero Dash is parked
