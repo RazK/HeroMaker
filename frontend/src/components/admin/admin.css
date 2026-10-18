@@ -120,6 +120,7 @@
 .adm-note { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); padding-block-start: 4px; }
 .adm-note--bad, .adm-bad { color: var(--tb-red) !important; }
 .adm-summary-line { font-weight: 800; color: var(--tb-ink-2); padding-inline: 4px; }
+.adm-users-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .adm-error {
   padding: 12px 16px;
   border-radius: var(--tb-radius-input);
