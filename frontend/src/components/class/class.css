@@ -188,12 +188,14 @@
 .cls-stat--low { background: var(--tb-red); color: var(--tb-white); box-shadow: none; }
 .cls-stat--low svg { color: var(--tb-white); }
 
-/* The live session: the join card (code, QR, address) beside the roster. */
+/* The live session: the join card (QR, address, code) and the roster. The
+   teacher projects it, so the QR is as big as the room allows: Qr `fit` reads
+   --qr-bound off its box (width / both / height) to know what limits it.
+   A phone, or anything taller than wide (a phone in "desktop site" mode is
+   ~980 x 2000): the card on top, its QR the card's width, the roster under it. */
 .cls-live-layout { display: flex; flex-direction: column; gap: var(--tb-space); min-height: 0; }
-@media (min-width: 900px) {
-  .cls-live-layout { display: grid; grid-template-columns: 420px minmax(0, 1fr); align-items: start; }
-}
 .cls-join-card {
+  flex-shrink: 0;
   background: var(--tb-white);
   border-radius: var(--tb-radius-card);
   box-shadow: var(--tb-shadow-card);
@@ -204,15 +206,64 @@
   gap: 14px;
   text-align: center;
 }
-@media (min-width: 900px) { .cls-join-card { position: sticky; top: 0; } }
-.cls-join-url { font-family: var(--tb-font-display); font-size: clamp(19px, 6vw, 24px); line-height: 1.2; overflow-wrap: anywhere; }
-.cls-join-url span { color: var(--tb-grape-text); }
+/* Short of the screen's height less ~490px (header, bar, and the rest of the
+   card), so on a tall screen the code still shows under it; a phone's QR
+   always gets at least the card's width. */
+.cls-qr-fit {
+  --qr-bound: width;
+  flex: none;
+  width: 100%;
+  max-width: max(280px, 100vh - 490px);
+  max-width: max(280px, 100dvh - 490px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .cls-qr-frame { padding: 10px; border-radius: 22px; background: var(--tb-plate-1); }
 .cls-qr { display: block; border-radius: 12px; }
+/* Text a child copies letter by letter is never Barriecito (BRANDBOOK.md):
+   the address and the code are Nunito 800. */
+.cls-join-url { font-family: var(--tb-font-body); font-weight: 800; font-size: clamp(19px, 5.6vw, 24px); line-height: 1.25; overflow-wrap: anywhere; }
+.cls-join-url span { color: var(--tb-grape-text); }
 .cls-or { display: flex; align-items: center; gap: 10px; width: 100%; color: var(--tb-ink-2); font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
 .cls-or::before, .cls-or::after { content: ''; flex: 1; height: 2px; background: var(--tb-line); }
 .cls-roster { display: flex; flex-direction: column; gap: var(--tb-space); min-width: 0; }
 .cls-roster-empty { padding: 32px 16px; text-align: center; color: var(--tb-ink-2); background: var(--tb-white); border-radius: var(--tb-radius-card); border: 2.5px dashed var(--tb-line); }
+
+/* A laptop or a projector: nothing scrolls but the roster, so the join card
+   is always whole, full height, beside it. */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) {
+  .tb-screen--wide.cls-class--live { max-width: 1600px; }
+  .tb-screen--app.cls-class--live > .cls-live-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .cls-join-card { min-height: 0; justify-content: center; }
+  /* The card is a column; the QR takes the height the rest leaves. */
+  .cls-qr-fit { --qr-bound: both; flex: 1 1 0; min-height: 0; max-width: none; }
+  .cls-roster { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 8px; }
+}
+/* Wide enough to stand the address and the code BESIDE the QR (a 1280 x 800
+   laptop and up): the QR is then as tall as the card, which is most of the
+   screen's height, and as wide as two columns of roster tiles allow. */
+@media (min-width: 1200px) and (min-aspect-ratio: 1/1) {
+  .tb-screen--app.cls-class--live > .cls-live-layout { grid-template-columns: auto minmax(368px, 1fr); }
+  .cls-join-card {
+    display: grid;
+    grid-template-columns: auto 380px;
+    grid-template-rows: minmax(0, 1fr) repeat(4, auto) minmax(0, 1fr);
+    column-gap: 24px;
+  }
+  .cls-join-card > .tb-eyebrow { grid-area: 2 / 2; font-size: 18px; }
+  .cls-join-card > .cls-or { grid-area: 3 / 2; }
+  .cls-join-card > .cls-join-url { grid-area: 4 / 2; font-size: 26px; }
+  .cls-join-card > .cls-pin { grid-area: 5 / 2; }
+  /* 868px: the gutters, the roster's two columns, the card's padding and
+     gap, and the 380px text column. */
+  .cls-qr-fit { --qr-bound: height; grid-area: 1 / 1 / -1 / 2; align-self: stretch; flex: none; width: auto; max-width: calc(min(100vw, 1600px) - 868px); }
+}
 
 /* ---------- PIN ---------- */
 
@@ -230,7 +281,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--tb-font-display);
+  /* Copied digit by digit: Nunito 800, never Barriecito, whose digits come
+     out unevenly bold and thin (BRANDBOOK.md, Type). Nunito's figures are
+     all one width and one weight; Fredoka's are not (no tabular figures). */
+  font-family: var(--tb-font-body);
+  font-weight: 800;
+  line-height: 1;
   font-size: clamp(24px, 9vw, 40px);
   color: var(--tb-ink);
   font-variant-numeric: tabular-nums;
@@ -266,8 +322,10 @@
   background: var(--tb-white);
   color: var(--tb-ink);
   box-shadow: 0 4px 0 var(--tb-ink);
-  font-family: var(--tb-font-display);
-  font-size: 32px;
+  /* The same digits as the code on the board and in the boxes above. */
+  font-family: var(--tb-font-body);
+  font-weight: 800;
+  font-size: 30px;
   cursor: pointer;
   display: flex;
   align-items: center;

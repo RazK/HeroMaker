@@ -183,7 +183,7 @@ function Live({ c, roster, busy, onAction }: {
     <div className="tb-screen-body cls-live-layout">
       <section className="cls-join-card" aria-label="How to join">
         <div className="tb-eyebrow">Join the class</div>
-        <div className="cls-qr-frame"><Qr text={url} size={208} label="Scan to join the class" /></div>
+        <Qr text={url} fit={720} label="Scan to join the class" />
         <div className="cls-or">or go to</div>
         <div className="cls-join-url">
           {/* Breaks only after a dot, and keeps the domain whole:
