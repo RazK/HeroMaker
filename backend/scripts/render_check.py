@@ -25,6 +25,12 @@ edge check and at most one retry. Nothing is re-implemented here.
                             for a same-drawing comparison
     --max-calls N           stop before OpenAI has been called N times (default
                             30; a framed render that retries is 2 calls)
+    --classify              ask openai.classify_input what each drawing is and
+                            paint it as the pipeline would: a photo of a person
+                            gets the likeness clause, anything else is a drawing
+                            (~$0.0003 per call, not counted in --max-calls)
+    --kind-only LABEL=SRC   classify this picture only, paint nothing: to check
+                            that drawings stay drawings
 
 Writes, under --out-dir: <label>/original.*, <label>/shipped.png (the painting
 the hero has now, if found), <label>/<style>.png (after), <label>/<style>.before.png,
@@ -138,6 +144,8 @@ def main(argv=None) -> int:
     ap.add_argument("--styles", default=DEFAULT_STYLES)
     ap.add_argument("--before", default="", help="comma-separated styles to also paint the old way")
     ap.add_argument("--max-calls", type=int, default=30)
+    ap.add_argument("--classify", action="store_true")
+    ap.add_argument("--kind-only", action="append", default=[], metavar="LABEL=SRC")
     ap.add_argument("--out-dir", type=Path, default=Path("out/render-check"))
     args = ap.parse_args(argv)
 
@@ -187,12 +195,28 @@ def main(argv=None) -> int:
     calls = 0
     report = []
     rows = []
+    kinds = {}
+    for item in args.kind_only:
+        label, _, src = item.partition("=")
+        try:
+            kinds[label] = openai_service.classify_input(_fetch(src))
+        except Exception as e:
+            kinds[label] = f"error: {e}"
+        print(f"{label:22s} kind={kinds[label]}", flush=True)
     for label, original, shipped, shipped_style in jobs:
         d = out / label
         d.mkdir(parents=True, exist_ok=True)
         src = d / "original.jpg"
         src.write_bytes(original)
-        cells = [("drawing", src)]
+        kind = None
+        if args.classify:
+            try:
+                kind = openai_service.classify_input(original)
+            except Exception as e:
+                print(f"{label}: classification failed, painting it as a drawing: {e}", flush=True)
+            kinds[label] = kind or openai_service.INPUT_KIND_DRAWING
+            print(f"{label:22s} kind={kinds[label]}", flush=True)
+        cells = [("drawing" if kind != openai_service.INPUT_KIND_PHOTO else "photo", src)]
         if shipped is not None:
             (d / "shipped.png").write_bytes(shipped)
             cells.append((f"shipped ({shipped_style})", d / "shipped.png"))
@@ -209,7 +233,8 @@ def main(argv=None) -> int:
                 print(f"{label:22s} {style:9s} {variant:6s} ...", flush=True)
                 try:
                     openai_service.render_image(Path(src), dst, style=style,
-                                                report=info, framing=framing)
+                                                report=info, framing=framing,
+                                                input_kind=kind if framing else None)
                 except Exception as e:
                     print(f"  FAILED: {e}")
                     calls += 1
@@ -224,7 +249,7 @@ def main(argv=None) -> int:
                 cells.append((f"{style} {variant}" + (f" x{used}" if used > 1 else ""), dst))
         rows.append((label, cells))
 
-    (out / "report.json").write_text(json.dumps({"calls": calls, "renders": report}, indent=2))
+    (out / "report.json").write_text(json.dumps({"calls": calls, "kinds": kinds, "renders": report}, indent=2))
     if rows:
         print(f"contact sheet: {contact_sheet(rows, out / 'contact.png')}")
     print(f"OpenAI calls: {calls} (~${calls * 0.167:.2f} at list price)")
