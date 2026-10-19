@@ -56,6 +56,16 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 6. **Scrolling.** "Only scroll if there is significant new information to reveal." Phone screens fit 360 x 640 and up; the hero screen is `100dvh`. Lists (the gallery) are the exception.
 7. **Phone-first.** Desktop adapts the same layout (more gallery columns, bigger stage, one row of 8 moves). It never invents screens.
 
+**Switch and chips: two levels, never one row.**
+- A screen with more than one *place* (a teacher's home: Gallery, My classes) gets the **switch**, `Segmented` in `components/tb/Segmented.tsx`: directly under the header, above everything else, full width (560px max, centred on a desktop). Equal segments, each 48px tall; a sunken `--tb-track` pill, the chosen segment ink with white text, in the display font, an icon before each label. It does not scroll away.
+- **Chips** choose *within* a place (Editors' choice, My heroes, and for admins All heroes and Failed). They sit under the switch, and only in the place they filter: My classes has none.
+- A place is never a chip. A fourth chip is cropped at the edge of a phone and missed ("not the fourth option that gets cropped in the filters").
+- A segment may carry a small live dot (`--tb-red`, ringed in white, blinking; steady under reduced motion) when something there is happening now: a class in session.
+- The bottom bar's primary follows the place: Make a hero under Gallery, New class under My classes.
+- The place and the chip are remembered apart: back on Gallery finds the chip that was on.
+
+**Header card.** The top of a place may carry one card naming what the place belongs to (My classes: the school). A pastel `--tb-plate-*` card, `--tb-radius-card`, `--tb-shadow-card`: a round white badge with the icon at the start, the name in the display font, one body line under it with only the parts that are filled in, a quiet white count pill, and the round pencil (`.tb-nav`) at the end, which opens the editor. The whole card is the same tap. Nothing in it is underlined. With nothing to name yet, the card invites: "Add your school". Text wraps; it never clips at 360px.
+
 **Spacing.** `--tb-space` is the visible gap above and below the header buttons, header to content, between blocks, content to bar, below the last button, in sheets. Padding under a 3D button adds its depth back. 2px `--tb-line` hairline between header/bar and scrolling content. The bar adds `env(safe-area-inset-bottom)`.
 
 ## Images
@@ -116,6 +126,8 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 | One title, one short line | A title, a subtitle and a paragraph |
 | Line icons | Emoji |
 | `margin-inline-start` | `margin-left` |
+| A place on the switch under the header | A place as the fourth chip, cropped off the edge |
+| The school on a plate card with a pencil | An underlined link for a name people care about |
 
 ## Rejected, and why
 
@@ -127,6 +139,8 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Unlabelled layers icon** for How it was made: "not clear enough". Now a labelled pill.
 - **Empty 3D loading card.** "Empty screen for 10 seconds WTF?!" Now a ring over the dimmed painting.
 - **Queue-then-play game.** "as soon as an animation is clicked just play it".
+- **My classes as a chip.** The fourth chip on a phone, cut off at the edge: "I could miss it. It needs a higher level in the hierarchy." Now the switch.
+- **The school as a text link.** Grape, underlined: "looks like a link in a document. Doesn't give me a good feeling about my school." Now a header card.
 
 Mock-ups of each are in the artifact's "Rejected" card.
 

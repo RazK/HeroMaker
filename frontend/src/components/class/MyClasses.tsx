@@ -5,7 +5,7 @@ import { TileFade } from '../tb/Gallery';
 import { Icon } from '../tb/Icon';
 import { Dialog, Sheet } from '../tb/parts';
 import { PaySeatsDialog, Stepper, clock, heroThumb, useSecondsLeft } from './parts';
-import { SchoolSheet } from './SchoolSheet';
+import { SCHOOL_TYPE_LABEL, SchoolSheet } from './SchoolSheet';
 import './class.css';
 
 /** How many of a class's heroes its card shows (backend PREVIEW_HEROES). */
@@ -22,11 +22,12 @@ export interface MyClassesData {
 }
 
 /**
- * A teacher's classes, for the gallery's My classes tab. Read once when a
- * teacher signs in (a class running right now opens that tab), then every
- * 10 seconds while the tab is showing: the seats and the Live badge move.
+ * A teacher's classes, for My classes. Read once when a teacher signs in (a
+ * class running right now opens My classes), then every `polling` ms: App
+ * asks often while My classes shows (the seats and the Live badge move), and
+ * rarely from the gallery (the switch's live dot). false: not at all.
  */
-export function useMyClasses(enabled: boolean, polling: boolean): MyClassesData {
+export function useMyClasses(enabled: boolean, polling: number | false): MyClassesData {
   const [classes, setClasses] = useState<ClassView[] | null>(null);
   const [heroCost, setHeroCost] = useState(10);
   const [seatPrice, setSeatPrice] = useState<SeatPrice | null>(null);
@@ -44,7 +45,7 @@ export function useMyClasses(enabled: boolean, polling: boolean): MyClassesData 
     if (!enabled) { setClasses(null); setSchool(undefined); setError(null); return undefined; }
     reload();
     if (!polling) return undefined;
-    const t = window.setInterval(reload, 10000);
+    const t = window.setInterval(reload, polling);
     return () => window.clearInterval(t);
   }, [enabled, polling, reload]);
 
@@ -56,14 +57,14 @@ const isLive = (c: ClassView) => !!c.live?.open;
 export const hasLiveClass = (classes: ClassView[] | null) => !!classes?.some(isLive);
 
 /**
- * The My classes tab: the school, then the class cards, a class running now
+ * My classes: the school's card, then the class cards, a class running now
  * pinned first. Each class was paid for up front (docs/product/class-sessions.md).
  */
 export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
   data: MyClassesData;
   onOpen: (c: ClassView) => void;
   onEditSchool: () => void;
-  /** "Stop showing My classes": teacher mode off, quietly, from the tab itself. */
+  /** "Stop showing My classes": teacher mode off, quietly, from My classes itself. */
   onStop: () => void;
 }) {
   const { classes, school, error, reload } = data;
@@ -79,14 +80,7 @@ export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
         </div>
       ) : (
         <>
-          {(school || classes) && (
-            <div className="cls-tab-school">
-              {school
-                ? <button type="button" className="tb-link cls-school-link" dir="auto" onClick={onEditSchool}><Icon name="school" size={18} />{school.name}</button>
-                : <span />}
-              {classes && <span className="tb-muted">{classes.length} {classes.length === 1 ? 'class' : 'classes'}</span>}
-            </div>
-          )}
+          <SchoolCard school={school} count={classes?.length} onEdit={onEditSchool} />
           <div className="cls-cards">
             {!sorted && Array.from({ length: 2 }, (_, i) => <div key={i} className="cls-card cls-card--skeleton" />)}
             {sorted?.map((c, i) => <ClassCard key={c.id} c={c} index={i} onOpen={() => onOpen(c)} />)}
@@ -98,6 +92,36 @@ export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
           <button type="button" className="tb-link cls-stop-classes" onClick={onStop}>Stop showing My classes</button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The school, as the top card of My classes: a plate with the school's badge,
+ * its name, its kind and place, how many classes. Tapping it (or its pencil)
+ * edits the school; with none yet it asks for one. undefined: still loading.
+ */
+function SchoolCard({ school, count, onEdit }: { school: School | null | undefined; count: number | undefined; onEdit: () => void }) {
+  if (school === undefined) return <div className="cls-school cls-school--skeleton" aria-hidden="true" />;
+  const place = school && [school.city, school.country].filter(Boolean).join(', ');
+  const kind = school && school.type !== 'other' ? SCHOOL_TYPE_LABEL[school.type] : '';
+  const line = school ? [kind, place].filter(Boolean).join(' · ') : 'Name, kind and place';
+  const label = school ? 'Edit school' : 'Add your school';
+  return (
+    // The pencil is the control; the rest of the card is a bigger target for the same tap.
+    <div className="cls-school" onClick={onEdit}>
+      <span className="cls-school-badge" aria-hidden="true"><Icon name="school" /></span>
+      <span className="cls-school-text">
+        <span className="cls-school-name" dir="auto">{school ? school.name : 'Add your school'}</span>
+        <span className="cls-school-meta">
+          {line && <span className="cls-school-line" dir="auto">{line}</span>}
+          {count !== undefined && count > 0 && <span className="cls-school-count">{count} {count === 1 ? 'class' : 'classes'}</span>}
+        </span>
+      </span>
+      <button type="button" className="tb-nav cls-school-edit" aria-label={label} title={label}
+        onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+        <Icon name="pencil" />
+      </button>
     </div>
   );
 }

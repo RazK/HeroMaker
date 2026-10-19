@@ -11,6 +11,9 @@ const TYPES: { id: SchoolType; label: string }[] = [
   { id: 'other', label: 'Other' },
 ];
 
+/** The kind of school, as My classes' school card names it. */
+export const SCHOOL_TYPE_LABEL = Object.fromEntries(TYPES.map((t) => [t.id, t.label])) as Record<SchoolType, string>;
+
 /** The country the browser is set to, e.g. "en-IL" -> "Israel". Editable. */
 function browserCountry(): string {
   try {

@@ -1,7 +1,8 @@
 .tb-gallery { display: flex; flex-direction: column; gap: var(--tb-space); }
-/* The tabs. Three fit a 360px phone; with more (an admin who teaches has
-   five) the row runs to the screen's edges and scrolls, so the next chip
-   peeks in from the side margin, like the hero's moves. */
+/* The tabs. Two or three fit a 360px phone; with more (an admin has four)
+   the row runs to the screen's edges and scrolls, so the next chip peeks in
+   from the side margin, like the hero's moves. My classes is not a chip: it
+   is a place of its own, on the switch above (Segmented.tsx). */
 .tb-gallery-chips {
   display: flex;
   gap: 8px;
@@ -16,8 +17,8 @@
   overscroll-behavior-x: contain;
 }
 .tb-gallery-chips::-webkit-scrollbar { display: none; }
-/* A little tighter than a chip elsewhere, so Editors' choice, My heroes and
-   My classes fit whole on a 360px phone without shrinking the text. */
+/* A little tighter than a chip elsewhere, so more chips fit whole on a
+   360px phone without shrinking the text. */
 .tb-gallery-chips .tb-chip { padding: 0 12px; }
 @media (max-width: 380px) {
   .tb-gallery-chips { gap: 6px; }

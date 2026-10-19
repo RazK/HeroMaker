@@ -4,7 +4,7 @@
 //   test mode) -> upload a drawing -> every pipeline stage completes -> the
 //   hero is in "My Creations" -> its page: the intro, then moves -> Play ->
 //   the game chooser -> Dance party, and the camera-free Robot Rumble ->
-//   Run a class -> the gallery's My classes tab -> a new class whose seats it cannot cover from its credits,
+//   Run a class -> My classes, on the switch under the header -> a new class whose seats it cannot cover from its credits,
 //   paid for in money on Lemon Squeezy -> the seats land on the class (not on
 //   the robot's balance) -> Start class shows a PIN and a QR -> a student
 //   joins on a phone and makes a hero -> the teacher opens it from the class
@@ -554,7 +554,10 @@ try {
   await step(page, 'profile', async () => {
     await page.locator('.tb-back').click();
     // A fresh hero is not starred, so it is not in Editors' choice (the
-    // default view): it is found under My heroes.
+    // default view): it is found under My heroes. (A teacher, LOGIN_AS, may
+    // be on My classes, which has no chips: the switch goes to Gallery first.)
+    const gallerySeg = page.locator('.tb-switchbar .tb-seg-gallery');
+    if (await gallerySeg.count()) await gallerySeg.click();
     await page.locator('.tb-chip-mine').click();
     const mine = page.locator('.creation-gallery-item');
     await mine.first().waitFor({ timeout: 30000 });
@@ -688,12 +691,16 @@ try {
     const me = await robotApi('/api/auth/me');
     const balance = me.credits;
 
-    // A teacher's classes are a tab of the gallery, My classes. The first
-    // time, "Run a class" on the account sheet turns teacher mode on and
-    // lands on that tab; after that the tab is one tap.
-    const classesTab = page.getByRole('tab', { name: 'My classes' });
+    // A teacher's home has two places, on a switch under the header:
+    // Gallery and My classes. The first time, "Run a class" on the account
+    // sheet turns teacher mode on and lands on My classes; after that it is
+    // one tap. My classes is never a chip.
+    const switchBar = page.locator('.tb-switchbar');
+    const classesTab = switchBar.getByRole('tab', { name: 'My classes' });
+    const galleryTab = switchBar.getByRole('tab', { name: 'Gallery' });
+    if (await page.locator('.tb-gallery-chips').getByRole('tab', { name: 'My classes' }).count()) throw new Error('My classes is a chip again: it belongs on the switch');
     if (!me.is_teacher) {
-      if (await classesTab.count()) throw new Error('a non-teacher is shown a My classes tab');
+      if (await switchBar.count()) throw new Error('a non-teacher is shown the Gallery / My classes switch');
       await page.getByRole('button', { name: 'Account' }).click();
       await page.getByRole('button', { name: 'Run a class' }).click();
     } else {
@@ -701,7 +708,10 @@ try {
     }
     const newClass = page.locator('.cls-new-class');
     await newClass.waitFor({ timeout: 30000 });
-    if ((await classesTab.getAttribute('aria-selected')) !== 'true') throw new Error('New class shows, but the My classes tab is not the one selected');
+    if ((await classesTab.getAttribute('aria-selected')) !== 'true') throw new Error('New class shows, but My classes is not the one selected on the switch');
+    if (await page.locator('.tb-gallery-chips').count()) throw new Error('My classes shows the gallery chips');
+    const segH = (await classesTab.boundingBox())?.height ?? 0;
+    if (segH < 44) throw new Error(`the My classes segment is ${segH}px tall, under the 44px tap target`);
     await linger(page, 1500);
 
     // The price the app quotes must be the one packs.py sets.
@@ -862,17 +872,24 @@ try {
     await page.locator('.cls-end-confirm').click();
     await start.waitFor({ timeout: 15000 });
 
-    // Back from the class lands on the gallery's My classes tab, the class among its cards.
+    // Back from the class lands on My classes, the class among its cards.
     await page.getByRole('button', { name: 'Back to classes' }).click();
     await newClass.waitFor({ timeout: 15000 });
-    if ((await classesTab.getAttribute('aria-selected')) !== 'true') throw new Error('Back from the class did not land on the My classes tab');
+    if ((await classesTab.getAttribute('aria-selected')) !== 'true') throw new Error('Back from the class did not land on My classes');
     await page.locator(`.cls-card[data-class="${className}"]`).waitFor({ timeout: 15000 });
     await snap(page, 'class-tab');
+
+    // Gallery and back: the chips and Make a hero under Gallery, New class under My classes.
+    await galleryTab.click();
+    await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
+    if (!(await page.locator('.tb-gallery-chips').count())) throw new Error('Gallery on the switch shows no chips');
+    await classesTab.click();
+    await newClass.waitFor({ timeout: 15000 });
 
     // Leave teacher mode as it was found, from inside the tab.
     if (!me.is_teacher) {
       await page.locator('.cls-stop-classes').click();
-      await classesTab.waitFor({ state: 'detached', timeout: 15000 });
+      await switchBar.waitFor({ state: 'detached', timeout: 15000 });
       await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
     return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; ended`;

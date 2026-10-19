@@ -7,7 +7,8 @@ import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Privacy, PRIVACY_PATH } from './components/tb/Privacy';
-import { Gallery, Filter, forgetGallery, galleryTabs, rememberTab, rememberedTab, resetGalleryScroll } from './components/tb/Gallery';
+import { Gallery, Filter, Section, forgetGallery, galleryTabs, hadSwitch, rememberSection, rememberTab, rememberedSection, rememberedTab, resetGalleryScroll } from './components/tb/Gallery';
+import { Segmented } from './components/tb/Segmented';
 import { MyClasses, NewClassFlow, hasLiveClass, useMyClasses } from './components/class/MyClasses';
 import { ClassScreen } from './components/class/ClassScreen';
 import { CLASS_PAID_PARAM } from './api/classes';
@@ -65,12 +66,18 @@ function MainApp() {
   const [classId, setClassId] = useState<string | null>(classPaid);
   // Where Back from a hero goes: the gallery, or the class it was opened from.
   const [heroFrom, setHeroFrom] = useState<'gallery' | 'class'>('gallery');
-  // The gallery's tab: the one last chosen, or My classes for a teacher back
-  // from paying for a class. Chosen once (a tap, or a flow that leads to a
-  // tab), it is never changed under the viewer's feet.
-  const [tab, setTabState] = useState<Filter>(() => (CLASS_PAID_ON_LOAD ? 'classes' : rememberedTab()));
-  const tabChosen = useRef(!!CLASS_PAID_ON_LOAD);
-  const setTab = (t: Filter) => { tabChosen.current = true; rememberTab(t); setTabState(t); };
+  // Where the home screen is, on two levels: the place (a teacher's switch:
+  // the gallery or My classes) and, in the gallery, the tab (the chips).
+  // Each is the one last chosen, kept apart; a teacher back from paying for
+  // a class is on My classes. Chosen once (a tap, or a flow that leads
+  // there), neither is changed under the viewer's feet.
+  const [section, setSectionState] = useState<Section>(() => (CLASS_PAID_ON_LOAD ? 'classes' : rememberedSection()));
+  const [tab, setTabState] = useState<Filter>(rememberedTab);
+  const placeChosen = useRef(!!CLASS_PAID_ON_LOAD);
+  const setSection = (s: Section) => { placeChosen.current = true; rememberSection(s); setSectionState(s); };
+  const setTab = (t: Filter) => { placeChosen.current = true; rememberTab(t); setTabState(t); };
+  // A flow that ends on a gallery tab (a kept hero: My heroes).
+  const showTab = (t: Filter) => { if (section !== 'gallery') setSection('gallery'); setTab(t); };
   // New class (asks for the school first, once), or the school alone.
   const [classSheet, setClassSheet] = useState<'new' | 'school' | null>(null);
   const [resetToken] = useState(() => (isResetUrl() ? new URLSearchParams(window.location.search).get('token') ?? '' : ''));
@@ -143,6 +150,7 @@ function MainApp() {
       setError(null);
       forgetGallery();
       setTabState('featured');
+      setSectionState('gallery');
       setGalleryKey((k) => k + 1);
       window.scrollTo({ top: 0 });
       setAccountNotice('Account deleted');
@@ -308,15 +316,21 @@ function MainApp() {
     }
   };
 
-  // A teacher's classes: read when they sign in, kept fresh while My classes shows.
-  const myClasses = useMyClasses(!!userInfo?.is_teacher, view === 'gallery' && tab === 'classes');
+  // The place shown: a teacher's choice; for everyone else the gallery. Until
+  // the account is read, a remembered My classes is not judged.
+  const isTeacher = !!userInfo?.is_teacher;
+  const shownSection: Section = isTeacher || !authChecked ? section : 'gallery';
+  const onClassesTab = shownSection === 'classes';
+  // A teacher's classes: read when they sign in, kept fresh while My classes
+  // shows, and now and then from the gallery, for the switch's live dot.
+  const myClasses = useMyClasses(isTeacher, view === 'gallery' ? (onClassesTab ? 10000 : 60000) : false);
   // A class running right now opens My classes, once per visit, unless the
-  // teacher already picked a tab: mid-lesson, that is what they came for.
+  // teacher already picked a place or a tab: mid-lesson, that is what they came for.
   const liveChecked = useRef(false);
   useEffect(() => {
     if (liveChecked.current || !myClasses.classes) return;
     liveChecked.current = true;
-    if (!tabChosen.current && hasLiveClass(myClasses.classes)) setTabState('classes');
+    if (!placeChosen.current && hasLiveClass(myClasses.classes)) setSectionState('classes');
   }, [myClasses.classes]);
 
   const hasProcessingStep = creation?.steps.some((s) => s.status === 'processing');
@@ -359,7 +373,7 @@ function MainApp() {
           <span>HeroMaker</span>
         </button>
       )}
-      right={<HeaderAuth onOpenAdmin={() => setView('admin')} onRunClass={() => setTab('classes')} />}
+      right={<HeaderAuth onOpenAdmin={() => setView('admin')} onRunClass={() => setSection('classes')} />}
     />
   );
   const footer = (extra?: JSX.Element) => (
@@ -369,12 +383,24 @@ function MainApp() {
       <div><a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a> · <span className="tb-version">{__APP_VERSION__}</span></div>
     </footer>
   );
-  // The gallery's tabs. A teacher's classes are one of them (My classes), so
-  // classes and the public gallery are one tap apart, under the same header.
-  const isTeacher = !!userInfo?.is_teacher;
-  const tabs = galleryTabs({ isLoggedIn, isAdmin: userInfo?.is_admin ?? false, isTeacher });
+  // The gallery's tabs (the chips). A teacher's classes are not one of them:
+  // they are the other place, on a switch of their own above everything.
+  const tabs = galleryTabs({ isLoggedIn, isAdmin: userInfo?.is_admin ?? false });
   const shownTab: Filter = !authChecked || tabs.includes(tab) ? tab : 'featured';
-  const onClassesTab = shownTab === 'classes';
+  const showSwitch = isTeacher || (!authChecked && hadSwitch());
+  const homeSwitch = showSwitch && (
+    <div className="tb-switchbar">
+      <Segmented<Section>
+        label="Home"
+        value={shownSection}
+        onChange={setSection}
+        segments={[
+          { id: 'gallery', label: 'Gallery', icon: 'grid' },
+          { id: 'classes', label: 'My classes', icon: 'school', dot: hasLiveClass(myClasses.classes) ? 'A class is live' : undefined },
+        ]}
+      />
+    </div>
+  );
   const stopClasses = async () => {
     try {
       await api.updateProfile({ is_teacher: false });
@@ -382,7 +408,8 @@ function MainApp() {
       setError('Could not save that. Try again.');
       return;
     }
-    setTab('featured');
+    rememberSection(null);
+    setSectionState('gallery');
     await refreshCreditBalance();
   };
 
@@ -392,11 +419,11 @@ function MainApp() {
       <ClaimScreen
         token={claim}
         onHome={goHome}
-        onSeeHeroes={() => { setTab('mine'); goHome(); }}
+        onSeeHeroes={() => { showTab('mine'); goHome(); }}
         // The kept hero on its own page; Back from it lands on My heroes.
         onOpenHero={(id) => api.getCreation(id).then((c) => {
           window.history.replaceState(null, '', '/');
-          setTab('mine');
+          showTab('mine');
           openHero(c);
         }).catch(() => setError('Could not open that hero'))}
       />
@@ -407,7 +434,8 @@ function MainApp() {
         classId={classId}
         credits={creditBalance}
         paid={classPaid === classId}
-        onBack={goHome}
+        // Back from a class is My classes, wherever it was opened from.
+        onBack={() => { setSection('classes'); goHome(); }}
         onOpenHero={(id) => api.getCreation(id).then((c) => openHero(c, 'class')).catch(() => setError('Could not open that hero'))}
       />
     );
@@ -473,6 +501,7 @@ function MainApp() {
       <div className="tb-screen tb-screen--wide tb-screen--app">
         <NoPageScroll />
         {appHeader}
+        {homeSwitch}
         {notices}
         <div className="tb-screen-body">
           {!isLoggedIn && (
@@ -486,6 +515,7 @@ function MainApp() {
             filter={shownTab}
             tabs={tabs}
             onFilter={setTab}
+            section={shownSection}
             isAdmin={userInfo?.is_admin ?? false}
             userId={userInfo?.id}
             onSelect={(c) => openHero(c)}
