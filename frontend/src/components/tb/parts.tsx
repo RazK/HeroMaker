@@ -155,17 +155,19 @@ export function Polaroid({ src, artist, age, onClick, label }: { src: string; ar
  * Keeps the stage's picture (`.tb-stage-img`, contained, never cropped) clear
  * of the polaroid in its corner. The whole stage is used when the picture does
  * not reach the polaroid; otherwise the picture's box gives up the least room
- * that clears it - from the bottom, from both sides so it stays centred, or
- * from the polaroid's side only - and the biggest picture wins.
+ * that clears it - from the bottom, or from both sides - and the bigger
+ * picture wins. It is always centred.
  *
  * Paintings are always a T-pose: the legs stand in the middle and the arms are
  * in the top half, so the picture's lower outer corner is empty floor. The
  * polaroid may cover that much and no more: at most CORNER_W of the picture's
- * width, and nothing above CORNER_H of its height.
+ * width, and nothing above CORNER_H of its height. Renders are framed with
+ * the figure in the middle 78% (backend frame_drawing), and a T-pose's feet
+ * stand in its middle third, so a third of the width is still empty floor.
  */
 const STAGE_PAD = 16;
 const POLAROID_GAP = 6;
-const CORNER_W = 0.2;
+const CORNER_W = 0.36;
 const CORNER_H = 0.5;
 export function useClearOfPolaroid(stage: RefObject<HTMLElement>, key: unknown) {
   useEffect(() => {
@@ -200,25 +202,16 @@ export function useClearOfPolaroid(stage: RefObject<HTMLElement>, key: unknown) 
         if (across <= 0 || down <= 0) return true;
         return across <= CORNER_W * b.w && p.t >= b.y + CORNER_H * b.h;
       };
-      // Three ways to give the polaroid room, and the biggest picture wins:
-      // give up the bottom, give up both sides (stays centred), or give up
-      // only the polaroid's side and keep the full height. The last is what a
-      // tall stage on a phone needs: lifting the picture over the polaroid
-      // there left the lower half of the stage empty.
-      const onLeft = p.l < W / 2;
-      const beside = onLeft ? p.r : W - p.l;
+      // The picture always stays centred (Raz: an off-centre hero looks wrong).
+      // Two ways to give the polaroid room, and the bigger picture wins: give up
+      // the bottom, or give up both sides equally.
+      const beside = p.l < W / 2 ? p.r : W - p.l;
       const candidates: Box[] = [];
       for (let bottom = STAGE_PAD; bottom <= H; bottom += 4) {
         const b = place(STAGE_PAD, STAGE_PAD, bottom);
         if (clear(b)) { candidates.push(b); break; }
       }
       candidates.push(place(Math.max(STAGE_PAD, beside), Math.max(STAGE_PAD, beside), STAGE_PAD));
-      // One side only: as little of it as clears, from nothing up to the
-      // polaroid's whole width.
-      for (let give = STAGE_PAD; give <= Math.max(STAGE_PAD, beside); give += 4) {
-        const b = onLeft ? place(give, STAGE_PAD, STAGE_PAD) : place(STAGE_PAD, give, STAGE_PAD);
-        if (clear(b)) { candidates.push(b); break; }
-      }
       const best = candidates.filter(clear).reduce<Box | null>((a, b) => (!a || b.w > a.w ? b : a), null);
       if (!best || (best.left === STAGE_PAD && best.right === STAGE_PAD && best.bottom === STAGE_PAD)) return;
       Object.assign(img.style, {
