@@ -2,13 +2,17 @@ import { CreationResponse, CreationStepResponse } from '../../api/client';
 import { getStepCost } from '../../config/steps';
 import { IconName } from './Icon';
 
-/** What each pipeline step is called on screen, in plain words. */
-export const STEP_UI: Record<string, { label: string; icon: IconName }> = {
-  image_processing: { label: 'Reading the drawing', icon: 'scan' },
-  openai_render: { label: 'Painting it', icon: 'brush' },
-  meshy_3d: { label: 'Sculpting in 3D', icon: 'cube' },
-  meshy_rig: { label: 'Teaching it to move', icon: 'run' },
-  convert_vrm: { label: 'Packing the hero', icon: 'box' },
+/**
+ * What each pipeline step is called on screen, in plain words. `short` is the
+ * one word a hero tile's caption has room for beside its % ("Sculpting · 45%"):
+ * a 154px tile on a 360px phone fits ~16 characters on that line.
+ */
+export const STEP_UI: Record<string, { label: string; short: string; icon: IconName }> = {
+  image_processing: { label: 'Reading the drawing', short: 'Reading', icon: 'scan' },
+  openai_render: { label: 'Painting it', short: 'Painting', icon: 'brush' },
+  meshy_3d: { label: 'Sculpting in 3D', short: 'Sculpting', icon: 'cube' },
+  meshy_rig: { label: 'Teaching it to move', short: 'Animating', icon: 'run' },
+  convert_vrm: { label: 'Packing the hero', short: 'Packing', icon: 'box' },
 };
 
 export type HeroState = 'ready' | 'making' | 'failed' | 'idle';

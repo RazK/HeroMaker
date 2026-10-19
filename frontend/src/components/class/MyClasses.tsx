@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { AGE_BANDS, ClassView, School, SeatPrice, dollars, seatsCents, teacherApi } from '../../api/classes';
-import { TileFade } from '../tb/Gallery';
+import { HeroTile } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
 import { Dialog, Sheet } from '../tb/parts';
 import { PaySeatsDialog, Stepper, clock, heroThumb, useSecondsLeft } from './parts';
@@ -122,10 +122,12 @@ function ClassCard({ c, index, onOpen }: { c: ClassView; index: number; onOpen: 
     <span className="cls-card-shelf" aria-hidden="true">
       {Array.from({ length: seatsShown }, (_, i) => {
         const h = c.preview[i];
+        // The hero tile, small and art only: no caption, so the hero is
+        // centred on its plate rather than standing on a caption that is not there.
         return h ? (
-          <span key={h.creation_id} className={`cls-mini tb-plate-${((index + i) % 6) + 1}`}>
-            <TileFade drawing={heroThumb(h, 'thumb_original.jpg')} hero={heroThumb(h, 'thumb_rendered.png')} name={`${h.label}'s hero`} index={index * SHELF + i} eager={index < 3} />
-          </span>
+          <HeroTile key={h.creation_id} size="mini" index={index + i} className="cls-mini"
+            art={{ kind: 'fade', drawing: heroThumb(h, 'thumb_original.jpg'), hero: heroThumb(h, 'thumb_rendered.png') }}
+            alt={`${h.label}'s hero`} eager={index < 3} />
         ) : <span key={`seat-${i}`} className="cls-mini cls-mini--seat"><Icon name="user" /></span>;
       })}
     </span>

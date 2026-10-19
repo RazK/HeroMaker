@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { ClassView, SeatPrice, Student, dollars, seatsCents, teacherApi } from '../../api/classes';
+import { TileGrid } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
 import { Dialog, Header, NavButton, NoPageScroll, Sheet, SheetRow } from '../tb/parts';
 import { PaySeatsDialog, PinDigits, seatsBeforeCheckout, Qr, Stepper, StudentTile, clock, useSecondsLeft } from './parts';
@@ -193,9 +194,9 @@ function ClassGallery({ c, roster, onOpenHero }: { c: ClassView; roster: Student
           <div className="tb-muted">Start the class. Heroes appear here as they’re made.</div>
         </div>
       ) : (
-        <div className="cls-grid">
+        <TileGrid className="cls-grid">
           {made.map((s, i) => <StudentTile key={s.id} student={s} index={i} eager={i < EAGER_TILES} onOpen={() => s.hero && onOpenHero(s.hero.creation_id)} />)}
-        </div>
+        </TileGrid>
       )}
     </div>
   );
@@ -240,13 +241,13 @@ function Live({ c, roster, busy, onAction, onOpenHero }: {
         {ordered.length === 0
           ? <div className="cls-roster-empty">Students appear here as they join.</div>
           : (
-            <div className="cls-grid">
+            <TileGrid className="cls-grid">
               {ordered.map((s, i) => (
                 <StudentTile key={s.id} student={s} index={roster.indexOf(s)} busy={busy} eager={i < EAGER_TILES}
                   onOpen={() => s.hero && onOpenHero(s.hero.creation_id)}
                   onApprove={() => onAction(s, 'approve')} onBlock={() => onAction(s, 'block')} />
               ))}
-            </div>
+            </TileGrid>
           )}
       </section>
     </div>
