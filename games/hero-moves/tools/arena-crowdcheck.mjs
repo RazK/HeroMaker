@@ -1,10 +1,12 @@
 /**
  * Robot Rumble's crowd rules, checked against a mocked app:
  *
- *  1. Nothing the player can hit is a hero. A bot plays a round with the
- *     stands full, punching everything; every half second the page's own
- *     `__arena.audit()` must say every live target is a generated toy, no fan
- *     is in the game's tree, and every fan stands outside the play area.
+ *  1. Nothing the player can hit is a hero or a drawing. A bot plays a round
+ *     with the stands full, punching everything; every half second the page's
+ *     own `__arena.audit()` must say every live target is a generated toy, no
+ *     fan and no pinned drawing is in the game's tree or in a target, every
+ *     fan is in the stands (a letter block or a grandstand row, behind the
+ *     court and within its width), and every drawing hangs on the back wall.
  *  2. The crowd cheers when the player scores (`state().crowd.cheers`).
  *  3. Who is in the stands:
  *     - a personal hero gets Editors' choice;
@@ -28,12 +30,13 @@ const BASE = args.base ?? 'http://127.0.0.1:4188'
 const SECONDS = Number(args.seconds ?? 20)
 const AV = new URL('../assets/avatars/', import.meta.url).pathname
 const vrm = (name) => fs.readFileSync(`${AV}${name}.opt.vrm`)
+const DRAWING = fs.readFileSync(new URL('../../../marketing/concepts/assets/pairs/turtle-cool-drawing.jpg', import.meta.url))
 
 // Every hero id the mock app knows, and which sample file plays it.
 const FILES = {
   OWN: 'Crayon_Kid', MATE1: 'Cloudy', MATE2: 'Skelly', OTHERCLASS: 'Gingerella', FEAT1: 'Superstar', FEAT2: 'Yummy_Bear', FEAT3: 'Gingerella',
 }
-const creation = (id, extra = {}) => ({ id, user_id: 'u', character_name: id, steps: [{ step_name: 'convert_vrm', status: 'completed' }], ...extra })
+const creation = (id, extra = {}) => ({ id, user_id: 'u', character_name: id, name: 'Maya', age: 6, steps: [{ step_name: 'convert_vrm', status: 'completed' }], ...extra })
 
 async function mockApp(page, { inClass, classes = true, featured = ['FEAT1', 'FEAT2', 'FEAT3'] }) {
   await page.route('**/api/**', (route) => {
@@ -42,6 +45,7 @@ async function mockApp(page, { inClass, classes = true, featured = ['FEAT1', 'FE
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
     const auth = route.request().headers().authorization === 'Bearer teacher-token'
     let m
+    if ((m = /^\/api\/files\/u\/([^/]+)\/thumb_original\.jpg$/.exec(p))) return route.fulfill({ body: DRAWING, contentType: 'image/jpeg' })
     if ((m = /^\/api\/files\/u\/([^/]+)\/opt_avatar\.vrm$/.exec(p))) {
       const f = FILES[m[1]]
       return f ? route.fulfill({ body: vrm(f), contentType: 'application/octet-stream' }) : route.fulfill({ status: 404, body: '' })
@@ -153,6 +157,8 @@ async function open(scenario, { token = null, query = '' } = {}) {
   check(s.score > 0, `the bot scored (${s.score}; ${JSON.stringify(s.stats)})`)
   check(s.crowd.cheers > 0, `the crowd cheered ${s.crowd.cheers} times`)
   check(!kinds.includes('rival'), 'no rival kind exists any more')
+  check(s.crowd.cards === fans.length, `every fan's drawing is pinned to the wall (${s.crowd.cards} of ${fans.length})`)
+  check(audits.at(-1).crowdSeated && audits.at(-1).drawingsOnWall && audits.at(-1).cardsHittable === 0, 'fans in the stands, drawings on the wall, none hittable')
   await ctx.close()
 }
 
