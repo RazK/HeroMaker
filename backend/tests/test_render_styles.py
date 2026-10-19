@@ -35,8 +35,10 @@ try:   # the OpenAI SDK's HTTP client, under whichever name this version ships
 except ImportError:   # pragma: no cover
     _http = importlib.import_module("httpx")
 
-KEYS = ["pixar", "lego", "minecraft", "anime", "original"]
-LABELS = ["Pixar", "Lego", "Minecraft", "Anime", "Original"]
+KEYS = ["pixar", "lego", "minecraft", "anime"]
+LABELS = ["Pixar", "Lego", "Minecraft", "Anime"]
+# Offered once, retired (it came out flat). Old heroes still carry it.
+RETIRED = "original"
 
 # sha256 of RENDER_PROMPT on main before styles existed. Pixar's look must stay
 # byte-identical to it, or every hero made so far changes look on "Make it again".
@@ -126,10 +128,23 @@ def _paint(db, user, creation):
 # The registry
 # ---------------------------------------------------------------------------
 
-def test_the_five_styles_in_picker_order():
+def test_the_four_styles_in_picker_order():
     assert list(openai_service.STYLES) == KEYS
     assert openai_service.list_styles() == [{"key": k, "label": l} for k, l in zip(KEYS, LABELS)]
     assert openai_service.DEFAULT_STYLE == "pixar"
+    assert openai_service.DEFAULT_STYLE in openai_service.STYLES
+
+
+def test_original_is_retired_not_offered():
+    assert RETIRED not in openai_service.STYLES
+    assert not openai_service.is_valid_style(RETIRED)
+    assert openai_service.is_retired_style(RETIRED)
+    assert RETIRED not in {s["key"] for s in openai_service.list_styles()}
+    assert not hasattr(openai_service, "ORIGINAL_PROMPT")
+    # Every retired id means the default, wherever it is read.
+    for key in openai_service.RETIRED_STYLES:
+        assert key not in openai_service.STYLES
+        assert openai_service.resolve_style(key) == openai_service.DEFAULT_STYLE
 
 
 def test_pixar_is_the_pre_styles_prompt_byte_for_byte():
@@ -186,6 +201,17 @@ def test_a_retired_style_on_an_old_hero_falls_back_to_pixar(db, make_user, make_
     user, creation = _hero(db, make_user, make_creation, style="watercolour")
     _paint(db, user, creation)
     assert wire[0]["prompt"] == openai_service.render_prompt("pixar")
+
+
+def test_an_original_hero_repaints_as_pixar_and_keeps_its_stored_style(db, make_user, make_creation, wire):
+    user, creation = _hero(db, make_user, make_creation, style=RETIRED)
+    _paint(db, user, creation)
+
+    assert wire[0]["prompt"] == openai_service.render_prompt("pixar")
+    assert openai_service.render_cache_version(RETIRED) == openai_service.render_cache_version("pixar")
+    db.refresh(creation)
+    assert creation.style == RETIRED          # nothing rewrote the hero's row
+    assert CreationResponse.from_creation(creation).style == "pixar"
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +277,8 @@ def test_get_styles_is_public_and_ordered(api):
     r = client.get("/api/styles")
     assert r.status_code == 200
     assert r.json() == [{"key": k, "label": l} for k, l in zip(KEYS, LABELS)]
+    assert [s["key"] for s in r.json()] == ["pixar", "lego", "minecraft", "anime"]   # exactly four
+    assert RETIRED not in r.text
     assert "prompt" not in r.text
 
 
@@ -282,6 +310,58 @@ def test_create_with_an_unknown_style_is_400_and_makes_nothing(db, make_user, ap
     assert r.status_code == 400
     assert "cubism" in r.json()["detail"]
     assert db.query(Creation).count() == 0
+
+
+def test_create_with_the_retired_style_is_made_in_the_default(db, make_user, api):
+    client, _ = api
+    user = make_user(credits=0)
+    r = client.post("/api/creations/create", headers=_auth(user),
+                    files={"image_file": ("d.jpg", DRAWING, "image/jpeg")}, data={"style": RETIRED})
+    assert r.status_code == 201, r.text
+    assert r.json()["style"] == "pixar"
+    assert db.query(Creation).filter_by(id=r.json()["id"]).one().style is None
+
+
+def test_an_original_hero_loads_everywhere(db, make_user, make_creation, completed_steps, api):
+    """Its page, its owner's gallery, Editors' choice and an admin's All
+    heroes: every list and page that reads it answers it, as the default."""
+    client, _ = api
+    user = make_user(credits=0)
+    creation = make_creation(user.id, completed_steps)
+    creation.style = RETIRED
+    creation.featured = True
+    db.commit()
+
+    page = client.get(f"/api/creations/{creation.id}")
+    assert page.status_code == 200, page.text
+    assert page.json()["style"] == "pixar"
+    admin = make_user(is_admin=True)
+    for url, headers in (("/api/creations/?mine_only=true", _auth(user)),
+                         ("/api/creations/?featured_only=true", {}),
+                         ("/api/creations/", _auth(admin))):
+        r = client.get(url, headers=headers)
+        assert r.status_code == 200, (url, r.text)
+        listed = {c["id"]: c for c in r.json()}
+        assert listed[creation.id]["style"] == "pixar", url
+
+
+@pytest.mark.parametrize("query", ["", "&style=original"])
+def test_retrying_an_original_hero_is_accepted_and_paints_pixar(
+        db, make_user, make_creation, api, wire, query):
+    """"Try again" on a failed step of an old Original hero, with or without
+    its old id in the request (a tab opened before the style was retired)."""
+    client, tasks = api
+    user, creation = _hero(db, make_user, make_creation, style=RETIRED)
+
+    r = client.post(f"/api/creations/{creation.id}/run-pipeline?from_step=openai_render{query}",
+                    headers=_auth(user))
+    assert r.status_code == 200, r.text
+    assert len(tasks.created) == 1
+    db.refresh(creation)
+    assert creation.style == RETIRED
+
+    _paint(db, user, creation)
+    assert wire[-1]["prompt"] == openai_service.render_prompt("pixar")
 
 
 def test_run_pipeline_with_an_unknown_style_is_400_and_starts_nothing(db, make_user, make_creation, api):

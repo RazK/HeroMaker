@@ -107,31 +107,23 @@ Requirements:
 
 Render the character in anime cel-shaded 3D, clearly the one in the drawing, with arms extended horizontally, ready for 3D model generation."""
 
-ORIGINAL_PROMPT = """Turn this drawing into a 3D figure that looks exactly like the drawing, in T-pose position.
-
-Requirements:
-- One single character, as close to the drawing as possible: the same shapes, the same proportions, the same colors
-- Keep the look of the drawing itself: the texture of whatever it was drawn with, its outlines and its coloring
-- Keep the face readable: every facial feature in the drawing stays in the same place, size and color, clearly visible
-- White counts as a color: areas left white or uncolored inside the character (such as the whites of eyes, teeth or highlights) stay white, never filled in with a neighboring color
-- Unfiltered: do not beautify, correct, smooth or add anything; no details that are not in the drawing
-- Give it real volume, as if the drawing itself had become a solid handmade figure
-- Front view, full body visible, standing upright, fully contained in the view without cropping.
-- T-pose: arms extended horizontally, legs straight
-- Transparent background: only the character, no paper, no floor, no ground shadow, no scenery
-- No added text: leave out any name, caption or signature written beside the character; an emblem drawn on the costume stays
-- Well-lit, clean silhouette edges, good contrast
-
-Render the character exactly as drawn, only made three-dimensional, with arms extended horizontally, ready for 3D model generation."""
-
 # Ordered: this is the order the picker shows them in.
 STYLES = {
     "pixar": {"label": "Pixar", "prompt": RENDER_PROMPT},
     "lego": {"label": "Lego", "prompt": LEGO_PROMPT},
     "minecraft": {"label": "Minecraft", "prompt": MINECRAFT_PROMPT},
     "anime": {"label": "Anime", "prompt": ANIME_PROMPT},
-    "original": {"label": "Original", "prompt": ORIGINAL_PROMPT},
 }
+
+# Styles that were offered once and are not any more. Heroes made in one keep
+# its id in the database: nothing rewrites them. Wherever the id is read it
+# means DEFAULT_STYLE, so an old hero's page, a retried step and "Make it
+# again" all work, and anything repainted comes out in the default look. The
+# API takes a retired id as "no style given" (creations._checked_style), so an
+# old tab, or a retry that still sends one, is never refused.
+#   "original": the drawing's own look, "only made three-dimensional".
+#   Retired 2026-10-19: it came out flat.
+RETIRED_STYLES = frozenset({"original"})
 
 
 def list_styles() -> list:
@@ -143,11 +135,16 @@ def is_valid_style(style: Optional[str]) -> bool:
     return style in STYLES
 
 
+def is_retired_style(style: Optional[str]) -> bool:
+    return style in RETIRED_STYLES
+
+
 def resolve_style(style: Optional[str]) -> str:
     """The style a stored value means. NULL (every hero made before styles) is
-    the default. A value no longer in the registry also falls back to it, so a
-    retired style can never stop an old hero from being made again."""
-    if style is None or style == "":
+    the default, and so is a retired style (RETIRED_STYLES). Any other value
+    no longer in the registry also falls back to it, so a style can never stop
+    an old hero from being made again."""
+    if style is None or style == "" or style in RETIRED_STYLES:
         return DEFAULT_STYLE
     if style not in STYLES:
         logger.warning("Unknown render style %r; using %r", style, DEFAULT_STYLE)
