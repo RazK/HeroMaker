@@ -232,12 +232,17 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
       {isClasses ? classes?.content : <>
 
       {starError && <div className="tb-gallery-note" role="status">Could not save that. Try again.</div>}
-      {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setReload((n) => n + 1)}>Try again</button></div>}
+      {error && (
+        <div className="tb-gallery-empty">
+          <div>Could not load heroes.</div>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setReload((n) => n + 1)}><Icon name="redo" size={18} />Try again</button>
+        </div>
+      )}
       {!creations && !error && <TileGrid>{Array.from({ length: 6 }, (_, i) => <SkeletonTile key={i} index={i} />)}</TileGrid>}
       {creations && shown.length === 0 && (
         <div className="tb-gallery-empty">
           {filter === 'mine' ? 'No heroes yet. Make your first one.'
-            : filter === 'featured' ? <>No picks yet. Check back soon!{isAdmin && <> <button type="button" className="tb-link" onClick={() => setFilter('all')}>All heroes</button></>}</>
+            : filter === 'featured' ? 'No picks yet. Check back soon!'
             : 'No heroes here yet.'}
         </div>
       )}

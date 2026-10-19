@@ -5,18 +5,78 @@
  * Logical properties only (BRANDBOOK.md, RTL).
  */
 
-/* ---------- The gallery's My classes tab: class cards ---------- */
+/* ---------- My classes: the school card, then class cards ---------- */
 
 .cls-tab { display: flex; flex-direction: column; gap: var(--tb-space); flex-grow: 1; }
-.cls-tab-school { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; }
-.cls-school-link { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cls-school-link svg { flex-shrink: 0; }
+
+/* The school: a plate card, its badge at the start, the pencil at the end.
+   Everything in it wraps rather than clips, down to 360px. */
+.cls-school {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 88px;
+  padding-block: 12px;
+  padding-inline: 12px 16px;
+  border-radius: var(--tb-radius-card);
+  background: var(--tb-plate-5);
+  box-shadow: var(--tb-shadow-card);
+  color: var(--tb-ink);
+  cursor: pointer;
+}
+.cls-school--skeleton { opacity: 0.6; box-shadow: none; cursor: default; }
+.cls-school-badge {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  color: var(--tb-grape-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 0 rgba(35, 25, 66, 0.12);
+}
+.cls-school-badge svg { width: 28px; height: 28px; }
+.cls-school-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.cls-school-name {
+  font-family: var(--tb-font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  font-size: 22px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.cls-school-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.cls-school-line { font-weight: 700; font-size: 14px; color: var(--tb-ink-2); overflow-wrap: anywhere; }
+.cls-school-count {
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--tb-ink);
+  white-space: nowrap;
+}
+.cls-school-edit { flex-shrink: 0; }
+.cls-school-edit svg { width: 18px; height: 18px; }
+/* A small phone: a smaller badge, so the name keeps its line. */
+@media (max-width: 380px) {
+  .cls-school { gap: 10px; padding-inline: 10px 12px; }
+  .cls-school-badge { width: 44px; height: 44px; }
+  .cls-school-badge svg { width: 24px; height: 24px; }
+  .cls-school-name { font-size: 20px; }
+}
 .cls-tab-foot { display: flex; justify-content: center; padding-block: 8px; }
 /* The claim page's logo goes to the gallery, like the app header's. */
 .cls-claim-logo { min-width: 44px; min-height: 44px; justify-content: center; }
 .cls-claim-logo img { width: 40px; height: 40px; }
 /* Quiet: turning teacher mode off is rare, and not the tab's business. */
-.cls-stop-classes { color: var(--tb-ink-2); font-weight: 700; min-height: 44px; }
+.cls-stop-classes { gap: 6px; }
 
 /* Each card its own height: a live card's Open button does not stretch its row. */
 .cls-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tb-space); align-items: start; }
@@ -197,7 +257,7 @@ button.cls-card:active { transform: scale(0.98); }
    width, Block a 44px link under it. */
 .cls-tile-actions { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding-top: 4px; }
 .cls-tile-actions .cls-approve { margin-bottom: var(--tb-depth-sm); gap: 6px; padding: 0 12px; }
-.cls-tile-actions .cls-block { min-height: 44px; align-self: center; }
+.cls-tile-actions .cls-block { margin-bottom: var(--tb-depth-sm); color: var(--tb-red); }
 @keyframes cls-in { from { transform: scale(0.9); opacity: 0; } to { transform: none; opacity: 1; } }
 
 .cls-stats { display: flex; flex-wrap: wrap; gap: 8px; }

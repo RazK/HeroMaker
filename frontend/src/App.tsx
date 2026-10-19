@@ -330,13 +330,13 @@ function MainApp() {
       {accountNotice && (
         <div className="tb-notice app-account-notice" role="status">
           <Icon name="check" />{accountNotice}
-          <button type="button" className="tb-link" onClick={() => setAccountNotice(null)}>OK</button>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setAccountNotice(null)}>OK</button>
         </div>
       )}
       {error && (
         <div className="tb-notice tb-notice--error app-error" role="alert">
           {error}
-          <button type="button" className="tb-link" onClick={() => setError(null)}>OK</button>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button>
         </div>
       )}
     </>
@@ -368,7 +368,10 @@ function MainApp() {
     <footer className="tb-footer">
       {extra}
       <div>Made by Raz Karl &amp; Elad Shikley</div>
-      <div><a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a> · <span className="tb-version">{__APP_VERSION__}</span></div>
+      <div className="tb-footer-row">
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => { window.history.pushState(null, '', PRIVACY_PATH); setView('privacy'); }}>Privacy</button>
+        <span className="tb-version">{__APP_VERSION__}</span>
+      </div>
     </footer>
   );
   // The gallery's tabs. A teacher's classes are one of them (My classes), so

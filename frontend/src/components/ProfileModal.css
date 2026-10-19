@@ -115,18 +115,8 @@
   border-top: 1px solid var(--border-color);
 }
 
-.profile-modal-password-toggle {
-  background: none;
-  border: none;
-  color: var(--primary-color);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0;
-}
+.profile-modal-password-toggle { margin-bottom: var(--tb-depth); }
 
-.profile-modal-password-toggle:hover {
-  text-decoration: underline;
-}
 
 .profile-modal-password-fields {
   margin-top: 16px;
