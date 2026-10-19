@@ -212,7 +212,9 @@ INPUT_KINDS = (INPUT_KIND_PHOTO, INPUT_KIND_DRAWING, INPUT_KIND_OTHER)
 
 PHOTO_LIKENESS_PROMPT = """This picture is a photograph of a real person, not a drawing. Make the character a flattering likeness of them, one they will love:
 - Keep who they are: the same face, hair colour and hairstyle, skin tone, ethnicity and clothing
-- Keep their body proportions, or improve them slightly: at least as tall and as slim as in the photo, the head in the same proportion to the body as in the photo (do not enlarge the head or shorten the legs)
+- Keep their body proportions, or improve them slightly: at least as tall and as slim as in the photo, with real human proportions rather than a cartoon's
+- The head stays in the same proportion to the full height as in the photo (for a grown-up, about one seventh of it or less): do not enlarge the head, do not shorten the legs or the body
+- A slim person stays slim: slim arms and legs, a narrow waist and hips, clothes that fit as they do in the photo
 - Never make them shorter, wider, heavier or older than in the photo, and never less attractive
 - If anything, flatter them: fuller hair, a fit build, clear skin, a warm smile
 - Where this style has a body shape of its own (a toy figure, a figure built from blocks), keep that shape and carry the likeness in the face, hair, skin tone and clothing
