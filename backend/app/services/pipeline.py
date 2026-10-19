@@ -34,6 +34,7 @@ from app.services import meshy
 from app.services import vrm_conversion
 from app.services import result_cache
 from app.services import hero_naming
+from app.services import input_kind
 from app.services import demo_library
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
@@ -485,10 +486,17 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     style = openai_service.resolve_style(creation.style if creation else None)
 
+    # A photo of a real person is painted as a flattering likeness, a drawing
+    # exactly as before. Decided once per hero (never raises; unsure means
+    # drawing), and before the cache lookup: it is part of the prompt.
+    kind = await loop.run_in_executor(
+        None, lambda: input_kind.kind_for_creation(creation_id, user_id)
+    )
+
     # The cache key includes the style's prompt: the same drawing in another
     # style is a miss, never the other style's painting.
     cache = await _cache_begin(
-        "openai_render", creation_id, user_id, openai_service.render_cache_version(style)
+        "openai_render", creation_id, user_id, openai_service.render_cache_version(style, kind)
     )
     if cache.hit:
         return
@@ -507,11 +515,12 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
                     usage=UsageContext.for_step(creation_id, user_id, "openai_render"),
                     style=style,
                     report=framing,
+                    input_kind=kind,
                 )
             )
 
     step = _get_creation_step(creation_id, "openai_render", db)
-    step.metadata_json = {**(step.metadata_json or {}), "framing": framing}
+    step.metadata_json = {**(step.metadata_json or {}), "framing": framing, "input_kind": kind}
     flag_modified(step, "metadata_json")
     db.commit()
 

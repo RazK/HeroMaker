@@ -134,6 +134,11 @@ OP_OPENAI_IMAGE_EDIT = "images.edit"
 # The vision call that names a new hero from its drawing. Not a pipeline step
 # and not charged to the user in credits; recorded so finance sees it.
 OP_OPENAI_HERO_NAME = "chat.hero_name"
+# The vision call that tells a photo of a real person from a drawing, so a
+# photo is painted as a flattering likeness (app/services/input_kind.py). Same
+# model and image size as the naming call, so booked at the same token rates
+# and, without token counts, the same flat ceiling. Not charged in credits.
+OP_OPENAI_INPUT_KIND = "chat.input_kind"
 OP_MESHY_IMAGE_TO_3D = "image-to-3d"
 OP_MESHY_RIGGING = "rigging"
 OP_MESHY_REMESH = "remesh"
@@ -173,7 +178,7 @@ def unit_cost_usd_micros(provider: str, operation: str) -> int:
     if provider == PROVIDER_OPENAI:
         if operation == OP_OPENAI_IMAGE_EDIT:
             return OPENAI_IMAGE_USD_MICROS
-        if operation == OP_OPENAI_HERO_NAME:
+        if operation in (OP_OPENAI_HERO_NAME, OP_OPENAI_INPUT_KIND):
             return OPENAI_HERO_NAME_USD_MICROS
         return 0
     if provider == PROVIDER_MESHY:
