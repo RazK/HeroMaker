@@ -270,6 +270,23 @@ def test_student_makes_one_hero_paid_by_the_class(db, make_user, api, steps_succ
     assert card["preview"][0]["file_versions"] == roster[0]["hero"]["file_versions"]
 
 
+@pytest.mark.parametrize("sent, stored", [("lego", "lego"), (None, None), ("original", None)])
+def test_a_students_style_is_the_heros_and_the_retired_one_is_the_default(
+        db, make_user, api, steps_succeed, sent, stored):
+    """The class picker's style is the hero's. "original" is retired: a tablet
+    still showing it makes the hero in the default style, not an error."""
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=1)
+    maya = Student()
+    maya.join(_start(client, teacher, c["id"]))
+    r = maya.make(style=sent)
+    assert r.status_code == 201, r.text
+    creation = db.query(Creation).filter_by(id=r.json()["hero"]["creation_id"]).one()
+    assert creation.style == stored
+    assert client.get(f"/api/creations/{creation.id}").json()["style"] == (stored or "pixar")
+
+
 def test_a_second_hero_is_refused_kindly(db, make_user, api, steps_succeed):
     client, tasks = api
     teacher = make_user(credits=100)

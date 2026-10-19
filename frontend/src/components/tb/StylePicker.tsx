@@ -12,7 +12,6 @@ export const DEFAULT_STYLES: RenderStyle[] = [
   { key: 'lego', label: 'Lego' },
   { key: 'minecraft', label: 'Minecraft' },
   { key: 'anime', label: 'Anime' },
-  { key: 'original', label: 'Original' },
 ];
 export const DEFAULT_STYLE = DEFAULT_STYLES[0].key;
 

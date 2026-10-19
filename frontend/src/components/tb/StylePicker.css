@@ -4,24 +4,15 @@
   --gap: 10px;
   --ring: 3px;
   flex-shrink: 0;
+  /* Four styles, four equal cards across the margins like every other block:
+     all of them in view, nothing to swipe. The padding is room for the ring. */
   display: flex;
   gap: var(--gap);
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* The row runs to the sheet's edges, so the fifth card peeks in from the
-     side margin: the hint that there are more. Snapped, four line up with the
-     margins like every other block. The block padding is room for the ring. */
-  margin-inline: calc(-1 * var(--tb-gutter));
-  padding: calc(var(--ring) * 2) var(--tb-gutter);
-  scroll-padding-inline: var(--tb-gutter);
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
+  padding-block: calc(var(--ring) * 2);
 }
-.tb-styles::-webkit-scrollbar { display: none; }
 
 .tb-style {
-  flex: 0 0 calc((100% - 3 * var(--gap)) / 4);
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -34,7 +25,6 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.tb-style:nth-child(4n + 1) { scroll-snap-align: start; scroll-snap-stop: always; }
 .tb-style:focus-visible { outline: none; }
 .tb-style:focus-visible .tb-style-img { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
 .tb-style:disabled { cursor: default; }
@@ -71,11 +61,6 @@
   white-space: nowrap;
 }
 .tb-style--on .tb-style-label { color: var(--tb-grape-text); }
-
-/* Wide enough for all five at once: no swiping, nothing hidden. */
-@media (min-width: 480px) {
-  .tb-style { flex-basis: calc((100% - 4 * var(--gap)) / 5); }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .tb-style-img { transition: none; }
