@@ -8,7 +8,7 @@ renders rather than on a description of them.
         --drawing crayon=marketing/concepts/assets/pairs/crayon-kid-drawing.jpg \\
         --drawing hero=https://<backend>/api/files/<user>/<creation>/original.jpg \\
         --find "Captain Courage" --database-url "$PUBLIC_DB" \\
-        --styles anime,pixar,original --before anime --out-dir out/render-check
+        --styles anime,pixar --before anime --out-dir out/render-check
 
 Every painting goes through app.services.openai.render_image, exactly as the
 pipeline's openai_render step calls it: framed drawing, shared framing prompt,
@@ -19,7 +19,7 @@ edge check and at most one retry. Nothing is re-implemented here.
                             the database at --database-url; its original drawing
                             and the painting it shipped with are fetched from
                             --files-base. Read-only: one SELECT, plain GETs.
-    --styles a,b            styles to paint (default anime,pixar,original)
+    --styles a,b            styles to paint (default anime,pixar)
     --before a,b            also paint these styles the way they were painted
                             before the framing fix (render_image(framing=False)),
                             for a same-drawing comparison
@@ -48,7 +48,7 @@ from PIL import Image, ImageDraw, ImageOps  # noqa: E402
 
 from app.services import openai as openai_service  # noqa: E402
 
-DEFAULT_STYLES = "anime,pixar,original"
+DEFAULT_STYLES = "anime,pixar"
 DEFAULT_FILES_BASE = "https://frontend-staging-7cb8.up.railway.app"
 CELL = 300
 

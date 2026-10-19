@@ -11,7 +11,7 @@ to frontend/public/styles/<key>.webp. Nothing is mocked and nothing is
 re-implemented: what the picker shows is what that style really produces.
 
 Cost: one gpt-image-1 high-quality edit per style rendered (~$0.17 each at
-list price, so ~$0.84 for all five). It never touches a database or a user.
+list price, so ~$0.68 for all four). It never touches a database or a user.
 
 Options:
     --only lego,anime          render just these styles

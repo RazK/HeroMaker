@@ -1,7 +1,7 @@
 /*
  * Classes: the teacher's home, the live session, the student's join flow and
  * the parent's claim. Built from Toy Box (styles/toybox.css) and the gallery's
- * tiles (tb/Gallery.css); only what those do not have lives here.
+ * tiles (tb/HeroTile.css); only what those do not have lives here.
  * Logical properties only (BRANDBOOK.md, RTL).
  */
 
@@ -131,24 +131,13 @@ button.cls-card:active { transform: scale(0.98); }
   justify-content: center;
 }
 @media (min-width: 720px) { .cls-card-shelf--empty { height: 120px; } }
-.cls-mini {
-  position: relative;
-  height: 104px;
-  border-radius: 20px;
-  overflow: hidden;
-  /* The gallery tile's picture box, smaller (Gallery.css .tb-tile-img). */
-  --tb-tile-pic: 8px;
-}
-.cls-mini .tb-tile-img {
-  position: absolute;
-  inset: 8px;
-  width: calc(100% - 16px);
-  height: calc(100% - 16px);
-  object-fit: contain;
-  object-position: center bottom;
-}
-.cls-mini .tb-tile-drawing img { padding: 3px; border-radius: 6px; }
+/* A hero on the shelf is the hero tile, small and art only (HeroTile.css
+   .tb-tile--mini): no caption, so it is centred on its plate. An empty seat
+   is the same size. */
 .cls-mini--seat {
+  height: 104px;
+  box-sizing: border-box;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,7 +146,7 @@ button.cls-card:active { transform: scale(0.98); }
   color: var(--tb-line);
 }
 .cls-mini--seat svg { width: 32px; height: 32px; }
-@media (min-width: 720px) { .cls-mini { height: 120px; } }
+@media (min-width: 720px) { .cls-mini--seat { height: 120px; } }
 
 .cls-card-body { display: flex; align-items: center; gap: 12px; padding: 12px 10px 8px; }
 .cls-card-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -258,39 +247,17 @@ button.cls-card:active { transform: scale(0.98); }
 
 /* ---------- Class screen: gallery and live roster ---------- */
 
-.cls-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (min-width: 720px) { .cls-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
-@media (min-width: 1100px) { .cls-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.cls-live-grid .cls-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+/* The students are the hero tile in the tile grid (tb/HeroTile.css), the
+   gallery's own: two columns on a phone, live or after class. Only what a
+   class adds is here: the tile pops in, a waiting student is ringed in sun,
+   with Approve and Block under the tile. */
 .cls-tile-wrap { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 8px; animation: cls-in 260ms cubic-bezier(.2, 1.4, .4, 1) both; }
-.cls-live-grid .tb-tile { height: 210px; }
-/* A ready hero pops in once, then cross-fades with its drawing (Gallery.css). */
-.cls-tile-pic { position: absolute; inset: 0; display: block; }
-.cls-tile-static { cursor: default; }
-.cls-tile-static:active { transform: none; }
-.cls-tile-dim { opacity: 0.55; filter: saturate(0.7); }
-.cls-tile-by { color: var(--tb-ink-2); }
-.cls-tile-initial {
-  position: absolute;
-  inset-inline: 0;
-  inset-block-start: 28px;
-  margin-inline: auto;
-  width: 96px;
-  height: 96px;
-  border-radius: 999px;
-  background: var(--tb-white);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--tb-font-display);
-  font-size: 52px;
-  color: var(--tb-grape);
-  box-shadow: 0 4px 0 rgba(35, 25, 66, 0.12);
-}
 .cls-tile-wrap[data-state='waiting'] .tb-tile { box-shadow: inset 0 0 0 3px var(--tb-sun-deep); }
-.cls-tile-actions { display: flex; align-items: center; justify-content: center; gap: 12px; padding-bottom: 4px; }
-.cls-pop { animation: cls-pop 420ms cubic-bezier(.2, 1.6, .4, 1) both; }
-@keyframes cls-pop { from { transform: scale(0.6) translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* Stacked, so both fit a 154px tile on a 360px phone: Approve the tile's
+   width, Block a 44px link under it. */
+.cls-tile-actions { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding-top: 4px; }
+.cls-tile-actions .cls-approve { margin-bottom: var(--tb-depth-sm); gap: 6px; padding: 0 12px; }
+.cls-tile-actions .cls-block { min-height: 44px; align-self: center; }
 @keyframes cls-in { from { transform: scale(0.9); opacity: 0; } to { transform: none; opacity: 1; } }
 
 .cls-stats { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -522,7 +489,7 @@ button.cls-card:active { transform: scale(0.98); }
 .cls-claim-who { display: flex; flex-direction: column; gap: 4px; text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cls-pop, .cls-tile-wrap, .cls-wobble, .cls-live-dot { animation: none; }
+  .cls-tile-wrap, .cls-wobble, .cls-live-dot { animation: none; }
 }
 
 /* ---- Your school: one phone screen, mostly taps ------------------------- */

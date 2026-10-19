@@ -3,7 +3,7 @@ import qrcode from 'qrcode-generator';
 import { api, ApiError } from '../../api/client';
 import { HeroSummary, SeatsCheckout, Student, dollars } from '../../api/classes';
 import { STEP_UI } from '../tb/pipeline';
-import { TileFade, imgLoading } from '../tb/Gallery';
+import { HeroTile, TileArt, makingLine, makingPct } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
 import { Dialog } from '../tb/parts';
 import './class.css';
@@ -117,12 +117,14 @@ export const heroThumb = (h: Pick<HeroSummary, 'creation_id' | 'user_id' | 'file
 const studentFile = heroThumb;
 
 /**
- * One student on the roster or in the class gallery, as a gallery tile (the
- * gallery's look and loading: tb/Gallery.tsx): their plate, their hero once it
- * exists, their name and age on the card, its making progress. A ready hero
- * cross-fades from the drawing to the hero, as in the gallery. A student who
- * has not made one yet shows their initial on the plate. With `onOpen`, a
- * tile with a hero opens it, in any state: the steps while it is made.
+ * One student on the roster or in the class gallery, as THE hero tile
+ * (tb/HeroTile.tsx: the gallery's tile, size and grid). The caption is the
+ * child ("Maya, 7"), then one line: their hero's name once it is ready, how
+ * far it is while it is made ("Sculpting · 45%"), or where they are
+ * ("Drawing…", "Wants to join"). A student with no hero yet shows their
+ * initial on the plate. With `onOpen`, a tile with a hero opens it, in any
+ * state: the steps while it is made. A student waiting for the teacher gets
+ * Approve and Block under the tile.
  */
 export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy, eager = false }: {
   student: Student;
@@ -136,57 +138,47 @@ export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy, 
 }) {
   const hero = student.hero;
   const state = hero ? hero.state : student.status === 'waiting' ? 'waiting' : student.status === 'blocked' ? 'blocked' : 'joined';
-  const plate = `tb-plate-${(index % 6) + 1}`;
   const ready = hero?.state === 'ready';
-  const pct = hero ? Math.round(((hero.steps_done + (hero.state === 'making' ? 0.5 : 0)) / hero.steps_total) * 100) : 0;
-  const status =
-    state === 'making' ? (hero?.step ? STEP_UI[hero.step]?.label ?? 'Making' : 'Making') :
+  const line =
+    state === 'making' && hero ? makingLine(hero.step ? STEP_UI[hero.step]?.short : undefined, makingPct(hero.steps_done, hero.steps_total, true)) :
     state === 'failed' ? 'Didn’t finish' :
     state === 'waiting' ? (student.shared_device ? 'Shared tablet' : 'Wants to join') :
     state === 'blocked' ? 'Blocked' :
     state === 'joined' ? 'Drawing…' : student.claimed ? 'Kept by a parent' : (hero?.character_name || '');
-
-  const body = (
-    <>
-      {hero && ready ? (
-        <span className="cls-pop cls-tile-pic">
-          <TileFade drawing={studentFile(hero, 'thumb_original.jpg')} hero={studentFile(hero, 'thumb_rendered.png')}
-            name={`${student.label}'s hero`} index={index} eager={eager} />
-        </span>
-      ) : hero ? (
-        <img
-          className={`tb-tile-img cls-tile-dim${state === 'failed' ? ' tb-hero-faded' : ''}`}
-          src={studentFile(hero, painted(hero) ? 'thumb_rendered.png' : 'thumb_original.jpg')}
-          alt={`${student.label}'s drawing`}
-          {...imgLoading(eager, true)}
-        />
-      ) : (
-        <span className="cls-tile-initial" aria-hidden="true">{student.first_name.slice(0, 1).toUpperCase()}</span>
-      )}
-      <span className="tb-tile-card">
-        <span className="tb-tile-name" dir="auto">{kidLabel(student)}</span>
-        {state === 'making' && <span className="tb-tile-progress"><span style={{ width: `${pct}%` }} /></span>}
-        <span className={`tb-tile-status${state === 'failed' || state === 'blocked' ? ' tb-tile-status--failed' : ''}${ready ? ' cls-tile-by' : ''}`}>{status}</span>
-      </span>
-    </>
-  );
+  const drawing = hero && studentFile(hero, 'thumb_original.jpg');
+  // The gallery's rule: painted (or ready), the drawing cross-fades to the
+  // hero; before that, or if it stopped, the drawing alone.
+  const art: TileArt = !hero || !drawing ? { kind: 'initial', letter: student.first_name.slice(0, 1).toUpperCase() }
+    : ready || (state === 'making' && painted(hero)) ? { kind: 'fade', drawing, hero: studentFile(hero, 'thumb_rendered.png') }
+    : { kind: 'drawing', src: drawing };
 
   return (
     <div className="cls-tile-wrap" data-state={state}>
-      {onOpen && hero ? (
-        <button type="button" className={`tb-tile ${plate} cls-tile-open`} data-state={state} onClick={onOpen} aria-label={`Open ${student.label}'s hero`}>{body}</button>
-      ) : (
-        <div className={`tb-tile ${plate} cls-tile-static`}>{body}</div>
-      )}
+      <HeroTile
+        art={art}
+        alt={ready ? `${student.label}'s hero` : `${student.label}'s drawing`}
+        index={index}
+        eager={eager}
+        pop={ready}
+        title={kidLabel(student)}
+        line={line}
+        tone={state === 'failed' || state === 'blocked' ? 'failed' : 'now'}
+        faded={state === 'failed'}
+        state={state}
+        onClick={onOpen && hero ? onOpen : undefined}
+        label={onOpen && hero ? `Open ${student.label}'s hero` : undefined}
+        className={onOpen && hero ? 'cls-tile-open' : 'cls-tile-static'}
+      />
       {state === 'waiting' && onApprove && (
         <div className="cls-tile-actions">
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm cls-approve" disabled={busy} onClick={onApprove}><Icon name="check" size={18} />Approve</button>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full cls-approve" disabled={busy} onClick={onApprove}><Icon name="check" size={18} />Approve</button>
           {onBlock && <button type="button" className="tb-link cls-block" disabled={busy} onClick={onBlock}>Block</button>}
         </div>
       )}
     </div>
   );
 }
+
 
 /** − n + : a number a thumb can set. */
 export function Stepper({ value, min, max, onChange, label }: { value: number; min: number; max: number; onChange: (n: number) => void; label: string }) {

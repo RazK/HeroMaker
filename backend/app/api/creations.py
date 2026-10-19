@@ -30,8 +30,13 @@ router = APIRouter()
 
 def _checked_style(style: Optional[str]) -> Optional[str]:
     """A style the client asked for, validated against the registry. None or
-    empty means "not given". Anything else unknown is the client's mistake."""
+    empty means "not given", and so does a retired style (an old tab, or a
+    retry of a hero made in one): the hero gets, or keeps, its stored style,
+    which reads as the default. Anything else unknown is the client's mistake."""
     if style is None or style == "":
+        return None
+    if openai_service.is_retired_style(style):
+        logger.info("Retired style %r asked for; treated as no style", style)
         return None
     if not openai_service.is_valid_style(style):
         valid = ", ".join(openai_service.STYLES)

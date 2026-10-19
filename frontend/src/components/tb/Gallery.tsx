@@ -1,7 +1,8 @@
-import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, CreationResponse } from '../../api/client';
+import { HeroTile, SkeletonTile, TileGrid, makingLine, makingPct } from './HeroTile';
 import { Icon } from './Icon';
-import { STEP_UI, currentStep, heroName, heroState } from './pipeline';
+import { STEP_UI, currentStep, heroName, heroState, stepProgress } from './pipeline';
 import './Gallery.css';
 
 /** The gallery's tabs: the chips. */
@@ -272,7 +273,7 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
 
       {starError && <div className="tb-gallery-note" role="status">Could not save that. Try again.</div>}
       {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setReload((n) => n + 1)}>Try again</button></div>}
-      {!creations && !error && <div className="tb-gallery-grid">{Array.from({ length: 6 }, (_, i) => <div key={i} className={`tb-tile tb-tile--skeleton tb-plate-${(i % 6) + 1}`} />)}</div>}
+      {!creations && !error && <TileGrid>{Array.from({ length: 6 }, (_, i) => <SkeletonTile key={i} index={i} />)}</TileGrid>}
       {creations && shown.length === 0 && (
         <div className="tb-gallery-empty">
           {filter === 'mine' ? 'No heroes yet. Make your first one.'
@@ -281,7 +282,7 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
         </div>
       )}
       {creations && shown.length > 0 && (
-        <div className="tb-gallery-grid">
+        <TileGrid>
           {shown.map((c, i) => (
             <div key={c.id} className={`tb-tile-wrap${leaving.has(c.id) ? ' tb-tile-wrap--leaving' : ''}`}>
               <Tile creation={c} index={i} eager={i < EAGER_TILES} onClick={() => onSelect(c)} />
@@ -290,7 +291,7 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
               )}
             </div>
           ))}
-        </div>
+        </TileGrid>
       )}
       </>}
     </div>
@@ -325,114 +326,41 @@ function StarToggle({ on, busy, onToggle }: { on: boolean; busy: boolean; onTogg
   );
 }
 
-/**
- * How a tile's pictures load. The first rows load at once, the drawing (what
- * the tile shows first) at high priority; the rest are left to the browser
- * until they are scrolled near. Decoding never holds up the page.
- * (fetchpriority in lower case: React 18 does not know the attribute yet.)
- */
-export function imgLoading(eager: boolean, first: boolean) {
-  return {
-    loading: eager ? 'eager' : 'lazy',
-    decoding: 'async',
-    ...(eager && first ? { fetchpriority: 'high' } : {}),
-  } as const;
-}
-
+/** One of the viewer's heroes as THE tile (HeroTile.tsx). */
 function Tile({ creation, index, eager, onClick }: { creation: CreationResponse; index: number; eager: boolean; onClick: () => void }) {
   const state = heroState(creation);
   const name = heroName(creation);
   const file = (f: string) => api.heroFileUrl(creation, f);
   const step = currentStep(creation);
   const done = creation.steps.filter((s) => s.status === 'completed').length;
-  const pct = creation.steps.length ? Math.round(((done + 0.5) / creation.steps.length) * 100) : 0;
+  const progress = stepProgress(step);
   const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
   const by = creation.name ? `by ${creation.name}${creation.age ? `, ${creation.age}` : ''}` : '';
-
+  const drawing = file('thumb_original.jpg');
+  // Ready, or painted and still being made: the drawing cross-fades to the
+  // hero. Otherwise the drawing alone, greyed if it stopped.
+  const art = state === 'ready' || (state === 'making' && painted)
+    ? { kind: 'fade' as const, drawing, hero: file('thumb_rendered.png') }
+    : { kind: 'drawing' as const, src: drawing };
+  const line =
+    state === 'ready' ? by
+    : state === 'making' ? makingLine(step ? STEP_UI[step.step_name]?.short : undefined,
+      makingPct(done, creation.steps.length, step?.status === 'processing', progress?.real ? progress.pct / 100 : undefined))
+    : state === 'failed' ? 'Didn’t finish'
+    : 'Not started';
   return (
-    <button
-      type="button"
-      className={`tb-tile tb-plate-${(index % 6) + 1} creation-gallery-item${state === 'ready' ? ' creation-gallery-status-completed' : ''}`}
-      data-state={state}
+    <HeroTile
+      art={art}
+      alt={name}
+      index={index}
+      eager={eager}
+      title={name}
+      line={line}
+      tone={state === 'ready' ? 'by' : state === 'failed' ? 'failed' : 'now'}
+      faded={state === 'failed'}
+      state={state}
       onClick={onClick}
-    >
-      {state === 'ready' ? (
-        <TileFade drawing={file('thumb_original.jpg')} hero={file('thumb_rendered.png')} name={name} index={index} eager={eager} />
-      ) : (
-        <img className={`tb-tile-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={file(painted ? 'thumb_rendered.png' : 'thumb_original.jpg')} alt={name} {...imgLoading(eager, true)} />
-      )}
-      <span className="tb-tile-card">
-        <span className="tb-tile-name">{name}</span>
-        {state === 'ready' && <span className="tb-tile-by">{by}</span>}
-        {state === 'making' && (
-          <>
-            <span className="tb-tile-progress"><span style={{ width: `${pct}%` }} /></span>
-            <span className="tb-tile-status">{step ? STEP_UI[step.step_name]?.label : ''}</span>
-          </>
-        )}
-        {state === 'failed' && <span className="tb-tile-status tb-tile-status--failed">Didn’t finish</span>}
-        {state === 'idle' && <span className="tb-tile-status">Not started</span>}
-      </span>
-    </button>
-  );
-}
-
-/** One full cycle of the cross-fade, in seconds. Must match `.tb-tile-fade--on` in Gallery.css. */
-const FADE_CYCLE_S = 4;
-/** Each tile runs this far behind the one before it: a wave across the gallery. */
-const FADE_STAGGER_S = 0.3;
-
-/**
- * Where tile `index` should be in its cycle right now, on ONE clock shared by
- * every tile (the page's performance.now()), as a negative animation-delay.
- *
- * A tile starts animating only once its images load, and they load at random
- * times; a plain per-tile delay was measured from that moment, so the wave
- * broke up into tiles flipping together or out of order. Measuring from the
- * shared clock puts a tile straight into its slot in the wave whenever it
- * starts, so neighbours always stay exactly FADE_STAGGER_S apart.
- */
-function wavePhaseDelay(index: number): string {
-  const now = performance.now() / 1000;
-  const phase = (((now - index * FADE_STAGGER_S) % FADE_CYCLE_S) + FADE_CYCLE_S) % FADE_CYCLE_S;
-  return `${(-phase).toFixed(3)}s`;
-}
-
-/**
- * A ready tile: the kid's drawing and the hero render stacked, cross-fading
- * between the two. The animation is pure CSS (Gallery.css); this only starts
- * it once BOTH images have loaded, so a tile never fades to a blank plate.
- * Neither waits for the other: whichever loads first shows at once, the
- * drawing preferred (the story starts there, and it is asked for first); if
- * it fails, the tile shows the render for good.
- */
-export function TileFade({ drawing, hero, name, index, eager }: { drawing: string; hero: string; name: string; index: number; eager: boolean }) {
-  const [loaded, setLoaded] = useState({ drawing: false, hero: false });
-  const [drawingFailed, setDrawingFailed] = useState(false);
-  const drawingRef = useRef<HTMLImageElement>(null);
-  const heroRef = useRef<HTMLImageElement>(null);
-  const done = (k: 'drawing' | 'hero') => setLoaded((l) => (l[k] ? l : { ...l, [k]: true }));
-
-  // An image already in the cache can finish before React attaches onLoad.
-  // Checked before the first paint, so a gallery coming back shows its
-  // pictures (and joins the wave) in its very first frame.
-  useLayoutEffect(() => {
-    if (drawingRef.current?.complete && drawingRef.current.naturalWidth) done('drawing');
-    if (heroRef.current?.complete && heroRef.current.naturalWidth) done('hero');
-  }, []);
-
-  const fading = loaded.drawing && loaded.hero && !drawingFailed;
-  // Computed once, at the moment the tile joins the wave.
-  const delay = useMemo(() => (fading ? wavePhaseDelay(index) : '0s'), [fading, index]);
-
-  return (
-    <span className={`tb-tile-fade${loaded.drawing && !drawingFailed ? ' tb-tile-fade--drawn' : ''}${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: delay }}>
-      <span className="tb-tile-drawing" aria-hidden="true">
-        {!drawingFailed && (
-          <img ref={drawingRef} src={drawing} alt="" {...imgLoading(eager, true)} onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />
-        )}
-      </span>
-      <img ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
-    </span>
+      className={`creation-gallery-item${state === 'ready' ? ' creation-gallery-status-completed' : ''}`}
+    />
   );
 }
