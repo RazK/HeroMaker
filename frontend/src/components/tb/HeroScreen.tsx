@@ -163,7 +163,7 @@ export function HeroScreen(props: HeroScreenProps) {
       {/* Something on the stage always moves while the hero is made: a scan
           over the drawing, then a gloss over the painting. */}
       {state === 'making' && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
-      {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
+      {painted && <Polaroid src={file('thumb_original.jpg')} drawing={file('original.jpg')} hero={file('rendered.png')} artist={creation.name} age={creation.age} />}
     </div>
   );
 
