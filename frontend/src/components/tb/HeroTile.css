@@ -1,0 +1,186 @@
+/* ---------- THE hero tile (HeroTile.tsx) ----------
+   One tile and one grid for every hero shown as a card: the gallery, the
+   class page's students, the My classes shelf. Logical properties only. */
+
+/* The grid. It sizes from the room it has, not the window, so the gallery
+   (the whole body) and the live class's roster (a column beside the join
+   card) lay out by the same rule: 2 columns in a phone's width, 3 from
+   680px of room, 4 from 1060px. 680 and 1060 are the gallery's old 720px and
+   1100px window breakpoints less its two 20px gutters: the gallery itself
+   looks exactly as it did. */
+.tb-tiles { container: tb-tiles / inline-size; min-width: 0; }
+.tb-tiles-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+@container tb-tiles (min-width: 680px) {
+  .tb-tiles-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .tb-tile:not(.tb-tile--mini) { height: 280px; }
+}
+@container tb-tiles (min-width: 1060px) {
+  .tb-tiles-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.tb-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 232px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: var(--tb-radius-card);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--tb-ink);
+  text-align: start;
+  transition: transform 120ms ease;
+  /* The picture's box: 16px clear of the tile's edges and 8px above the
+     caption (bottom 72 = caption 56 + its 8 + 8). The hero and the drawing
+     share it, so the cross-fade swaps one for the other in place. */
+  --tb-tile-pic: 16px 16px 72px;
+}
+button.tb-tile:active { transform: scale(0.98); }
+.tb-tile:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.35); }
+.tb-tile--static { cursor: default; }
+.tb-tile--skeleton { cursor: default; opacity: 0.6; }
+
+/* Art only (no caption): the picture is centred on the plate, 8px clear of
+   every edge. A captioned tile stands its hero on the caption instead. */
+.tb-tile--art { --tb-tile-pic: 8px; }
+/* The My classes shelf: four small art-only tiles in a row. */
+.tb-tile--mini { height: 104px; border-radius: 20px; }
+.tb-tile--mini .tb-tile-drawing img { padding: 3px; border-radius: 6px; }
+@media (min-width: 720px) { .tb-tile--mini { height: 120px; } }
+
+/* The hero, standing on the caption (or centred, art only). */
+.tb-tile-img {
+  position: absolute;
+  inset: var(--tb-tile-pic);
+  width: calc(100% - 32px);
+  height: calc(100% - 88px);
+  object-fit: contain;
+  object-position: center bottom;
+}
+.tb-tile--art .tb-tile-img { width: calc(100% - 16px); height: calc(100% - 16px); object-position: center; }
+
+/* Wrappers around the picture (pop in, faded) cover the tile, so the
+   picture inside keeps its box. */
+.tb-tile-art { position: absolute; inset: 0; display: block; }
+.tb-tile-art.tb-hero-faded { filter: grayscale(0.6); opacity: 0.5; }
+.tb-tile-pop { animation: tb-tile-pop 420ms cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes tb-tile-pop { from { transform: scale(0.6) translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* No drawing yet: the child's initial, centred in the picture's box. */
+.tb-tile-initial-box {
+  position: absolute;
+  inset: var(--tb-tile-pic);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tb-tile-initial {
+  width: min(96px, 100%);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: var(--tb-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tb-font-display);
+  font-size: 52px;
+  line-height: 1;
+  color: var(--tb-grape);
+  box-shadow: 0 4px 0 rgba(35, 25, 66, 0.12);
+}
+
+/* The caption: always two lines, name then one short line, centred in a
+   56px white bubble with 7px above and below them (22 + 2 + 18 = 42). The
+   same bubble, the same lines, for a finished hero, one being made, one
+   that stopped, and a child still drawing. */
+.tb-tile-card {
+  position: absolute;
+  inset-inline: 8px;
+  inset-block-end: 8px;
+  height: 56px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-radius: 20px;
+  background: var(--tb-white);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.tb-tile-name,
+.tb-tile-line { flex: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-tile-name { font-family: var(--tb-font-display); font-weight: 600; font-size: 17px; line-height: 22px; }
+.tb-tile-line { font-size: 13px; font-weight: 700; line-height: 18px; font-variant-numeric: tabular-nums; }
+.tb-tile-making { display: flex; min-width: 0; }
+.tb-tile-making-step { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tb-tile-making-pct { flex: none; }
+.tb-tile-line--by { color: var(--tb-ink-2); }
+.tb-tile-line--now { color: var(--tb-grape-text); }
+.tb-tile-line--failed { color: var(--tb-red); }
+
+/* ---------- Drawing <-> hero cross-fade ----------
+   Drawing first, then the hero: each holds 1.5 s with a 0.5 s cross-fade, a
+   4 s cycle. Raz: a longer hold loses people before they see the change.
+   (The pre-Toy Box gallery used a 10 s cycle with 3 s fades and every tile in
+   unison, so for most of the cycle both pictures sat half-transparent.)
+   Opacity only, so it runs on the compositor: no layout, no paint, smooth on
+   a phone with a full gallery. HeroTile.tsx adds --on once both images have
+   loaded and staggers tiles through --tb-fade-delay. Keep FADE_CYCLE_S there
+   in step with the 4 s here. */
+.tb-tile-fade { position: absolute; inset: 0; display: block; }
+.tb-tile-drawing {
+  position: absolute;
+  inset: var(--tb-tile-pic);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+/* The drawing as a small polaroid on the plate, like on the hero page:
+   a white frame hugging the picture (never cropped), soft shadow, slight tilt. */
+.tb-tile-drawing img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  box-sizing: border-box;
+  padding: 5px;
+  object-fit: contain;
+  background: var(--tb-white);
+  border-radius: 10px;
+  box-shadow: 0 6px 14px rgba(35, 25, 66, 0.18);
+  transform: rotate(-4deg);
+}
+.tb-tile-fade--drawn .tb-tile-drawing { opacity: 1; }
+/* The drawing alone (nothing painted yet, or it stopped): always shown. */
+.tb-tile-drawing.tb-tile-drawing--still { opacity: 1; }
+.tb-tile-fade--drawn .tb-tile-hero { opacity: 0; }
+.tb-tile-fade--on .tb-tile-drawing,
+.tb-tile-fade--on .tb-tile-hero {
+  animation: 4s ease-in-out var(--tb-fade-delay, 0s) infinite both;
+}
+.tb-tile-fade--on .tb-tile-drawing { animation-name: tb-tile-drawing; }
+.tb-tile-fade--on .tb-tile-hero { animation-name: tb-tile-hero; }
+/* Drawing first, then what it became: 0-1.5 s drawing, 1.5-2 s fade,
+   2-3.5 s hero, 3.5-4 s fade back. */
+@keyframes tb-tile-drawing {
+  0%, 37.5% { opacity: 1; }
+  50%, 87.5% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes tb-tile-hero {
+  0%, 37.5% { opacity: 0; }
+  50%, 87.5% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-tile, .tb-tile-pop { transition: none; animation: none; }
+  .tb-tile-fade--on .tb-tile-drawing,
+  .tb-tile-fade--on .tb-tile-hero { animation: none; }
+  .tb-tile-fade--drawn .tb-tile-drawing { opacity: 0; }
+  .tb-tile-fade--drawn .tb-tile-hero { opacity: 1; }
+}
