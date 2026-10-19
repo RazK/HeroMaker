@@ -1,0 +1,20 @@
+# Photo likeness check: the "Happy Hoodie" photo painted as the pipeline now
+# would (classified, then Pixar with the likeness clause), and four staging
+# kids' drawings plus a drawing of a lady classified only (must stay drawings).
+--drawing
+happy-hoodie=https://backend-staging-384f.up.railway.app/api/files/09011de9-3037-42d1-ab66-1164d5cd30a0/209090cc-5347-4ebe-9a29-028121c3233c/original.jpg
+--classify
+--styles
+pixar
+--kind-only
+prickle-pete=https://backend-staging-384f.up.railway.app/api/files/2d0d516c-d264-485e-a603-e3e7b6a925fe/7dec21b0-6d62-4b12-b221-bea47a249b91/original.jpg
+--kind-only
+blue-bolt=https://backend-staging-384f.up.railway.app/api/files/8ddf800b-e552-4439-b319-b1a4a3535183/2765a545-9a8d-48f0-91f9-f9a81f373331/original.jpg
+--kind-only
+princess-lumi=https://backend-staging-384f.up.railway.app/api/files/82075b90-3bb7-4313-b3da-78080dc0c607/d1792cf1-fac1-4d6e-9118-eeb9086ad674/original.jpg
+--kind-only
+clover=https://backend-staging-384f.up.railway.app/api/files/b92e875b-b705-4d03-9305-fce655258ff4/2d3811c4-fdab-4c3b-80c3-9c288953988e/original.jpg
+--kind-only
+lady-milana=marketing/concepts/assets/pairs/lady-milana-drawing.jpg
+--kind-only
+crayon-kid=marketing/concepts/assets/pairs/crayon-kid-drawing.jpg
