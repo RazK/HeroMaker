@@ -1,0 +1,25 @@
+{
+  "calls": 1,
+  "kinds": {
+    "prickle-pete": "drawing",
+    "blue-bolt": "drawing",
+    "princess-lumi": "drawing",
+    "clover": "drawing",
+    "lady-milana": "drawing",
+    "crayon-kid": "drawing",
+    "happy-hoodie": "photo_of_person"
+  },
+  "renders": [
+    {
+      "label": "happy-hoodie",
+      "style": "pixar",
+      "variant": "after",
+      "calls": 1,
+      "edges": {},
+      "attempts": 1,
+      "kept_attempt": 1,
+      "touched_edges": {},
+      "first_touched_edges": {}
+    }
+  ]
+}
