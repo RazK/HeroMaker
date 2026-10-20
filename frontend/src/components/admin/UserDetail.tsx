@@ -57,6 +57,9 @@ const STEP_WORD: Record<string, string> = {
   convert_vrm: 'Packing',
 };
 
+/** Rows shown before "Show all": a ticket is nearly always about the last few. */
+const LEDGER_FIRST = 12;
+
 /** One ledger row in words: an icon and what it was. */
 function describeTx(t: LedgerTransaction): { icon: IconName; what: string } {
   const m = t.metadata ?? {};
@@ -84,6 +87,7 @@ function describeTx(t: LedgerTransaction): { icon: IconName; what: string } {
 function CreditsList({ userId, heroes, version }: { userId: string; heroes: AdminHero[]; version: number }) {
   const [txs, setTxs] = useState<LedgerTransaction[] | null>(null);
   const [error, setError] = useState(false);
+  const [all, setAll] = useState(false);
   useEffect(() => {
     let live = true;
     api.admin.userLedger(userId)
@@ -101,7 +105,7 @@ function CreditsList({ userId, heroes, version }: { userId: string; heroes: Admi
         <div className="adm-note adm-note--bad">Credit history is unavailable right now.</div>
       ) : txs.length === 0 ? (
         <div className="adm-note">No credit movements yet.</div>
-      ) : txs.map((t) => {
+      ) : (all ? txs : txs.slice(0, LEDGER_FIRST)).map((t) => {
         const d = describeTx(t);
         const hero = t.creation_id ? names.get(t.creation_id) : undefined;
         const note = typeof t.metadata?.note === 'string' && t.reason === 'admin_adjust' ? t.metadata.note : null;
@@ -117,6 +121,11 @@ function CreditsList({ userId, heroes, version }: { userId: string; heroes: Admi
           </div>
         );
       })}
+      {txs && !error && !all && txs.length > LEDGER_FIRST && (
+        <button type="button" className="tb-btn tb-btn--secondary adm-btn-xs adm-ledger-more" onClick={() => setAll(true)}>
+          Show all {txs.length}
+        </button>
+      )}
     </section>
   );
 }
