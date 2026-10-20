@@ -150,6 +150,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Queue-then-play game.** "as soon as an animation is clicked just play it".
 - **Full-screen drawing viewer** (dark scrim, Drawing | Hero toggle): "It doesn't look like part of the app ... this preview of 2 steps. It's confusing." Now the polaroid swaps into the stage and the 4-step strip is the one way through.
 - **Underlined text links.** "No underlined links." Every action is a button, a row, a chip or a toggle; `.tb-link` is gone.
+- **Icon-only steps strip.** "I can't see the steps, it's not showing them." Four bare dots did not read as steps you can tap. Now each step has its name under its icon (Drawing, Painting, Sculpt, Alive), and the whole column is the tap.
 - **My classes as a chip.** The fourth chip on a phone, cut off at the edge: "I could miss it. It needs a higher level in the hierarchy." Now the switch.
 - **The school as a text link.** Grape, underlined: "looks like a link in a document. Doesn't give me a good feeling about my school." Now a header card.
 
