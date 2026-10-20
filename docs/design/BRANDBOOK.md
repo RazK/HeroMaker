@@ -119,7 +119,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 | One title, one short line | A title, a subtitle and a paragraph |
 | Line icons | Emoji |
 | `margin-inline-start` | `margin-left` |
-| A button, a tappable row, a sheet | An underlined text link |
+| A button, row, chip or toggle for every action (OK in a notice is a small secondary button) | An underlined text link |
 
 ## Rejected, and why
 
@@ -131,6 +131,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Unlabelled layers icon** for How it was made: "not clear enough". Now a labelled pill.
 - **Empty 3D loading card.** "Empty screen for 10 seconds WTF?!" Now a ring over the dimmed painting.
 - **Queue-then-play game.** "as soon as an animation is clicked just play it".
+- **Underlined text links.** "No underlined links." Every action is a button, a row, a chip or a toggle; `.tb-link` is gone.
 
 Mock-ups of each are in the artifact's "Rejected" card.
 

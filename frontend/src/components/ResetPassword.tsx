@@ -53,12 +53,14 @@ export function ResetPassword({ token, onDone, onCancel }: { token: string; onDo
         </div>
         {(error || !token) && (
           <div className="auth-modal-error" role="alert">
-            {error || 'This link is missing its code.'}{' '}
-            <button type="button" className="tb-link" onClick={askAgain}>Get a new link</button>
+            {error || 'This link is missing its code.'}
           </div>
         )}
       </div>
       <div className="tb-bar">
+        {(error || !token) && (
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={askAgain}>Get a new link</button>
+        )}
         <button type="submit" className="tb-btn tb-btn--primary tb-btn--full reset-password-submit" disabled={isLoading || !token}>
           {isLoading ? 'Saving…' : 'Save'}
         </button>

@@ -5,7 +5,7 @@ import { HeroTile } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
 import { Dialog, Sheet } from '../tb/parts';
 import { PaySeatsDialog, Stepper, clock, heroThumb, useSecondsLeft } from './parts';
-import { SchoolSheet } from './SchoolSheet';
+import { SCHOOL_TYPE_LABEL, SchoolSheet } from './SchoolSheet';
 import './class.css';
 
 /** How many of a class's heroes its card shows (backend PREVIEW_HEROES). */
@@ -70,7 +70,7 @@ export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
   const sorted = classes && [...classes.filter(isLive), ...classes.filter((c) => !isLive(c))];
   return (
     <div className="cls-tab">
-      {error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={reload}>Try again</button></div>}
+      {error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={reload}>Try again</button></div>}
       {classes && classes.length === 0 ? (
         <div className="cls-empty">
           <div className="cls-empty-art"><Icon name="school" /></div>
@@ -79,14 +79,7 @@ export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
         </div>
       ) : (
         <>
-          {(school || classes) && (
-            <div className="cls-tab-school">
-              {school
-                ? <button type="button" className="tb-link cls-school-link" dir="auto" onClick={onEditSchool}><Icon name="school" size={18} />{school.name}</button>
-                : <span />}
-              {classes && <span className="tb-muted">{classes.length} {classes.length === 1 ? 'class' : 'classes'}</span>}
-            </div>
-          )}
+          <SchoolCard school={school} count={classes?.length} onEdit={onEditSchool} />
           <div className="cls-cards">
             {!sorted && Array.from({ length: 2 }, (_, i) => <div key={i} className="cls-card cls-card--skeleton" />)}
             {sorted?.map((c, i) => <ClassCard key={c.id} c={c} index={i} onOpen={() => onOpen(c)} />)}
@@ -95,9 +88,39 @@ export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
       )}
       {classes && (
         <div className="cls-tab-foot">
-          <button type="button" className="tb-link cls-stop-classes" onClick={onStop}>Stop showing My classes</button>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm cls-stop-classes" onClick={onStop}><Icon name="close" size={18} />Stop showing My classes</button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The school, as the top card of My classes: a plate with the school's badge,
+ * its name, its kind and place, how many classes. Tapping it (or its pencil)
+ * edits the school; with none yet it asks for one. undefined: still loading.
+ */
+function SchoolCard({ school, count, onEdit }: { school: School | null | undefined; count: number | undefined; onEdit: () => void }) {
+  if (school === undefined) return <div className="cls-school cls-school--skeleton" aria-hidden="true" />;
+  const place = school && [school.city, school.country].filter(Boolean).join(', ');
+  const kind = school && school.type !== 'other' ? SCHOOL_TYPE_LABEL[school.type] : '';
+  const line = school ? [kind, place].filter(Boolean).join(' · ') : 'Name, kind and place';
+  const label = school ? 'Edit school' : 'Add your school';
+  return (
+    // The pencil is the control; the rest of the card is a bigger target for the same tap.
+    <div className="cls-school" onClick={onEdit}>
+      <span className="cls-school-badge" aria-hidden="true"><Icon name="school" /></span>
+      <span className="cls-school-text">
+        <span className="cls-school-name" dir="auto">{school ? school.name : 'Add your school'}</span>
+        <span className="cls-school-meta">
+          {line && <span className="cls-school-line" dir="auto">{line}</span>}
+          {count !== undefined && count > 0 && <span className="cls-school-count">{count} {count === 1 ? 'class' : 'classes'}</span>}
+        </span>
+      </span>
+      <button type="button" className="tb-nav cls-school-edit" aria-label={label} title={label}
+        onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+        <Icon name="pencil" />
+      </button>
     </div>
   );
 }

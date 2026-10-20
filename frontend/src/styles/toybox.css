@@ -261,18 +261,8 @@ h1, h2, h3, h4 {
 .tb-header .tb-btn--sm { height: var(--tb-header-ctl); font-size: 16px; padding: 0 14px; }
 .tb-credits:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-sun-deep); }
 
-.tb-link {
-  color: var(--tb-grape-text);
-  font-weight: 800;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-}
+/* No text links (Raz: "no underlined links"). An action is a button, a row,
+   a chip or a toggle; a small one inside a line of text is .tb-btn--sm. */
 
 /* ---------- Header ---------- */
 
@@ -625,7 +615,17 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   gap: 12px;
 }
 .tb-notice--error { color: var(--tb-red); }
-.tb-notice button { margin-left: auto; }
+/* Its one action (OK, Try again) at the end: a small secondary button, as
+   tall as the header's controls, with room under it for its depth. */
+.tb-notice:has(> .tb-btn) { padding-block-end: calc(12px + var(--tb-depth-sm)); }
+.tb-notice .tb-btn {
+  margin-inline-start: auto;
+  height: var(--tb-header-ctl);
+  padding: 0 14px;
+  font-size: 16px;
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
+}
+.tb-notice .tb-btn--secondary { border-width: 2px; }
 
 /* ---------- Touch: every tap lands ----------
    Three ways a phone browser eats a tap that looked pressed:

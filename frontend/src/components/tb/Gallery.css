@@ -24,7 +24,7 @@
   .tb-gallery-chips .tb-chip { padding: 0 10px; }
 }
 /* The tiles and their grid live in HeroTile.css: the class pages use the same. */
-.tb-gallery-empty { padding: 48px 0; text-align: center; color: var(--tb-ink-2); }
+.tb-gallery-empty { padding: 48px 0; text-align: center; color: var(--tb-ink-2); display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .tb-gallery-note { text-align: center; font-weight: 700; color: var(--tb-red); }
 
 /* A grid cell: the tile, plus (admins) the Editors' choice star beside it. */
