@@ -78,7 +78,7 @@
 .tb-step-line-fill--filling { animation: tb-step-line-fill linear forwards; }
 @keyframes tb-step-line-fill { to { transform: none; } }
 
-/* ---------- The moves: one row, four at a time, swipe for the rest ---------- */
+/* ---------- The moves: all of them at a glance, 4 x 2 on a phone ---------- */
 
 .tb-hero-moves {
   flex-shrink: 0;
@@ -86,23 +86,19 @@
      bar's hairline is the same 16px as everywhere else. */
   padding-block-end: var(--tb-space);
 }
+/* Four to a row inside the side margins, like every other block: on a phone
+   the eight moves are two rows of four, all of them in view (brand book: a
+   desktop has one row of 8 instead of 4 x 2). A swiped row of four hid half
+   of them behind a button cut off at the screen's edge. A short last row
+   stays centred under the full one. */
 .tb-moves {
   --gap: 10px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--gap);
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* The row runs to the screen's edges, so the fifth button peeks in from the
-     side margin: the hint that there are more. Snapped, a page of four lines
-     up with the margins like every other block. */
   padding: 0 var(--tb-gutter) var(--tb-depth-sm);
-  scroll-padding-inline: var(--tb-gutter);
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  touch-action: pan-x;
 }
-.tb-moves::-webkit-scrollbar { display: none; }
 .tb-move {
   flex: 0 0 calc((100% - 3 * var(--gap)) / 4);
   min-width: 0;
@@ -114,10 +110,13 @@
   font-size: 15px;
   line-height: 18px;
 }
+/* A short screen gives most of the second row back to the stage. */
+@media (max-height: 700px) {
+  .tb-move { height: 56px; }
+}
 .tb-move span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-/* A few moves (a parent's first look): they share the row equally, no swiping. */
+/* A few moves (a parent's first look): they share the row equally. */
 .tb-moves--few .tb-move { flex: 1 1 0; }
-.tb-move:nth-child(4n + 1) { scroll-snap-align: start; scroll-snap-stop: always; }
 .tb-move[aria-pressed='true'],
 .tb-move[aria-pressed='true']:active:not(:disabled) {
   background: var(--tb-grape);
@@ -141,14 +140,15 @@
 /* A desktop has room for all eight in one row, and a bigger stage. */
 @media (min-width: 900px) and (min-height: 600px) {
   .tb-hero-screen[data-state='ready'] { max-width: 720px; }
+  .tb-moves { flex-wrap: nowrap; }
   .tb-move { flex: 1 1 0; }
 }
 
-/* A phone on its side: the stage on one side; the moves and the bar on the
-   other, the primary still the bottom-most button. */
+/* A phone on its side: the stage on one side; the moves (4 x 2) and the bar
+   on the other (HeroScreen.css lays the bar's two buttons in one row there),
+   the primary still the last button. */
 @media (orientation: landscape) and (max-height: 559px) {
   .tb-hero-screen[data-state='ready'] {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas: 'head head' 'body moves' 'body .' 'body bar';
   }
@@ -156,7 +156,7 @@
   .tb-hero-screen[data-state='ready'] > .tb-screen-body { grid-area: body; }
   .tb-hero-screen[data-state='ready'] > .tb-hero-moves { grid-area: moves; padding-block: var(--tb-space) 0; }
   .tb-hero-screen[data-state='ready'] > .tb-bar { grid-area: bar; }
-  .tb-hero-screen[data-state='ready'] .tb-moves { padding-inline-start: 8px; scroll-padding-inline: 8px var(--tb-gutter); }
+  .tb-hero-screen[data-state='ready'] .tb-moves { padding-inline-start: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -7,11 +7,21 @@
 }
 
 .tb-screen--wide { max-width: 1200px; }
-.tb-screen--wide .tb-bar { max-width: 560px; width: 100%; margin: 0 auto; }
+/* The bar's hairline runs edge to edge, like the header's; its button keeps
+   to the middle 560px. */
+.tb-screen--wide > .tb-bar { padding-inline: max(var(--tb-gutter), calc((100% - 560px) / 2)); }
 
 .tb-intro { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
 .tb-intro-title { font-size: 40px; line-height: 42px; letter-spacing: -0.5px; }
 .tb-intro-classes { align-self: flex-start; margin-block: 4px var(--tb-depth-sm); }
+/* A phone on its side leaves about 180px between the header and the bar:
+   the headline goes on one line, so Run a class stands whole above the bar
+   and the first heroes peek in under it. */
+@media (orientation: landscape) and (max-height: 559px) {
+  .tb-intro { gap: 4px; padding-top: 0; }
+  .tb-intro-title { font-size: 30px; line-height: 34px; }
+  .tb-intro-title br { display: none; }
+}
 
 .tb-footer { padding: 24px 0 0; text-align: center; font-size: 13px; color: var(--tb-ink-2); display: flex; flex-direction: column; gap: 4px; }
 /* The chips together on their line; the deployed version on its own line
@@ -34,6 +44,35 @@
 .tb-upload-preview img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
 .tb-new-hero-tip { padding: 0 4px 12px; }
 .post-upload-actions-bar { flex-shrink: 0; padding-top: 2px; }
+
+/* "Make this hero?" on a phone on its side: the drawing, the styles and two
+   stacked buttons are far taller than 360px, and the buttons ended up below
+   the fold. So the drawing takes one side, the styles and the buttons the
+   other (primary still last), and the cards are as big as the height left
+   over allows: 100dvh less the sheet's padding, title, labels and buttons. */
+@media (orientation: landscape) and (max-height: 559px) {
+  .post-upload-actions-modal {
+    --card: clamp(56px, calc(100dvh - 280px), 120px);
+    max-width: 760px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: 'title title' 'pic styles' 'pic bar';
+    column-gap: var(--tb-space);
+    row-gap: 8px;
+  }
+  /* Short of credits the bar has a line more: the cards give it the height,
+     and take the width the line gives them (still contained, never cropped),
+     so their names keep their room. */
+  .post-upload-actions-modal:has(.tb-bar-note) { --card: clamp(48px, calc(100dvh - 316px), 120px); }
+  .post-upload-actions-modal:has(.tb-bar-note) .tb-style { flex: 1 1 0; min-width: auto; }
+  .post-upload-actions-modal:has(.tb-bar-note) .tb-style-img { aspect-ratio: auto; height: var(--card); }
+  .post-upload-actions-modal > .tb-sheet-title { grid-area: title; }
+  .post-upload-actions-modal > .tb-upload-preview { grid-area: pic; height: auto; min-height: 0; }
+  .post-upload-actions-modal > .tb-styles { grid-area: styles; }
+  .post-upload-actions-modal .tb-style { flex: 0 0 var(--card); }
+  .post-upload-actions-modal > .post-upload-actions-bar { grid-area: bar; align-self: end; }
+}
 
 
 /* Notices raised while a fit screen is showing float over it: below such a

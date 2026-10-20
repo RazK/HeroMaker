@@ -208,9 +208,11 @@ startBtn.classList.add('btn')
 /**
  * The camera comes on in the lobby, not at the whistle: "can it see me" has to
  * be answered before the music starts. Secondary, because Start is the screen's
- * one grape button and turns the camera on too.
+ * one grape button and turns the camera on too. Three words (brand book): on a
+ * phone on its side the preview is ~210px wide, and "Turn the camera on" was
+ * cut to "Turn the came…".
  */
-const camBtn = tbButton('Turn the camera on', { kind: 'secondary', icon: 'camera', full: false,
+const camBtn = tbButton('Turn camera on', { kind: 'secondary', icon: 'camera', full: false,
   onClick: () => void ensureCamera() })
 camBtn.classList.add('cam-btn')
 /**
