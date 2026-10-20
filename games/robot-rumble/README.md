@@ -254,6 +254,21 @@ gallery. *Before* is the rival-hero build (up to three rivals in the room),
 | Before (rivals) | 844x390 | 73 | ~193k | 16.3 ms | 2.9 |
 | After (all 5 in shot) | 844x390 | 80 | ~230k | 14.8 ms | 2.2 |
 
+**The grandstand and the pinned drawings**, measured the same way against the
+build before them (same five fans; a busier machine that day, so every number
+is slower than the table above):
+
+| | Viewport | Draw calls | Triangles | JS per frame (4x) | SwiftShader fps |
+|---|---|---|---|---|---|
+| Fans on blocks and side plates | 390x844 | 49-55 | 130-160k (2-3 fans in shot) | 18.0-18.4 ms | 0.8-1.0 |
+| Grandstand + 5 drawings | 390x844 | 73 | ~226k (all 5 in shot) | 18.6 ms | 0.7 |
+| Fans on blocks and side plates | 844x390 | 78 | ~170k | 18.4 ms | 0.7 |
+| Grandstand + 5 drawings | 844x390 | 81 | ~227k | 19.1 ms | 1.0 |
+
+JavaScript is unchanged within noise. More triangles reach the GPU in
+portrait because every fan is now in shot, which was the point; the cards add
+two draw calls each (card and shadow) and the pins one.
+
 The JavaScript per frame is the same or a little lower than with rivals: a
 fan has no path-finding, no spring bones and no updates out of shot. In
 portrait fewer triangles reach the GPU, because the camera sees two or three
