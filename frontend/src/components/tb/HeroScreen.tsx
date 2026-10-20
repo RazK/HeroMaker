@@ -218,11 +218,14 @@ export function HeroScreen(props: HeroScreenProps) {
     );
     // Primary last (brand book). A picture the safety system refused will be
     // refused again, so there the way on is another picture; Try again stays
-    // as the secondary. Everything else is worth trying again.
+    // as the secondary. When our provider is down (its account is empty) a
+    // retry fails the same way, so Back is the primary and Try again the
+    // secondary. Everything else is worth trying again.
     const blocked = step?.error_code === 'safety_blocked';
+    const down = step?.error_code === 'out_of_credits_provider';
     const buy = <button type="button" className={`tb-btn ${blocked ? 'tb-btn--secondary' : 'tb-btn--primary'} tb-btn--full`} onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>;
     const again = short ? buy : (
-      <button type="button" className={`tb-btn ${blocked ? 'tb-btn--secondary' : 'tb-btn--primary'} tb-btn--full tb-btn--with-trail tb-try-again`} disabled={busy} onClick={tryAgain}>
+      <button type="button" className={`tb-btn ${blocked || down ? 'tb-btn--secondary' : 'tb-btn--primary'} tb-btn--full tb-btn--with-trail tb-try-again`} disabled={busy} onClick={tryAgain}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="redo" />Try again</span>
         <span className="tb-btn-trail"><Icon name="coin" size={18} />{retryCost} credits</span>
       </button>
@@ -234,6 +237,11 @@ export function HeroScreen(props: HeroScreenProps) {
           <>
             {again}
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-use-another" onClick={props.onMakeOwn}><Icon name="image" />Use another picture</button>
+          </>
+        ) : down ? (
+          <>
+            {again}
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={props.onBack}>Back to my heroes</button>
           </>
         ) : (
           <>

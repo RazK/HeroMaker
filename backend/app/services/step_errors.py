@@ -167,7 +167,10 @@ def user_message(code: str, step_name: str, refunded: bool = False) -> str:
     if code == BAD_INPUT:
         return f"We couldn't read this picture.{back} Try a clearer one."
     if code == OUT_OF_CREDITS_PROVIDER:
-        return f"We're having a hiccup on our side.{back} Try again later."
+        # Our account at the provider is empty: a retry fails the same way
+        # until we top it up, so never invite one ("When is later??" - a
+        # parent in the persona review, whose child retried and failed).
+        return f"Our {worker} is down on our side.{back} We're fixing it."
     if code == NOT_ENOUGH_CREDITS:
         return "You need more credits to finish this hero."
     if code == CANCELLED:
