@@ -6,9 +6,13 @@ import { PipelineProgress } from './components/PipelineProgress';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
-import { Privacy, PRIVACY_PATH } from './components/tb/Privacy';
-import { Gallery, Filter, forgetGallery, galleryTabs, rememberTab, rememberedTab, resetGalleryScroll } from './components/tb/Gallery';
-import { MyClasses, NewClassFlow, hasLiveClass, useMyClasses } from './components/class/MyClasses';
+import { Privacy } from './components/tb/Privacy';
+import { Terms } from './components/tb/Terms';
+import { Refunds } from './components/tb/Refunds';
+import { LEGAL_OPEN_EVENT, LEGAL_PATHS, LegalPage, legalPageAt, openLegal } from './components/tb/Legal';
+import { Gallery, Filter, Section, forgetGallery, galleryTabs, hadSwitch, rememberSection, rememberTab, rememberedSection, rememberedTab, resetGalleryScroll } from './components/tb/Gallery';
+import { Segmented } from './components/tb/Segmented';
+import { LiveStrip, MyClasses, NewClassFlow, hasLiveClass, useMyClasses } from './components/class/MyClasses';
 import { ClassScreen } from './components/class/ClassScreen';
 import { CLASS_PAID_PARAM } from './api/classes';
 import { JoinFlow, JOIN_PATH } from './components/class/JoinFlow';
@@ -23,7 +27,7 @@ import { loadStepConfig, getTotalCost } from './config/steps';
 import './styles/toybox.css';
 import './App.css';
 
-type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | 'privacy' | 'class' | 'claim';
+type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | LegalPage | 'class' | 'claim';
 
 // The only URL the app routes on: the link in a "Forgot password?" email.
 const isResetUrl = () => window.location.pathname === RESET_PASSWORD_PATH;
@@ -40,6 +44,12 @@ const claimToken = (): string | null => {
   return p.startsWith(CLAIM_PATH) ? decodeURIComponent(p.slice(CLAIM_PATH.length)) : null;
 };
 
+// "Run a class" while signed out: remembered across the sign-up, so the new
+// account lands on My classes with group mode on. This tab only.
+const CLASSES_INTENT = 'heromaker.intent.classes';
+const intendsClasses = () => { try { return sessionStorage.getItem(CLASSES_INTENT) === '1'; } catch { return false; } };
+const setClassesIntent = (on: boolean) => { try { if (on) sessionStorage.setItem(CLASSES_INTENT, '1'); else sessionStorage.removeItem(CLASSES_INTENT); } catch { /* fine */ } };
+
 // The class a teacher comes back to from a seat checkout (?class_paid=<id>).
 const CLASS_PAID_ON_LOAD = new URLSearchParams(window.location.search).get(CLASS_PAID_PARAM);
 
@@ -50,8 +60,20 @@ function App() {
 }
 
 function MainApp() {
-  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : CLASS_PAID_ON_LOAD ? 'class' : window.location.pathname === PRIVACY_PATH ? 'privacy' : claimToken() ? 'claim' : 'gallery');
+  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : CLASS_PAID_ON_LOAD ? 'class' : legalPageAt(window.location.pathname) ?? (claimToken() ? 'claim' : 'gallery'));
   const [claim] = useState(claimToken);
+  // A legal page, on its own URL, opened from the footer or a sheet.
+  useEffect(() => {
+    const open = (e: Event) => {
+      const page = (e as CustomEvent<LegalPage>).detail;
+      if (!(page in LEGAL_PATHS)) return;
+      window.history.pushState(null, '', LEGAL_PATHS[page]);
+      setView(page);
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener(LEGAL_OPEN_EVENT, open);
+    return () => window.removeEventListener(LEGAL_OPEN_EVENT, open);
+  }, []);
   // Back from paying for a class's seats (?class_paid=<id>): open that class,
   // which watches its seats arrive by webhook. Read once per page load.
   const [classPaid] = useState(CLASS_PAID_ON_LOAD);
@@ -64,13 +86,19 @@ function MainApp() {
   }, []);
   const [classId, setClassId] = useState<string | null>(classPaid);
   // Where Back from a hero goes: the gallery, or the class it was opened from.
-  const [heroFrom, setHeroFrom] = useState<'gallery' | 'class'>('gallery');
-  // The gallery's tab: the one last chosen, or My classes for a teacher back
-  // from paying for a class. Chosen once (a tap, or a flow that leads to a
-  // tab), it is never changed under the viewer's feet.
-  const [tab, setTabState] = useState<Filter>(() => (CLASS_PAID_ON_LOAD ? 'classes' : rememberedTab()));
-  const tabChosen = useRef(!!CLASS_PAID_ON_LOAD);
-  const setTab = (t: Filter) => { tabChosen.current = true; rememberTab(t); setTabState(t); };
+  const [heroFrom, setHeroFrom] = useState<'gallery' | 'class' | 'admin'>('gallery');
+  // Where the home screen is, on two levels: the place (a teacher's switch:
+  // the gallery or My classes) and, in the gallery, the tab (the chips).
+  // Each is the one last chosen, kept apart; a teacher back from paying for
+  // a class is on My classes. Chosen once (a tap, or a flow that leads
+  // there), neither is changed under the viewer's feet.
+  const [section, setSectionState] = useState<Section>(() => (CLASS_PAID_ON_LOAD ? 'classes' : rememberedSection()));
+  const [tab, setTabState] = useState<Filter>(rememberedTab);
+  const placeChosen = useRef(!!CLASS_PAID_ON_LOAD);
+  const setSection = (s: Section) => { placeChosen.current = true; rememberSection(s); setSectionState(s); };
+  const setTab = (t: Filter) => { placeChosen.current = true; rememberTab(t); setTabState(t); };
+  // A flow that ends on a gallery tab (a kept hero: My heroes).
+  const showTab = (t: Filter) => { if (section !== 'gallery') setSection('gallery'); setTab(t); };
   // New class (asks for the school first, once), or the school alone.
   const [classSheet, setClassSheet] = useState<'new' | 'school' | null>(null);
   const [resetToken] = useState(() => (isResetUrl() ? new URLSearchParams(window.location.search).get('token') ?? '' : ''));
@@ -111,6 +139,8 @@ function MainApp() {
 
   const refreshCreditBalance = async () => {
     const token = getAuthToken();
+    // Read now, before any wait: the sign-in sheet forgets it as it closes.
+    const wantsClasses = !!token && intendsClasses();
     if (!token) {
       setCreditBalance(undefined);
       setUserInfo(null);
@@ -119,6 +149,14 @@ function MainApp() {
     }
     try {
       const user = await api.getMe();
+      // Signed in after "Run a class": group mode on, and My classes.
+      if (wantsClasses) {
+        setClassesIntent(false);
+        if (!user.is_teacher) {
+          try { await api.updateProfile({ is_teacher: true }); user.is_teacher = true; } catch { /* stays a creator; the account sheet can turn it on */ }
+        }
+        if (user.is_teacher) setSection('classes');
+      }
       setCreditBalance(user.credits);
       setUserInfo({ id: user.id, is_admin: user.is_admin, is_teacher: !!user.is_teacher });
       window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
@@ -143,6 +181,7 @@ function MainApp() {
       setError(null);
       forgetGallery();
       setTabState('featured');
+      setSectionState('gallery');
       setGalleryKey((k) => k + 1);
       window.scrollTo({ top: 0 });
       setAccountNotice('Account deleted');
@@ -153,6 +192,9 @@ function MainApp() {
     window.addEventListener('auth:logout', handleAuthChange);
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     window.addEventListener('auth:account-deleted', handleAccountDeleted);
+    // The sign-in sheet closed: a "Run a class" that did not sign in is forgotten.
+    const handleAuthClosed = () => setClassesIntent(false);
+    window.addEventListener('auth:closed', handleAuthClosed);
     // Anything that changes the balance outside App (a redeemed coupon) says
     // so; and coming back to the tab (from checkout, or another device's
     // purchase) re-reads it, so the app never acts on a stale balance.
@@ -169,6 +211,7 @@ function MainApp() {
       window.removeEventListener('auth:logout', handleAuthChange);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
       window.removeEventListener('auth:account-deleted', handleAccountDeleted);
+      window.removeEventListener('auth:closed', handleAuthClosed);
       window.clearTimeout(noticeTimer);
     };
   }, []);
@@ -212,7 +255,7 @@ function MainApp() {
   // the logo on the gallery itself starts it over from the top.
   const goHome = () => {
     if (view === 'gallery') resetGalleryScroll();
-    if (isResetUrl() || window.location.pathname === PRIVACY_PATH || claimToken()) window.history.replaceState(null, '', '/');
+    if (isResetUrl() || legalPageAt(window.location.pathname) || claimToken()) window.history.replaceState(null, '', '/');
     setView('gallery');
     setCreation(null);
     setError(null);
@@ -220,7 +263,7 @@ function MainApp() {
     window.scrollTo({ top: 0 });
   };
 
-  const openHero = (c: CreationResponse, from: 'gallery' | 'class' = 'gallery') => {
+  const openHero = (c: CreationResponse, from: 'gallery' | 'class' | 'admin' = 'gallery') => {
     setHeroFrom(from);
     setCreation(c);
     setError(null);
@@ -308,15 +351,21 @@ function MainApp() {
     }
   };
 
-  // A teacher's classes: read when they sign in, kept fresh while My classes shows.
-  const myClasses = useMyClasses(!!userInfo?.is_teacher, view === 'gallery' && tab === 'classes');
+  // The place shown: a teacher's choice; for everyone else the gallery. Until
+  // the account is read, a remembered My classes is not judged.
+  const isTeacher = !!userInfo?.is_teacher;
+  const shownSection: Section = isTeacher || !authChecked ? section : 'gallery';
+  const onClassesTab = shownSection === 'classes';
+  // A teacher's classes: read when they sign in, kept fresh while My classes
+  // shows, and now and then from the gallery, for the switch's live dot.
+  const myClasses = useMyClasses(isTeacher, view === 'gallery' ? (onClassesTab ? 10000 : 60000) : false);
   // A class running right now opens My classes, once per visit, unless the
-  // teacher already picked a tab: mid-lesson, that is what they came for.
+  // teacher already picked a place or a tab: mid-lesson, that is what they came for.
   const liveChecked = useRef(false);
   useEffect(() => {
     if (liveChecked.current || !myClasses.classes) return;
     liveChecked.current = true;
-    if (!tabChosen.current && hasLiveClass(myClasses.classes)) setTabState('classes');
+    if (!placeChosen.current && hasLiveClass(myClasses.classes)) setSectionState('classes');
   }, [myClasses.classes]);
 
   const hasProcessingStep = creation?.steps.some((s) => s.status === 'processing');
@@ -330,13 +379,13 @@ function MainApp() {
       {accountNotice && (
         <div className="tb-notice app-account-notice" role="status">
           <Icon name="check" />{accountNotice}
-          <button type="button" className="tb-link" onClick={() => setAccountNotice(null)}>OK</button>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setAccountNotice(null)}>OK</button>
         </div>
       )}
       {error && (
         <div className="tb-notice tb-notice--error app-error" role="alert">
           {error}
-          <button type="button" className="tb-link" onClick={() => setError(null)}>OK</button>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button>
         </div>
       )}
     </>
@@ -349,6 +398,8 @@ function MainApp() {
   };
   const backFromHero = () => {
     if (heroFrom === 'class' && classId) { setCreation(null); setView('class'); return; }
+    // Opened from a user's page in the admin console: back to that page.
+    if (heroFrom === 'admin' && userInfo?.is_admin) { setCreation(null); setView('admin'); return; }
     goHome();
   };
   const appHeader = (
@@ -359,31 +410,46 @@ function MainApp() {
           <span>HeroMaker</span>
         </button>
       )}
-      right={<HeaderAuth onOpenAdmin={() => setView('admin')} onRunClass={() => setTab('classes')} />}
+      right={<HeaderAuth onOpenAdmin={() => setView('admin')} onClassesMode={(on) => { if (on) setSection('classes'); else leaveClasses(); }} />}
     />
   );
   const footer = (extra?: JSX.Element) => (
     <footer className="tb-footer">
       {extra}
       <div>Made by Raz Karl &amp; Elad Shikley</div>
-      <div><a href={PRIVACY_PATH} onClick={(e) => { e.preventDefault(); window.history.pushState(null, "", PRIVACY_PATH); setView("privacy"); }}>Privacy</a> · <span className="tb-version">{__APP_VERSION__}</span></div>
+      <div className="tb-footer-row">
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('privacy')}>Privacy</button>
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('terms')}>Terms</button>
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('refunds')}>Refunds</button>
+        <span className="tb-version">{__APP_VERSION__}</span>
+      </div>
     </footer>
   );
-  // The gallery's tabs. A teacher's classes are one of them (My classes), so
-  // classes and the public gallery are one tap apart, under the same header.
-  const isTeacher = !!userInfo?.is_teacher;
-  const tabs = galleryTabs({ isLoggedIn, isAdmin: userInfo?.is_admin ?? false, isTeacher });
+  // The gallery's tabs (the chips). A teacher's classes are not one of them:
+  // they are the other place, on a switch of their own above everything.
+  const tabs = galleryTabs({ isLoggedIn, isAdmin: userInfo?.is_admin ?? false });
   const shownTab: Filter = !authChecked || tabs.includes(tab) ? tab : 'featured';
-  const onClassesTab = shownTab === 'classes';
-  const stopClasses = async () => {
-    try {
-      await api.updateProfile({ is_teacher: false });
-    } catch {
-      setError('Could not save that. Try again.');
-      return;
-    }
-    setTab('featured');
-    await refreshCreditBalance();
+  const showSwitch = isTeacher || (!authChecked && hadSwitch());
+  const homeSwitch = showSwitch && (
+    <div className="tb-switchbar">
+      <Segmented<Section>
+        label="Home"
+        value={shownSection}
+        onChange={setSection}
+        segments={[
+          { id: 'gallery', label: 'Gallery', icon: 'grid' },
+          { id: 'classes', label: 'My classes', icon: 'school' },
+        ]}
+      />
+      {/* A class in session is one tap away from the gallery too. */}
+      {shownSection === 'gallery' && <LiveStrip classes={myClasses.classes} onOpen={(c) => openClass(c.id)} />}
+    </div>
+  );
+  // Group mode was turned off (the account sheet): the switch goes, the
+  // gallery shows. The classes are kept for when it is turned on again.
+  const leaveClasses = () => {
+    rememberSection(null);
+    setSectionState('gallery');
   };
 
   let screen;
@@ -392,11 +458,11 @@ function MainApp() {
       <ClaimScreen
         token={claim}
         onHome={goHome}
-        onSeeHeroes={() => { setTab('mine'); goHome(); }}
+        onSeeHeroes={() => { showTab('mine'); goHome(); }}
         // The kept hero on its own page; Back from it lands on My heroes.
         onOpenHero={(id) => api.getCreation(id).then((c) => {
           window.history.replaceState(null, '', '/');
-          setTab('mine');
+          showTab('mine');
           openHero(c);
         }).catch(() => setError('Could not open that hero'))}
       />
@@ -407,21 +473,21 @@ function MainApp() {
         classId={classId}
         credits={creditBalance}
         paid={classPaid === classId}
-        onBack={goHome}
+        // Back from a class is My classes, wherever it was opened from.
+        onBack={() => { setSection('classes'); goHome(); }}
         onOpenHero={(id) => api.getCreation(id).then((c) => openHero(c, 'class')).catch(() => setError('Could not open that hero'))}
       />
     );
   } else if (view === 'privacy') {
     screen = <Privacy onBack={goHome} />;
+  } else if (view === 'terms') {
+    screen = <Terms onBack={goHome} />;
+  } else if (view === 'refunds') {
+    screen = <Refunds onBack={goHome} />;
   } else if (view === 'reset') {
     screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
   } else if (view === 'admin' && userInfo) {
-    screen = (
-      <div className="tb-screen tb-screen--wide">
-        <Header left={<NavButton icon="back" label="Back" onClick={goHome} />} title="Admin" />
-        <div className="tb-screen-body"><AdminPanel onClose={goHome} currentUserId={userInfo.id} /></div>
-      </div>
-    );
+    screen = <AdminPanel onClose={goHome} currentUserId={userInfo.id} onOpenHero={(c) => openHero(c, 'admin')} />;
   } else if (view === 'steps' && creation && userInfo?.is_admin) {
     screen = (
       <div className="tb-screen tb-screen--wide">
@@ -473,12 +539,20 @@ function MainApp() {
       <div className="tb-screen tb-screen--wide tb-screen--app">
         <NoPageScroll />
         {appHeader}
+        {homeSwitch}
         {notices}
         <div className="tb-screen-body">
           {!isLoggedIn && (
             <section className="tb-intro">
               <h2 className="tb-intro-title">Draw it.<br />We make it a real hero.</h2>
-              <p className="tb-muted">Snap a photo of any drawing. In a few minutes it is a 3D hero that moves, and your kid can play with it.</p>
+              <p className="tb-muted">Snap any drawing. Minutes later, it’s a 3D hero that moves.</p>
+              {/* The way in for a teacher or a party host: sign up, then My classes. */}
+              <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-intro-classes" onClick={() => {
+                setClassesIntent(true);
+                window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup', note: 'Then make your first class.' } }));
+              }}>
+                <Icon name="school" />Run a class
+              </button>
             </section>
           )}
           <Gallery
@@ -486,12 +560,13 @@ function MainApp() {
             filter={shownTab}
             tabs={tabs}
             onFilter={setTab}
+            section={shownSection}
             isAdmin={userInfo?.is_admin ?? false}
             userId={userInfo?.id}
             onSelect={(c) => openHero(c)}
             classes={onClassesTab ? {
               ready: !!myClasses.classes,
-              content: <MyClasses data={myClasses} onOpen={(c) => openClass(c.id)} onEditSchool={() => setClassSheet('school')} onStop={stopClasses} />,
+              content: <MyClasses data={myClasses} onOpen={(c) => openClass(c.id)} onEditSchool={() => setClassSheet('school')} />,
             } : undefined}
           />
           {footer()}

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, ApiError, CreationResponse } from '../../api/client';
+import { api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, Polaroid, ProgressBar, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
-import { STEP_UI, StepProgress, currentStep, etaText, heroName, heroState, holdSteady, remainingCost, stepProgress, stepViews } from './pipeline';
+import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
 
 interface HeroScreenProps {
@@ -39,7 +39,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const shares = owns || !!props.fromClass;
   const backLabel = props.fromClass ? 'Back to class' : 'Back to heroes';
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'games' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'games' | 'details' | null>(null);
   const [introRequest, setIntroRequest] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,11 +163,11 @@ export function HeroScreen(props: HeroScreenProps) {
       {/* Something on the stage always moves while the hero is made: a scan
           over the drawing, then a gloss over the painting. */}
       {state === 'making' && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
-      {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
+      {painted && <Polaroid src={file('thumb_original.jpg')} drawing={file('original.jpg')} hero={file('rendered.png')} artist={creation.name} age={creation.age} />}
     </div>
   );
 
-  const notice = error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>;
+  const notice = error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button></div>;
 
   let body;
   let bar;
@@ -183,18 +183,23 @@ export function HeroScreen(props: HeroScreenProps) {
       </>
     );
   } else {
-    const label = state === 'failed' && step ? `${STEP_UI[step.step_name]?.label ?? step.step_name} failed` : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
+    const failed = state === 'failed';
+    const label = failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
     const eta = progress ? etaText(progress.endsAt, now) : '';
     body = (
       <>
         {stage}
-        <div className={state === 'failed' ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex}>
+        <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed ? step?.error_code ?? 'unknown' : undefined}>
           <Stepper steps={stepViews(creation)} />
           <div className="tb-status">
-            <div className={`tb-status-name${state === 'failed' ? ' tb-status-name--failed' : ''}`}>{label}</div>
-            <div className="tb-status-eta">{state === 'failed' ? 'Credits returned' : eta}</div>
+            <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
+            {failed
+              // The raw provider error is an admin's, behind Details; never on the page.
+              ? isAdmin && step?.error_detail && <button type="button" className="tb-chip tb-error-details" onClick={() => setSheet('details')}>Details</button>
+              : <div className="tb-status-eta">{eta}</div>}
           </div>
-          {state !== 'failed' && (
+          {failed && <div className="tb-failed-line" role="status">{failedLine(step)}</div>}
+          {!failed && (
             // Keyed by the step's run, so a new step starts its bar from empty
             // instead of sliding backwards from the last one.
             <ProgressBar
@@ -205,20 +210,34 @@ export function HeroScreen(props: HeroScreenProps) {
               valueText={progress ? `${Math.floor(progress.pct)}%${eta ? `, ${eta}` : ''}` : undefined}
             />
           )}
-          {state === 'failed' && step?.error_message && isAdmin && <div className="tb-muted tb-error-detail">{step.error_message}</div>}
         </div>
       </>
     );
-    bar = state === 'failed' && owns ? (
+    // Primary last (brand book). A picture the safety system refused will be
+    // refused again, so there the way on is another picture; Try again stays
+    // as the secondary. Everything else is worth trying again.
+    const blocked = step?.error_code === 'safety_blocked';
+    const buy = <button type="button" className={`tb-btn ${blocked ? 'tb-btn--secondary' : 'tb-btn--primary'} tb-btn--full`} onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>;
+    const again = short ? buy : (
+      <button type="button" className={`tb-btn ${blocked ? 'tb-btn--secondary' : 'tb-btn--primary'} tb-btn--full tb-btn--with-trail tb-try-again`} disabled={busy} onClick={tryAgain}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="redo" />Try again</span>
+        <span className="tb-btn-trail"><Icon name="coin" size={18} />{retryCost} credits</span>
+      </button>
+    );
+    bar = failed && owns ? (
       <>
         {short && <div className="tb-bar-note">You need {retryCost} credits. You have {creditBalance}.</div>}
-        {short
-          ? <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>
-          : <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail tb-try-again" disabled={busy} onClick={tryAgain}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="redo" />Try again</span>
-              <span className="tb-btn-trail"><Icon name="coin" size={18} />{retryCost} credits</span>
-            </button>}
-        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>Back to my heroes</button>
+        {blocked ? (
+          <>
+            {again}
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-use-another" onClick={props.onMakeOwn}><Icon name="image" />Use another picture</button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>Back to my heroes</button>
+            {again}
+          </>
+        )}
       </>
     ) : (
       <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>{backLabel}</button>
@@ -257,6 +276,7 @@ export function HeroScreen(props: HeroScreenProps) {
           </div>
         </Sheet>
       )}
+      {sheet === 'details' && step && <ErrorDetailsSheet step={step} onClose={() => setSheet(null)} />}
       {sheet === 'rename' && <RenameSheet creation={creation} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}
       {sheet === 'delete' && (
         <Dialog label={`Delete ${name}?`} onClose={() => setSheet(null)}>
@@ -269,6 +289,34 @@ export function HeroScreen(props: HeroScreenProps) {
         </Dialog>
       )}
     </div>
+  );
+}
+
+/** Admins only: what the provider really said, and the request ID to quote to its support. */
+function ErrorDetailsSheet({ step, onClose }: { step: CreationStepResponse; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const text = [
+    `Step: ${step.step_name}`,
+    `Code: ${step.error_code ?? 'unknown'}`,
+    ...(step.error_request_id ? [`Request ID: ${step.error_request_id}`] : []),
+    '',
+    step.error_detail ?? '',
+  ].join('\n');
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setCopied(true); } catch { /* the text is selectable */ }
+  };
+  return (
+    <Sheet title="Details" onClose={onClose} className="tb-error-sheet">
+      <dl className="tb-error-facts">
+        <dt>Step</dt><dd>{step.step_name}</dd>
+        <dt>Code</dt><dd>{step.error_code ?? 'unknown'}</dd>
+        {step.error_request_id && <><dt>Request ID</dt><dd className="tb-error-id">{step.error_request_id}</dd></>}
+      </dl>
+      <pre className="tb-error-raw">{step.error_detail}</pre>
+      <div className="tb-stack tb-error-sheet-bar">
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={copy}><Icon name={copied ? 'check' : 'copy'} />{copied ? 'Copied' : 'Copy details'}</button>
+      </div>
+    </Sheet>
   );
 }
 

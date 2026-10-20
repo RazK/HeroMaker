@@ -34,9 +34,11 @@ from app.services import meshy
 from app.services import vrm_conversion
 from app.services import result_cache
 from app.services import hero_naming
+from app.services import input_kind
 from app.services import demo_library
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
+from app.services import step_errors
 from app.config import pricing
 from app.services import usage as usage_service
 from app.services.usage import UsageContext
@@ -84,7 +86,7 @@ def _reset_step(step: CreationStep) -> None:
     step.status = "pending"
     step.started_at = None
     step.completed_at = None
-    step.error_message = None
+    step_errors.clear(step)
     step.estimated_progress = None
     step.estimated_completion_time = None
     step.metadata_json = {}  # Clear step-specific metadata
@@ -485,10 +487,17 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
     creation = db.query(Creation).filter(Creation.id == creation_id).first()
     style = openai_service.resolve_style(creation.style if creation else None)
 
+    # A photo of a real person is painted as a flattering likeness, a drawing
+    # exactly as before. Decided once per hero (never raises; unsure means
+    # drawing), and before the cache lookup: it is part of the prompt.
+    kind = await loop.run_in_executor(
+        None, lambda: input_kind.kind_for_creation(creation_id, user_id)
+    )
+
     # The cache key includes the style's prompt: the same drawing in another
     # style is a miss, never the other style's painting.
     cache = await _cache_begin(
-        "openai_render", creation_id, user_id, openai_service.render_cache_version(style)
+        "openai_render", creation_id, user_id, openai_service.render_cache_version(style, kind)
     )
     if cache.hit:
         return
@@ -507,11 +516,12 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
                     usage=UsageContext.for_step(creation_id, user_id, "openai_render"),
                     style=style,
                     report=framing,
+                    input_kind=kind,
                 )
             )
 
     step = _get_creation_step(creation_id, "openai_render", db)
-    step.metadata_json = {**(step.metadata_json or {}), "framing": framing}
+    step.metadata_json = {**(step.metadata_json or {}), "framing": framing, "input_kind": kind}
     flag_modified(step, "metadata_json")
     db.commit()
 
@@ -702,8 +712,7 @@ async def execute_step(
     # Validate input file exists
     input_filename = step_config.get("input")
     if input_filename and not storage.file_exists(user_id, creation_id, input_filename):
-        step.status = "failed"
-        step.error_message = f"Input file not found: {input_filename}"
+        step_errors.mark_failed(step, f"Input file not found: {input_filename}")
         db.commit()
         raise ValueError(f"Input file not found: {input_filename}")
     
@@ -714,15 +723,13 @@ async def execute_step(
             CreationStep.step_name == "meshy_3d"
         ).first()
         if not meshy_3d_step:
-            step.status = "failed"
-            step.error_message = "meshy_3d step not found"
+            step_errors.mark_failed(step, "meshy_3d step not found")
             db.commit()
             raise ValueError("meshy_3d step not found")
         
         task_id = (meshy_3d_step.metadata_json or {}).get("meshy_3d_task_id")
         if not task_id:
-            step.status = "failed"
-            step.error_message = "meshy_3d step must be completed first"
+            step_errors.mark_failed(step, "meshy_3d step must be completed first")
             db.commit()
             raise ValueError("meshy_3d step must be completed first")
     
@@ -731,8 +738,10 @@ async def execute_step(
     if step_cost > 0:
         balance = get_balance(user_id, db)
         if balance < step_cost:
-            step.status = "failed"
-            step.error_message = f"Insufficient credits. Need {step_cost}, have {balance}"
+            step_errors.mark_failed(
+                step, f"Insufficient credits. Need {step_cost}, have {balance}",
+                code=step_errors.NOT_ENOUGH_CREDITS,
+            )
             db.commit()
             raise ValueError(f"Insufficient credits. Need {step_cost}, have {balance}")
         # creation_id on the ledger row is what lets the margin report join
@@ -748,7 +757,7 @@ async def execute_step(
     if step.status != "processing" or not step.started_at:
         step.started_at = datetime.utcnow()
         step.status = "processing"
-        step.error_message = None
+        step_errors.clear(step)
         step.estimated_progress = None
         if step_config.get("estimated_duration"):
             step.estimated_completion_time = step.started_at + timedelta(
@@ -828,17 +837,21 @@ async def execute_step(
         # Mark as failed (unless already cancelled)
         db.refresh(step)
         if not (step.status == "failed" and step.error_message == "Step cancelled by user"):
-            step.status = "failed"
-            step.error_message = str(e)
+            # The raw text is for admins; the user is told what its code means
+            # (app/services/step_errors.py).
+            code = step_errors.mark_failed(step, e)
             db.commit()
-            logger.error(f"[{creation_id}] Step {step_name} failed: {str(e)}", exc_info=True)
+            logger.error(f"[{creation_id}] Step {step_name} failed ({code}): {str(e)}", exc_info=True)
             # We charged for this step above, before calling the provider. The
             # provider did not deliver, so give the credits back. A user cancel
             # is deliberately excluded - it is the branch we are inside - since
             # the provider call was already made and already cost us.
-            refund_last_step_charge(
+            refund = refund_last_step_charge(
                 db, creation_id, step_name, note=f"{step_name} failed: {e}"
             )
+            if refund is not None:
+                step_errors.note_refund(step, refund)
+                db.commit()
         raise
 
 

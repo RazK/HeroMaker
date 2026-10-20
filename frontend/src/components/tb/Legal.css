@@ -3,3 +3,5 @@
 .tb-legal h2 { font-family: var(--tb-font-display); font-weight: 400; font-size: 22px; margin: var(--tb-space) 0 4px; }
 .tb-legal p, .tb-legal li { font-size: 16px; line-height: 1.55; color: var(--tb-ink); margin: 0 0 8px; }
 .tb-legal ul { margin: 0; padding-inline-start: 20px; }
+/* Another legal page, one tap away: a chip, never an underlined link. */
+.tb-legal-chip { align-self: flex-start; height: 44px; margin-block: 4px 8px; }

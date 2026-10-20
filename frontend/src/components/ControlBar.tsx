@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { playUrl } from '../config/play';
 import { CreationResponse, api, ApiError } from '../api/client';
+import { Icon } from './tb/Icon';
 import './ControlBar.css';
 
 interface ControlBarProps {
@@ -125,9 +126,9 @@ export function ControlBar({ creation, isLoggedIn, canDownload, onDelete, onCrea
         {/* Success message when VRM ready */}
         {isVrmReady && !error && (
           <div className="control-bar-success">
-            <span className="control-bar-success-icon">🎉</span>
+            <span className="control-bar-success-icon"><Icon name="check" /></span>
             <span>Your hero is ready!</span>
-            <a className="control-bar-play" href={playUrl(creation)}>▶ Play with your hero</a>
+            <a className="tb-btn tb-btn--primary tb-btn--sm control-bar-play" href={playUrl(creation)}><Icon name="play" />Play</a>
           </div>
         )}
 

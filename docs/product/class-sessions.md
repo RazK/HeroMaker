@@ -65,21 +65,24 @@ What exists:
 
 ## 2. How someone becomes a teacher
 
-- **At sign-up**, with an "I'm a teacher" switch on the sign-up sheet.
-- **Later**, from the account sheet: **Run a class**. It turns teacher mode on
-  and opens the My classes tab. Anyone can; there is nothing to verify, because
-  a teacher pays like everyone else (no free class, section 5).
-- **Creating a class** also turns it on.
+The full structure, and why, is in
+[creator-and-group-leader.md](creator-and-group-leader.md).
 
-A teacher's classes are a **tab of the gallery**, not a separate home: the chips
-read Editors' choice · My heroes · **My classes** (admins also keep All heroes
-and Failed), under the same header, one tap apart. The gallery remembers the
-last tab, and a teacher with a class running right now lands on My classes,
-that class pinned first with a big **Open class**. Back from a class returns to
-the tab with its scroll kept; the logo always returns to the gallery on the tab
-last used. The account sheet is not navigation: a teacher has no row there, and
-"Stop showing My classes", at the foot of the tab, turns teacher mode off. The
-account, credits and Buy credits are the same as everyone else's.
+- **From the account sheet:** **I run classes**, a switch. On, the home gets
+  its switch and lands on My classes. Anyone can; there is nothing to verify,
+  because a teacher pays like everyone else (no free class, section 5).
+- **Signed out:** **Run a class** under the intro opens sign-up; the new
+  account lands on My classes with the switch on. The sign-up sheet itself
+  asks nothing about teaching: parents keeping a hero sign up there too.
+
+A teacher's home has **two places**, Gallery and **My classes**, on a switch
+under the header (not a chip). The home remembers the place, and the chip
+inside Gallery, apart. A teacher with a class running right now lands on My
+classes, that class pinned first with a big **Open class**; on Gallery the
+same class is a sun strip under the switch, one tap to it. Back from a class
+returns to My classes with its scroll kept; the logo returns home, in the
+place last used. **I run classes**, off, takes the switch away and keeps the
+classes. The account, credits and Buy credits are the same as everyone else's.
 
 ## 3. User stories
 
@@ -105,7 +108,7 @@ account, credits and Buy credits are the same as everyone else's.
 ## 4. Flows
 
 ### Teacher, in advance (parent voice: this is money)
-1. The gallery's **My classes** tab. Each class card shows its name, "12 of 28
+1. **My classes**, on the home's switch: the school card, then the classes. Each class card shows its name, "12 of 28
    heroes", and a shelf of four small gallery tiles: its first finished heroes
    (drawing cross-fading to the hero) and an empty seat for each still to come;
    a class with none yet shows one plate, "No heroes yet". A class running now

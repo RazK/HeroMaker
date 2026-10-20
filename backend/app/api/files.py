@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Cookie
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from pathlib import Path
@@ -16,6 +16,7 @@ from app.config.settings import FILES_ROOT
 from app.utils.storage import get_storage, LocalFileStorage, THUMB_PREFIX, OPT_PREFIX, optimized_name
 from app.utils.gltf_optimize import optimize_glb
 from app.services.auth import get_current_user_required
+from app.services import moderation
 from app.models import User, Creation
 from app.database import get_db
 
@@ -311,7 +312,8 @@ async def download_file(
 
 @router.get("/{user_id}/{creation_id}/{filename:path}")
 async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[str] = None,
-                     if_none_match: Optional[str] = Header(None)):
+                     if_none_match: Optional[str] = Header(None),
+                     admin_pass: Optional[str] = Cookie(None, alias=moderation.FILE_PASS_COOKIE)):
     """
     Serve a file for previews. Public endpoint.
     For local storage, returns the file directly.
@@ -333,6 +335,10 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
     # Basic security check
     if ".." in filename or ".." in user_id or ".." in creation_id:
         raise HTTPException(status_code=403, detail="Invalid path")
+
+    # A hero an admin removed is not public: only an admin's file pass sees it.
+    if await run_in_threadpool(moderation.file_hidden, creation_id, admin_pass):
+        raise HTTPException(status_code=404, detail="File not found")
 
     storage = get_storage()
 

@@ -1,4 +1,5 @@
 import { ReactNode, RefObject, useEffect, useRef, useState } from 'react';
+import { DrawingViewer } from './DrawingViewer';
 import { Icon, IconName } from './Icon';
 import '../../styles/toybox.css';
 
@@ -42,6 +43,19 @@ export function SheetRow({ icon, label, trail, danger, onClick, href }: { icon: 
   return href
     ? <a className={cls} href={href}>{body}</a>
     : <button type="button" className={cls} onClick={onClick}>{body}</button>;
+}
+
+/**
+ * A setting in a sheet: a row whose trailing edge is an on/off switch. The
+ * whole row is the tap. `busy` holds it while the change is saved.
+ */
+export function SheetToggle({ icon, label, on, busy, onChange, className = '' }: { icon: IconName; label: string; on: boolean; busy?: boolean; onChange: (on: boolean) => void; className?: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} className={`tb-sheet-row tb-sheet-toggle ${className}`.trim()}
+      disabled={busy} onClick={() => onChange(!on)}>
+      <Icon name={icon} /><span>{label}</span><span className="tb-toggle" aria-hidden="true" />
+    </button>
+  );
 }
 
 /** The round button used on both edges of every header. */
@@ -131,24 +145,63 @@ export function useFitScreen() {
  * The kid's drawing as a small tilted polaroid in the stage's corner, with the
  * artist's first name and age under it. The caption is one line that never
  * leaves the card: a long first name ellipsizes, the age always shows, and
- * the full name is the tooltip. As a button (the ready hero) it opens How it
- * was made.
+ * the full name is the tooltip.
+ *
+ * Given the full-size `drawing` (original.jpg), it is a button with an enlarge
+ * mark: one tap opens the drawing full screen (DrawingViewer), with a toggle
+ * to the painted `hero` (rendered.png) when there is one. `src` stays the
+ * thumbnail the small card shows.
+ *
+ * The photo takes the drawing's shape, so there is no empty white beside a
+ * tall drawing (Raz): the area of today's 84 x 84 square, at most 96 on the
+ * long side and at least 56 on the short one (only a very long or very wide
+ * drawing leaves a sliver of margin; nothing is ever cropped). The picture
+ * remounts once sized, so its load event (useClearOfPolaroid listens for it)
+ * comes with the card at its final size.
  */
-export function Polaroid({ src, artist, age, onClick, label }: { src: string; artist?: string | null; age?: number | null; onClick?: () => void; label?: string }) {
+export function Polaroid({ src, artist, age, drawing, hero }: { src: string; artist?: string | null; age?: number | null; drawing?: string; hero?: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [shape, setShape] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => setShape(null), [src]);
+  const measure = (img: HTMLImageElement) => {
+    const ar = img.naturalWidth / img.naturalHeight;
+    if (shape || !(ar > 0)) return;
+    const AREA = 84 * 84, LONG = 96, SHORT = 56;
+    let w = Math.sqrt(AREA * ar);
+    let h = w / ar;
+    if (w > LONG) { w = LONG; h = LONG / ar; }
+    if (h > LONG) { h = LONG; w = LONG * ar; }
+    setShape({ w: Math.round(Math.max(SHORT, w)), h: Math.round(Math.max(SHORT, h)) });
+  };
+  const size = shape ? { ['--tb-pol-w' as string]: `${shape.w}px`, ['--tb-pol-h' as string]: `${shape.h}px` } : undefined;
   const full = artist?.trim() || '';
   const first = full.split(/\s+/)[0];
   const body = (
     <>
-      <img src={src} alt="The drawing" />
+      <img key={shape ? 'sized' : 'square'} src={src} alt="The drawing" onLoad={(e) => measure(e.currentTarget)} />
       <span className="tb-polaroid-caption" dir="auto" title={full || undefined}>
         <span className="tb-polaroid-name">{first || 'The drawing'}</span>
         {first && age ? <span className="tb-polaroid-age">, {age}</span> : null}
       </span>
     </>
   );
-  return onClick
-    ? <button type="button" className="tb-polaroid tb-polaroid--button" onClick={onClick} aria-label={label}>{body}</button>
-    : <div className="tb-polaroid">{body}</div>;
+  if (!drawing) return <div className="tb-polaroid" style={size}>{body}</div>;
+  return (
+    <>
+      <button
+        type="button"
+        style={size}
+        className="tb-polaroid tb-polaroid--button"
+        aria-label={first ? `See ${first}’s drawing` : 'See the drawing'}
+        aria-haspopup="dialog"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+      >
+        {body}
+        <span className="tb-polaroid-zoom" aria-hidden="true"><Icon name="expand" size={14} /></span>
+      </button>
+      {open && <DrawingViewer drawing={drawing} hero={hero} artist={full} age={age} onClose={() => setOpen(false)} />}
+    </>
+  );
 }
 
 /**

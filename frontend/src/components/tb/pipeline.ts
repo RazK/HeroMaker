@@ -15,6 +15,16 @@ export const STEP_UI: Record<string, { label: string; short: string; icon: IconN
   convert_vrm: { label: 'Packing the hero', short: 'Packing', icon: 'box' },
 };
 
+/** "Painting failed": the step's short name, never its running label ("Painting it"). */
+export function failedLabel(step: CreationStepResponse | undefined): string {
+  return step ? `${STEP_UI[step.step_name]?.short ?? 'Making'} failed` : 'Something went wrong';
+}
+
+/** The one line under it: the server's safe line, which never carries a provider's text. */
+export function failedLine(step: CreationStepResponse | undefined): string {
+  return step?.error_user || 'Something went wrong. Try again.';
+}
+
 export type HeroState = 'ready' | 'making' | 'failed' | 'idle';
 
 export function heroState(c: CreationResponse): HeroState {

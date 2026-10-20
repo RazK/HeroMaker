@@ -175,7 +175,7 @@ export function ProfileModal({ isOpen, onClose, user, onProfileUpdated }: Profil
           <div className="profile-modal-password-section">
             <button
               type="button"
-              className="profile-modal-password-toggle"
+              className="tb-btn tb-btn--secondary tb-btn--sm profile-modal-password-toggle"
               onClick={() => setShowPasswordChange(!showPasswordChange)}
             >
               {showPasswordChange ? 'Cancel' : 'Change Password'}

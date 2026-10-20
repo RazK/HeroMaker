@@ -5,8 +5,18 @@ import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState, stepProgress } from './pipeline';
 import './Gallery.css';
 
-/** The gallery's tabs. 'classes' is a teacher's classes, in the same screen. */
-export type Filter = 'featured' | 'all' | 'mine' | 'classes' | 'failed';
+/** The gallery's tabs: the chips. */
+export type Filter = 'featured' | 'all' | 'mine' | 'failed';
+
+/**
+ * A teacher's home has two places, picked by the switch under the header:
+ * the gallery (its chips under it) and My classes. Everyone else has only
+ * the gallery, and no switch.
+ */
+export type Section = 'gallery' | 'classes';
+
+/** Where a list was left: a gallery tab, or My classes. */
+type Place = Filter | 'classes';
 
 /** How long an unstarred hero stays in Editors' choice before it leaves, in ms. */
 const LEAVE_MS = 700;
@@ -25,12 +35,15 @@ const EAGER_TILES = 6;
  */
 const memory = {
   lists: new Map<string, CreationResponse[]>(),
-  scroll: new Map<Filter, number>(),
+  scroll: new Map<Place, number>(),
 };
 
-/** The last tab is also kept across visits, in this browser only. */
+/** The last tab and the last place are also kept across visits, in this
+ * browser only, each on its own: coming back to the gallery from My classes
+ * finds the chip that was on. */
 const TAB_KEY = 'heromaker.gallery.tab';
-const TABS: Filter[] = ['featured', 'all', 'mine', 'classes', 'failed'];
+const SECTION_KEY = 'heromaker.home.section';
+const TABS: Filter[] = ['featured', 'all', 'mine', 'failed'];
 
 /** The tab the viewer last chose (Editors' choice the first time). */
 export function rememberedTab(): Filter {
@@ -45,11 +58,34 @@ export function rememberTab(tab: Filter) {
   try { localStorage.setItem(TAB_KEY, tab); } catch { /* fine */ }
 }
 
+/** The place a teacher last chose. My classes was a tab before it was a
+ * place, so a browser that remembers that tab opens there too. */
+export function rememberedSection(): Section {
+  try {
+    const saved = localStorage.getItem(SECTION_KEY);
+    if (saved === 'gallery' || saved === 'classes') return saved;
+    if (localStorage.getItem(TAB_KEY) === 'classes') return 'classes';
+  } catch { /* fine */ }
+  return 'gallery';
+}
+
+/** Whether this browser has seen a teacher's switch: shown before the
+ * account is read, so it does not pop in under the header a moment later. */
+export function hadSwitch(): boolean {
+  try { return localStorage.getItem(SECTION_KEY) !== null || localStorage.getItem(TAB_KEY) === 'classes'; } catch { return false; }
+}
+
+/** `null` forgets it (teacher mode is off). */
+export function rememberSection(section: Section | null) {
+  try {
+    if (section) localStorage.setItem(SECTION_KEY, section); else localStorage.removeItem(SECTION_KEY);
+  } catch { /* fine */ }
+}
+
 /** The tabs this viewer has, in the order the chips show them. */
-export function galleryTabs({ isLoggedIn, isAdmin, isTeacher }: { isLoggedIn: boolean; isAdmin: boolean; isTeacher: boolean }): Filter[] {
+export function galleryTabs({ isLoggedIn, isAdmin }: { isLoggedIn: boolean; isAdmin: boolean }): Filter[] {
   return TABS.filter((t) => t === 'featured'
     || (t === 'mine' && isLoggedIn)
-    || (t === 'classes' && isLoggedIn && isTeacher)
     || ((t === 'all' || t === 'failed') && isAdmin));
 }
 
@@ -62,7 +98,7 @@ export function resetGalleryScroll() {
 export function forgetGallery() {
   memory.lists.clear();
   memory.scroll.clear();
-  try { localStorage.removeItem(TAB_KEY); } catch { /* fine */ }
+  try { localStorage.removeItem(TAB_KEY); localStorage.removeItem(SECTION_KEY); } catch { /* fine */ }
 }
 
 /** Editors' choice is the same for everyone; every other list is the viewer's own. */
@@ -75,13 +111,15 @@ interface GalleryProps {
   isAdmin: boolean;
   userId?: string;
   onSelect: (c: CreationResponse) => void;
-  /** The tab shown. App owns it (the bar under the gallery follows it) and
-   * remembers it (rememberedTab); `tabs` are the chips offered. */
+  /** The tab shown. App owns it and remembers it (rememberedTab); `tabs`
+   * are the chips offered. */
   filter: Filter;
   tabs: Filter[];
   onFilter: (f: Filter) => void;
+  /** The place shown (App's switch picks it; the bar follows it). */
+  section: Section;
   /** What My classes shows (a teacher's classes, class/MyClasses.tsx), and
-   * whether it has loaded, so the tab's scroll is restored onto its cards. */
+   * whether it has loaded, so its scroll is restored onto its cards. */
   classes?: { content: ReactNode; ready: boolean };
 }
 
@@ -90,10 +128,12 @@ interface GalleryProps {
  * Editors' choice: the heroes an admin starred. "Mine" also shows the heroes
  * still being made and the ones that failed, because those are the owner's
  * to finish. Admins get a star on every tile to curate Editors' choice.
- * A teacher's classes are one more tab, My classes: one tap away, same screen.
+ * A teacher's classes are the other place, My classes: the switch above the
+ * screen picks it, and then it is shown here, without the chips.
  */
-export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: setFilter, classes }: GalleryProps) {
-  const isClasses = filter === 'classes';
+export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: setFilter, section, classes }: GalleryProps) {
+  const isClasses = section === 'classes';
+  const place: Place = isClasses ? 'classes' : filter;
   const key = listKey(filter, userId);
   // The list this gallery holds, and which filter+viewer it is for. Until the
   // first answer for a key arrives, the remembered list for it stands in.
@@ -135,14 +175,14 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
   // the first paint, so it never visibly jumps. Until then the scroll is not
   // recorded: a short list's clamped scroll must not overwrite the memory.
   const ready = isClasses ? !!classes?.ready : !!creations;
-  const restoredFor = useRef<Filter | null>(null);
+  const restoredFor = useRef<Place | null>(null);
   useLayoutEffect(() => {
     const list = rootRef.current?.closest<HTMLElement>('.tb-screen-body');
-    if (!list || restoredFor.current === filter) return;
+    if (!list || restoredFor.current === place) return;
     if (!ready) { restoredFor.current = null; return; }
-    restoredFor.current = filter;
-    list.scrollTop = memory.scroll.get(filter) ?? 0;
-  }, [filter, ready]);
+    restoredFor.current = place;
+    list.scrollTop = memory.scroll.get(place) ?? 0;
+  }, [place, ready]);
   useEffect(() => {
     const list = rootRef.current?.closest<HTMLElement>('.tb-screen-body');
     if (!list) return;
@@ -204,11 +244,11 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
     })
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-  // "All heroes" and "Failed" are admin views, My classes a teacher's (see
-  // galleryTabs). Signed out there is only Editors' choice, and one lone chip
-  // is no choice: no chips at all.
+  // "All heroes" and "Failed" are admin views (see galleryTabs). Signed out
+  // there is only Editors' choice, and one lone chip is no choice: no chips
+  // at all. My classes has none either: they choose among heroes.
   const chipsRef = useRef<HTMLDivElement>(null);
-  // The chosen chip in view: an admin who teaches has five, and the row scrolls.
+  // The chosen chip in view: an admin has four, and the row can scroll.
   // (Only the row moves: scrollIntoView would also scroll the list.)
   useLayoutEffect(() => {
     const row = chipsRef.current;
@@ -217,11 +257,11 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
     const r = row.getBoundingClientRect();
     const c = on.getBoundingClientRect();
     if (c.left < r.left || c.right > r.right) row.scrollLeft += c.left + c.width / 2 - (r.left + r.width / 2);
-  }, [filter, tabs.length]);
+  }, [filter, tabs.length, isClasses]);
 
   return (
     <div className="tb-gallery creation-gallery" ref={rootRef}>
-      {tabs.length > 1 && (
+      {tabs.length > 1 && !isClasses && (
         <div className="tb-gallery-chips" role="tablist" aria-label="Show" ref={chipsRef}>
           {tabs.map((t) => (
             <button key={t} type="button" role="tab" aria-selected={filter === t} className={`tb-chip tb-chip-${t}${filter === t ? ' tb-chip--on' : ''}`} onClick={() => setFilter(t)}>{CHIP_LABEL[t]}</button>
@@ -232,15 +272,25 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
       {isClasses ? classes?.content : <>
 
       {starError && <div className="tb-gallery-note" role="status">Could not save that. Try again.</div>}
-      {error && <div className="tb-gallery-empty">Could not load heroes. <button type="button" className="tb-link" onClick={() => setReload((n) => n + 1)}>Try again</button></div>}
-      {!creations && !error && <TileGrid>{Array.from({ length: 6 }, (_, i) => <SkeletonTile key={i} index={i} />)}</TileGrid>}
-      {creations && shown.length === 0 && (
+      {error && (
         <div className="tb-gallery-empty">
-          {filter === 'mine' ? 'No heroes yet. Make your first one.'
-            : filter === 'featured' ? <>No picks yet. Check back soon!{isAdmin && <> <button type="button" className="tb-link" onClick={() => setFilter('all')}>All heroes</button></>}</>
-            : 'No heroes here yet.'}
+          <div>Could not load heroes.</div>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setReload((n) => n + 1)}><Icon name="redo" size={18} />Try again</button>
         </div>
       )}
+      {!creations && !error && <TileGrid>{Array.from({ length: 6 }, (_, i) => <SkeletonTile key={i} index={i} />)}</TileGrid>}
+      {creations && shown.length === 0 && (filter === 'mine' ? (
+        // One picture, one title, one line; Make a hero is in the bar below.
+        <div className="tb-empty">
+          <div className="tb-empty-art tb-plate-2"><Icon name="brush" /></div>
+          <div className="tb-h2">Your heroes live here</div>
+          <div className="tb-muted">Snap a drawing to make the first one.</div>
+        </div>
+      ) : (
+        <div className="tb-gallery-empty">
+          {filter === 'featured' ? 'No picks yet. Check back soon!' : 'No heroes here yet.'}
+        </div>
+      ))}
       {creations && shown.length > 0 && (
         <TileGrid>
           {shown.map((c, i) => (
@@ -262,7 +312,6 @@ const CHIP_LABEL: Record<Filter, string> = {
   featured: 'Editors’ choice',
   all: 'All heroes',
   mine: 'My heroes',
-  classes: 'My classes',
   failed: 'Failed',
 };
 

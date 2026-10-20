@@ -58,13 +58,26 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 
 **Hero tiles.** One tile for every hero shown as a card (`components/tb/HeroTile.tsx`): the gallery, the class page's students, the My classes shelf. Same plate, polaroid and size, in one grid: 2 columns on a phone, 3 from 680px of room, 4 from 1060px. The caption is always two lines, a sibling of "Speckle Sally / by Raz, 11": a hero being made says "Sculpting · 45%" on the second line, a child still drawing "Drawing…". No progress bar inside the caption. A tile with no caption (the shelf) centres its art on the plate.
 
+**Switch and chips: two levels, never one row.**
+- A screen with more than one *place* (a teacher's home: Gallery, My classes) gets the **switch**, `Segmented` in `components/tb/Segmented.tsx`: directly under the header, above everything else, full width (560px max, centred on a desktop). Equal segments, each 48px tall; a sunken `--tb-track` pill, the chosen segment ink with white text, in the display font, an icon before each label. It does not scroll away.
+- **Chips** choose *within* a place (Editors' choice, My heroes, and for admins All heroes and Failed). They sit under the switch, and only in the place they filter: My classes has none.
+- A place is never a chip. A fourth chip is cropped at the edge of a phone and missed ("not the fourth option that gets cropped in the filters").
+- Something happening now in the other place gets a **strip** under the switch, not a badge: a class in session is a sun strip on Gallery (Live, its name, the time left), the whole strip one tap to it.
+- The switch shows only for people with two places ("I run classes" on, in the account sheet). Everyone else sees no switch at all.
+- The bottom bar's primary follows the place: Make a hero under Gallery, New class under My classes.
+- The place and the chip are remembered apart: back on Gallery finds the chip that was on.
+
+**Account sheet.** Three groups, two dividers, no headings: you (Buy credits, Redeem a coupon, Edit profile); tools (I run classes, a toggle row; Admin for admins); the session (Sign out, Delete account). It holds settings, never navigation.
+
+**Header card.** The top of a place may carry one card naming what the place belongs to (My classes: the school). A pastel `--tb-plate-*` card, `--tb-radius-card`, `--tb-shadow-card`: a round white badge with the icon at the start, the name in the display font, one body line under it with only the parts that are filled in, a quiet white count pill, and the round pencil (`.tb-nav`) at the end, which opens the editor. The whole card is the same tap. Nothing in it is underlined. With nothing to name yet, the card invites: "Add your school". Text wraps; it never clips at 360px.
+
 **Spacing.** `--tb-space` is the visible gap above and below the header buttons, header to content, between blocks, content to bar, below the last button, in sheets. Padding under a 3D button adds its depth back. 2px `--tb-line` hairline between header/bar and scrolling content. The bar adds `env(safe-area-inset-bottom)`.
 
 ## Images
 
 - Never crop: `object-fit: contain`, always.
 - Heroes are transparent and stand on a plate or a sun.
-- The drawing is a polaroid (white frame, -6deg, artist's name and age).
+- The drawing is a polaroid (white frame, -6deg, artist's name and age). Its photo takes the drawing's shape: no empty white beside a tall drawing. On a stage, one tap (enlarge mark in its corner) opens the drawing full screen, with a Drawing | Hero toggle; Back closes it.
 - Thumbnail first, full size swapped in when loaded.
 - Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
 
@@ -75,6 +88,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - **Kid for play** (making, playing): short, playful, "!" allowed. "Itai's hero is ready", "STUNT! NEW!"
 - **Parent for money** (buying, account, errors): calm, plain, precise. "Credits returned", "This can't be undone."
 - Our errors never blame the user: "Payments are unavailable right now."
+- A failed step reads "Painting failed" and one line chosen by its error code (`backend/app/services/step_errors.py`): "We couldn't paint this picture. Credits returned. Try another drawing or photo." A provider's own words never reach a user; an admin reads them behind a quiet Details chip.
 - Words: hero, drawing, gallery, make a hero, play, credits.
 
 ## Icons
@@ -86,6 +100,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 ## Interaction, feedback, motion
 
 - Tap = instant action. No queues, no "build a sequence then press play".
+- **No underlined text links.** An action is a button, a row (a tappable card or a `SheetRow`) or a sheet, never a line of underlined text. A card that opens something is the whole card; its ⋯ sits beside it, not inside it.
 - Only spending money and deleting confirm first (`Dialog`).
 - No wait over 300ms shows nothing: thumbnail or placeholder first, a progress ring with %, the painting dimmed under the ring for 3D, skeleton tiles in the gallery.
 - Prefetch what the next step needs. Serve `opt_` GLBs and thumbnails.
@@ -118,6 +133,9 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 | One title, one short line | A title, a subtitle and a paragraph |
 | Line icons | Emoji |
 | `margin-inline-start` | `margin-left` |
+| A button, row, chip or toggle for every action (OK in a notice is a small secondary button) | An underlined text link |
+| A place on the switch under the header | A place as the fourth chip, cropped off the edge |
+| The school on a plate card with a pencil | An underlined link for a name people care about |
 
 ## Rejected, and why
 
@@ -129,6 +147,9 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Unlabelled layers icon** for How it was made: "not clear enough". Now a labelled pill.
 - **Empty 3D loading card.** "Empty screen for 10 seconds WTF?!" Now a ring over the dimmed painting.
 - **Queue-then-play game.** "as soon as an animation is clicked just play it".
+- **Underlined text links.** "No underlined links." Every action is a button, a row, a chip or a toggle; `.tb-link` is gone.
+- **My classes as a chip.** The fourth chip on a phone, cut off at the edge: "I could miss it. It needs a higher level in the hierarchy." Now the switch.
+- **The school as a text link.** Grape, underlined: "looks like a link in a document. Doesn't give me a good feeling about my school." Now a header card.
 
 Mock-ups of each are in the artifact's "Rejected" card.
 
@@ -145,7 +166,7 @@ Mock-ups of each are in the artifact's "Rejected" card.
 
 ## Known debt (do not copy)
 
-- Primary above secondary in the failed bar, New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
+- Primary above secondary in the New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
 - Hero screen being made or failed, at 844 x 390: the sticky bar covers the stage. At 1280 x 800 it stays a 560px column. (A ready hero is fixed: stage beside moves and bar sideways, a 720px column with one row of 8 moves on a desktop.)
 - Signed-out gallery has a 25-word paragraph under the headline.
 - Some paintings (`rendered.png`) are opaque and hide the sun.

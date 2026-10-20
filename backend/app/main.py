@@ -11,6 +11,7 @@ from app.migrations.registry import run_migrations
 from app.utils.storage import get_storage
 from app.services.task_manager import TaskManager, set_task_manager, get_task_manager
 from app.models import CreationStep
+from app.services import step_errors
 import os
 
 # Configure structured logging
@@ -91,8 +92,12 @@ async def lifespan(app: FastAPI):
         if stuck_steps:
             logger.warning(f"Found {len(stuck_steps)} stuck steps from previous session")
             for step in stuck_steps:
-                step.status = "failed"
-                step.error_message = "Step was processing when server restarted. Please retry."
+                # Not refunded here (it never was): the user is told
+                # "Something went wrong. Try again." without "Credits returned".
+                step_errors.mark_failed(
+                    step, "Step was processing when server restarted. Please retry.",
+                    code=step_errors.UNKNOWN,
+                )
                 logger.info(f"Marked step {step.creation_id}:{step.step_name} as failed (server restart)")
             
             db.commit()

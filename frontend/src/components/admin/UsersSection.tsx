@@ -2,9 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, AdminUserResponse, ApiError } from '../../api/client';
 import { Icon } from '../tb/Icon';
 import { Dialog, NavButton, Sheet, SheetRow } from '../tb/parts';
+import { CreditsSheet } from './CreditsSheet';
 import { shortDate } from './format';
 
-export function UsersSection({ currentUserId }: { currentUserId: string }) {
+/** Does this user match the search: name, email or username, any part, any case. */
+export function matchesUser(u: Pick<AdminUserResponse, 'username' | 'email' | 'name'>, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [u.name, u.email, u.username].some((f) => (f ?? '').toLowerCase().includes(q));
+}
+
+export function UsersSection({ currentUserId, onOpen }: { currentUserId: string; onOpen: (userId: string) => void }) {
   const [users, setUsers] = useState<AdminUserResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -43,25 +51,20 @@ export function UsersSection({ currentUserId }: { currentUserId: string }) {
     } finally {
       setBusy(false);
       setMenu(null);
-      setCreditsFor(null);
       setDeleting(null);
       load();
     }
   };
 
-  const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!users || !q) return users;
-    return users.filter((u) => `${u.username} ${u.email} ${u.name ?? ''}`.toLowerCase().includes(q));
-  }, [users, query]);
+  const shown = useMemo(() => (users ? users.filter((u) => matchesUser(u, query)) : users), [users, query]);
 
   return (
     <>
       <input
         className="tb-input"
         type="search"
-        placeholder="Find a user"
-        aria-label="Find a user"
+        placeholder="Name, email or username"
+        aria-label="Find a user by name, email or username"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -83,24 +86,28 @@ export function UsersSection({ currentUserId }: { currentUserId: string }) {
               </button>
             )}
           </div>
+          {shown.length === 0 && query.trim() && (
+            <div className="adm-card adm-empty"><Icon name="user" size={28} />No one matches “{query.trim()}”</div>
+          )}
           {shown.map((u) => (
             <div key={u.id} className="adm-card adm-user">
-              <div className="adm-user-main">
-                <div className="adm-user-name">
-                  {u.username}
+              {/* The whole card opens their page; ⋯ beside it is a sibling, not inside (a button cannot hold a button). */}
+              <button type="button" className="adm-user-main adm-user-open" onClick={() => onOpen(u.id)} aria-label={`Open ${u.name || u.username}`}>
+                <span className="adm-user-name">
+                  {u.name || u.username}
                   {u.is_admin && <span className="adm-pill">Admin</span>}
                   {u.is_test_account && <span className="adm-pill adm-pill--off">Test</span>}
                   {u.id === currentUserId && <span className="adm-pill adm-pill--active">You</span>}
-                </div>
-                <div className="adm-user-email">{u.email}</div>
-                <div className="adm-coupon-meta">
+                </span>
+                <span className="adm-user-email">{u.name ? `${u.username} · ` : ''}{u.email}</span>
+                <span className="adm-coupon-meta">
                   <span className="adm-coupon-credits"><Icon name="coin" size={16} />{u.credits}</span>
                   <span>{u.creation_stats.completed} heroes</span>
                   {u.creation_stats.failed > 0 && <span className="adm-bad">{u.creation_stats.failed} failed</span>}
                   {u.creation_stats.in_progress > 0 && <span>{u.creation_stats.in_progress} making</span>}
                   <span>since {shortDate(u.created_at)}</span>
-                </div>
-              </div>
+                </span>
+              </button>
               <NavButton icon="more" label={`More for ${u.username}`} className="adm-nav-sm" onClick={() => setMenu(u)} />
             </div>
           ))}
@@ -108,9 +115,10 @@ export function UsersSection({ currentUserId }: { currentUserId: string }) {
       )}
 
       {menu && (
-        <Sheet title={menu.username} onClose={() => setMenu(null)}>
+        <Sheet title={menu.name || menu.username} onClose={() => setMenu(null)}>
           <div className="tb-muted adm-sheet-sub">{menu.email} · {menu.credits} credits</div>
-          <SheetRow icon="coin" label="Set credits" onClick={() => { setCreditsFor(menu); setMenu(null); }} />
+          <SheetRow icon="user" label="Heroes and history" onClick={() => { const id = menu.id; setMenu(null); onOpen(id); }} />
+          <SheetRow icon="coin" label="Give credits" onClick={() => { setCreditsFor(menu); setMenu(null); }} />
           {menu.id !== currentUserId && (
             <SheetRow
               icon="gear"
@@ -127,7 +135,14 @@ export function UsersSection({ currentUserId }: { currentUserId: string }) {
         </Sheet>
       )}
 
-      {creditsFor && <CreditsSheet user={creditsFor} busy={busy} onClose={() => setCreditsFor(null)} onSave={(n) => act(() => api.admin.updateUser(creditsFor.id, { credits: n }))} />}
+      {creditsFor && (
+        <CreditsSheet
+          user={creditsFor}
+          mode="give"
+          onClose={() => setCreditsFor(null)}
+          onDone={() => { setCreditsFor(null); load(); }}
+        />
+      )}
 
       {deleting && (
         <Dialog label={`Delete ${deleting.username}?`} onClose={() => setDeleting(null)}>
@@ -142,25 +157,5 @@ export function UsersSection({ currentUserId }: { currentUserId: string }) {
         </Dialog>
       )}
     </>
-  );
-}
-
-function CreditsSheet({ user, busy, onClose, onSave }: { user: AdminUserResponse; busy: boolean; onClose: () => void; onSave: (n: number) => void }) {
-  const [value, setValue] = useState(String(user.credits));
-  const n = parseInt(value, 10);
-  const valid = Number.isFinite(n) && n >= 0 && n !== user.credits;
-  return (
-    <Sheet title={`Credits for ${user.username}`} onClose={onClose}>
-      <div className="adm-form">
-        <div className="tb-field">
-          <label htmlFor="user-credits">Balance</label>
-          <input id="user-credits" className="tb-input" type="number" inputMode="numeric" min="0" value={value} autoFocus onChange={(e) => setValue(e.target.value)} />
-        </div>
-        <div className="tb-muted">Recorded in the ledger as an admin adjustment.</div>
-        <button type="button" className="tb-btn tb-btn--primary tb-btn--full" disabled={!valid || busy} onClick={() => onSave(n)}>
-          <Icon name="check" />Save
-        </button>
-      </div>
-    </Sheet>
   );
 }

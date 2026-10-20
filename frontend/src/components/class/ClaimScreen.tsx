@@ -173,10 +173,10 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
             {!ready ? (
               <div className="tb-bar-note">Still being made. This page will update.</div>
             ) : account ? (
-              <div className="tb-bar-note cls-claim-account">
-                Saved to <strong>{account.email}</strong>.{' '}
-                <button type="button" className="tb-link cls-switch" onClick={switchAccount}>Not you? Switch account</button>
-              </div>
+              <>
+                <div className="tb-bar-note cls-claim-account">Saved to <strong>{account.email}</strong></div>
+                <button type="button" className="tb-btn tb-btn--secondary tb-btn--full cls-switch" onClick={switchAccount}><Icon name="user" />Switch account</button>
+              </>
             ) : (
               <div className="tb-bar-note">Free. Saved to the account you sign in with.</div>
             )}

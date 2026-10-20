@@ -261,18 +261,8 @@ h1, h2, h3, h4 {
 .tb-header .tb-btn--sm { height: var(--tb-header-ctl); font-size: 16px; padding: 0 14px; }
 .tb-credits:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-sun-deep); }
 
-.tb-link {
-  color: var(--tb-grape-text);
-  font-weight: 800;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-}
+/* No text links (Raz: "no underlined links"). An action is a button, a row,
+   a chip or a toggle; a small one inside a line of text is .tb-btn--sm. */
 
 /* ---------- Header ---------- */
 
@@ -443,6 +433,34 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 }
 .tb-sheet-row span:first-of-type { flex-grow: 1; }
 .tb-sheet-row-trail { color: var(--tb-ink-2); font-size: 14px; }
+.tb-sheet-row:disabled { cursor: default; }
+/* An on/off switch: a sunken track, grape when on (SheetToggle). */
+.tb-toggle {
+  flex-shrink: 0;
+  position: relative;
+  width: 52px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--tb-track);
+  transition: background 120ms ease;
+}
+.tb-toggle::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-start: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  box-shadow: 0 2px 0 rgba(35, 25, 66, 0.2);
+  transition: inset-inline-start 120ms ease;
+}
+[aria-checked='true'] > .tb-toggle { background: var(--tb-grape); }
+[aria-checked='true'] > .tb-toggle::after { inset-inline-start: 24px; }
+.tb-sheet-toggle:focus-visible { outline: none; }
+.tb-sheet-toggle:focus-visible > .tb-toggle { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
+@media (prefers-reduced-motion: reduce) { .tb-toggle, .tb-toggle::after { transition: none; } }
 .tb-sheet-row--danger { color: var(--tb-red); }
 .tb-sheet-divider { border-top: 2px solid #f6eee1; margin: 4px 0; }
 .tb-stack { display: flex; flex-direction: column; gap: var(--tb-stack); }
@@ -480,19 +498,22 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   object-position: center;
 }
 /* The kid's drawing in the stage's corner (Polaroid in parts.tsx). Over a
-   painting, useClearOfPolaroid keeps the picture out from under it. */
+   painting, useClearOfPolaroid keeps the picture out from under it.
+   The photo takes the drawing's own shape (--tb-pol-w/h, set by Polaroid
+   from the picture: 84 x 84 for a square, up to 96 on the long side), so a
+   tall drawing gets a tall card and no empty white beside it. */
 .tb-polaroid {
   position: absolute;
   inset-inline-start: 12px;
   inset-block-end: 12px;
-  width: 96px;
+  width: calc(var(--tb-pol-w, 84px) + 12px);
   padding: 6px 6px 0;
   background: var(--tb-white);
   border-radius: 12px;
   transform: rotate(-6deg);
   box-shadow: 0 8px 20px rgba(35, 25, 66, 0.18);
 }
-.tb-polaroid img { display: block; width: 84px; height: 84px; object-fit: contain; border-radius: 6px; background: #faf7f2; }
+.tb-polaroid img { display: block; width: var(--tb-pol-w, 84px); height: var(--tb-pol-h, 84px); object-fit: contain; border-radius: 6px; background: #faf7f2; }
 /* One line, always inside the card: the first name ellipsizes, the age stays. */
 .tb-polaroid-caption {
   display: flex;
@@ -622,7 +643,17 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   gap: 12px;
 }
 .tb-notice--error { color: var(--tb-red); }
-.tb-notice button { margin-left: auto; }
+/* Its one action (OK, Try again) at the end: a small secondary button, as
+   tall as the header's controls, with room under it for its depth. */
+.tb-notice:has(> .tb-btn) { padding-block-end: calc(12px + var(--tb-depth-sm)); }
+.tb-notice .tb-btn {
+  margin-inline-start: auto;
+  height: var(--tb-header-ctl);
+  padding: 0 14px;
+  font-size: 16px;
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink);
+}
+.tb-notice .tb-btn--secondary { border-width: 2px; }
 
 /* ---------- Touch: every tap lands ----------
    Three ways a phone browser eats a tap that looked pressed:

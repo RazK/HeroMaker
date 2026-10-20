@@ -22,8 +22,20 @@ export const MOVES: Array<{ id: string; label: string; icon: IconName }> = [
 type Phase = 'drawing' | 'painting' | 'sculpt' | 'alive' | 'live';
 const PHASE_ICON: Record<Exclude<Phase, 'live'>, IconName> = { drawing: 'pencil', painting: 'brush', sculpt: 'cube', alive: 'run' };
 const PHASE_LABEL: Record<Exclude<Phase, 'live'>, string> = { drawing: 'The drawing', painting: 'Painted', sculpt: 'Sculpted in 3D', alive: 'Brought to life' };
-/** How long each phase of the intro holds once it is on screen. */
-const HOLD_MS = 1700;
+/**
+ * The intro is a quick slideshow of the process (Raz: "don't pause for more
+ * than about 1 second on each phase"): each phase is on screen PHASE_MS, its
+ * cross-fade included (HeroLive.css), so four phases take under 4 seconds.
+ * The clock never waits for a download: a 3D phase whose file is not there
+ * yet shows the loading ring for its turn, and so does the live hero after.
+ * Only a picture that has not appeared at all may take PICTURE_WAIT_MS more,
+ * so a phase is never an empty stage, and is then shown for at least
+ * PICTURE_MIN_MS.
+ */
+const PHASE_MS = 900;
+const PHASE_MIN_MS = 500;
+const PICTURE_WAIT_MS = 400;
+const PICTURE_MIN_MS = 500;
 /** The intro's stepper: 12px from the top of the stage, 44px tall, 4px clear.
  *  The hero keeps this margin at the top and the bottom, so it shrinks in place
  *  on the sun rather than moving down (measured: 10px or more under the strip
@@ -84,7 +96,7 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [movesReady, setMovesReady] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);
-  // The drawing and the painting hold once they are actually on screen.
+  // Whether the drawing and the painting have appeared (see PICTURE_WAIT_MS).
   const [pictured, setPictured] = useState<Record<string, boolean>>({});
   const pictureShown = (key: string) => () => setPictured((all) => (all[key] ? all : { ...all, [key]: true }));
   const host = useRef<HTMLDivElement>(null);
@@ -154,19 +166,33 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
     return () => { alive = false; };
   }, [phase, mod, vrm, sculpt]);
 
-  // Each phase holds once it is on screen; a 3D phase waits for its file.
+  // Each phase moves on PHASE_MS after it began, loaded or not (see PHASE_MS).
+  // A phase that ran long (a late picture, or the page busy parsing 3D, which
+  // holds the timer up) is made up by the next ones, down to PHASE_MIN_MS, so
+  // the whole intro keeps to its 4 seconds.
   const ready3d = (phase === 'sculpt' && shown === 'sculpt') || ((phase === 'alive' || phase === 'live') && shown === 'hero');
+  const clock = useRef({ at: 0, plan: PHASE_MS, late: 0 });
+  const pictureUp = (phase !== 'drawing' && phase !== 'painting') || !!pictured[phase];
+  useEffect(() => {
+    const now = performance.now();
+    const c = clock.current;
+    c.late = phase === phases[0] ? 0 : Math.max(0, c.late + (now - c.at) - c.plan);
+    c.at = now;
+    c.plan = Math.max(PHASE_MIN_MS, PHASE_MS - c.late);
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!intro) return;
-    const is3d = phase === 'sculpt' || phase === 'alive';
-    if (is3d && !ready3d && !failed) return;
-    if (!is3d && !pictured[phase]) return;
+    const { at, plan } = clock.current;
+    const elapsed = performance.now() - at;
+    const giveUp = plan + PICTURE_WAIT_MS - elapsed;
+    // A picture that came late still gets its moment, within the same cap.
+    const wait = pictureUp ? Math.max(plan - elapsed, Math.min(PICTURE_MIN_MS, giveUp)) : giveUp;
     const t = setTimeout(() => setPhase((p) => {
       const i = phases.indexOf(p);
       return i < 0 || i >= phases.length - 1 ? 'live' : phases[i + 1];
-    }), HOLD_MS);
+    }), Math.max(0, wait));
     return () => clearTimeout(t);
-  }, [phase, ready3d, failed, intro, pictured]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, intro, pictureUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A move tapped before the hero was on stage plays as soon as it is.
   useEffect(() => {
@@ -209,7 +235,7 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
             </div>
           )}
           {!intro && (
-            <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} onClick={startIntro} label="How it was made" />
+            <Polaroid src={file('thumb_original.jpg')} drawing={file('original.jpg')} hero={done('openai_render') ? file('rendered.png') : null} artist={creation.name} age={creation.age} />
           )}
         </div>
       </div>

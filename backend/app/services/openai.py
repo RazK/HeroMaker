@@ -185,6 +185,38 @@ def style_prompt(style: Optional[str] = None) -> str:
 
 FRAMING_PROMPT = """Framing: show the whole character, small enough to leave clear empty space on every side of it. Nothing touches or crosses the edges of the image: the top of the head, both hands at the ends of the outstretched arms, and both feet with their shoes all stay inside, with empty space below the feet. If anything would not fit, make the whole character smaller; never cut part of it off."""
 
+# ---------------------------------------------------------------------------
+# Photos of real people: a likeness they will love.
+#
+# Most uploads are drawings, and a drawing is painted exactly as drawn. Some
+# are photos of a real person (a parent, a teacher, the child), and the style
+# prompts, written for drawings, let the model stylise the body: measured on
+# one such hero, a slim, tall woman (7.5 heads tall in her photo) was painted
+# 5.6 heads tall with legs ~40% thicker for her height, and every 3D step after
+# the painting kept that shape. Product rule: a person looks at least as good
+# as in their photo - at least as tall and slim, never heavier, older or less
+# attractive; if anything, flattered.
+#
+# So a photo of a person (and only that: see classify_input below) gets this
+# clause after the framing. A drawing gets nothing new, so its prompt - and its
+# result-cache key - stay exactly as they were. Unsure means drawing.
+# ---------------------------------------------------------------------------
+
+INPUT_KIND_PHOTO = "photo_of_person"
+INPUT_KIND_DRAWING = "drawing"
+INPUT_KIND_OTHER = "other"
+INPUT_KINDS = (INPUT_KIND_PHOTO, INPUT_KIND_DRAWING, INPUT_KIND_OTHER)
+
+PHOTO_LIKENESS_PROMPT = """This picture is a photograph of a real person, not a drawing. Make the character a flattering likeness of them, one they will love:
+- Keep who they are: the same face, hair colour and hairstyle, skin tone, ethnicity and clothing
+- Keep their body proportions, or improve them slightly: at least as tall and as slim as in the photo, with real human proportions rather than a cartoon's
+- The head stays in the same proportion to the full height as in the photo (for a grown-up, about one seventh of it or less): do not enlarge the head, do not shorten the legs or the body
+- A slim person stays slim: slim arms and legs, a narrow waist and hips, clothes that fit as they do in the photo
+- Never make them shorter, wider, heavier or older than in the photo, and never less attractive
+- If anything, flatter them: fuller hair, a fit build, clear skin, a warm smile
+- Where this style has a body shape of its own (a toy figure, a figure built from blocks), keep that shape and carry the likeness in the face, hair, skin tone and clothing
+- Where a line above speaks of a drawing, read it as this photo; these points about the person come first"""
+
 # The drawing goes to OpenAI on a square canvas this size, its longer side
 # spanning FRAME_FILL of it, the rest filled with the drawing's own paper colour.
 FRAME_CANVAS_PX = 1024
@@ -216,10 +248,15 @@ FRAMING_PARAMS = {
 }
 
 
-def render_prompt(style: Optional[str] = None) -> str:
+def render_prompt(style: Optional[str] = None, input_kind: Optional[str] = None) -> str:
     """Exactly what is sent to OpenAI for this style: its look, then the
-    framing every style shares."""
-    return style_prompt(style) + "\n\n" + FRAMING_PROMPT
+    framing every style shares, then - for a photo of a real person only -
+    the flattering-likeness clause. A drawing's prompt is byte for byte what
+    it was before photos were told apart."""
+    prompt = style_prompt(style) + "\n\n" + FRAMING_PROMPT
+    if input_kind == INPUT_KIND_PHOTO:
+        prompt += "\n\n" + PHOTO_LIKENESS_PROMPT
+    return prompt
 
 
 def _paper_colour(img) -> tuple:
@@ -325,15 +362,17 @@ RENDER_PARAMS = {
 }
 
 
-def render_cache_version(style: Optional[str] = None) -> dict:
+def render_cache_version(style: Optional[str] = None, input_kind: Optional[str] = None) -> dict:
     """What a cached render depends on besides the input image.
 
     The prompt is the chosen style's plus the shared framing, so a Lego request
     on a drawing that was cached as Pixar misses instead of returning the Pixar
     painting, and a render cached before the framing fix (possibly cropped)
-    misses instead of being handed out again.
+    misses instead of being handed out again. A photo of a person adds the
+    likeness clause, so it misses a painting made without it; a drawing's
+    version is unchanged.
     """
-    return {"prompt": render_prompt(style), **RENDER_PARAMS, "framing": FRAMING_PARAMS}
+    return {"prompt": render_prompt(style, input_kind), **RENDER_PARAMS, "framing": FRAMING_PARAMS}
 
 
 class _Painting:
@@ -442,6 +481,7 @@ def render_image(
     style: Optional[str] = None,
     report: Optional[dict] = None,
     framing: bool = True,
+    input_kind: Optional[str] = None,
 ) -> Path:
     """
     Convert scanned drawing to rendered figure using OpenAI's GPT-Image-1.
@@ -460,6 +500,8 @@ def render_image(
             before the framing fix, with no check and no retry. Only for
             before/after comparisons (scripts/render_check.py); the pipeline
             never passes it.
+        input_kind: what the upload is (classify_input). INPUT_KIND_PHOTO adds
+            the likeness clause; anything else paints it as a drawing.
 
     Returns:
         Path to output file
@@ -479,7 +521,7 @@ def render_image(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     style = resolve_style(style)
-    prompt = render_prompt(style) if framing else style_prompt(style)
+    prompt = render_prompt(style, input_kind) if framing else style_prompt(style)
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     try:
@@ -809,4 +851,127 @@ def suggest_hero_name(image_bytes: bytes, usage: Optional[UsageContext] = None) 
     name = sanitize_hero_name(raw)
     logger.info("Hero name suggested: %r (raw %r)", name, raw)
     return name
+
+
+# ---------------------------------------------------------------------------
+# What the upload is: a drawing, or a photo of a real person.
+#
+# One small vision call, the same model and image size as the naming call, made
+# once per hero (app/services/input_kind.py stores the answer on the creation
+# and in the staging result cache). Never charged to the user in credits;
+# recorded as a usage_event like the naming call. Every failure, and every
+# answer that is not exactly one of INPUT_KINDS, means "drawing": a drawing
+# painted as a drawing is what the product has always done.
+#
+# A photo OF a drawing is a drawing: that is how most drawings arrive.
+# ---------------------------------------------------------------------------
+
+INPUT_KIND_MODEL = HERO_NAME_MODEL
+INPUT_KIND_TIMEOUT_S = 10.0
+INPUT_KIND_IMAGE_DETAIL = HERO_NAME_IMAGE_DETAIL
+
+INPUT_KIND_PROMPT = """Look at this picture and say what kind of picture it is.
+
+- "photo_of_person": a photograph, taken with a camera, of one or more real people.
+- "drawing": a drawing, painting, sketch, cartoon, comic or any other artwork, of anyone or anything. A photograph of a drawing on paper or on a screen is a drawing. A drawing of a person is a drawing.
+- "other": any other photograph, such as a toy, a doll, a figurine, a statue, an animal, an object or a place, with no real person in it.
+
+If you are not sure, answer "drawing".
+
+Answer with JSON only, in the form {"kind": "..."}."""
+
+INPUT_KIND_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "input_kind",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {"kind": {"type": "string", "enum": list(INPUT_KINDS)}},
+            "required": ["kind"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
+def input_kind_cache_version() -> dict:
+    """What a cached classification depends on besides the image (result_cache key)."""
+    return {
+        "prompt": INPUT_KIND_PROMPT,
+        "model": INPUT_KIND_MODEL,
+        "image_max_px": HERO_NAME_IMAGE_MAX_PX,
+        "detail": INPUT_KIND_IMAGE_DETAIL,
+        "kinds": list(INPUT_KINDS),
+    }
+
+
+def parse_input_kind(raw) -> str:
+    """The model's answer as one of INPUT_KINDS; anything unexpected is a drawing."""
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return INPUT_KIND_DRAWING
+    kind = raw.get("kind") if isinstance(raw, dict) else None
+    return kind if kind in INPUT_KINDS else INPUT_KIND_DRAWING
+
+
+def classify_input(image_bytes: bytes, usage: Optional[UsageContext] = None) -> str:
+    """
+    Ask INPUT_KIND_MODEL whether this upload is a photo of a real person.
+
+    Returns one of INPUT_KINDS. RAISES on a missing key, an unreadable image, a
+    timeout or an API error: the caller (input_kind.kind_for_creation) turns
+    every failure into INPUT_KIND_DRAWING and logs it. An unreadable image is
+    caught before any request is made, so it costs nothing.
+
+    Every call that reaches OpenAI writes one usage_event (provider "openai",
+    operation pricing.OP_OPENAI_INPUT_KIND), costed from its token counts.
+    """
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY not set")
+
+    # The naming call's shrink: a small JPEG, "low" detail.
+    data_url = _hero_name_image_data_url(image_bytes)
+    client = OpenAI(api_key=OPENAI_API_KEY, timeout=INPUT_KIND_TIMEOUT_S, max_retries=0)
+
+    with usage_service.track(
+        usage,
+        pricing.PROVIDER_OPENAI,
+        pricing.OP_OPENAI_INPUT_KIND,
+        quantity=1,
+        metadata={"model": INPUT_KIND_MODEL, "detail": INPUT_KIND_IMAGE_DETAIL},
+    ) as call:
+        response = client.chat.completions.create(
+            model=INPUT_KIND_MODEL,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": INPUT_KIND_PROMPT},
+                    {"type": "image_url",
+                     "image_url": {"url": data_url, "detail": INPUT_KIND_IMAGE_DETAIL}},
+                ],
+            }],
+            response_format=INPUT_KIND_RESPONSE_FORMAT,
+            max_completion_tokens=20,
+            temperature=0,
+            timeout=INPUT_KIND_TIMEOUT_S,
+        )
+        call.provider_ref = getattr(response, "_request_id", None) or getattr(response, "id", None)
+        tokens = getattr(response, "usage", None)
+        if tokens is not None:
+            prompt_tokens = int(getattr(tokens, "prompt_tokens", 0) or 0)
+            completion_tokens = int(getattr(tokens, "completion_tokens", 0) or 0)
+            call.metadata["prompt_tokens"] = prompt_tokens
+            call.metadata["completion_tokens"] = completion_tokens
+            # Same model, same list rates as the naming call.
+            call.cost_usd_micros = pricing.hero_name_cost_usd_micros(
+                prompt_tokens, completion_tokens
+            )
+        kind = parse_input_kind(response.choices[0].message.content or "")
+        call.metadata["kind"] = kind
+
+    logger.info("Input classified as %r", kind)
+    return kind
 
