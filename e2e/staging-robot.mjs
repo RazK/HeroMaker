@@ -23,7 +23,7 @@
 // provider cost) and two Lemon Squeezy TEST-mode purchases (a credit pack,
 // then a class's seats), which are free.
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -412,9 +412,19 @@ try {
     const sw = await page.request.get(BASE_URL + '/sw.js');
     const swCache = sw.headers()['cache-control'] || '';
     if (!/no-cache|no-store|max-age=0/.test(swCache)) throw new Error(`/sw.js is cacheable ("${swCache}"): returning visitors would never get a new release`);
+    // Staging never looks like production (frontend/apply-env-look.sh): its
+    // own icon, app name and a STAGING tag. Production's look is read from
+    // the registry, never copied here.
+    const prod = JSON.parse(readFileSync(path.join(HERE, '../devops/railway/project.json'), 'utf8')).environments.production.urls.frontend;
+    const env = await page.evaluate(() => document.documentElement.dataset.env);
+    if (env !== 'staging') throw new Error(`staging is not marked as staging (data-env=${env}): it looks like production`);
+    const manifest = await (await page.request.get(BASE_URL + '/manifest.webmanifest')).json();
+    if (!/staging/i.test(manifest.short_name)) throw new Error(`installed staging app is named "${manifest.short_name}", like production`);
+    const [ours, theirs] = await Promise.all([BASE_URL, prod].map(async (u) => (await page.request.get(u + '/app-icon.png')).body()));
+    if (ours.equals(theirs)) throw new Error('staging serves production\'s app icon');
     await linger(page, 3500);
     mark('landing');
-    return `HTTP ${res.status()}`;
+    return `HTTP ${res.status()}, looks like staging ("${manifest.short_name}", own icon)`;
   });
 
   await step(page, 'gallery', async () => {

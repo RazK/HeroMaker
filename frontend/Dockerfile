@@ -33,9 +33,13 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built files from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy startup script
+# Staging's own icon, swapped in at start on any environment but production
+COPY env-assets /usr/share/nginx/env-assets
+
+# Copy startup scripts
 COPY start-nginx.sh /start-nginx.sh
-RUN chmod +x /start-nginx.sh
+COPY apply-env-look.sh /apply-env-look.sh
+RUN chmod +x /start-nginx.sh /apply-env-look.sh
 
 # Expose port (Railway sets PORT env var, defaults to 80)
 EXPOSE 80

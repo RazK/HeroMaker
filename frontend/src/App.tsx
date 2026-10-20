@@ -406,7 +406,7 @@ function MainApp() {
     <Header
       left={(
         <button type="button" className="tb-logo app-header-center" onClick={goHome} aria-label="HeroMaker home">
-          <img src="/logo-head-transparent.png" alt="" />
+          <img src="/app-icon.png" alt="" />
           <span>HeroMaker</span>
         </button>
       )}
