@@ -1,4 +1,5 @@
 import { useState, useRef, DragEvent, useEffect } from 'react';
+import { useOverlayBack } from '../routes';
 import { createPortal } from 'react-dom';
 import './FileUpload.css';
 
@@ -129,6 +130,9 @@ export function FileUpload({ onUpload, disabled = false, showWebcamOnMount = fal
       onClose();
     }
   };
+
+  // Back (Android's too) closes the camera, not the screen under it.
+  useOverlayBack(showWebcam, stopWebcam);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {

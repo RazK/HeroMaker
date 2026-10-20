@@ -12,6 +12,10 @@ import './admin/admin.css';
 interface AdminPanelProps {
   onClose: () => void;
   currentUserId: string;
+  /** The user page shown (/admin/users/<id>), or null for the console. */
+  userId: string | null;
+  /** Open a user's page, or (null) go back to the list. App puts it in the URL. */
+  onUser: (id: string | null) => void;
   /** Open a hero's own page (from a user's page). Back from it returns here. */
   onOpenHero: (c: CreationResponse) => void;
 }
@@ -26,9 +30,6 @@ const SECTIONS: { id: Section; label: string; icon: IconName }[] = [
 ];
 
 const KEY = 'heromaker.admin.section';
-// The user page open when a hero was opened from it: Back from the hero
-// comes back to it. Per tab, so a new tab starts at the list.
-const USER_KEY = 'heromaker.admin.user';
 // The Users search and test-accounts toggle, per tab.
 const FILTER_KEY = 'heromaker.admin.usersFilter';
 
@@ -48,20 +49,16 @@ function initialFilter(): UsersFilter {
   return { query: '', showTest: false };
 }
 
-function initialUser(): string | null {
-  try { return sessionStorage.getItem(USER_KEY); } catch { return null; }
-}
-
 /**
  * The admin console: Money (is the company net positive, what is left at each
  * provider, what is due), Coupons (give people credits), Users (and each
  * user's page: their heroes, credits and audit log), and Schools (teachers:
  * where, what kind, classes, seats bought, heroes made). Owns its whole
- * screen, header included, so a user's page has its own Back.
+ * screen, header included, so a user's page has its own Back. A user's page
+ * has its own address, so it can be pasted into a ticket and survives a reload.
  */
-export function AdminPanel({ onClose, currentUserId, onOpenHero }: AdminPanelProps) {
+export function AdminPanel({ onClose, currentUserId, userId, onUser, onOpenHero }: AdminPanelProps) {
   const [section, setSection] = useState<Section>(initialSection);
-  const [userId, setUserIdState] = useState<string | null>(initialUser);
   // Lives here, not in the list: Back to users finds the same search and toggle.
   const [usersFilter, setUsersFilter] = useState<UsersFilter>(initialFilter);
   const filterUsers = (f: UsersFilter) => {
@@ -73,13 +70,9 @@ export function AdminPanel({ onClose, currentUserId, onOpenHero }: AdminPanelPro
     try { localStorage.setItem(KEY, s); } catch { /* fine */ }
   };
   const setUserId = (id: string | null) => {
-    setUserIdState(id);
-    try {
-      if (id) sessionStorage.setItem(USER_KEY, id); else sessionStorage.removeItem(USER_KEY);
-    } catch { /* fine */ }
+    onUser(id);
     window.scrollTo({ top: 0 });
   };
-  const leave = () => { setUserId(null); onClose(); };
 
   if (userId) {
     return (
@@ -96,7 +89,7 @@ export function AdminPanel({ onClose, currentUserId, onOpenHero }: AdminPanelPro
 
   return (
     <div className="tb-screen tb-screen--wide">
-      <Header left={<NavButton icon="back" label="Back" onClick={leave} />} title="Admin" />
+      <Header left={<NavButton icon="back" label="Back" onClick={onClose} />} title="Admin" />
       <div className="tb-screen-body">
         <div className="adm">
           <div className="adm-tabs" role="tablist" aria-label="Admin sections">
