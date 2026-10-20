@@ -371,9 +371,13 @@ async def make_my_hero(
 
 
 @student_router.post("/me/hero/retry")
-def retry_my_hero(request: Request, db: Session = Depends(get_db), task_manager=Depends(get_task_manager)):
+async def retry_my_hero(request: Request, db: Session = Depends(get_db), task_manager=Depends(get_task_manager)):
     """A hero that failed is made again: same pass, same seat, charged again
-    to the class and refunded again if it fails again."""
+    to the class and refunded again if it fails again.
+
+    `async` for the same reason as make_my_hero and every endpoint in
+    creations.py that starts a run: start_pipeline hands its task to the event
+    loop, and FastAPI runs a plain `def` in a worker thread, which has none."""
     guest = _guest(request, db)
     creation = db.query(Creation).filter(Creation.id == guest.creation_id, Creation.deleted_at.is_(None)).first()
     if creation is None or creation.status != "failed":

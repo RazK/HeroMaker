@@ -829,3 +829,75 @@ def test_migration_adds_the_columns_to_an_existing_database(tmp_path, monkeypatc
     assert "class_id" in {c["name"] for c in inspect(engine).get_columns("creations")}
     assert {"classes", "class_sessions", "class_guests"} <= set(inspect(engine).get_table_names())
     assert s.execute(text("SELECT kind, is_teacher FROM users")).one() == ("person", 0)
+
+
+# ---------------------------------------------------------------------------
+# The real task manager
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def live_client():
+    """The app as it runs: its lifespan's own TaskManager (no stand-in), and
+    one event loop that outlives each request, so a task an endpoint starts
+    really runs in the background. Every other test here swaps the task manager
+    for `_Tasks`, which takes a coroutine from any thread - which is how a retry
+    that could not start its task at all went unnoticed: a sync endpoint runs
+    in a worker thread, and `asyncio.create_task` there has no loop."""
+    before = app.dependency_overrides.pop(get_task_manager, None)
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            yield client
+    finally:
+        if before is not None:
+            app.dependency_overrides[get_task_manager] = before
+
+
+def _settled(db, creation_id, timeout=10.0):
+    """Wait until the background run has nothing processing and no task."""
+    import time
+    from app.models import CreationStep
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        db.expire_all()
+        busy = db.query(CreationStep).filter(
+            CreationStep.creation_id == creation_id,
+            CreationStep.status == "processing",
+        ).count()
+        if not busy and not get_task_manager().running_for_creation(creation_id):
+            return db.query(Creation).filter_by(id=creation_id).one()
+        time.sleep(0.05)
+    raise AssertionError(f"hero {creation_id} still processing after {timeout}s")
+
+
+def test_a_retry_runs_on_the_real_task_manager(db, make_user, live_client, monkeypatch):
+    """Make, fail, retry, finish: over HTTP, with the lifespan's TaskManager.
+    Only the provider calls are stubbed."""
+    client = live_client
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=2)
+    pin = _start(client, teacher, c["id"])
+    wallet = db.query(ClassRoom).filter_by(id=c["id"]).one().wallet_user_id
+
+    async def meshy_down(creation_id, user_id, s):
+        if _current(s, creation_id) == "meshy_3d":
+            raise RuntimeError("NoMorePendingTasks")
+        _deliver(s, creation_id, user_id)
+
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: meshy_down)
+    # This client is the student's browser too: one loop for every request.
+    r = client.post("/api/class/join", json={"pin": pin, "first_name": "Maya", "age": 7})
+    assert r.status_code == 200, r.text
+    r = client.post("/api/class/me/hero", files={"image_file": ("d.jpg", DRAWING, "image/jpeg")})
+    assert r.status_code == 201, r.text
+    creation_id = r.json()["hero"]["creation_id"]
+    assert _settled(db, creation_id).status == "failed"
+    assert _balance(db, wallet) == 2 * HERO - get_step_by_name("openai_render")["credit_cost"]
+
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
+    r = client.post("/api/class/me/hero/retry")
+    assert r.status_code == 200, r.text
+    assert r.json()["hero"]["state"] != "failed"           # shown running at once
+    assert _settled(db, creation_id).status == "completed"
+    assert client.get("/api/class/me").json()["hero"]["state"] == "ready"
+    assert _balance(db, wallet) == 2 * HERO - HERO
+    assert ledger.verify_user_balance(wallet, db).consistent

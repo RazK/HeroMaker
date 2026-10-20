@@ -1,4 +1,5 @@
 """Creation and pipeline API endpoints."""
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, List
@@ -312,7 +313,7 @@ def create_with_drawing(
     """A new hero with its steps and its drawing stored as original.jpg.
 
     The one way a hero comes into being: POST /create and a class student's
-    hero (app/api/class_sessions.py) both go through here. `owner_id` is who
+    hero (app/api/classes.py) both go through here. `owner_id` is who
     pays for the pipeline and under whose prefix the files are stored.
     """
     new_creation = Creation(
@@ -605,10 +606,17 @@ def start_pipeline(
     """Start the pipeline for a hero in the background. Returns the first step.
 
     Used by POST /{id}/run-pipeline and by a class student's hero
-    (app/api/class_sessions.py), so both run the same pipeline.run_pipeline:
+    (app/api/classes.py), so both run the same pipeline.run_pipeline:
     charged per step to creation.user_id, refunded by execute_step on failure.
     Callers have checked permissions; `style` is already validated.
+
+    Must be called ON the event loop, i.e. from an `async def` endpoint: the
+    run is an asyncio task. A plain `def` endpoint runs in a worker thread with
+    no loop, so the task could not be created - after the first step was
+    already committed "processing", leaving the hero stuck. Refuse before
+    touching anything instead.
     """
+    asyncio.get_running_loop()   # RuntimeError off the loop, before any write
     creation_id = creation.id
 
     # Already running? The DB alone cannot say: for the moment between this
