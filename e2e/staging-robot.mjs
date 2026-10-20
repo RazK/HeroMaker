@@ -483,7 +483,20 @@ try {
     await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
     await linger(page, 2500);
     mark('signup_end');
-    return `${user.username}, balance ${await creditsShown(page)}`;
+    const balance = await creditsShown(page);
+    // With no credits, Make a hero goes to Buy credits first, saying why: no
+    // photo is taken or uploaded for a hero that cannot be paid for.
+    let gate = '';
+    if (balance === 0 && !DEMO) {
+      await page.locator('.tb-new-hero').click();
+      const why = page.locator('.buy-credits-why');
+      await why.waitFor({ timeout: 15000 });
+      if (await page.getByRole('dialog', { name: 'New hero' }).count()) throw new Error('Make a hero opened the photo sheet with 0 credits');
+      gate = `; Make a hero with 0 credits opened Buy credits ("${(await why.innerText()).trim()}")`;
+      await page.keyboard.press('Escape');
+      await why.waitFor({ state: 'detached', timeout: 5000 });
+    }
+    return `${user.username}, balance ${balance}${gate}`;
   });
 
   await step(page, 'buy', async () => {

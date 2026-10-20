@@ -8,13 +8,15 @@ import './BuyCredits.css';
 interface BuyCreditsProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Why the sheet opened, shown above the packs (e.g. not enough for a hero). */
+  note?: string;
 }
 
 // Where Lemon Squeezy sends the buyer back. App.tsx sees the marker, re-reads
 // the balance and says thanks - it never tells the backend a payment happened.
 export const PURCHASE_RETURN_PARAM = 'purchase';
 
-export function BuyCredits({ isOpen, onClose }: BuyCreditsProps) {
+export function BuyCredits({ isOpen, onClose, note }: BuyCreditsProps) {
   const [packs, setPacks] = useState<CreditPack[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [buying, setBuying] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export function BuyCredits({ isOpen, onClose }: BuyCreditsProps) {
 
   return (
     <Sheet title="Pick a pack" onClose={onClose} className="buy-credits-modal">
+      {note && <div className="tb-notice buy-credits-why" role="status">{note}</div>}
       <div className="tb-muted buy-credits-note"><Icon name="lock" size={16} />Secure checkout · 1 hero = 10 credits</div>
       {error && <div className="buy-credits-error" role="alert">{error}</div>}
       {!packs && !error && <div className="tb-muted">Loading…</div>}

@@ -137,7 +137,8 @@ function MainApp() {
       .catch(console.error);
   }, []);
 
-  const refreshCreditBalance = async () => {
+  // The balance as the server has it now (undefined: signed out, or unknown).
+  const refreshCreditBalance = async (): Promise<number | undefined> => {
     const token = getAuthToken();
     // Read now, before any wait: the sign-in sheet forgets it as it closes.
     const wantsClasses = !!token && intendsClasses();
@@ -145,7 +146,7 @@ function MainApp() {
       setCreditBalance(undefined);
       setUserInfo(null);
       setAuthChecked(true);
-      return;
+      return undefined;
     }
     try {
       const user = await api.getMe();
@@ -160,11 +161,14 @@ function MainApp() {
       setCreditBalance(user.credits);
       setUserInfo({ id: user.id, is_admin: user.is_admin, is_teacher: !!user.is_teacher });
       window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
+      setAuthChecked(true);
+      return user.credits;
     } catch {
       setCreditBalance(undefined);
       setUserInfo(null);
     }
     setAuthChecked(true);
+    return undefined;
   };
 
   // Shown on the signed-out gallery right after the account is deleted.
@@ -201,11 +205,21 @@ function MainApp() {
     // ('auth:credits-updated' is App's own broadcast, so it is not listened to
     // here: that would loop.)
     const handleCreditsChanged = () => refreshCreditBalance();
+    // The header reads the balance on its own too (each time it mounts, e.g.
+    // back from Admin). Whatever it reads is the newest: take it, so the
+    // header and "Make this hero?" can never disagree (Raz saw 50 above and
+    // "You have 0" below).
+    const handleCreditsSeen = (e: Event) => {
+      const credits = (e as CustomEvent).detail?.credits;
+      if (typeof credits === 'number') setCreditBalance(credits);
+    };
+    window.addEventListener('credits:seen', handleCreditsSeen);
     const handleVisible = () => { if (document.visibilityState === 'visible') refreshCreditBalance(); };
     window.addEventListener('credits:changed', handleCreditsChanged);
     document.addEventListener('visibilitychange', handleVisible);
     return () => {
       window.removeEventListener('credits:changed', handleCreditsChanged);
+      window.removeEventListener('credits:seen', handleCreditsSeen);
       document.removeEventListener('visibilitychange', handleVisible);
       window.removeEventListener('auth:login', handleAuthChange);
       window.removeEventListener('auth:logout', handleAuthChange);
@@ -272,12 +286,24 @@ function MainApp() {
   };
 
   // A hero is made by people with an account: signed out, this opens sign-up.
-  const startNewHero = () => {
+  // And by people who can pay for it: short of credits, this opens Buy
+  // credits first, before any photo is taken or uploaded (Raz: "why you let
+  // me start making hero even though I don't have credits"). The balance is
+  // re-read before saying no, so a stale copy never turns anyone away.
+  const startNewHero = async () => {
     if (!isLoggedIn) {
       window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup' } }));
       return;
     }
-    setShowNewHero(true);
+    const enough = (b: number | undefined) => b === undefined || pipelineCost <= 0 || b >= pipelineCost;
+    if (enough(creditBalance)) {
+      setShowNewHero(true);
+      refreshCreditBalance();
+      return;
+    }
+    const balance = await refreshCreditBalance();
+    if (enough(balance)) { setShowNewHero(true); return; }
+    window.dispatchEvent(new CustomEvent('credits:buy', { detail: { note: `A hero is ${pipelineCost} credits. You have ${balance}.` } }));
   };
 
   const discardUnstarted = () => {
@@ -293,6 +319,8 @@ function MainApp() {
     setIsUploading(true);
     setError(null);
     discardUnstarted();
+    // "Make this hero?" says what the balance allows: the server's, not a copy.
+    refreshCreditBalance();
     try {
       const reader = new FileReader();
       reader.onload = (e) => setUploadedFilePreview(e.target?.result as string);

@@ -178,7 +178,7 @@ export function StepCard({
     setIsCancelling(true);
     try {
       await api.cancelStep(creationId, step.step_name);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
+      window.dispatchEvent(new CustomEvent('credits:changed'));
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId } }));
       if (onStepRun) {
         onStepRun(step.step_name);
@@ -195,7 +195,7 @@ export function StepCard({
     
     try {
       await api.runStep(creationId, step.step_name);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
+      window.dispatchEvent(new CustomEvent('credits:changed'));
       
       // Directly refresh creation state (handles case when polling was stopped)
       if (onCreationRefresh) {
@@ -220,7 +220,7 @@ export function StepCard({
     try {
       // Run pipeline starting from this step (retry and continue all following)
       await api.runPipeline(creationId, step.step_name);
-      window.dispatchEvent(new CustomEvent('auth:credits-updated'));
+      window.dispatchEvent(new CustomEvent('credits:changed'));
       
       if (onCreationRefresh) {
         await onCreationRefresh();

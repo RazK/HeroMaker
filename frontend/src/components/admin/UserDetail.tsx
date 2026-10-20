@@ -194,6 +194,9 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
             setNotice(`${credits === 'give' ? 'Credits given' : 'Credits taken back'}. ${who} now has ${balance}.`);
             setCredits(null);
             load();
+            // Admins give themselves credits too: the header and "Make this
+            // hero?" re-read the balance.
+            window.dispatchEvent(new CustomEvent('credits:changed'));
           }}
         />
       )}
