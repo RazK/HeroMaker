@@ -17,6 +17,7 @@ from app.migrations import m014_recurring_expenses
 from app.migrations import m015_classes
 from app.migrations import m016_school_details
 from app.migrations import m017_admin_actions
+from app.migrations import m018_step_error_code
 
 
 # Register all migrations in order
@@ -39,6 +40,7 @@ MIGRATIONS = [
     ("015_classes", m015_classes.migrate),
     ("016_school_details", m016_school_details.migrate),
     ("017_admin_actions", m017_admin_actions.migrate),
+    ("018_step_error_code", m018_step_error_code.migrate),
 ]
 
 

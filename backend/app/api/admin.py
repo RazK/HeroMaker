@@ -229,7 +229,7 @@ def _moderation_error(e: moderation.ModerationError) -> HTTPException:
 
 
 def _hero_view(creation, removal, class_title) -> dict:
-    view = CreationResponse.from_creation(creation).model_dump()
+    view = CreationResponse.from_creation(creation, admin=True).model_dump()  # admin-only: raw step errors too
     view["removed"] = None if removal is None else {
         "at": creation.deleted_at,
         "reason": removal.reason,

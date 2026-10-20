@@ -15,6 +15,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from app.services.auth import (
     get_current_user_required, get_current_user_optional, security as bearer, verify_access_token,
 )
+from app.services import step_errors
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
 from app.services.pipeline import (
     _initialize_creation_steps, _reset_step, execute_step, run_pipeline, steps_from, clear_stale_failures,
@@ -45,6 +46,23 @@ def _checked_style(style: Optional[str]) -> Optional[str]:
         valid = ", ".join(openai_service.STYLES)
         raise HTTPException(status_code=400, detail=f"Unknown style '{style}'. Choose one of: {valid}")
     return style
+
+
+def _is_admin(user: Optional[User]) -> bool:
+    """Whether the caller may read a failed step's raw provider error."""
+    return bool(user is not None and user.is_admin)
+
+
+def _admin_or_none(
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
+        db: Session = Depends(get_db),
+) -> Optional[User]:
+    """The caller, if they are an admin; None for anyone else. Never raises:
+    a hero's page is public, and a stale token must not turn it into a 401."""
+    user_id = verify_access_token(credentials.credentials) if credentials else None
+    if not user_id:
+        return None
+    return db.query(User).filter(User.id == user_id, User.is_admin.is_(True), User.deleted_at.is_(None)).first()
 
 
 def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
@@ -84,6 +102,7 @@ def get_step_status(
         creation_id: str,
         step_name: str,
         db: Session = Depends(get_db),
+        admin: Optional[User] = Depends(_admin_or_none),
 ):
     """Get status of a single step (for polling during processing)."""
     creation = _live_creation(db, creation_id)
@@ -98,19 +117,7 @@ def get_step_status(
     if not step:
         raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
     
-    return CreationStepResponse.from_step(step)
-
-
-def _admin_or_none(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
-        db: Session = Depends(get_db),
-) -> Optional[User]:
-    """The caller, if they are an admin; None for anyone else. Never raises:
-    a hero's page is public, and a stale token must not turn it into a 401."""
-    user_id = verify_access_token(credentials.credentials) if credentials else None
-    if not user_id:
-        return None
-    return db.query(User).filter(User.id == user_id, User.is_admin.is_(True), User.deleted_at.is_(None)).first()
+    return CreationStepResponse.from_step(step, admin=admin is not None)
 
 
 @router.get("/{creation_id}", response_model=CreationResponse)
@@ -129,7 +136,7 @@ def get_creation(
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
 
-    return CreationResponse.from_creation(creation)
+    return CreationResponse.from_creation(creation, admin=admin is not None)
 
 
 @router.patch("/{creation_id}", response_model=CreationResponse)
@@ -159,7 +166,7 @@ def update_creation(
     db.commit()
     db.refresh(creation)
 
-    return CreationResponse.from_creation(creation)
+    return CreationResponse.from_creation(creation, admin=_is_admin(user))
 
 
 @router.get("/", response_model=List[CreationResponse])
@@ -197,7 +204,8 @@ def list_creations(
         # status is derived from the steps, so "finished" is checked here.
         creations = [c for c in creations if c.status == "completed"]
 
-    return [CreationResponse.from_creation(c) for c in creations]
+    admin = _is_admin(user)
+    return [CreationResponse.from_creation(c, admin=admin) for c in creations]
 
 
 @router.put("/{creation_id}/featured", response_model=CreationResponse)
@@ -224,7 +232,7 @@ def set_featured(
     )
     db.commit()
     db.refresh(creation)
-    return CreationResponse.from_creation(creation)
+    return CreationResponse.from_creation(creation, admin=_is_admin(user))
 
 
 @router.delete("/{creation_id}", response_model=MessageResponse)
@@ -286,7 +294,7 @@ async def create_creation(
         db, user.id, contents, character_name=character_name, name=user.name, style=style,
     )
     # Return creation response (no pipeline run - frontend will call /run separately)
-    return CreationResponse.from_creation(new_creation)
+    return CreationResponse.from_creation(new_creation, admin=_is_admin(user))
 
 
 def create_with_drawing(
@@ -381,8 +389,7 @@ async def cancel_step(
         raise HTTPException(status_code=400, detail=f"Step is not processing (current status: {step.status})")
     
     # Mark as cancelled in DB (source of truth for cancellation)
-    step.status = "failed"
-    step.error_message = "Step cancelled by user"
+    step_errors.mark_failed(step, step_errors.CANCELLED_MESSAGE, code=step_errors.CANCELLED)
     db.commit()
     
     # Cancel the runtime task
@@ -481,8 +488,7 @@ async def run_step(
                         CreationStep.step_name == step_name
                     ).first()
                     if step and step.status != "failed":
-                        step.status = "failed"
-                        step.error_message = error_msg
+                        step_errors.mark_failed(step, e)
                         db_session.commit()
                         logger.info(f"[{creation_id}] Marked step {step_name} as failed due to validation error: {error_msg}")
                 except Exception as db_error:
@@ -497,8 +503,7 @@ async def run_step(
                     CreationStep.step_name == step_name
                 ).first()
                 if step and step.status != "failed":
-                    step.status = "failed"
-                    step.error_message = error_msg
+                    step_errors.mark_failed(step, e)
                     db_session.commit()
                     logger.info(f"[{creation_id}] Marked step {step_name} as failed due to error: {error_msg}")
             except Exception as db_error:
@@ -515,7 +520,7 @@ async def run_step(
     from datetime import datetime, timedelta
     step.started_at = datetime.utcnow()
     step.status = "processing"
-    step.error_message = None
+    step_errors.clear(step)
     step.estimated_progress = None
     if step_config.get("estimated_duration"):
         step.estimated_completion_time = step.started_at + timedelta(
