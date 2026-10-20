@@ -10,6 +10,9 @@ dockerContext = "vrm-converter-service"
 startCommand = ""
 healthcheckPath = "/health"
 healthcheckTimeout = 60
+# SIGTERM to SIGKILL for the deploy being replaced (Railway's default is 0):
+# room for uvicorn's 20 s --timeout-graceful-shutdown (Dockerfile).
+drainingSeconds = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 

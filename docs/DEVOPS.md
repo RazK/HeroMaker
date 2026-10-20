@@ -186,6 +186,11 @@ Each service directory has a `railway.toml`:
 - `frontend/railway.toml` — build from `frontend/Dockerfile`, healthcheck `/health`
 - `vrm-converter-service/railway.toml` — build from its `Dockerfile`, healthcheck `/health` (60s timeout for Blender)
 
+The backend and the VRM converter set `drainingSeconds = 30` (Railway's default
+is 0): a deploy SIGTERMs the old process, uvicorn (exec'd as PID 1 by the
+Dockerfile's CMD) drains requests for up to 20 s, and the backend's lifespan
+shutdown refunds the steps it cuts off before the SIGKILL.
+
 Project-level config lives under `devops/railway/`:
 - `project.json` — service and environment IDs, registered once instead of
   copy-pasted into every script

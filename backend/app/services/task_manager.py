@@ -181,6 +181,11 @@ class TaskManager:
                 if key.startswith(prefix) and not task.done()
             ]
 
+    def running_creations(self) -> set:
+        """Ids of the heroes this process has a task running for."""
+        with self._lock:
+            return {key.split(":", 1)[0] for key, task in self._tasks.items() if not task.done()}
+
     def cancel_all_tasks_for_creation(self, creation_id: str) -> int:
         """
         Cancel all tasks for a creation.

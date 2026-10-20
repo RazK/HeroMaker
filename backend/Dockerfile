@@ -38,5 +38,13 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Run the application (use PORT env var for Railway, default to 8000)
 # Use --reload for hot reload in development (when DEBUG=true)
-CMD sh -c "if [ \"$DEBUG\" = \"true\" ]; then uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --reload; else uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}; fi"
+#
+# `exec`, in an exec-form CMD: uvicorn replaces the shell and is PID 1, so it
+# gets the SIGTERM a deploy sends. Without it the shell was PID 1, ignored the
+# signal, and uvicorn was SIGKILLed without its lifespan shutdown, cutting off
+# running steps with their charges (app/services/startup_reconcile.py).
+# --timeout-graceful-shutdown bounds the wait for open requests, so the
+# lifespan shutdown still runs inside Railway's draining window
+# (drainingSeconds in railway.toml; Railway's default is 0).
+CMD ["sh", "-c", "if [ \"$DEBUG\" = \"true\" ]; then exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --reload; else exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --timeout-graceful-shutdown 20; fi"]
 

@@ -10,7 +10,7 @@ from app.config.settings import DEBUG, ALLOWED_ORIGINS, DATABASE_URL, FILES_ROOT
 from app.migrations.registry import run_migrations
 from app.utils.storage import get_storage
 from app.services.task_manager import TaskManager, set_task_manager, get_task_manager
-from app.services.startup_reconcile import sweep_forever
+from app.services.startup_reconcile import interrupt_running, sweep_forever
 import os
 
 # Configure structured logging
@@ -90,17 +90,14 @@ async def lifespan(app: FastAPI):
     logger.info("TaskManager initialized")
     yield
     
-    # Shutdown: Cancel all tasks gracefully
+    # Shutdown (a deploy's SIGTERM, once uvicorn has drained requests): cancel
+    # this process's tasks, then refund and fail the steps they were in, as the
+    # sweep would, but now (startup_reconcile.interrupt_running).
     logger.info("Shutting down: Cancelling all tasks...")
     sweeper.cancel()
     if task_manager:
-        cancelled = task_manager.cancel_all_tasks()
-        logger.info(f"Cancelled {cancelled} tasks")
-        
-        # Wait for tasks to finish cancellation
-        tasks = task_manager.get_all_tasks()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+        counts = await interrupt_running(task_manager)
+        logger.info(f"Shutdown interrupted running steps: {counts}")
         set_task_manager(None)  # Clear global instance
     logger.info("Shutdown complete")
 

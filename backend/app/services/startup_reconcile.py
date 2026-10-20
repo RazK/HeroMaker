@@ -6,11 +6,16 @@ A step is charged BEFORE its provider is called (pipeline.execute_step), so
 every way a step can end badly needs a compensating refund. Two are in the
 running process: the provider error caught by execute_step, and a timeout in
 task_manager. This is the third: the process itself goes away (a deploy, a
-crash, an out-of-memory kill) while a step is running. Nothing in that process
-gets to run - on Railway uvicorn runs under `sh -c` and never sees the
-SIGTERM, so not even the lifespan shutdown does - and the step is left
-"processing" and charged. Until this refunded it, every deploy during a hero's
-paint or sculpt took the user's credits and kept them.
+crash, an out-of-memory kill) while a step is running. A crash or a SIGKILL
+lets nothing in that process run, and the step is left "processing" and
+charged. Until this refunded it, every deploy during a hero's paint or sculpt
+took the user's credits and kept them.
+
+A deploy is the common case, and it now shuts down cleanly: uvicorn gets
+Railway's SIGTERM (backend/Dockerfile `exec`s it), and the lifespan shutdown
+cancels this process's tasks and calls `interrupt_running`, which refunds and
+fails the steps they were in at once, through the same function as the sweep.
+The sweep stays for everything that does not shut down cleanly.
 
 WHEN, not just what. The old version ran once, the moment a new process
 started. But a deploy OVERLAPS: the old process keeps running until the new one
@@ -41,7 +46,7 @@ import asyncio
 import logging
 import os
 from datetime import timedelta
-from typing import Callable, Dict, Optional
+from typing import Callable, Collection, Dict, Optional
 
 from sqlalchemy.orm import Session
 
@@ -54,6 +59,14 @@ logger = logging.getLogger(__name__)
 
 RESTART_MESSAGE = "Step was processing when server restarted. Please retry."
 RESTART_NOTE = "restart"
+SHUTDOWN_NOTE = "shutdown"
+
+# How long the shutdown waits for cancelled tasks to unwind before refunding
+# their steps. Cancelling lands at the task's next await, so this is normally
+# milliseconds; it is a bound, not a pause. Inside Railway's draining window
+# with uvicorn's --timeout-graceful-shutdown (backend/Dockerfile,
+# backend/railway.toml).
+SHUTDOWN_TASK_WAIT = float(os.getenv("SHUTDOWN_TASK_WAIT_SECONDS", "5"))
 
 # Railway kills the old process once the new one passes /health (migrations
 # can hold that up to ~60 s; railway.toml). Five minutes is well clear of it.
@@ -72,11 +85,15 @@ CHARGE_SLACK = timedelta(seconds=30)
 def reconcile_stuck_steps(
     db: Session,
     is_running: Optional[Callable[[str], bool]] = None,
+    creation_ids: Optional[Collection[str]] = None,
+    note: str = RESTART_NOTE,
 ) -> Dict[str, int]:
     """Fail every orphaned "processing" step and refund its charge.
 
     `is_running(creation_id)` says a task in this process is working on that
-    hero; its steps are left alone. Returns counts.
+    hero; its steps are left alone. `creation_ids`, if given, limits this to
+    those heroes (the shutdown's own; during a deploy the other process is
+    running its steps too). `note` is recorded on the refund. Returns counts.
 
     Refunds first, then marks: the refund commits on its own, so if the
     process dies between the two the step is still "processing", the next
@@ -84,21 +101,26 @@ def reconcile_stuck_steps(
     twice. A step that cannot be refunded is logged and still marked failed,
     so it does not spin forever.
     """
-    stuck = db.query(CreationStep).filter(CreationStep.status == "processing").all()
+    query = db.query(CreationStep).filter(CreationStep.status == "processing")
+    if creation_ids is not None:
+        if not creation_ids:
+            return {"stuck": 0, "refunded": 0, "credits_refunded": 0}
+        query = query.filter(CreationStep.creation_id.in_(list(creation_ids)))
+    stuck = query.all()
     if is_running is not None:
         stuck = [s for s in stuck if not is_running(s.creation_id)]
     counts = {"stuck": len(stuck), "refunded": 0, "credits_refunded": 0}
     if not stuck:
         return counts
 
-    logger.warning("Found %s steps left processing by a previous process", len(stuck))
+    logger.warning("Found %s steps left processing (%s)", len(stuck), note)
     # Read everything needed before any commit: refund_last_step_charge commits
     # (and on a race rolls back), which expires these rows.
     work = [(s.id, s.creation_id, s.step_name, s.started_at) for s in stuck]
     for step_id, creation_id, step_name, started_at in work:
         refund = refund_last_step_charge(
             db, creation_id, step_name,
-            note=RESTART_NOTE,
+            note=note,
             charged_since=(started_at - CHARGE_SLACK) if started_at else None,
         )
         # A refund that was already there (a second sweeper, a sweep cut off
@@ -114,8 +136,8 @@ def reconcile_stuck_steps(
         step_errors.note_refund(step, refund)
         db.commit()
         logger.info(
-            "Marked step %s:%s as failed (server restart)%s",
-            creation_id, step_name, " and refunded it" if refund is not None else "",
+            "Marked step %s:%s as failed (%s)%s",
+            creation_id, step_name, note, " and refunded it" if refund is not None else "",
         )
 
     logger.info(
@@ -153,3 +175,47 @@ async def sweep_forever(task_manager, first_delay: float = None, every: float = 
     while True:
         sweep_once(task_manager)
         await asyncio.sleep(every)
+
+
+async def interrupt_running(task_manager, wait: float = None) -> Dict[str, int]:
+    """The lifespan's shutdown: cancel this process's tasks and make whole the
+    steps they were in, now, instead of minutes into the next process.
+
+    A cancelled step raises CancelledError, a BaseException, which passes by
+    execute_step's `except Exception` refund (as on a timeout): left alone it
+    stays "processing" and charged until a sweep. So once the tasks have
+    unwound, their heroes' "processing" steps go through reconcile_stuck_steps:
+    the sweep's own refund (`refund_last_step_charge`, keyed on the spend row)
+    and error code (`interrupted`). Two consequences:
+
+    - Only this process's heroes. During a deploy the new process is already
+      running its own steps; failing every "processing" step would cut those
+      off.
+    - Idempotent with the sweep. A step refunded here is "failed" by the time
+      the next process sweeps; one refunded but not yet marked (the process
+      killed in between) is found again, and its refund is not paid twice.
+
+    A task still running after `wait` (it did not take the cancel) is left to
+    the next process's sweep.
+    """
+    wait = SHUTDOWN_TASK_WAIT if wait is None else wait
+    ours = task_manager.running_creations()
+    cancelled = task_manager.cancel_all_tasks()
+    tasks = task_manager.get_all_tasks()
+    if tasks:
+        await asyncio.wait(tasks, timeout=wait)
+    db = SessionLocal()
+    try:
+        counts = reconcile_stuck_steps(
+            db,
+            is_running=lambda cid: bool(task_manager.running_for_creation(cid)),
+            creation_ids=ours,
+            note=SHUTDOWN_NOTE,
+        )
+    except Exception:
+        logger.exception("Shutdown could not refund interrupted steps; the sweep will")
+        db.rollback()
+        counts = {}
+    finally:
+        db.close()
+    return {"cancelled": cancelled, **counts}
