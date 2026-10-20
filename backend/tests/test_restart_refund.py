@@ -14,11 +14,13 @@ Then the real reconciliation runs: `reconcile_stuck_steps`, and once through the
 app's own lifespan and its sweep. Remove the refund call there and they go red.
 """
 import asyncio
+import io
 import time
 from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.config.steps import STEPS, get_step_by_name
 from app.main import app
@@ -27,6 +29,15 @@ from app.services import ledger, pipeline, startup_reconcile, step_errors
 from app.services.startup_reconcile import RESTART_MESSAGE, reconcile_stuck_steps
 from app.services.task_manager import TaskManager, get_task_manager
 from app.utils.storage import get_storage
+
+
+def _jpeg(tag: bytes) -> bytes:
+    """A real (tiny) JPEG, `tag` after its end: an upload must be a picture
+    (creations.require_picture), and each test's drawing stays its own bytes."""
+    out = io.BytesIO()
+    Image.new("RGB", (4, 4), (200, 30, 30)).save(out, format="JPEG")
+    return out.getvalue() + tag
+
 
 RENDER = get_step_by_name("openai_render")["credit_cost"]   # 2
 MESHY = get_step_by_name("meshy_3d")["credit_cost"]         # 5
@@ -338,7 +349,7 @@ def test_a_class_hero_is_refunded_to_the_class_wallet(db, make_user, monkeypatch
         student = TestClient(app)
         assert student.post("/api/class/join", json={"pin": pin, "first_name": "Maya", "age": 7}).status_code == 200
         _steps(monkeypatch, dies_at="meshy_3d", deliver=_deliver)
-        r = student.post("/api/class/me/hero", files={"image_file": ("d.jpg", b"\xff\xd8\xff dragon", "image/jpeg")})
+        r = student.post("/api/class/me/hero", files={"image_file": ("d.jpg", _jpeg(b" dragon"), "image/jpeg")})
         assert r.status_code == 201, r.text
         [run] = tasks.pending
         _die(run)

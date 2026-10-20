@@ -113,7 +113,16 @@ class Creation(Base):
                 return "completed"
         
         return "pending"
-    
+
+    @property
+    def never_started(self) -> bool:
+        """Uploaded, but "Make my hero" was never pressed: no step has ever
+        run. The app makes the hero when a picture is picked, so one left on
+        the "Make this hero?" sheet (the tab closed, the phone's Back) is one
+        of these. It is nobody's hero: no list shows it and no count has it.
+        Nothing was charged for it, and its row and drawing are kept."""
+        return all(s.status == "pending" and s.started_at is None for s in self.steps or [])
+
     @property
     def completed_at(self) -> Optional[datetime]:
         """Get completed_at from last step's completed_at (if all steps completed)."""

@@ -305,7 +305,7 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
         />
       )}
 
-      <BuyCredits isOpen={showBuyModal} note={buyNote} onClose={() => { setShowBuyModal(false); setBuyNote(undefined); }} />
+      <BuyCredits isOpen={showBuyModal} note={buyNote} credits={user?.credits} onClose={() => { setShowBuyModal(false); setBuyNote(undefined); }} />
       <CouponRedeem
         isOpen={showCouponModal}
         onClose={() => setShowCouponModal(false)}
