@@ -36,7 +36,22 @@ THUMB_PREFIX = "thumb_"
 OPT_PREFIX = "opt_"
 OPTIMIZABLE_SUFFIXES = (".glb", ".vrm")
 
-_DERIVED_PREFIXES = (THUMB_PREFIX, OPT_PREFIX)
+# A painting cut out of its opaque studio backdrop is stored next to it as
+# "cut_<filename>" (see services/painting_cut.py). Only the painting has one.
+CUT_PREFIX = "cut_"
+CUTTABLE = ("rendered.png",)
+
+_DERIVED_PREFIXES = (THUMB_PREFIX, OPT_PREFIX, CUT_PREFIX)
+
+
+def is_derived(filename: str) -> bool:
+    """A cached copy made from another file (thumb_, opt_, cut_): never copy or back it up."""
+    return filename.startswith(_DERIVED_PREFIXES)
+
+
+def cut_name(filename: str) -> Optional[str]:
+    """The cut-out copy of a painting, or None for any other file."""
+    return CUT_PREFIX + filename if filename in CUTTABLE else None
 
 
 def thumbnail_name(filename: str) -> Optional[str]:
@@ -57,7 +72,7 @@ def derived_names(filename: str) -> list[str]:
     """Every cached copy generated from ``filename``; uploading it makes them stale."""
     if filename.startswith(_DERIVED_PREFIXES):
         return []
-    return [n for n in (thumbnail_name(filename), optimized_name(filename)) if n]
+    return [n for n in (thumbnail_name(filename), optimized_name(filename), cut_name(filename)) if n]
 
 
 class StorageBackend(ABC):

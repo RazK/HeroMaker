@@ -1,5 +1,5 @@
 import { CSSProperties, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { api, CreationResponse } from '../../api/client';
+import { api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
 import { Polaroid } from './parts';
@@ -58,7 +58,7 @@ function markIntroSeen(id: string) {
  * exist (file_versions, as GET /api/creations/{id} and the class claim link
  * both return it). Older responses without file_versions fall back to steps.
  */
-export type LiveHero = Pick<CreationResponse, 'id' | 'user_id' | 'name' | 'age' | 'file_versions'> & {
+export type LiveHero = Pick<CreationResponse, 'id' | 'user_id' | 'name' | 'age' | 'file_versions' | 'painting'> & {
   character_name?: string | null;
   steps?: Array<Pick<CreationResponse['steps'][number], 'step_name' | 'status'>>;
 };
@@ -272,7 +272,11 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
 
   const waiting = !ready3d && (phase === 'sculpt' || phase === 'alive' || phase === 'live');
   const waitUrl = phase === 'sculpt' ? sculpt : vrm;
-  const painting = done('openai_render') ? 'rendered.png' : 'original.jpg';
+  const painted = done('openai_render');
+  const painting = painted ? 'rendered.png' : 'original.jpg';
+  // On the stage: the painting's cut-out, or a polaroid of it when it has none.
+  const paintingFull = painted ? PAINTING_FILE : painting;
+  const paintingClass = `tb-stage-img${painted && paintingFramed(creation) ? ' tb-stage-img--framed' : ''}`;
   const heroName = creation.character_name?.trim() || 'The hero';
   const flat = browsing && (phase === 'drawing' || phase === 'painting');
 
@@ -315,13 +319,13 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
           {(steps || failed) && (
             <Layer on={phase === 'painting' || (failed && phase !== 'drawing')}>
               <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: phase === 'painting' ? pinch.transform : undefined }}>
-                <Picture thumb={file(`thumb_${painting}`)} full={file(painting)} alt="Painted" onShown={pictureShown('painting')} style={paintingBox && boxStyle(paintingBox, size)} />
+                <Picture thumb={file(`thumb_${painting}`)} full={file(paintingFull)} alt="Painted" onShown={pictureShown('painting')} className={paintingClass} style={paintingBox && boxStyle(paintingBox, size)} />
               </div>
             </Layer>
           )}
           <div ref={host} className={`tb-live-canvas${ready3d ? ' tb-layer--on' : ''}`} />
           <Layer on={waiting && !failed}>
-            <Loading image={file(`thumb_${painting}`)} progress={(waitUrl && progress[waitUrl]) || 0} />
+            <Loading image={file(`thumb_${painting}`)} progress={(waitUrl && progress[waitUrl]) || 0} className={paintingClass} />
           </Layer>
           {steps && <StepStrip phases={phases} current={phase} browsing={browsing} onPick={browse} />}
           {!steps && (
@@ -519,11 +523,11 @@ function Layer({ on, children }: { on: boolean; children: ReactNode }) {
 }
 
 /** The painting, dimmed, with a ring filling up as the 3D file arrives. */
-function Loading({ image, progress }: { image: string; progress: number }) {
+function Loading({ image, progress, className = 'tb-stage-img' }: { image: string; progress: number; className?: string }) {
   const pct = Math.round(progress * 100);
   return (
     <div className="tb-live-loading" role="status" aria-label={`Loading ${pct}%`}>
-      <img className="tb-stage-img tb-live-img--dim" src={image} alt="" />
+      <img className={`${className} tb-live-img--dim`} src={image} alt="" />
       <div className="tb-ring" style={{ ['--p' as string]: `${pct}%` }}>
         <span>{pct}%</span>
       </div>

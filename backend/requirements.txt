@@ -40,3 +40,8 @@ bcrypt>=4.0.0
 # Sign in with Google: verifies Google Identity Services ID tokens
 google-auth>=2.20.0
 
+# Painting cut-out (app/utils/cutout.py): array maths, flood fill and
+# morphology, and the small U^2-Net-p guide model it runs on one CPU core.
+numpy>=1.26
+scipy>=1.11
+onnxruntime>=1.17

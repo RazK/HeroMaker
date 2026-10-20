@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, AdminAction, AdminHero, AdminUserDetail, ApiError, CreationResponse, RemovalReason } from '../../api/client';
+import { api, AdminAction, AdminHero, AdminUserDetail, ApiError, CreationResponse, RemovalReason, paintingFramed } from '../../api/client';
 import { HeroTile, SkeletonTile, TileGrid, makingLine, makingPct } from '../tb/HeroTile';
 import { Icon, IconName } from '../tb/Icon';
 import { Dialog, Sheet, SheetRow } from '../tb/parts';
@@ -249,7 +249,7 @@ function AdminTile({ hero, index, onClick }: { hero: AdminHero; index: number; o
   const painted = hero.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
   const drawing = file('thumb_original.jpg');
   const art = state === 'ready' || (state === 'making' && painted)
-    ? { kind: 'fade' as const, drawing, hero: file('thumb_rendered.png') }
+    ? { kind: 'fade' as const, drawing, hero: file('thumb_rendered.png'), framed: paintingFramed(hero) }
     : { kind: 'drawing' as const, src: drawing };
   const by = hero.class_title ? `in ${hero.class_title}` : hero.name ? `by ${hero.name}${hero.age ? `, ${hero.age}` : ''}` : '';
   const line = hero.removed ? (REASON_LABEL[hero.removed.reason ?? ''] ?? 'Removed')

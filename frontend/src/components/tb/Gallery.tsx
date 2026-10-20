@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { api, CreationResponse } from '../../api/client';
+import { api, CreationResponse, paintingFramed } from '../../api/client';
 import { HeroTile, SkeletonTile, TileGrid, makingLine, makingPct } from './HeroTile';
 import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState, stepProgress } from './pipeline';
@@ -350,7 +350,7 @@ function Tile({ creation, index, eager, onClick }: { creation: CreationResponse;
   // Ready, or painted and still being made: the drawing cross-fades to the
   // hero. Otherwise the drawing alone, greyed if it stopped.
   const art = state === 'ready' || (state === 'making' && painted)
-    ? { kind: 'fade' as const, drawing, hero: file('thumb_rendered.png') }
+    ? { kind: 'fade' as const, drawing, hero: file('thumb_rendered.png'), framed: paintingFramed(creation) }
     : { kind: 'drawing' as const, src: drawing };
   const line =
     state === 'ready' ? by

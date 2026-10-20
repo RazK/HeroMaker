@@ -497,6 +497,24 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   object-fit: contain;
   object-position: center;
 }
+/* A painting whose opaque studio backdrop could not be cut away confidently
+   (CreationResponse.painting === 'framed'): a tilted white card hugging the
+   picture, like the drawing's polaroid, instead of a beige box over the sun.
+   Centred with inset + auto margins (no translate), so it holds in RTL. */
+.tb-stage .tb-stage-img.tb-stage-img--framed {
+  inset: 28px;
+  margin: auto;
+  width: auto;
+  height: auto;
+  max-width: calc(100% - 56px);
+  max-height: calc(100% - 56px);
+  box-sizing: border-box;
+  padding: 8px;
+  background: var(--tb-white);
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(35, 25, 66, 0.18);
+  transform: rotate(-4deg);
+}
 /* The kid's drawing in the stage's corner (Polaroid in parts.tsx). Over a
    painting, useClearOfPolaroid keeps the picture out from under it.
    The photo takes the drawing's own shape (--tb-pol-w/h, set by Polaroid

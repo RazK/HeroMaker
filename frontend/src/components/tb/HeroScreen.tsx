@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
+import { api, ApiError, CreationResponse, CreationStepResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
 import { HeroLive } from './HeroLive';
@@ -65,7 +65,10 @@ export function HeroScreen(props: HeroScreenProps) {
   const stepIndex = step ? creation.steps.indexOf(step) : creation.steps.length;
   // What the user sees grow: the drawing until it is painted, then the painting.
   const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
-  const art = painted ? file('rendered.png') : file('original.jpg');
+  // The painting stands on the stage as its cut-out (PAINTING_FILE), or as a
+  // polaroid when it has no confident one.
+  const art = painted ? file(PAINTING_FILE) : file('original.jpg');
+  const framed = painted && paintingFramed(creation);
   useClearOfPolaroid(stageRef, `${state}:${art}`);
 
   const run = async (what: () => Promise<unknown>, failMsg: string) => {
@@ -159,7 +162,7 @@ export function HeroScreen(props: HeroScreenProps) {
   // Being made, or failed: the picture so far. (Ready, HeroLive has the stage.)
   const stage = (
     <div ref={stageRef} className="tb-stage tb-hero-stage">
-      <img className={`tb-stage-img${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
+      <img className={`tb-stage-img${framed ? ' tb-stage-img--framed' : ''}${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
       {/* Something on the stage always moves while the hero is made: a scan
           over the drawing, then a gloss over the painting. */}
       {state === 'making' && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}

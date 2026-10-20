@@ -271,6 +271,8 @@ def test_s3_upload_sets_content_type_and_invalidates_the_thumbnail():
     assert store.s3_client.calls == [
         ("put", f"{USER}/{CREATION}/rendered.png", "image/png"),
         ("delete", f"{USER}/{CREATION}/thumb_rendered.png", None),
+        # A new painting also makes its cut-out stale (services/painting_cut.py).
+        ("delete", f"{USER}/{CREATION}/cut_rendered.png", None),
     ]
 
 

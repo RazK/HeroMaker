@@ -22,8 +22,13 @@ import './HeroTile.css';
 
 /** What the tile's plate shows. */
 export type TileArt =
-  /** A finished (or painted) hero: the drawing as a polaroid, cross-fading to the hero. */
-  | { kind: 'fade'; drawing: string; hero: string }
+  /**
+   * A finished (or painted) hero: the drawing as a polaroid, cross-fading to
+   * the hero. `framed`: the painting has an opaque backdrop the backend could
+   * not cut away confidently (CreationResponse.painting), so it is a polaroid
+   * too, the same tilted white card as the drawing, never a beige box.
+   */
+  | { kind: 'fade'; drawing: string; hero: string; framed?: boolean }
   /** The drawing alone, as a polaroid: nothing painted yet, or it stopped. */
   | { kind: 'drawing'; src: string }
   /** No drawing yet: the child's initial in a white disc. */
@@ -73,7 +78,7 @@ export function HeroTile({
 
   let picture: ReactNode;
   if (art.kind === 'fade') {
-    picture = <TileFade drawing={art.drawing} hero={art.hero} name={alt} index={index} eager={eager} />;
+    picture = <TileFade drawing={art.drawing} hero={art.hero} framed={art.framed} name={alt} index={index} eager={eager} />;
   } else if (art.kind === 'drawing') {
     picture = (
       <span className="tb-tile-art">
@@ -182,7 +187,7 @@ function wavePhaseDelay(index: number): string {
  * preferred (the story starts there, and it is asked for first); if it
  * fails, the tile shows the render for good.
  */
-export function TileFade({ drawing, hero, name, index, eager }: { drawing: string; hero: string; name: string; index: number; eager: boolean }) {
+export function TileFade({ drawing, hero, framed = false, name, index, eager }: { drawing: string; hero: string; framed?: boolean; name: string; index: number; eager: boolean }) {
   const [loaded, setLoaded] = useState({ drawing: false, hero: false });
   const [drawingFailed, setDrawingFailed] = useState(false);
   const drawingRef = useRef<HTMLImageElement>(null);
@@ -208,7 +213,13 @@ export function TileFade({ drawing, hero, name, index, eager }: { drawing: strin
           <img ref={drawingRef} src={drawing} alt="" {...imgLoading(eager, true)} onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />
         )}
       </span>
-      <img ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
+      {framed ? (
+        <span className="tb-tile-framed tb-tile-hero">
+          <img ref={heroRef} src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
+        </span>
+      ) : (
+        <img ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
+      )}
     </span>
   );
 }
