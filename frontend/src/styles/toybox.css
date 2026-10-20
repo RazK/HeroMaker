@@ -294,6 +294,22 @@ h1, h2, h3, h4 {
   text-overflow: ellipsis;
   pointer-events: none;
 }
+/* A title that does something (the owner renames their hero): the same text,
+   no underline, no box; it presses like everything else. */
+.tb-header-title--button {
+  pointer-events: auto;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-header-title--button:active { opacity: 0.6; }
+.tb-header-title--button:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
 .tb-logo {
   display: flex;
   align-items: center;
@@ -549,59 +565,6 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   box-shadow: 0 8px 20px rgba(35, 25, 66, 0.18);
   transform: rotate(-4deg);
 }
-/* The kid's drawing in the stage's corner (Polaroid in parts.tsx). Over a
-   painting, useClearOfPolaroid keeps the picture out from under it.
-   The photo takes the drawing's own shape (--tb-pol-w/h, set by Polaroid
-   from the picture: 84 x 84 for a square, up to 96 on the long side), so a
-   tall drawing gets a tall card and no empty white beside it. */
-.tb-polaroid {
-  position: absolute;
-  inset-inline-start: 12px;
-  inset-block-end: 12px;
-  width: calc(var(--tb-pol-w, 84px) + 12px);
-  padding: 6px 6px 0;
-  background: var(--tb-white);
-  border-radius: 12px;
-  transform: rotate(-6deg);
-  box-shadow: 0 8px 20px rgba(35, 25, 66, 0.18);
-}
-.tb-polaroid img { display: block; width: var(--tb-pol-w, 84px); height: var(--tb-pol-h, 84px); object-fit: contain; border-radius: 6px; background: #faf7f2; }
-/* One line, always inside the card: the first name ellipsizes, the age stays. */
-.tb-polaroid-caption {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 26px;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  font-family: var(--tb-font-display);
-  font-size: 13px;
-  line-height: 1;
-  color: var(--tb-ink-2);
-}
-.tb-polaroid-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.tb-polaroid-age { flex-shrink: 0; }
-.tb-polaroid--button { cursor: pointer; border: 0; font: inherit; color: inherit; text-align: inherit; display: block; }
-.tb-polaroid--button:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 8px 20px rgba(35, 25, 66, 0.18); }
-.tb-polaroid--button:active { transform: rotate(-6deg) scale(0.96); transition: transform 80ms ease; }
-/* A polaroid that opens (Polaroid's onOpen). The enlarge mark, a badge on the card's top corner (outside its box, so it
-   neither covers the drawing nor changes what useClearOfPolaroid measures). */
-.tb-polaroid-zoom {
-  position: absolute;
-  inset-block-start: -8px;
-  inset-inline-end: -8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: var(--tb-white);
-  color: var(--tb-ink);
-  box-shadow: 0 0 0 2px var(--tb-ink);
-  pointer-events: none;
-}
-
 /* ---------- Stepper ---------- */
 
 .tb-stepper { display: flex; align-items: center; gap: 6px; height: 56px; }

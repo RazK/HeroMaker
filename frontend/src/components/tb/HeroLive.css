@@ -1,31 +1,152 @@
-/* ---------- The stage: intro layers, the 3D canvas, the polaroid ---------- */
+/* ---------- The stage: a carousel of the drawing, the painting, the hero ---------- */
 
-.tb-live-stage { isolation: isolate; container-type: size; }
+/* The stage is the size container its slides measure (cq units). A swipe
+   never scrolls the page (toybox.css: .tb-screen--fit .tb-stage). */
+.tb-live-stage { isolation: isolate; container-type: size; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 /* The sun stays a circle on any stage shape (a wide stage made it a pill). */
 .tb-live-stage .tb-stage-sun { width: min(72cqw, 80cqh); height: min(72cqw, 80cqh); max-height: none; aspect-ratio: auto; }
-.tb-live-stage--intro { cursor: pointer; }
+
+/* One slide per part, side by side; HeroLive's Carousel moves them by whole
+   stage widths, following the finger while it drags. A short ease, under
+   300ms (brand book). */
+.tb-slide {
+  position: absolute;
+  inset: 0;
+  transition: transform 260ms cubic-bezier(.2, .8, .2, 1);
+  will-change: transform;
+}
+.tb-carousel--dragging { cursor: grabbing; }
+
+/* The pager: three quiet dots over the foot of the stage, the only chrome,
+   so people know it swipes. Each dot's hit area is bigger than the dot. */
+.tb-carousel-dots {
+  position: absolute;
+  z-index: 2;
+  inset-inline: 0;
+  inset-block-end: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.tb-carousel-dot {
+  position: relative;
+  width: 20px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.tb-carousel-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tb-ink);
+  opacity: 0.22;
+  transition: opacity 200ms ease, width 200ms ease;
+}
+.tb-carousel-dot[aria-current='true']::after { opacity: 0.75; width: 18px; }
+.tb-carousel-dot:focus-visible { outline: none; }
+.tb-carousel-dot:focus-visible::after { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
+
+/* A slide's picture fills the slide, contained, never cropped: 12px clear
+   of the edges, and of the dots under it (the band at the foot). */
+.tb-slide-fit {
+  position: absolute;
+  inset: 12px 12px 28px;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tb-slide-pic { display: block; max-width: 100%; max-height: 100%; height: auto; -webkit-user-drag: none; }
+/* Until its shape is known (the first paint), contained in the whole box. */
+.tb-slide-pic--contain { width: 100%; height: 100%; object-fit: contain; }
+/* The drawing: just the drawing, a thin rounded corner, lifted off the plate. */
+.tb-slide-pic--drawing { border-radius: 12px; background: #faf7f2; box-shadow: 0 6px 18px rgba(35, 25, 66, 0.16); }
+/* A painting with no confident cut-out: on its white card (toybox.css
+   .tb-stage-img--framed), the card clear of the stage's edges when tilted. */
+.tb-slide-fit--framed { inset: 22px 22px 34px; }
+.tb-slide-pic--framed { box-sizing: content-box; padding: 8px; background: var(--tb-white); border-radius: 16px; box-shadow: 0 8px 20px rgba(35, 25, 66, 0.18); transform: rotate(-4deg); }
+
+/* A picture that opens full screen: the whole slide is the tap. */
+.tb-slide-open {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-slide-open:focus-visible { outline: none; box-shadow: inset 0 0 0 4px rgba(91, 61, 245, 0.25); border-radius: var(--tb-radius-card); }
+/* Who drew it: one small line in the band at the foot, beside the dots. */
+.tb-slide-credit {
+  position: absolute;
+  inset-block-end: 6px;
+  inset-inline-start: 16px;
+  max-width: calc(50% - 44px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--tb-font-display);
+  font-synthesis: none;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--tb-ink-2);
+  pointer-events: none;
+}
+
+/* A part being made: what it is made from, dimmed, under a ring and its name. */
+.tb-slide-coming { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.tb-slide-dim { position: absolute; inset: 0; opacity: 0.35; filter: grayscale(0.4); }
+.tb-slide-coming--failed .tb-slide-dim { opacity: 0.3; filter: grayscale(0.8); }
+.tb-slide-status {
+  position: relative;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  box-shadow: var(--tb-shadow-card);
+  font-family: var(--tb-font-display);
+  font-synthesis: none;
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--tb-ink);
+  white-space: nowrap;
+}
+.tb-slide-status--failed { color: var(--tb-red); }
+.tb-slide-failed-mark {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--tb-red);
+  color: var(--tb-white);
+}
+
+/* The hero: the 3D canvas over the sun; while its file arrives, the painting
+   dimmed under a ring. */
 .tb-layer,
 .tb-live-canvas {
   position: absolute;
   inset: 0;
   opacity: 0;
-  /* Inside each phase's PHASE_MS (HeroLive.tsx): the phases cross-fade, quickly. */
   transition: opacity 200ms ease;
   pointer-events: none;
 }
 .tb-layer--on { opacity: 1; }
 .tb-live-canvas canvas { display: block; width: 100%; height: 100%; }
-.tb-live-stage .tb-polaroid { z-index: 2; }
-/* The sun never moves. During the intro (and browsing) the hero shrinks in place, centred on
-   it, with the same margin top and bottom so it stays clear of the stepper
-   (the 3D does the same: HeroStage.setInsetTop). */
-.tb-live-stage--steps .tb-stage-img { top: 80px; bottom: 80px; height: calc(100% - 160px); }
-/* A framed painting (toybox.css .tb-stage-img--framed) keeps the same margins. */
-.tb-stage.tb-live-stage--steps .tb-stage-img.tb-stage-img--framed { inset-block: 80px; height: auto; max-height: calc(100% - 160px); }
-
-/* The painting, dimmed, under a ring that fills as the 3D file arrives. */
 .tb-live-loading { position: absolute; inset: 0; display: grid; place-items: center; }
-.tb-live-img--dim { opacity: 0.35; filter: grayscale(0.4); }
 .tb-ring {
   position: relative; width: 88px; height: 88px; border-radius: 50%;
   background: conic-gradient(var(--tb-grape) var(--p), var(--tb-track) 0);
@@ -34,51 +155,7 @@
 .tb-ring::before { content: ''; position: absolute; inset: 10px; border-radius: 50%; background: var(--tb-white); }
 .tb-ring span { position: relative; font-family: var(--tb-font-display); font-weight: 700; font-size: 20px; color: var(--tb-grape); }
 
-/* The intro's stepper, small, on its own white ground over the top of the stage. */
-.tb-live-steps {
-  position: absolute;
-  z-index: 2;
-  inset-block-start: 12px;
-  inset-inline: 0;
-  margin-inline: auto;
-  width: min(232px, calc(100% - 24px));
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--tb-white);
-  box-shadow: var(--tb-shadow-card);
-}
-.tb-live-steps .tb-stepper { position: relative; height: 48px; gap: 4px; }
-.tb-live-steps .tb-step-dot { width: 26px; height: 26px; }
-.tb-live-steps .tb-step-dot svg { width: 15px; height: 15px; }
-/* The timeline: one circle on the step on show, sliding from step to step
-   (HeroLive SLIDE_MS). It and its ring (36px) sit 6px inside the 48px pill
-   on every side, never against its edge. */
-.tb-live-steps-now {
-  position: absolute;
-  inset-block-start: 9px;
-  inset-inline-start: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: var(--tb-grape);
-  color: var(--tb-white);
-  box-shadow: 0 0 0 3px var(--tb-track);
-  pointer-events: none;
-  transition: transform 300ms cubic-bezier(.2, .8, .2, 1);
-}
-.tb-live-steps-now svg { width: 18px; height: 18px; }
-/* Behind the circle is its purple trail; ahead, green (made, waiting). The
-   line ahead of the step on show fills purple while it plays. */
-.tb-live-steps .tb-step-dot--past { background: var(--tb-grape); color: var(--tb-white); }
-.tb-live-steps .tb-step-line { position: relative; overflow: hidden; background: var(--tb-track); }
-.tb-step-line-fill { position: absolute; inset: 0; background: var(--tb-grape); transform-origin: left; transform: scaleX(0); }
-.tb-step-line-fill--full { transform: none; }
-.tb-step-line-fill--filling { animation: tb-step-line-fill linear forwards; }
-@keyframes tb-step-line-fill { to { transform: none; } }
-
-/* ---------- The moves: all of them at a glance, 4 x 2 on a phone ---------- */
+/* ---------- The moves: one row of four, on a phone and a desktop ---------- */
 
 .tb-hero-moves {
   flex-shrink: 0;
@@ -86,22 +163,20 @@
      bar's hairline is the same 16px as everywhere else. */
   padding-block-end: var(--tb-space);
 }
-/* Four to a row inside the side margins, like every other block: on a phone
-   the eight moves are two rows of four, all of them in view (brand book: a
-   desktop has one row of 8 instead of 4 x 2). A swiped row of four hid half
-   of them behind a button cut off at the screen's edge. A short last row
-   stays centred under the full one. */
+/* Four to a row inside the side margins, like every other block, all of them
+   in view (a swiped row once hid half of them behind a button cut off at the
+   screen's edge). */
 .tb-moves {
   --gap: 10px;
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   gap: var(--gap);
   padding: 0 var(--tb-gutter) var(--tb-depth-sm);
 }
 .tb-move {
-  flex: 0 0 calc((100% - 3 * var(--gap)) / 4);
+  flex: 1 1 0;
   min-width: 0;
+  max-width: calc((100% - 3 * var(--gap)) / 4);
   height: 64px;
   padding: 0 4px;
   flex-direction: column;
@@ -110,13 +185,13 @@
   font-size: 15px;
   line-height: 18px;
 }
-/* A short screen gives most of the second row back to the stage. */
+/* A short screen gives the stage a little more. */
 @media (max-height: 700px) {
   .tb-move { height: 56px; }
 }
 .tb-move span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 /* A few moves (a parent's first look): they share the row equally. */
-.tb-moves--few .tb-move { flex: 1 1 0; }
+.tb-moves--few .tb-move { max-width: none; }
 .tb-move[aria-pressed='true'],
 .tb-move[aria-pressed='true']:active:not(:disabled) {
   background: var(--tb-grape);
@@ -137,16 +212,14 @@
 
 /* ---------- Layout of the ready hero ---------- */
 
-/* A desktop has room for all eight in one row, and a bigger stage. */
+/* A desktop has a bigger stage. */
 @media (min-width: 900px) and (min-height: 600px) {
   .tb-hero-screen[data-state='ready'] { max-width: 720px; }
-  .tb-moves { flex-wrap: nowrap; }
-  .tb-move { flex: 1 1 0; }
 }
 
-/* A phone on its side: the stage on one side; the moves (4 x 2) and the bar
-   on the other (HeroScreen.css lays the bar's two buttons in one row there),
-   the primary still the last button. */
+/* A phone on its side: the stage on one side; the moves and the bar on the
+   other (HeroScreen.css lays the bar's two buttons in one row there), the
+   primary still the last button. */
 @media (orientation: landscape) and (max-height: 559px) {
   .tb-hero-screen[data-state='ready'] {
     grid-template-rows: auto auto minmax(0, 1fr) auto;
@@ -159,47 +232,11 @@
   .tb-hero-screen[data-state='ready'] .tb-moves { padding-inline-start: 8px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tb-layer, .tb-live-canvas { transition: none; }
-}
+/* ---------- The drawing or the painting, full screen ---------- */
 
-/* The drawing, big, in the intro and while browsing: a polaroid of its own,
-   a white frame hugging the picture (never cropped) with the artist's name
-   and age, a slight tilt, over the plate and the sun. Its box is the
-   container the picture fits (cq units); browsing sets the box clear of the
-   hero's card in the corner (HeroLive fitClear). */
-.tb-live-drawing {
-  position: absolute;
-  inset: 76px 24px;
-  container-type: size;
-}
-.tb-live-zoom {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform-origin: center;
-}
-.tb-live-zoom--settle { transition: transform 200ms ease-out; }
-.tb-live-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 8px 0;
-  background: var(--tb-white);
-  border-radius: 14px;
-  box-shadow: 0 10px 24px rgba(35, 25, 66, 0.2);
-  transform: rotate(-2deg); /* BIG_TILT */
-}
-/* While browsing, the big drawing opens full screen: the polaroid's own
-   enlarge mark in its corner says so. */
-.tb-live-card--open { position: relative; pointer-events: auto; cursor: zoom-in; -webkit-tap-highlight-color: transparent; }
-.tb-live-card--open:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 10px 24px rgba(35, 25, 66, 0.2); }
-
-/* The drawing, full screen: a page of the app, not a viewer over it. Cream,
-   the header (its round close button), and the drawing's polaroid as big as
-   the screen allows; it pops in like everything else (under 300ms). */
+/* A page of the app, not a viewer over it: cream, the header (its round
+   close button), the picture as big as the screen allows; it pops in like
+   everything else (under 300ms). */
 .tb-drawing-full {
   position: fixed;
   inset: 0;
@@ -216,13 +253,31 @@
   inset: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + env(safe-area-inset-bottom));
   container-type: size;
 }
-.tb-drawing-full .tb-live-card-caption { height: 44px; font-size: 22px; }
-.tb-drawing-full .tb-live-card-img { max-height: calc(100cqh - 52px); }
 @keyframes tb-drawing-full-in { from { opacity: 0; transform: scale(0.96); } }
+.tb-live-zoom {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+}
+.tb-live-zoom--settle { transition: transform 200ms ease-out; }
+/* The drawing on its white card with the artist's name and age, slightly tilted. */
+.tb-live-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 8px 0;
+  background: var(--tb-white);
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(35, 25, 66, 0.2);
+  transform: rotate(-2deg);
+}
 .tb-live-card-img {
   display: block;
   max-width: calc(100cqw - 16px);
-  max-height: calc(100cqh - 44px);
+  max-height: calc(100cqh - 52px);
   width: auto;
   height: auto;
   object-fit: contain;
@@ -230,8 +285,13 @@
   background: #faf7f2;
   -webkit-user-drag: none;
 }
+/* A framed painting's card: no caption, the same 8px all round. */
+.tb-live-card--bare { padding: 8px; transform: rotate(-4deg); }
+.tb-live-card--bare .tb-live-card-img { max-height: calc(100cqh - 16px); }
+/* A painting's cut-out: on the page itself, as big as it fits. */
+.tb-live-plain .tb-live-card-img { max-width: 100cqw; max-height: 100cqh; width: 100cqw; height: 100cqh; background: none; border-radius: 0; }
 .tb-live-card-caption {
-  height: 36px;
+  height: 44px;
   max-width: 100%;
   display: flex;
   align-items: center;
@@ -240,25 +300,13 @@
   text-overflow: ellipsis;
   font-family: var(--tb-font-display);
   font-synthesis: none;
-  font-size: 18px;
+  font-size: 22px;
   color: var(--tb-ink-2);
 }
-.tb-live-stage .tb-stage-img { -webkit-user-drag: none; }
 
-/* The steps strip is the one way through how it was made: each dot shows
-   its step. The hit area is 44px, more than the dot. */
-.tb-live-steps .tb-step-dot { position: relative; padding: 0; border: 0; cursor: pointer; font: inherit; }
-.tb-live-steps .tb-step-dot::before { content: ''; position: absolute; inset: -8px; }
-.tb-live-steps .tb-step-dot:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
-
-/* The swap: the hero's card (and, on the way back, the drawing's) shrinks
-   into its corner; the drawing grows out of it (HeroLive SWAP_MS). */
-.tb-live-pop { animation: tb-live-pop 250ms cubic-bezier(.2, .8, .2, 1); transform-origin: bottom left; }
-@keyframes tb-live-pop { from { transform: scale(2.2) rotate(-6deg); opacity: 0; } }
-.tb-live-mini .tb-polaroid-caption { font-size: 12px; }
-
+/* Reduced motion: the slides switch at once, nothing pops. */
 @media (prefers-reduced-motion: reduce) {
-  .tb-live-pop, .tb-drawing-full { animation: none; }
-  .tb-live-steps-now { transition: none; }
+  .tb-slide, .tb-layer, .tb-live-canvas, .tb-carousel-dot::after { transition: none; }
+  .tb-drawing-full { animation: none; }
   .tb-live-zoom--settle { transition: none; }
 }

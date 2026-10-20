@@ -12,10 +12,10 @@ import { useEffect, useRef } from 'react';
  * in-app Back can go back through history when that is where it leads, and
  * replace the entry when it is not (a link opened from outside).
  *
- * Over a screen, an overlay (a sheet, browsing how a hero was made, the
- * drawing full screen) owns one entry of its own at the same URL, marked with
- * a `tb…: true` key (HeroLive's tbStageBrowse and tbDrawingFull, and
- * OVERLAY_KEY below): Back closes it, not the screen.
+ * Over a screen, an overlay (a sheet, the drawing or the painting full
+ * screen) owns one entry of its own at the same URL, marked with a `tb…: true`
+ * key (HeroLive's tbDrawingFull, and OVERLAY_KEY below): Back closes it, not
+ * the screen.
  */
 export const HERO_PATH = '/hero/';
 export const CLASS_PATH = '/class/';
@@ -112,7 +112,7 @@ export function goUp(parent: string, show: () => void): boolean {
  * entry: Back (Android's too) calls `onBack` and leaves the screen under it as
  * it was. Closed any other way, the entry is dropped, so the next Back is not
  * a dead press. Overlays open at once (a sheet swapping for the next) share
- * the one entry. The same contract as HeroLive's useBackEntry.
+ * the one entry. The same contract as HeroLive's useFullBack.
  */
 export const OVERLAY_KEY = 'tbSheet';
 let overlays = 0;
