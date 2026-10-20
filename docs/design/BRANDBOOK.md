@@ -78,7 +78,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - Never crop: `object-fit: contain`, always.
 - Heroes are transparent and stand on a plate or a sun.
 - An old painting with an opaque studio backdrop is shown from its cut-out (`cut_rendered.png`, `thumb_rendered.png`). One with no confident cut (`painting: "framed"`) is a polaroid, the drawing's tilted white card, never a beige box.
-- The drawing is a polaroid (white frame, -6deg, artist's name and age). Its photo takes the drawing's shape: no empty white beside a tall drawing. On the ready hero's stage, one tap (enlarge mark in its corner) swaps it in: the drawing big on the same stage, the hero small in the corner, and the steps strip on top to see each step (drawing, painting, sculpt). Alive, the corner card or Back return to the hero. The steps strip is the only way through how it was made: no overlays, no other toggles.
+- The drawing is a polaroid (white frame, -6deg, artist's name and age). Its photo takes the drawing's shape: no empty white beside a tall drawing. On the ready hero's stage, one tap (enlarge mark in its corner) swaps it in: the drawing big on the same stage, the hero small in the corner, and the steps strip on top. The steps then play by themselves (each about 2.5s once on screen: drawing, painting, sculpt, then back to the hero); a tap on a step jumps there and it carries on from it. The strip's dots carry no names (Raz's call), and the current dot and its ring sit inside the pill, never against its edge. A tap on the big drawing (its enlarge mark) opens it full screen as a page of the app: cream, the header's round close button, "The drawing", the polaroid as big as it fits, pinch to zoom. Close or Back return to the steps.
 - Thumbnail first, full size swapped in when loaded.
 - Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
 
@@ -150,7 +150,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Queue-then-play game.** "as soon as an animation is clicked just play it".
 - **Full-screen drawing viewer** (dark scrim, Drawing | Hero toggle): "It doesn't look like part of the app ... this preview of 2 steps. It's confusing." Now the polaroid swaps into the stage and the 4-step strip is the one way through.
 - **Underlined text links.** "No underlined links." Every action is a button, a row, a chip or a toggle; `.tb-link` is gone.
-- **Icon-only steps strip.** "I can't see the steps, it's not showing them." Four bare dots did not read as steps you can tap. Now each step has its name under its icon (Drawing, Painting, Sculpt, Alive), and the whole column is the tap.
+- **Names under the step dots.** Tried; Raz: "Remove the labels, but make the transition automatic between the phases." The steps now play by themselves.
 - **My classes as a chip.** The fourth chip on a phone, cut off at the edge: "I could miss it. It needs a higher level in the hierarchy." Now the switch.
 - **The school as a text link.** Grape, underlined: "looks like a link in a document. Doesn't give me a good feeling about my school." Now a header card.
 
