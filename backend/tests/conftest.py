@@ -35,6 +35,7 @@ os.environ.setdefault("MESHY_USD_MICROS_PER_CREDIT", "20000")
 
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402
+    AdminAction,
     ClassGuest,
     ClassRoom,
     ClassSession,
@@ -53,6 +54,7 @@ from app.models import (  # noqa: E402
 # Tables are wiped between tests in dependency order (children first), so
 # foreign keys never block a truncate.
 _WIPE_ORDER = (
+    AdminAction,
     UsageEvent,
     CreditTransaction,
     Payment,
