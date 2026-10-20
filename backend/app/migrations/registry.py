@@ -18,6 +18,7 @@ from app.migrations import m015_classes
 from app.migrations import m016_school_details
 from app.migrations import m017_admin_actions
 from app.migrations import m018_step_error_code
+from app.migrations import m019_class_seat_returns
 
 
 # Register all migrations in order
@@ -41,6 +42,7 @@ MIGRATIONS = [
     ("016_school_details", m016_school_details.migrate),
     ("017_admin_actions", m017_admin_actions.migrate),
     ("018_step_error_code", m018_step_error_code.migrate),
+    ("019_class_seat_returns", m019_class_seat_returns.migrate),
 ]
 
 

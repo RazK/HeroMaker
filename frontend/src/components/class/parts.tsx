@@ -124,26 +124,32 @@ const studentFile = heroThumb;
  * ("Drawing…", "Wants to join"). A student with no hero yet shows their
  * initial on the plate. With `onOpen`, a tile with a hero opens it, in any
  * state: the steps while it is made. A student waiting for the teacher gets
- * Approve and Block under the tile.
+ * Approve and Block under the tile; a failed hero, Try again. With `onMore`,
+ * a ⋯ beside the tile (not inside it: the tile is a button) opens the
+ * student's sheet, where Remove is.
  */
-export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy, eager = false }: {
+export function StudentTile({ student, index, onOpen, onApprove, onBlock, onRetry, onMore, busy, eager = false }: {
   student: Student;
   index: number;
   onOpen?: () => void;
   onApprove?: () => void;
   onBlock?: () => void;
+  onRetry?: () => void;
+  onMore?: () => void;
   busy?: boolean;
   /** Near the top: load the pictures at once (Gallery's first rows). */
   eager?: boolean;
 }) {
   const hero = student.hero;
-  const state = hero ? hero.state : student.status === 'waiting' ? 'waiting' : student.status === 'blocked' ? 'blocked' : 'joined';
+  const state = hero ? hero.state : student.status === 'waiting' ? 'waiting' : student.status === 'blocked' ? 'blocked'
+    : student.needs_seat ? 'seatless' : 'joined';
   const ready = hero?.state === 'ready';
   const line =
     state === 'making' && hero ? makingLine(hero.step ? STEP_UI[hero.step]?.short : undefined, makingPct(hero.steps_done, hero.steps_total, true)) :
     state === 'failed' ? 'Didn’t finish' :
-    state === 'waiting' ? (student.shared_device ? 'Shared tablet' : 'Wants to join') :
+    state === 'waiting' ? (student.shared_device ? 'Shared tablet' : student.same_name ? 'Same name' : 'Wants to join') :
     state === 'blocked' ? 'Blocked' :
+    state === 'seatless' ? 'Needs a seat' :
     state === 'joined' ? 'Drawing…' : student.claimed ? 'Kept by a parent' : (hero?.character_name || '');
   const drawing = hero && studentFile(hero, 'thumb_original.jpg');
   // The gallery's rule: painted (or ready), the drawing cross-fades to the
@@ -169,6 +175,16 @@ export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy, 
         label={onOpen && hero ? `Open ${student.label}'s hero` : undefined}
         className={onOpen && hero ? 'cls-tile-open' : 'cls-tile-static'}
       />
+      {onMore && (
+        <button type="button" className="cls-tile-more" aria-label={`More for ${student.label}`} title="More" onClick={onMore}>
+          <span className="cls-tile-more-dot"><Icon name="more" size={20} /></span>
+        </button>
+      )}
+      {state === 'failed' && onRetry && (
+        <div className="cls-tile-actions">
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full cls-retry" disabled={busy} onClick={onRetry}><Icon name="redo" size={18} />Try again</button>
+        </div>
+      )}
       {state === 'waiting' && onApprove && (
         <div className="cls-tile-actions">
           <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full cls-approve" disabled={busy} onClick={onApprove}><Icon name="check" size={18} />Approve</button>

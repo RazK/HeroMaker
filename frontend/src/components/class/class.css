@@ -255,6 +255,39 @@ button.cls-card:active { transform: scale(0.98); }
 .cls-tile-actions { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding-top: 4px; }
 .cls-tile-actions .cls-approve { margin-bottom: var(--tb-depth-sm); gap: 6px; padding: 0 12px; }
 .cls-tile-actions .cls-block { margin-bottom: var(--tb-depth-sm); color: var(--tb-red); }
+.cls-tile-actions .cls-retry { margin-bottom: var(--tb-depth-sm); gap: 6px; padding: 0 12px; }
+/* The student's ⋯ (Try again, Remove): beside the tile, over its plate's top
+   corner, never inside it (the tile is a button). The admin tile's ⋯. */
+.cls-tile-more {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--tb-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.cls-tile-more-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  border: 2px solid var(--tb-ink);
+  box-shadow: 0 3px 0 var(--tb-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.cls-tile-more:active .cls-tile-more-dot { transform: translateY(3px); box-shadow: none; }
+.cls-tile-more:focus-visible { outline: none; }
+.cls-tile-more:focus-visible .cls-tile-more-dot { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.35); }
 @keyframes cls-in { from { transform: scale(0.9); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* The stat chips are one row, never split across lines (brand book: chips
@@ -493,6 +526,29 @@ button.cls-card:active { transform: scale(0.98); }
   .cls-form { gap: 14px; }
   .cls-name-input { height: 56px; }
   .cls-age { height: 46px; }
+}
+
+/* A kid's phone on its side. A screen with no bar (the waits, "This class is
+   full") is one centred column across the whole width, not the left of two.
+   The name screen stacks as on a phone, its form in two halves: the name on
+   the start side, the ages on the end side, Let's go under both. */
+@media (orientation: landscape) and (max-height: 559px) {
+  .cls-kid-screen.tb-screen--fit > .tb-screen-body:last-child { grid-column: 1 / -1; padding-inline: var(--tb-gutter); }
+  .cls-name-screen.tb-screen--fit { display: flex; max-width: none; }
+  .cls-name-screen.tb-screen--fit > .tb-screen-body { padding-inline: var(--tb-gutter); justify-content: center; }
+  .cls-name-screen.tb-screen--fit > .tb-bar { padding-inline: var(--tb-gutter); box-shadow: 0 -2px 0 var(--tb-line); align-items: center; }
+  .cls-name-screen > .tb-bar > .tb-btn { max-width: 420px; }
+  .cls-name-screen .cls-form {
+    max-width: 760px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 32px;
+    row-gap: 12px;
+  }
+  .cls-name-screen .cls-form > .cls-kid { grid-column: 1; grid-row: 1; }
+  .cls-name-screen .cls-form > .cls-name-input { grid-column: 1; grid-row: 2; }
+  .cls-name-screen .cls-form > .tb-field { grid-column: 2; grid-row: 1 / span 2; }
 }
 
 /* Show your parents. */

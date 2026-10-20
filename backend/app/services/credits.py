@@ -37,6 +37,7 @@ __all__ = [
     "add_credits",
     "deduct_credits",
     "refund_last_step_charge",
+    "refund_creation_charges",
     "get_ledger_balance",
     "verify_user_balance",
     "verify_all_balances",
@@ -315,3 +316,58 @@ def step_billing(db: Session, creation_ids) -> Dict[tuple, Dict[str, Any]]:
         if key in out and (not meta.get("refunded_tx") or out[key]["tx"] == meta.get("refunded_tx")):
             out[key]["refunded"] += abs(tx.delta)
     return out
+
+
+def refund_creation_charges(db: Session, creation_id: str, note: str, user_id: str) -> int:
+    """
+    Give back EVERY step charge `user_id` paid for a hero and was not refunded
+    yet; returns the credits.
+
+    For a class hero that failed and gives its seat back to the class
+    (app/services/classes.py): the seat must come back whole, or the next child
+    would find it short of the steps that did finish. The failed step itself
+    was already refunded by its own handler.
+
+    Keyed exactly like refund_last_step_charge, one refund per spend row
+    ("refund:tx:<id>"), so the two can never refund the same charge twice,
+    whichever runs first, and a retried step's new charge is a new row that
+    can be refunded in its turn. NEVER RAISES, for the same reason.
+    """
+    total = 0
+    try:
+        spends = (
+            db.query(ledger.CreditTransaction)
+            .filter(
+                ledger.CreditTransaction.creation_id == creation_id,
+                ledger.CreditTransaction.user_id == user_id,
+                ledger.CreditTransaction.reason == "spend",
+            )
+            .order_by(ledger.CreditTransaction.created_at.asc(), ledger.CreditTransaction.id.asc())
+            .all()
+        )
+        for spend in spends:
+            external_ref = f"refund:tx:{spend.id}"
+            if ledger.find_by_external_ref(external_ref, db) is not None:
+                continue
+            ledger.refund_credits(
+                user_id=spend.user_id,
+                amount=abs(spend.delta),
+                db=db,
+                creation_id=creation_id,
+                external_ref=external_ref,
+                metadata={
+                    "step_name": (spend.metadata_json or {}).get("step_name"),
+                    "refunded_tx": spend.id,
+                    "note": note,
+                },
+            )
+            total += abs(spend.delta)
+        if total:
+            logger.info("[%s] Refunded %s credits of the hero's charges: %s", creation_id, total, note)
+    except Exception:  # pragma: no cover - defensive; see docstring
+        logger.exception("[%s] Could not refund the hero's charges (%s)", creation_id, note)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    return total

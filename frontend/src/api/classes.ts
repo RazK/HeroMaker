@@ -34,6 +34,12 @@ export interface Student {
   label: string;
   age: number | null;
   status: 'approved' | 'waiting' | 'blocked';
+  /** A second student with a name already on the board ("Noam 2"). */
+  same_name: boolean;
+  /** Joined, no hero yet, and every seat is taken. */
+  needs_seat: boolean;
+  /** Their hero failed and its seat went back to the class. */
+  seat_returned: boolean;
   shared_device: boolean;
   session_id: string;
   claimed: boolean;
@@ -113,7 +119,8 @@ export const CLASS_PAID_PARAM = 'class_paid';
 const seatsReturnUrl = () => `${window.location.origin}/?${CLASS_PAID_PARAM}={class_id}`;
 
 export interface GuestView {
-  guest: { id: string; first_name: string; age: number | null; status: Student['status'] };
+  /** removed: the teacher took this student off the board. */
+  guest: { id: string; first_name: string; age: number | null; status: Student['status'] | 'removed' };
   class: { id: string; title: string; open: boolean; seconds_left: number };
   hero: HeroSummary | null;
   can_make: boolean;
@@ -164,7 +171,8 @@ export const teacherApi = {
     fetchJson<ClassView>(`${BASE}/api/classes/${id}/start`, json({ minutes, approve_first: approveFirst })),
   extend: (id: string, minutes = 15) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/extend`, json({ minutes })),
   end: (id: string) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/end`, { method: 'POST' }),
-  student: (id: string, studentId: string, action: 'approve' | 'block') =>
+  /** remove: off the board, any card. retry: a failed hero again, from the class's seats. */
+  student: (id: string, studentId: string, action: 'approve' | 'block' | 'remove' | 'retry') =>
     fetchJson<ClassView>(`${BASE}/api/classes/${id}/students/${studentId}/${action}`, { method: 'POST' }),
 };
 

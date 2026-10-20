@@ -133,7 +133,13 @@ classes. The account, credits and Buy credits are the same as everyone else's.
    `…/join` address, the time left, and heroes made out of seats. Below that is
    the roster grid: tiles appear as children join and fill with their hero as it
    finishes. Children waiting for approval get **Approve** and **Block** on their
-   tile. The bar holds **+15 min** and **End class**. Tapping a child's hero
+   tile; so does a new phone giving a name already on the board ("Noam 2": the
+   same child twice, or a second Noam, which only the teacher can tell). A
+   failed hero gets **Try again** under its tile, and every tile has a ⋯ beside
+   it with **Remove** (off the board, not counted). A child arriving when every
+   seat is taken is told so before typing a name and never gets a tile; one who
+   joined earlier and lost the race reads "Needs a seat". The bar holds
+   **+15 min** and **End class**. Tapping a child's hero
    (here or in the class gallery) opens the gallery's hero page, read-only: its
    steps while it is made, then the hero live with its moves, **Share** and
    **Play**. Back returns to the class where it was left.
@@ -192,8 +198,12 @@ in, and is hidden from the admin user list. The move is recorded as two
 `class_seats` ledger rows, one on each side. A student's hero is an ordinary
 `Creation` owned by that wallet, so the **existing pipeline charges it step by
 step and `refund_last_step_charge` refunds it on any failure or timeout**. A
-failed hero puts its credits back on the class, and the child taps **Try again**
-without taking a second seat. Nothing is re-implemented, and the ledger
+failed hero (never a cancelled one, which keeps its charge as any hero does)
+**gives its seat back to the class, whole**: the seat count and every credit it
+was charged, the steps that finished included, so the next child can use it
+(`classes.release_failed_seats`, once per failed attempt). **Try again**, by
+the child or by the teacher from the board, takes a seat again; with none left
+the teacher adds one. Nothing is re-implemented, and the ledger
 invariant `sum(delta) == balance` holds for teacher and wallet alike (tested).
 
 **Unused seats stay on the class.** A class is what the teacher bought: 28

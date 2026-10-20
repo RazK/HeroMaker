@@ -19,6 +19,7 @@ from app.services.auth import (
 )
 from app.services import step_errors
 from app.services.credits import step_billing
+from app.services import classes as classes_service
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
 from app.services.pipeline import (
     _initialize_creation_steps, _reset_step, execute_step, run_pipeline, steps_from, clear_stale_failures,
@@ -694,16 +695,22 @@ def start_pipeline(
     # Create a new DB session for the background task
     db_session = SessionLocal()
     owner_id = creation.user_id
+    class_id = creation.class_id
 
     async def run_pipeline_task():
         try:
-            await run_pipeline(
+            result = await run_pipeline(
                 creation_id,
                 owner_id,
                 from_step=from_step,
                 mock_creation_id=mock_creation_id,
                 db=db_session
             )
+            if class_id and result.get("status") == "failed":
+                # A class hero that failed gives its seat back now. The class
+                # sweeps for any it missed (a timeout, a restart) whenever its
+                # seats are read: app/services/classes.py.
+                classes_service.release_failed_seats_of(db_session, class_id)
         except Exception as e:
             logger.error(f"[{creation_id}] Pipeline task error: {e}", exc_info=True)
         finally:

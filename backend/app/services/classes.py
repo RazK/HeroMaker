@@ -20,6 +20,14 @@ docs/product/class-sessions.md. The short version:
 * A SECOND STUDENT ON THE SAME BROWSER WAITS FOR THE TEACHER. The browser holds
   a second random marker. No device fingerprinting, no IP limits.
 * UNUSED SEATS STAY ON THE CLASS for its next session.
+* A HERO THAT FAILS GIVES ITS SEAT BACK, whole: the seat and every credit the
+  hero was charged return to the class (`release_failed_seats`), once per
+  failed attempt, so the next child can use it. Try again takes a seat again.
+  A cancelled step keeps its charge and its seat, as for any hero.
+* THE TEACHER CAN REMOVE ANY STUDENT from the board (a duplicate, a child
+  who left). A removed pass is forgotten: that browser can join again.
+* A FULL CLASS TAKES NO NEW STUDENTS: they are told before their name, and
+  never sit on the board waiting for nothing.
 * A PARENT CLAIMS A HERO: `claim` moves it (row and files) into the parent's
   account, first name and age included. Ledger rows stay where they are.
 * NOTHING EXPIRES. A class hero is kept like any hero, and goes with the
@@ -43,10 +51,11 @@ from sqlalchemy.orm import Session
 
 from app.config.packs import CLASS_MAX_SEATS, creation_credit_price
 from app.config.settings import get_jwt_secret_key
-from app.config.steps import get_all_step_names
+from app.config.steps import get_all_step_names, get_step_cost
 from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreationStep, User
 from app.schemas.creation import file_versions, painting_look
-from app.services import ledger
+from app.services import ledger, step_errors
+from app.services.credits import refund_creation_charges
 from app.utils.storage import get_storage, is_derived
 
 logger = logging.getLogger(__name__)
@@ -551,6 +560,7 @@ def start_session(db: Session, classroom: ClassRoom, minutes: int, approve_first
         raise ClassError(400, "Pick how long the class is", "minutes")
     if live_session(db, classroom, now) is not None:
         raise ClassError(409, "This class is already live", "already_live")
+    release_failed_seats(db, classroom)
     if classroom.seats_used >= classroom.seats:
         raise ClassError(409, "Every seat has a hero. Add seats to start again.", "no_seats")
     session = ClassSession(
@@ -588,15 +598,31 @@ def extend_session(db: Session, session: ClassSession, minutes: int, now: Option
     return session
 
 
-def set_guest_status(db: Session, classroom: ClassRoom, guest_id: str, status: str) -> ClassGuest:
-    if status not in ("approved", "blocked"):
-        raise ClassError(400, "Unknown status", "status")
-    guest = db.query(ClassGuest).filter(ClassGuest.id == guest_id, ClassGuest.class_id == classroom.id).first()
+def class_guest(db: Session, classroom: ClassRoom, guest_id: str) -> ClassGuest:
+    """One student of this class still on its board."""
+    guest = db.query(ClassGuest).filter(ClassGuest.id == guest_id, ClassGuest.class_id == classroom.id,
+                                        ClassGuest.status != "removed").first()
     if guest is None:
         raise ClassError(404, "Student not found", "not_found")
+    return guest
+
+
+def set_guest_status(db: Session, classroom: ClassRoom, guest_id: str, status: str) -> ClassGuest:
+    """Approve, block or remove a student.
+
+    Removed is off the board: not listed, not counted, its pass no longer
+    works (that browser joins again as a new student). A hero it already
+    made stays made, and keeps its seat; one being made still finishes; one
+    that failed gives its seat back, as any failed hero does.
+    """
+    if status not in ("approved", "blocked", "removed"):
+        raise ClassError(400, "Unknown status", "status")
+    guest = class_guest(db, classroom, guest_id)
     guest.status = status
     db.commit()
     funnel("student_" + status, class_id=classroom.id, guest=guest.id)
+    if status == "removed":
+        release_failed_seats(db, classroom)
     return guest
 
 
@@ -643,25 +669,30 @@ def join(db: Session, session: ClassSession, first_name: str, age, device_token:
     The browser coming back with its pass gets the same student: no new pass,
     no new seat. A second student on a browser that already joined this class
     waits for the teacher (shared tablets); with approve_first everyone waits.
+    So does a new browser giving a name already on the board: the same child
+    on a second device, or a second Noa, and only the teacher can tell which.
+    A class with every seat taken takes no new students at all.
     """
     now = now or datetime.utcnow()
     existing = guest_by_token(db, guest_token)
-    if existing is not None and existing.class_id == session.class_id:
+    if existing is not None and existing.class_id == session.class_id and existing.status != "removed":
         return existing, None, device_token or new_token()
 
     name = clean_first_name(first_name)
     age = clean_age(age)
     if not session_is_open(session, now):
         raise ClassError(410, "Class time is over", "ended")
+    if class_is_full(db, session.classroom):
+        raise ClassError(409, "This class is full. Ask your teacher for a seat.", "class_full")
     if not session_joins.hit(session.id):
         raise ClassError(429, "Lots of friends joining! Try again in a moment.", "busy")
 
     device_token = device_token or new_token()
     device_hash = sha256(device_token)
-    shared = db.query(ClassGuest.id).filter(
-        ClassGuest.class_id == session.class_id, ClassGuest.device_hash == device_hash,
-    ).first() is not None
-    status = "waiting" if (session.approve_first or shared) else "approved"
+    on_board = db.query(ClassGuest).filter(ClassGuest.class_id == session.class_id, ClassGuest.status != "removed")
+    shared = on_board.filter(ClassGuest.device_hash == device_hash).first() is not None
+    same_name = any(n.lower() == name.lower() for (n,) in on_board.with_entities(ClassGuest.first_name).all())
+    status = "waiting" if (session.approve_first or shared or same_name) else "approved"
 
     token = new_token()
     guest = ClassGuest(
@@ -690,13 +721,13 @@ def check_can_make(db: Session, guest: ClassGuest, now: Optional[datetime] = Non
     session = current_session_for(db, guest, now)
     if session is None:
         raise ClassError(410, "Class time is over", "ended")
-    if guest.status == "blocked":
-        raise ClassError(403, "Ask your teacher", "blocked")
+    if guest.status in ("blocked", "removed"):
+        raise ClassError(403, "Ask your teacher", guest.status)
     if guest.status == "waiting":
         raise ClassError(409, "Wait for your teacher to say yes", "waiting")
     classroom = guest.classroom
-    if classroom.seats_used >= classroom.seats:
-        raise ClassError(409, "All the class heroes are made!", "class_full")
+    if class_is_full(db, classroom):
+        raise ClassError(409, "This class is full. Ask your teacher for a seat.", "class_full")
     if ledger.get_balance(classroom.wallet_user_id, db) < hero_cost():
         raise ClassError(402, "Ask your teacher to add seats", "class_credits")
     return session
@@ -719,7 +750,7 @@ def _take_seat(db: Session, guest: ClassGuest, now: datetime) -> None:
     ).rowcount
     if took_seat != 1:
         db.rollback()
-        raise ClassError(409, "All the class heroes are made!", "class_full")
+        raise ClassError(409, "This class is full. Ask your teacher for a seat.", "class_full")
     db.commit()
 
 
@@ -758,6 +789,174 @@ def start_guest_hero(db: Session, guest: ClassGuest, create: Callable[[ClassRoom
     db.commit()
     funnel("hero_started", class_id=class_id, session=session_id, guest=guest_id, creation=creation.id)
     return creation
+
+
+# ---------------------------------------------------------------------------
+# A hero that failed: its seat comes back; Try again takes one again
+# ---------------------------------------------------------------------------
+#
+# A seat pays for one hero. A hero that FAILED (the provider let us down, a
+# timeout, a restart: never a cancel, which keeps its charge as for any hero)
+# made nothing, so its seat goes back to the class, whole: the seat count, and
+# every credit that hero was charged, the steps that did finish included, or
+# the next child would find the seat short of them. No caller has to remember
+# this: every place that reads or spends seats sweeps first (class_view,
+# start_session, join, check_can_make, the PIN lookup), so the seat is back
+# whichever path the failure took.
+#
+# Once per failed attempt, never twice: the seat comes back through one
+# guarded UPDATE that only matches the attempt that failed (hero_started_at,
+# which each retry moves on) while it still holds its seat. The credits are
+# keyed per charge (credits.refund_creation_charges), like every refund.
+
+def _gave_up(creation: Optional[Creation]) -> bool:
+    """The hero ended failed, and not because someone cancelled it."""
+    if creation is None or creation.deleted_at is not None:
+        return False
+    failed = [s for s in creation.steps if s.status == "failed"]
+    if not failed or any(s.status == "processing" for s in creation.steps):
+        return False
+    return not any(s.error_message == step_errors.CANCELLED_MESSAGE for s in failed)
+
+
+def _return_seat(db: Session, guest: ClassGuest, attempt: datetime, creation: Creation, now: datetime) -> bool:
+    """Give back the seat a failed hero holds, then its credits. False if it
+    no longer held one (another sweep got there first, or a retry took it).
+
+    `attempt` is the guest's hero_started_at as read BEFORE the hero was seen
+    failed: a retry committed since then has moved it, and nothing matches."""
+    gave = db.execute(
+        update(ClassGuest)
+        .where(and_(ClassGuest.id == guest.id, ClassGuest.seat_returned_at.is_(None),
+                    ClassGuest.hero_started_at == attempt))
+        .values(seat_returned_at=now)
+    ).rowcount
+    if gave != 1:
+        db.rollback()
+        return False
+    db.execute(
+        update(ClassRoom)
+        .where(and_(ClassRoom.id == guest.class_id, ClassRoom.seats_used > 0))
+        .values(seats_used=ClassRoom.seats_used - 1)
+    )
+    db.commit()
+    credits = refund_creation_charges(db, creation.id, note=f"class hero failed; seat back to class {guest.class_id}",
+                                      user_id=creation.user_id)
+    funnel("seat_returned", class_id=guest.class_id, guest=guest.id, creation=creation.id, credits=credits)
+    return True
+
+
+def release_failed_seats(db: Session, classroom: ClassRoom, now: Optional[datetime] = None) -> int:
+    """Every failed hero of the class that still holds a seat gives it back.
+    Returns how many came back. Cheap when there is nothing to do."""
+    now = now or datetime.utcnow()
+    holding = db.query(ClassGuest).filter(
+        ClassGuest.class_id == classroom.id, ClassGuest.creation_id.isnot(None),
+        ClassGuest.hero_started_at.isnot(None), ClassGuest.seat_returned_at.is_(None),
+    ).all()
+    if not holding:
+        return 0
+    creations = {c.id: c for c in db.query(Creation).filter(Creation.id.in_([g.creation_id for g in holding])).all()}
+    freed = 0
+    wallet_id = classroom.wallet_user_id
+    for guest in holding:
+        attempt = guest.hero_started_at        # read before the steps are
+        creation = creations.get(guest.creation_id)
+        # Only a hero the class still owns: once a parent keeps it, its runs
+        # are theirs, charged to them, and nothing of the class's.
+        if creation is None or creation.user_id != wallet_id or guest.claimed_by is not None:
+            continue
+        if _gave_up(creation) and _return_seat(db, guest, attempt, creation, now):
+            freed += 1
+    if freed:
+        db.refresh(classroom)
+    return freed
+
+
+def release_failed_seats_of(db: Session, class_id: str) -> None:
+    """release_failed_seats, by class id, from the end of a failed run.
+    Never raises: the run is over, and the next sweep catches anything missed."""
+    try:
+        classroom = db.query(ClassRoom).filter(ClassRoom.id == class_id).first()
+        if classroom is not None:
+            release_failed_seats(db, classroom)
+    except Exception:
+        logger.exception("Class %s: could not give a failed hero's seat back; the next sweep will", class_id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
+def class_is_full(db: Session, classroom: ClassRoom) -> bool:
+    """Every seat holds a hero, after failed ones have given theirs back."""
+    if classroom.seats_used >= classroom.seats:
+        release_failed_seats(db, classroom)
+    return classroom.seats_used >= classroom.seats
+
+
+def retry_guest_hero(db: Session, guest: ClassGuest, by_teacher: bool = False,
+                     now: Optional[datetime] = None) -> Tuple[Creation, Optional[str]]:
+    """Make ready to run a failed hero again. Returns (creation, the step to
+    run from); the caller starts the pipeline (it needs the event loop).
+
+    The student needs their class open; the teacher can try again any time.
+    A seat the hero gave back is taken again, so a retry is refused when the
+    class has none left. In ONE transaction: the attempt moves on, the seat
+    (if it was given back) is taken again, and the failed steps go back to
+    pending, so a sweep sees either a failed hero with no seat or a hero being
+    made that holds one, never a hero being made with no seat.
+    """
+    now = now or datetime.utcnow()
+    creation = db.query(Creation).filter(Creation.id == guest.creation_id, Creation.deleted_at.is_(None)).first()
+    if creation is None or creation.status != "failed":
+        raise ClassError(409, "Nothing to try again", "nothing_to_retry")
+    if not by_teacher:
+        if current_session_for(db, guest, now) is None:
+            raise ClassError(410, "Class time is over", "ended")
+        if guest.status in ("blocked", "removed"):
+            raise ClassError(403, "Ask your teacher", guest.status)
+
+    order = get_all_step_names()
+    steps = sorted(creation.steps, key=lambda s: order.index(s.step_name) if s.step_name in order else len(order))
+    from_step = next((s.step_name for s in steps if s.status in ("failed", "pending")), None)
+    returned = guest.seat_returned_at is not None
+    no_seat = ClassError(409, "No seats left. Add a seat to try again." if by_teacher
+                         else "This class is full. Ask your teacher for a seat.", "class_full")
+    classroom = guest.classroom
+    if returned and classroom.seats_used >= classroom.seats:
+        raise no_seat
+    left = sum(get_step_cost(s.step_name) for s in steps if s.status in ("failed", "pending"))
+    if ledger.get_balance(classroom.wallet_user_id, db) < left:
+        raise ClassError(402, "Add a seat to try again" if by_teacher else "Ask your teacher to add seats",
+                         "class_credits")
+
+    held = ClassGuest.seat_returned_at.isnot(None) if returned else ClassGuest.seat_returned_at.is_(None)
+    moved = db.execute(
+        update(ClassGuest)
+        .where(and_(ClassGuest.id == guest.id, ClassGuest.hero_started_at == guest.hero_started_at, held))
+        .values(hero_started_at=now, seat_returned_at=None)
+    ).rowcount
+    if moved != 1:
+        db.rollback()
+        raise ClassError(409, "It is already trying again", "busy")
+    if returned:
+        took = db.execute(
+            update(ClassRoom)
+            .where(and_(ClassRoom.id == guest.class_id, ClassRoom.seats_used < ClassRoom.seats))
+            .values(seats_used=ClassRoom.seats_used + 1)
+        ).rowcount
+        if took != 1:
+            db.rollback()
+            raise no_seat
+    from app.services.pipeline import _reset_step   # the pipeline's own reset; heavy module, imported late
+    for step in creation.steps:
+        if step.status == "failed":
+            _reset_step(step)
+    db.commit()
+    funnel("hero_retried", class_id=guest.class_id, guest=guest.id, creation=creation.id,
+           by_teacher=by_teacher, seat_taken_again=returned)
+    return creation, from_step
 
 
 # ---------------------------------------------------------------------------
@@ -908,11 +1107,13 @@ def session_view(session: Optional[ClassSession], now: Optional[datetime] = None
 
 
 def roster(db: Session, classroom: ClassRoom) -> List[dict]:
-    """Every student of the class, in the order they joined, with their hero."""
-    guests = (db.query(ClassGuest).filter(ClassGuest.class_id == classroom.id)
+    """Every student on the class's board, in the order they joined, with
+    their hero. A student the teacher removed is not on it."""
+    guests = (db.query(ClassGuest).filter(ClassGuest.class_id == classroom.id, ClassGuest.status != "removed")
               .order_by(ClassGuest.created_at.asc()).all())
     ids = [g.creation_id for g in guests if g.creation_id]
     creations = {c.id: c for c in db.query(Creation).filter(Creation.id.in_(ids)).all()} if ids else {}
+    full = classroom.seats_used >= classroom.seats
     seen: Dict[str, int] = defaultdict(int)
     out = []
     for g in guests:
@@ -924,6 +1125,12 @@ def roster(db: Session, classroom: ClassRoom) -> List[dict]:
             "label": g.first_name if n == 1 else f"{g.first_name} {n}",
             "age": g.age,
             "status": g.status,
+            # A second student with a name already on the board ("Noam 2").
+            "same_name": n > 1,
+            # Joined, no hero yet, and every seat is taken: not "Drawing…".
+            "needs_seat": g.status == "approved" and g.hero_started_at is None and full,
+            # Their hero failed and its seat went back to the class.
+            "seat_returned": g.seat_returned_at is not None,
             "shared_device": g.shared_device,
             "session_id": g.session_id,
             "claimed": g.claimed_by is not None,
@@ -940,6 +1147,7 @@ PREVIEW_HEROES = 4
 def class_view(db: Session, classroom: ClassRoom, now: Optional[datetime] = None,
                with_roster: bool = False) -> dict:
     now = now or datetime.utcnow()
+    release_failed_seats(db, classroom, now)
     view = {
         "id": classroom.id,
         "title": classroom.title,
