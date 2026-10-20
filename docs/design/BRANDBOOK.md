@@ -54,7 +54,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 4. **Symmetry.** Paired things (drawing and hero, two game cards) are the same size, side by side. Control bars centred; never a panel in a corner.
 5. **No dead whitespace.** The hero or stage flexes to fill what is left.
 6. **Scrolling.** "Only scroll if there is significant new information to reveal." Phone screens fit 360 x 640 and up; the hero screen is `100dvh`. Lists (the gallery) are the exception.
-7. **Phone-first.** Desktop adapts the same layout (more gallery columns, bigger stage, one row of 8 moves). It never invents screens.
+7. **Phone-first.** Desktop adapts the same layout (more gallery columns, bigger stage, one row of 8 moves instead of the phone's 4 x 2: every move in view, never a row that swipes with a button cut at the edge). It never invents screens.
 
 **Hero tiles.** One tile for every hero shown as a card (`components/tb/HeroTile.tsx`): the gallery, the class page's students, the My classes shelf. Same plate, polaroid and size, in one grid: 2 columns on a phone, 3 from 680px of room, 4 from 1060px. The caption is always two lines, a sibling of "Speckle Sally / by Raz, 11": a hero being made says "Sculpting · 45%" on the second line, a child still drawing "Drawing…". No progress bar inside the caption. A tile with no caption (the shelf) centres its art on the plate.
 
@@ -174,7 +174,7 @@ Mock-ups of each are in the artifact's "Rejected" card.
 ## Known debt (do not copy)
 
 - Primary above secondary in the New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
-- Hero screen being made or failed, at 844 x 390: the sticky bar covers the stage. At 1280 x 800 it stays a 560px column. (A ready hero is fixed: stage beside moves and bar sideways, a 720px column with one row of 8 moves on a desktop.)
+- Hero screen being made or failed, at 1280 x 800: it stays a 560px column. (On a phone on its side every state is fixed: the stage on one side full height; the moves, or the steps and the status, on the other above the bar, whose two buttons share one row there, primary at the end. A ready hero is a 720px column with one row of 8 moves on a desktop.)
 - Signed-out gallery has a 25-word paragraph under the headline.
 - The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.
 - `--tb-line` borders on inputs and chips are 1.3:1, under the 3:1 a control border needs.

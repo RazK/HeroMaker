@@ -746,7 +746,7 @@ function MainApp() {
         <div className="tb-screen-body">
           {!isLoggedIn && (
             <section className="tb-intro">
-              <h2 className="tb-intro-title">Draw it.<br />We make it a real hero.</h2>
+              <h2 className="tb-intro-title">Draw it. <br />We make it a real hero.</h2>
               <p className="tb-muted">Snap any drawing. Minutes later, it’s a 3D hero that moves.</p>
               {/* The way in for a teacher or a party host: sign up, then My classes. */}
               <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-intro-classes" onClick={() => {
