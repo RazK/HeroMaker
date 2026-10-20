@@ -10,13 +10,29 @@ interface BuyCreditsProps {
   onClose: () => void;
   /** Why the sheet opened, shown above the packs (e.g. not enough for a hero). */
   note?: string;
+  /** The balance now: back from checkout, App waits for it to move. */
+  credits?: number;
 }
 
 // Where Lemon Squeezy sends the buyer back. App.tsx sees the marker, re-reads
 // the balance and says thanks - it never tells the backend a payment happened.
 export const PURCHASE_RETURN_PARAM = 'purchase';
 
-export function BuyCredits({ isOpen, onClose, note }: BuyCreditsProps) {
+// The balance as the buyer left for checkout. The webhook often lands before
+// the buyer is back, so the first balance read on return may already be the
+// new one: without this, "Adding your credits…" waited for a change that had
+// already happened, and stayed (persona review). This tab only.
+const BALANCE_BEFORE = 'heromaker.credits.beforeCheckout';
+/** The balance before checkout, read once (undefined: not known). */
+export function balanceBeforeCheckout(): number | undefined {
+  try {
+    const v = sessionStorage.getItem(BALANCE_BEFORE);
+    sessionStorage.removeItem(BALANCE_BEFORE);
+    return v !== null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : undefined;
+  } catch { return undefined; }
+}
+
+export function BuyCredits({ isOpen, onClose, note, credits }: BuyCreditsProps) {
   const [packs, setPacks] = useState<CreditPack[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [buying, setBuying] = useState<string | null>(null);
@@ -37,6 +53,7 @@ export function BuyCredits({ isOpen, onClose, note }: BuyCreditsProps) {
     try {
       const back = `${window.location.origin}/?${PURCHASE_RETURN_PARAM}=done`;
       const { checkout_url } = await api.createCheckout(slug, back);
+      try { if (credits !== undefined) sessionStorage.setItem(BALANCE_BEFORE, String(credits)); } catch { /* the wait falls back to the first read */ }
       window.location.href = checkout_url;
     } catch (err) {
       // 503 (store unconfigured) and 502 (Lemon Squeezy refused) are ours,

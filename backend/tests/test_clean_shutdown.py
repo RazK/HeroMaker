@@ -16,6 +16,7 @@ that hang until cancelled, as a slow Meshy job does. The last test runs the
 backend image's real CMD and sends it SIGTERM.
 """
 import asyncio
+import io
 import json
 import os
 import re
@@ -29,6 +30,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.config.steps import get_step_by_name
 from app.main import app
@@ -41,7 +43,16 @@ from app.utils.storage import get_storage
 
 RENDER = get_step_by_name("openai_render")["credit_cost"]   # 2
 MESHY = get_step_by_name("meshy_3d")["credit_cost"]         # 5
-DRAWING = b"\xff\xd8\xff a crayon dragon"
+
+def _jpeg(tag: bytes) -> bytes:
+    """A real (tiny) JPEG, `tag` after its end: an upload must be a picture
+    (creations.require_picture), and each test's drawing stays its own bytes."""
+    out = io.BytesIO()
+    Image.new("RGB", (4, 4), (200, 30, 30)).save(out, format="JPEG")
+    return out.getvalue() + tag
+
+
+DRAWING = _jpeg(b" a crayon dragon")
 BACKEND = Path(__file__).resolve().parent.parent
 
 
