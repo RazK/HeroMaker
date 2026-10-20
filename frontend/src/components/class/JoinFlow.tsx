@@ -219,7 +219,7 @@ function MyHero({ me, again, onChange, onNext }: { me: GuestView; again: boolean
   if (me.guest.status === 'waiting') return <Moment title={me.class.title} big="Almost!" line="Your teacher will say yes in a moment." art={<Icon name="users" />} wobble />;
   if (me.guest.status === 'blocked') return <Moment title={me.class.title} big="Ask your teacher" art={<Icon name="users" />} />;
   if (me.reason === 'ended') return <Moment title={me.class.title} big="Class time is over" line="Ask your teacher about next time." art={<Icon name="clock" />} />;
-  if (me.reason === 'class_full' || me.reason === 'class_credits') return <Moment title={me.class.title} big="All the class heroes are made!" line="Ask your teacher." art={<Icon name="star" />} />;
+  if (me.reason === 'class_full' || me.reason === 'class_credits') return <Moment title={me.class.title} big="This class is full" line="Ask your teacher for a seat." art={<Icon name="star" />} />;
   return <Draw me={me} onMade={onChange} />;
 }
 
