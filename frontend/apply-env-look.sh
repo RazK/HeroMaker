@@ -12,7 +12,11 @@
 #     installed app and the browser tab. The in-app logo stays production's
 #     picture (app-icon.png) with the STAGING tag beside it; the dark tile
 #     shrank the hero inside it.
-#   - its own installed-app name ("HeroMaker Staging" / "HM Staging")
+#   - its own installed-app name ("HeroMaker Staging" / "HM Staging") and a
+#     dark launch screen, read from its own manifest URL
+#     (manifest.webmanifest?env=staging): the service worker precaches
+#     manifest.webmanifest with the build's revision, so a worker that cached
+#     it once would keep handing Android production's name and icon
 #   - <html data-env="staging">: the STAGING tag beside the logo (toybox.css)
 #   - its own tab title
 # The code and the bundle are the same in both, so a promote carries nothing
@@ -39,16 +43,20 @@ manifest="$html/manifest.webmanifest"
 grep -q '"name":"HeroMaker"' "$manifest" || fail "manifest name not found"
 grep -q '"short_name":"HeroMaker"' "$manifest" || fail "manifest short_name not found"
 grep -q '"src":"app-icon.png"' "$manifest" || fail "manifest icon not found"
+grep -q '"background_color":"#ffffff"' "$manifest" || fail "manifest background_color not found"
 sed -i -e 's/"name":"HeroMaker"/"name":"HeroMaker Staging"/' \
        -e 's/"short_name":"HeroMaker"/"short_name":"HM Staging"/' \
+       -e 's/"background_color":"#ffffff"/"background_color":"#231942"/' \
        -e 's/"src":"app-icon.png"/"src":"app-icon-staging.png"/g' "$manifest"
 
 index="$html/index.html"
 grep -q '<html lang="en">' "$index" || fail "<html lang=\"en\"> not found in index.html"
 grep -q '<title>HeroMaker</title>' "$index" || fail "<title> not found in index.html"
 grep -q 'rel="icon" type="image/png" href="/app-icon.png"' "$index" || fail "favicon not found in index.html"
+grep -q '<link rel="manifest" href="/manifest.webmanifest">' "$index" || fail "manifest link not found in index.html"
 sed -i -e "s|<html lang=\"en\">|<html lang=\"en\" data-env=\"$env_name\">|" \
        -e "s|<title>HeroMaker</title>|<title>HeroMaker · Staging</title>|" \
-       -e 's|rel="icon" type="image/png" href="/app-icon.png"|rel="icon" type="image/png" href="/app-icon-staging.png"|' "$index"
+       -e 's|rel="icon" type="image/png" href="/app-icon.png"|rel="icon" type="image/png" href="/app-icon-staging.png"|' \
+       -e "s|<link rel=\"manifest\" href=\"/manifest.webmanifest\">|<link rel=\"manifest\" href=\"/manifest.webmanifest?env=$env_name\">|" "$index"
 
 echo "env look: $env_name (staging icon, name, label)"

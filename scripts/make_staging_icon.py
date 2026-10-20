@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "frontend/public/app-icon.png"
 OUT = ROOT / "frontend/env-assets/staging"
-SIZE = 512
+SIZE = 1024  # the manifest's largest declared size: never upscaled
 INK = (35, 25, 66, 255)       # --tb-ink
 SUN = (255, 194, 51, 255)     # --tb-sun
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -38,7 +38,7 @@ def main() -> None:
     draw = ImageDraw.Draw(icon)
     top, bottom = int(SIZE * 0.60), int(SIZE * 0.74)
     left, right = int(SIZE * 0.19), int(SIZE * 0.81)
-    draw.rounded_rectangle((left, top, right, bottom), radius=(bottom - top) // 2, fill=SUN, outline=INK, width=5)
+    draw.rounded_rectangle((left, top, right, bottom), radius=(bottom - top) // 2, fill=SUN, outline=INK, width=10)
     font = ImageFont.truetype(FONT, int(SIZE * 0.085))
     draw.text(((left + right) / 2, (top + bottom) / 2), "STAGING", font=font, fill=INK, anchor="mm")
 
