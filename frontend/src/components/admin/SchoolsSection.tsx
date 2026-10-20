@@ -63,7 +63,7 @@ export function SchoolsSection() {
       ) : (
         <>
           <div className="adm-summary-line">
-            {shown.length} {shown.length === 1 ? 'teacher' : 'teachers'} · {totals.classes} classes · {totals.seats} seats · {totals.heroes} heroes
+            {shown.length} {shown.length === 1 ? 'teacher' : 'teachers'} · {totals.classes} {totals.classes === 1 ? 'class' : 'classes'} · {totals.seats} {totals.seats === 1 ? 'seat' : 'seats'} · {totals.heroes} {totals.heroes === 1 ? 'hero' : 'heroes'}
           </div>
           {shown.map((r) => (
             <div key={r.user_id} className="adm-card adm-user adm-school" data-teacher={r.username}>
@@ -78,8 +78,8 @@ export function SchoolsSection() {
                 <div className="adm-user-email">{r.name ? `${r.name} · ` : ''}{r.email ?? r.username}</div>
                 <div className="adm-coupon-meta">
                   <span><Icon name="school" size={16} /> {r.classes} {r.classes === 1 ? 'class' : 'classes'}</span>
-                  <span>{r.seats_bought} seats bought</span>
-                  <span>{r.heroes_made} heroes made</span>
+                  <span>{r.seats_bought} {r.seats_bought === 1 ? 'seat' : 'seats'} bought</span>
+                  <span>{r.heroes_made} {r.heroes_made === 1 ? 'hero' : 'heroes'} made</span>
                   {r.last_class_at && <span>last class {shortDate(r.last_class_at)}</span>}
                 </div>
               </div>

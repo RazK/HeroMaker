@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, AdminAction, AdminHero, AdminUserDetail, ApiError, CreationResponse, RemovalReason, paintingFramed } from '../../api/client';
+import { api, AdminAction, AdminHero, AdminUserDetail, ApiError, CreationResponse, LedgerTransaction, RemovalReason, paintingFramed } from '../../api/client';
 import { HeroTile, SkeletonTile, TileGrid, makingLine, makingPct } from '../tb/HeroTile';
 import { Icon, IconName } from '../tb/Icon';
 import { Dialog, Sheet, SheetRow } from '../tb/parts';
@@ -49,6 +49,78 @@ function describe(a: AdminAction): { icon: IconName; what: string; tone?: 'bad' 
   }
 }
 
+const STEP_WORD: Record<string, string> = {
+  image_processing: 'Reading the drawing',
+  openai_render: 'Painting',
+  meshy_3d: '3D',
+  meshy_rig: 'Animating',
+  convert_vrm: 'Packing',
+};
+
+/** One ledger row in words: an icon and what it was. */
+function describeTx(t: LedgerTransaction): { icon: IconName; what: string } {
+  const m = t.metadata ?? {};
+  const step = typeof m.step_name === 'string' ? m.step_name : null;
+  const stepWord = step ? STEP_WORD[step] ?? STEP_UI[step]?.short ?? step : null;
+  switch (t.reason) {
+    case 'purchase': return { icon: 'wallet', what: 'Purchase' };
+    case 'purchase_refunded': return { icon: 'wallet', what: 'Purchase refunded' };
+    case 'spend': return { icon: (step && STEP_UI[step]?.icon) || 'coin', what: stepWord ? `Step charge · ${stepWord}` : 'Step charge' };
+    case 'refund': return { icon: 'redo', what: stepWord ? `Refund · ${stepWord} failed` : 'Refund' };
+    case 'admin_adjust': return { icon: 'gear', what: t.delta >= 0 ? 'Admin grant' : 'Admin took back' };
+    case 'coupon': return { icon: 'ticket', what: 'Coupon' };
+    case 'signup_grant': return { icon: 'star', what: 'Welcome credits' };
+    case 'class_seats': return { icon: 'school', what: t.delta < 0 ? 'Class seats paid' : 'Class seats' };
+    case 'opening_balance': return { icon: 'clock', what: 'Opening balance' };
+    case 'account_deleted': return { icon: 'trash', what: 'Account deleted' };
+    default: return { icon: 'coin', what: t.reason };
+  }
+}
+
+/**
+ * Every credit movement on the account, newest first: purchases, step
+ * charges, refunds, admin grants, coupons. The answer to "was I charged?".
+ */
+function CreditsList({ userId, heroes, version }: { userId: string; heroes: AdminHero[]; version: number }) {
+  const [txs, setTxs] = useState<LedgerTransaction[] | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let live = true;
+    api.admin.userLedger(userId)
+      .then((r) => { if (live) { setTxs(r.transactions); setError(false); } })
+      .catch(() => { if (live) { setError(true); setTxs((t) => t ?? []); } });
+    return () => { live = false; };
+  }, [userId, version]);
+  const names = new Map(heroes.map((h) => [h.id, heroName(h)]));
+  return (
+    <section className="adm-card" aria-label="Credits" data-testid="ledger">
+      <h2 className="adm-title">Credits</h2>
+      {txs === null ? (
+        <><div className="adm-skel adm-skel-row" /><div className="adm-skel adm-skel-row" /><div className="adm-skel adm-skel-row" /></>
+      ) : error ? (
+        <div className="adm-note adm-note--bad">Credit history is unavailable right now.</div>
+      ) : txs.length === 0 ? (
+        <div className="adm-note">No credit movements yet.</div>
+      ) : txs.map((t) => {
+        const d = describeTx(t);
+        const hero = t.creation_id ? names.get(t.creation_id) : undefined;
+        const note = typeof t.metadata?.note === 'string' && t.reason === 'admin_adjust' ? t.metadata.note : null;
+        return (
+          <div key={t.id} className="adm-row adm-audit-row adm-ledger-row">
+            <span className={`adm-audit-icon${t.delta < 0 ? ' adm-audit-icon--bad' : ''}`}><Icon name={d.icon} size={20} /></span>
+            <span className="adm-row-label">
+              <span dir="auto">{d.what}{hero ? ` · ${hero}` : ''}</span>
+              {note && <span className="adm-audit-note" dir="auto">“{note}”</span>}
+              <small>{t.created_at ? when(t.created_at) : ''} · balance {t.balance_after}</small>
+            </span>
+            <span className={`adm-row-value${t.delta < 0 ? ' adm-bad' : ''}`}>{t.delta > 0 ? `+${t.delta}` : t.delta < 0 ? `−${Math.abs(t.delta)}` : '0'}</span>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 /**
  * A user's page in the admin console: who they are, their heroes (in
  * progress, failed and removed ones too), what admins did to the account,
@@ -68,12 +140,14 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
   const [menu, setMenu] = useState<AdminHero | null>(null);
   const [removing, setRemoving] = useState<AdminHero | null>(null);
   const [busy, setBusy] = useState(false);
+  const [version, setVersion] = useState(0);
   const gone = useRef(onGone);
   gone.current = onGone;
 
   const load = useCallback(async () => {
     try {
       setPage(await api.admin.userDetail(userId));
+      setVersion((v) => v + 1);
       setError(null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) { gone.current(); return; }
@@ -154,6 +228,8 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
           ))}
         </TileGrid>
       )}
+
+      <CreditsList userId={userId} heroes={page.heroes} version={version} />
 
       <section className="adm-card" aria-label="History">
         <h2 className="adm-title">History</h2>
