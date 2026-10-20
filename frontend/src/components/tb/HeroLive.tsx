@@ -1,68 +1,23 @@
-import { CSSProperties, KeyboardEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync, createPortal } from 'react-dom';
 import { api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
-import { createPortal } from 'react-dom';
-import { Header, NavButton, Polaroid } from './parts';
+import { Header, NavButton } from './parts';
 import { HeroStageInstance, StageModule, loadStage } from './stage';
 import { usePinchZoom } from './usePinchZoom';
 import './HeroLive.css';
 
-/** The eight moves, in the order of the row. Ids are the game's clip ids. */
+/**
+ * The moves, in the order of the row: one row of four on a phone and on a
+ * desktop (Raz: only these four are interesting). Ids are the game's clip ids.
+ */
 export const MOVES: Array<{ id: string; label: string; icon: IconName }> = [
   { id: 'dance', label: 'Dance', icon: 'dance' },
   { id: 'bodyroll', label: 'Wave', icon: 'bodyroll' },
   { id: 'backflip', label: 'Flip', icon: 'backflip' },
   { id: 'punch', label: 'Punch', icon: 'punch' },
-  { id: 'jump', label: 'Jump', icon: 'jump' },
-  { id: 'land', label: 'Land', icon: 'land' },
-  { id: 'fly', label: 'Fly', icon: 'fly' },
-  { id: 'victory', label: 'Cheer', icon: 'victory' },
 ];
-
-/** How it was made, played inside the stage, then the hero itself. */
-type Phase = 'drawing' | 'painting' | 'sculpt' | 'alive' | 'live';
-const PHASE_ICON: Record<Exclude<Phase, 'live'>, IconName> = { drawing: 'pencil', painting: 'brush', sculpt: 'cube', alive: 'run' };
-const PHASE_LABEL: Record<Exclude<Phase, 'live'>, string> = { drawing: 'The drawing', painting: 'Painted', sculpt: 'Sculpted in 3D', alive: 'Brought to life' };
-/**
- * The intro is a quick slideshow of the process (Raz: "don't pause for more
- * than about 1 second on each phase"): each phase is on screen PHASE_MS, its
- * cross-fade included (HeroLive.css), so four phases take under 4 seconds.
- * The clock never waits for a download: a 3D phase whose file is not there
- * yet shows the loading ring for its turn, and so does the live hero after.
- * Only a picture that has not appeared at all may take PICTURE_WAIT_MS more,
- * so a phase is never an empty stage, and is then shown for at least
- * PICTURE_MIN_MS.
- */
-const PHASE_MS = 900;
-const PHASE_MIN_MS = 500;
-const PICTURE_WAIT_MS = 400;
-const PICTURE_MIN_MS = 500;
-/** The intro's stepper: 12px from the top of the stage, 48px tall, 4px clear.
- *  The hero keeps this margin at the top and the bottom, so it shrinks in place
- *  on the sun rather than moving down (measured: 10px or more under the strip
- *  on tall and T-posed heroes, at 360x640). */
-const INTRO_INSET = 64;
-/**
- * Browsing plays through the steps by itself as well, at the intro's pace
- * (Raz: "make the transition automatic between the phases ... you're staying
- * for too long on each one, you need to do it much faster"): each step stays
- * BROWSE_MS once it is on screen, or BROWSE_WAIT_MS if it never loads.
- */
-const BROWSE_MS = 1000;
-const BROWSE_WAIT_MS = 2500;
-/** The strip's circle slides to the next step in this long (HeroLive.css). */
-const SLIDE_MS = 300;
-
-// The intro plays the first time a hero is opened on this device. Storage can
-// throw (private windows, blocked site data); then it simply plays every time.
-const seenKey = (id: string) => `heromaker.intro.seen.${id}`;
-function introSeen(id: string): boolean {
-  try { return localStorage.getItem(seenKey(id)) === '1'; } catch { return false; }
-}
-function markIntroSeen(id: string) {
-  try { localStorage.setItem(seenKey(id), '1'); } catch { /* fine */ }
-}
 
 /**
  * What the live stage needs of a hero: whose it is and which of its files
@@ -74,328 +29,271 @@ export type LiveHero = Pick<CreationResponse, 'id' | 'user_id' | 'name' | 'age' 
   steps?: Array<Pick<CreationResponse['steps'][number], 'step_name' | 'status'>>;
 };
 
+/**
+ * A hero still being made (or stopped): which step runs or failed, and how far
+ * it is (0-100). `idle` is a hero never started: nothing runs, so nothing is
+ * shown as on its way.
+ */
+export interface Making {
+  step?: string;
+  pct: number;
+  failed: boolean;
+  /** "Sculpting failed": the failed step's name, for its slide. */
+  failedLabel?: string;
+  idle?: boolean;
+  /** What is happening, under the stage: the status, the bar (HeroScreen). */
+  info: ReactNode;
+}
+
 const STEP_FILE: Record<string, string> = { openai_render: 'rendered.png', meshy_3d: 'model.glb' };
 
+type SlideKey = 'drawing' | 'painting' | 'hero';
+type SlideState = 'ready' | 'pending' | 'failed';
+interface Slide { key: SlideKey; state: SlideState }
+
 /**
- * The ready hero's page body: one stage that tells how the hero was made the
- * first time (drawing, painting, 3D sculpt, alive), then is the hero, live and
- * dancing; and under it the moves. Renders the screen body and the move row
- * as siblings so the screen grid can put the moves beside the stage on a
- * phone held sideways.
- *
- * The stage has three modes. The intro plays the four steps by itself. Live
- * is the hero, with the drawing as a polaroid in the corner. Browse is how it
- * was made, at your own pace: a tap on the polaroid swaps it into the stage
- * (the drawing big, the hero small in the corner), and the steps strip on top
- * shows each step: the drawing, the painting, the turning sculpt; Alive, the
- * small hero card or Back return to the hero. The strip is the one way to
- * move between the steps, in the intro too (tapping a step stops the intro
- * there).
+ * The steps behind each slide that is still to come, with their share of its
+ * one progress ring: the painting is mostly the painting; the 3D hero is the
+ * sculpt, then the rig and the pack (by how long each usually takes).
  */
-export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m) => m.id) }: {
+const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
+  painting: [['image_processing', 5], ['openai_render', 95]],
+  hero: [['meshy_3d', 80], ['meshy_rig', 15], ['convert_vrm', 5]],
+};
+
+/**
+ * The hero's page body: one stage, a carousel of how the hero was made (Raz:
+ * "the original drawing, then the amazing rendering, then the fabulous 3D
+ * model"): the drawing, the painting, and the hero itself, live and dancing.
+ * It is cyclic, moves only when swiped (or by the arrow keys, or its dots),
+ * and a ready hero opens on the hero, which is what the moves under it act on.
+ * A tap on the drawing or the painting opens it full screen.
+ *
+ * While the hero is being made (`making`), the carousel builds up: the drawing
+ * from the start, then a progress slide for the part being made, which becomes
+ * that part when it is ready. The carousel moves on to a new part by itself,
+ * the one movement it makes alone, and only when its viewer was watching for
+ * it (on the progress slide, or never swiped away from where it put them).
+ *
+ * Renders the screen body and the move row as siblings so the screen grid can
+ * put the moves beside the stage on a phone held sideways.
+ */
+export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id) }: {
   creation: LiveHero;
-  /** Bumped by the ⋯ sheet's "How it was made": play the intro again. */
-  introRequest: number;
+  making?: Making;
   notice?: ReactNode;
   /** Which moves the row offers (ids of MOVES); none hides the row. */
   moves?: string[];
 }) {
   const file = (f: string) => api.heroFileUrl(creation, f);
-  const done = (step: string) => (creation.file_versions
+  const done = (step: string) => (creation.file_versions && step in STEP_FILE
     ? STEP_FILE[step] in creation.file_versions
     : creation.steps?.find((s) => s.step_name === step)?.status === 'completed');
-  const offered = MOVES.filter((m) => moves.includes(m.id));
+  const live = !making;
+  const offered = live ? MOVES.filter((m) => moves.includes(m.id)) : [];
   const vrm = heroVrmUrl(creation);
-  const hasSculpt = done('meshy_3d');
-  // Relative and opt_, like the VRM: ~5x smaller, same look, same URL everywhere.
-  const sculpt = hasSculpt ? `/api/files/${creation.user_id}/${creation.id}/opt_model.glb` : null;
-  const phases: Phase[] = ['drawing', ...(done('openai_render') ? ['painting' as const] : []), ...(hasSculpt ? ['sculpt' as const] : []), 'alive'];
+  const painted = done('openai_render');
+  const heroName = creation.character_name?.trim() || 'The hero';
 
-  const [phase, setPhase] = useState<Phase>(() => (introSeen(creation.id) ? 'live' : phases[0]));
-  const [browsing, setBrowsing] = useState(false);
+  // The slides there are now, in order.
+  const slides: Slide[] = [{ key: 'drawing', state: 'ready' }];
+  const coming: SlideState = making?.failed ? 'failed' : 'pending';
+  if (painted) slides.push({ key: 'painting', state: 'ready' });
+  else if (making && !making.idle) slides.push({ key: 'painting', state: coming });
+  if (live) slides.push({ key: 'hero', state: 'ready' });
+  else if (painted && !making.idle) slides.push({ key: 'hero', state: coming });
+  const frontier = slides.find((s) => s.state !== 'ready') ?? slides[slides.length - 1];
+
+  const [at, setAt] = useState<SlideKey>(() => frontier.key);
+  // Whether the viewer is where the carousel put them (or on the part being
+  // made): only then does it move on when a part is born.
+  const follow = useRef(true);
+  const index = Math.max(0, slides.findIndex((s) => s.key === at));
+  const current = slides[index];
+  const pick = (i: number) => {
+    const s = slides[i];
+    if (!s) return;
+    follow.current = s.key === frontier.key && s.state === 'pending';
+    setAt(s.key);
+  };
+  const sig = slides.map((s) => `${s.key}:${s.state}`).join(',');
+  const before = useRef(sig);
+  useEffect(() => {
+    const was = Object.fromEntries(before.current.split(',').map((p) => p.split(':')));
+    before.current = sig;
+    const born = slides.find((s) => s.state === 'ready' && was[s.key] && was[s.key] !== 'ready');
+    if (born && follow.current) setAt(born.key);
+    // A slide that went away (it never does today): back to the part in the making.
+    if (!slides.some((s) => s.key === at)) setAt(frontier.key);
+  }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [mod, setMod] = useState<StageModule | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [shown, setShown] = useState<'sculpt' | 'hero' | null>(null);
-  const [progress, setProgress] = useState<Record<string, number>>({});
+  const [failed3d, setFailed3d] = useState(false);
+  const [shown, setShown] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [movesReady, setMovesReady] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);
-  // Whether the drawing and the painting have appeared (see PICTURE_WAIT_MS),
-  // and their shapes (width / height), for laying them out while browsing.
-  const [pictured, setPictured] = useState<Record<string, boolean>>({});
-  const [aspect, setAspect] = useState<Record<string, number>>({});
-  const pictureShown = (key: string) => (img: HTMLImageElement) => {
-    setPictured((all) => (all[key] ? all : { ...all, [key]: true }));
-    const ar = img.naturalWidth / img.naturalHeight;
-    if (ar > 0) setAspect((all) => (all[key] === ar ? all : { ...all, [key]: ar }));
-  };
-  // Once the stage has swapped, the corner cards pop in when they come back.
-  const [swapped, setSwapped] = useState(false);
-  // The drawing, full screen (a tap on the big drawing while browsing).
-  const [full, setFull] = useState(false);
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  const stageEl = useRef<HTMLDivElement>(null);
+  // The drawing or the painting, full screen.
+  const [full, setFull] = useState<'drawing' | 'painting' | null>(null);
   const host = useRef<HTMLDivElement>(null);
-  const card = useRef<HTMLDivElement>(null);
-  const flipFrom = useRef<DOMRect | null>(null);
   const stage = useRef<HeroStageInstance | null>(null);
   const pendingMove = useRef<string | null>(null);
-  const pinch = usePinchZoom();
 
-  // The steps strip is up during the intro and while browsing.
-  const steps = phase !== 'live';
-  const intro = steps && !browsing;
-  const leave = () => { setFull(false); setBrowsing(false); setPhase('live'); };
-  const browse = (p: Phase) => {
-    if (p === 'alive' || p === 'live') { leave(); return; }
-    setSwapped(true);
-    setBrowsing(true);
-    setPhase(p);
-  };
-  const startIntro = useCallback(() => { setBrowsing(false); setPhase(phases[0]); }, [phases[0]]); // eslint-disable-line react-hooks/exhaustive-deps
-  const skip = () => setPhase('live');
-  // Back (Android's too) returns from browsing to the hero, not off the page.
-  useBackEntry(browsing, leave);
-
-  useEffect(() => { if (intro) markIntroSeen(creation.id); }, [intro, creation.id]);
-  const firstRequest = useRef(introRequest);
-  useEffect(() => { if (introRequest !== firstRequest.current) startIntro(); }, [introRequest, startIntro]);
-  // A step that cannot show (its 3D failed) leaves browsing for the hero.
-  // The strip's circle gets to Alive first, then the stage is the hero again.
+  // The 3D module and the hero's file start loading the moment the hero is
+  // ready, while the other slides are on screen. Each is fetched once per page
+  // load, however often this hero is opened.
   useEffect(() => {
-    if (!browsing || phase !== 'alive') return;
-    const t = setTimeout(leave, reducedMotion() ? 0 : SLIDE_MS);
-    return () => clearTimeout(t);
-  }, [browsing, phase]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { pinch.reset(); }, [phase, browsing]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const el = stageEl.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // The 3D module and both 3D files start loading the moment the page opens,
-  // while the drawing and the painting are on screen. Each is fetched once
-  // per page load, however often this hero is opened.
-  useEffect(() => {
+    if (!live) return;
     let alive = true;
-    const stop: Array<() => void> = [];
+    let stop = () => {};
     loadStage().then((m) => {
       if (!alive) return;
       setMod(m);
-      for (const url of [vrm, sculpt]) {
-        if (!url) continue;
-        stop.push(m.prefetch(url, (p) => {
-          const pct = Math.round(p * 100) / 100;
-          if (alive) setProgress((all) => (all[url] === pct ? all : { ...all, [url]: pct }));
-        }));
-      }
-      m.prepareHero(vrm).catch(() => { if (alive) setFailed(true); });
-    }, () => { if (alive) setFailed(true); });
-    return () => { alive = false; stop.forEach((s) => s()); };
-  }, [vrm, sculpt]);
+      stop = m.prefetch(vrm, (p) => { if (alive) setProgress(Math.round(p * 100) / 100); });
+      m.prepareHero(vrm).catch(() => { if (alive) setFailed3d(true); });
+    }, () => { if (alive) setFailed3d(true); });
+    return () => { alive = false; stop(); };
+  }, [vrm, live]);
 
   // One stage per page; the WebGL context and every parsed file outlive it.
   useEffect(() => {
     if (!mod || !host.current) return;
     const s = new mod.HeroStage(host.current, { onPlaying: setPlaying });
     stage.current = s;
-    s.movesReady(vrm).then(() => setMovesReady(true), () => {});
+    // The pager dots sit over the top of the stage: keep the hero clear of them.
+    s.setInsetTop(DOTS_CLEAR);
+    let alive = true;
+    s.movesReady(vrm).then(() => { if (alive) setMovesReady(true); }, () => {});
+    s.showHero(vrm).then(() => { if (alive) setShown(true); }, () => { if (alive) setFailed3d(true); });
     return () => {
+      alive = false;
       s.dispose();
       stage.current = null;
-      setShown(null);
+      setShown(false);
       setPlaying(null);
     };
   }, [mod, vrm]);
 
-  // The steps strip covers the top of the stage: shrink the 3D clear of it,
-  // centred where it always is (on the sun), never shifted.
-  useEffect(() => { stage.current?.setInsetTop(steps ? INTRO_INSET : 0); }, [steps, mod]);
-
-  // What the 3D stage shows follows the phase.
-  useEffect(() => {
-    const s = stage.current;
-    if (!s) return;
-    let alive = true;
-    if (phase === 'sculpt' && sculpt) {
-      s.showSculpt(sculpt).then(() => { if (alive) setShown('sculpt'); }, () => { if (alive) setPhase('alive'); });
-    } else if (phase === 'alive' || phase === 'live') {
-      s.showHero(vrm).then(() => { if (alive) setShown('hero'); }, () => { if (alive) setFailed(true); });
-    } else {
-      s.clear();
-      setShown(null);
-    }
-    return () => { alive = false; };
-  }, [phase, mod, vrm, sculpt]);
-
-  // Each phase moves on PHASE_MS after it began, loaded or not (see PHASE_MS).
-  // A phase that ran long (a late picture, or the page busy parsing 3D, which
-  // holds the timer up) is made up by the next ones, down to PHASE_MIN_MS, so
-  // the whole intro keeps to its 4 seconds.
-  const ready3d = (phase === 'sculpt' && shown === 'sculpt') || ((phase === 'alive' || phase === 'live') && shown === 'hero');
-  const clock = useRef({ at: 0, plan: PHASE_MS, late: 0 });
-  const pictureUp = (phase !== 'drawing' && phase !== 'painting') || !!pictured[phase];
-  useEffect(() => {
-    const now = performance.now();
-    const c = clock.current;
-    c.late = phase === phases[0] ? 0 : Math.max(0, c.late + (now - c.at) - c.plan);
-    c.at = now;
-    c.plan = Math.max(PHASE_MIN_MS, PHASE_MS - c.late);
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!intro) return;
-    const { at, plan } = clock.current;
-    const elapsed = performance.now() - at;
-    const giveUp = plan + PICTURE_WAIT_MS - elapsed;
-    // A picture that came late still gets its moment, within the same cap.
-    const wait = pictureUp ? Math.max(plan - elapsed, Math.min(PICTURE_MIN_MS, giveUp)) : giveUp;
-    const t = setTimeout(() => setPhase((p) => {
-      const i = phases.indexOf(p);
-      return i < 0 || i >= phases.length - 1 ? 'live' : phases[i + 1];
-    }), Math.max(0, wait));
-    return () => clearTimeout(t);
-  }, [phase, intro, pictureUp]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Browsing moves on by itself: drawing, painting, sculpt, then the hero.
-  // A tap on a step jumps there and it carries on from that step. It holds
-  // while the drawing is full screen or a picture is zoomed in.
-  const onScreen = phase === 'sculpt' ? shown === 'sculpt' : !!pictured[phase];
-  const zoomed = pinch.zoom.s > 1;
-  useEffect(() => {
-    if (!browsing || full || zoomed) return;
-    const t = setTimeout(() => setPhase((p) => {
-      const i = phases.indexOf(p);
-      return i < 0 || i >= phases.length - 1 ? 'alive' : phases[i + 1];
-    }), onScreen ? BROWSE_MS : BROWSE_WAIT_MS);
-    return () => clearTimeout(t);
-  }, [phase, browsing, full, zoomed, onScreen]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // The swap: the drawing grows out of the polaroid into the stage (about
-  // 250ms, a scale and position morph), while the hero shrinks into the corner.
-  useLayoutEffect(() => {
-    const from = flipFrom.current;
-    const el = card.current;
-    flipFrom.current = null;
-    if (!from || !el || !browsing || phase !== 'drawing' || reducedMotion()) return;
-    const photo = el.querySelector('img') ?? el;
-    const to = photo.getBoundingClientRect();
-    if (!to.width || !to.height) return;
-    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
-    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-    const k = from.width / to.width;
-    el.animate(
-      [{ transform: `translate(${dx}px, ${dy}px) scale(${k}) rotate(-6deg)` }, { transform: `rotate(${BIG_TILT}deg)` }],
-      { duration: SWAP_MS, easing: 'cubic-bezier(.2, .8, .2, 1)' },
-    );
-  }, [browsing, phase]);
-
   // A move tapped before the hero was on stage plays as soon as it is.
   useEffect(() => {
-    if (shown === 'hero' && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
+    if (shown && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
   }, [shown]);
 
+  // A move acts on the hero: from another slide, the carousel goes to it first.
   const tap = (id: string) => {
-    if (steps) leave();
+    const i = slides.findIndex((s) => s.key === 'hero');
+    if (i >= 0 && i !== index) pick(i);
     if (!stage.current?.play(id)) pendingMove.current = id;
   };
 
-  const waiting = !ready3d && (phase === 'sculpt' || phase === 'alive' || phase === 'live');
-  const waitUrl = phase === 'sculpt' ? sculpt : vrm;
-  const painted = done('openai_render');
-  const painting = painted ? 'rendered.png' : 'original.jpg';
-  // On the stage: the painting's cut-out, or a polaroid of it when it has none.
-  const paintingFull = painted ? PAINTING_FILE : painting;
-  const paintingClass = `tb-stage-img${painted && paintingFramed(creation) ? ' tb-stage-img--framed' : ''}`;
-  const heroName = creation.character_name?.trim() || 'The hero';
-  const flat = browsing && (phase === 'drawing' || phase === 'painting');
+  const paintingFile = painted ? PAINTING_FILE : 'original.jpg';
+  const framed = painted && paintingFramed(creation);
+  const partPct = (part: 'painting' | 'hero') => {
+    let pct = 0;
+    for (const [step, share] of PART_STEPS[part]) {
+      if (creation.steps?.find((s) => s.step_name === step)?.status === 'completed') pct += share;
+      else if (step === making?.step) pct += (share * Math.max(0, Math.min(100, making.pct))) / 100;
+    }
+    return Math.min(99, pct);
+  };
+  const comingLabel = (key: SlideKey) => (key === 'painting' ? 'Painting' : making?.step === 'meshy_3d' ? 'Sculpting in 3D' : 'Bringing to life');
 
-  // While browsing, the big picture keeps clear of the hero's card in the
-  // corner: the drawing entirely; the painting may cover the empty floor
-  // beside a T-pose's feet, as on the making screen (useClearOfPolaroid).
-  const avoid = browsing ? miniFootprint(size.w, size.h) : null;
-  const drawingBox = avoid ? fitClear(size.w, size.h, aspect.drawing || 0.75, CARD_PAD_X, CARD_PAD_Y, avoid, false) : undefined;
-  const paintingBox = avoid ? fitClear(size.w, size.h, aspect.painting || 1, 0, 0, avoid, true) : undefined;
+  const artist = creation.name?.trim().split(/\s+/)[0] || '';
+  const credit = artist ? `${artist}${creation.age ? `, ${creation.age}` : ''}` : undefined;
+  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} caption={credit} className="tb-slide-pic--drawing" />;
+  const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} />;
+
+  const view = (s: Slide): { label: string; node: ReactNode } => {
+    if (s.key === 'drawing') {
+      return {
+        label: 'The drawing',
+        node: (
+          <>
+            <Opener label="Show the drawing full screen" onOpen={() => setFull('drawing')}>{drawingPic}</Opener>
+          </>
+        ),
+      };
+    }
+    if (s.state !== 'ready') {
+      // A part being made: the picture it is made from, dimmed, under its ring;
+      // or, stopped, under what went wrong.
+      const from = s.key === 'painting' ? drawingPic : paintingPic;
+      const label = s.key === 'painting' ? 'Painted' : `${heroName}, live`;
+      if (s.state === 'failed') {
+        return {
+          label,
+          node: (
+            <div className="tb-slide-coming tb-slide-coming--failed" role="status">
+              <div className="tb-slide-dim">{from}</div>
+              <span className="tb-slide-failed-mark"><Icon name="close" size={28} /></span>
+              <span className="tb-slide-status tb-slide-status--failed">{making?.failedLabel ?? 'Something went wrong'}</span>
+            </div>
+          ),
+        };
+      }
+      const pct = Math.floor(partPct(s.key));
+      return {
+        label,
+        node: (
+          <div className="tb-slide-coming" role="status" aria-label={`${comingLabel(s.key)}, ${pct}%`}>
+            <div className="tb-slide-dim">{from}</div>
+            {s.key === 'painting' ? <div className="tb-scanline" /> : <div className="tb-shimmer" />}
+            <div className="tb-ring" style={{ ['--p' as string]: `${pct}%` }}><span>{pct}%</span></div>
+            <span className="tb-slide-status">{comingLabel(s.key)}</span>
+          </div>
+        ),
+      };
+    }
+    if (s.key === 'painting') {
+      return {
+        label: 'Painted',
+        node: (
+          <>
+            <div className="tb-stage-sun" />
+            <Opener label="Show the painting full screen" onOpen={() => setFull('painting')}>{paintingPic}</Opener>
+          </>
+        ),
+      };
+    }
+    return {
+      label: `${heroName}, live`,
+      node: (
+        <>
+          <div className="tb-stage-sun" />
+          {/* The 3D can't load: the painting stands in for it. */}
+          {failed3d && paintingPic}
+          <div ref={host} className={`tb-live-canvas${shown ? ' tb-layer--on' : ''}`} />
+          <div className={`tb-layer${!shown && !failed3d ? ' tb-layer--on' : ''}`} aria-hidden={shown || failed3d ? true : undefined}>
+            <Loading progress={progress}>{paintingPic}</Loading>
+          </div>
+        </>
+      ),
+    };
+  };
 
   return (
     <>
       <div className="tb-screen-body">
         {notice}
-        <div
-          ref={stageEl}
-          className={`tb-stage tb-hero-stage tb-live-stage${steps ? ' tb-live-stage--steps' : ''}${intro ? ' tb-live-stage--intro' : ''}`}
-          data-phase={phase}
-          data-mode={intro ? 'intro' : browsing ? 'browse' : 'live'}
-          data-shown={shown ?? ''}
-          data-playing={playing ?? ''}
-          onClick={intro ? skip : undefined}
-          aria-label={steps ? `${PHASE_LABEL[phase as Exclude<Phase, 'live'>]}${intro ? '. Tap to skip.' : ''}` : undefined}
-          {...(flat ? pinch.handlers : {})}
-        >
-          <div className="tb-stage-sun" />
-          {/* Full-size pictures only for the intro and browsing, or if the 3D
-              cannot load. The drawing's thumbnail (the polaroid's own) is always
-              laid out, so the swap knows where it grows to. */}
-          <Layer on={steps && phase === 'drawing'}>
-            <div className="tb-live-drawing" style={drawingBox}>
-              <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: phase === 'drawing' ? pinch.transform : undefined }}>
-                <div
-                  ref={card}
-                  className={`tb-live-card${browsing ? ' tb-live-card--open' : ''}`}
-                  {...(browsing ? {
-                    role: 'button',
-                    tabIndex: 0,
-                    'aria-label': 'Show the drawing full screen',
-                    onClick: (e: { stopPropagation: () => void }) => { e.stopPropagation(); setFull(true); },
-                    onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFull(true); } },
-                  } : {})}
-                >
-                  <Picture thumb={file('thumb_original.jpg')} full={steps ? file('original.jpg') : null} alt={steps ? 'The drawing' : ''} onShown={pictureShown('drawing')} className="tb-live-card-img" />
-                  <Caption artist={creation.name} age={creation.age} />
-                  {browsing && <span className="tb-polaroid-zoom" aria-hidden="true"><Icon name="expand" size={14} /></span>}
-                </div>
-              </div>
-            </div>
-          </Layer>
-          {(steps || failed) && (
-            <Layer on={phase === 'painting' || (failed && phase !== 'drawing')}>
-              <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: phase === 'painting' ? pinch.transform : undefined }}>
-                <Picture thumb={file(`thumb_${painting}`)} full={file(paintingFull)} alt="Painted" onShown={pictureShown('painting')} className={paintingClass} style={paintingBox && boxStyle(paintingBox, size)} />
-              </div>
-            </Layer>
-          )}
-          <div ref={host} className={`tb-live-canvas${ready3d ? ' tb-layer--on' : ''}`} />
-          <Layer on={waiting && !failed}>
-            <Loading image={file(`thumb_${painting}`)} progress={(waitUrl && progress[waitUrl]) || 0} className={paintingClass} />
-          </Layer>
-          {steps && <StepStrip phases={phases} current={phase} onPick={browse} fillMs={intro ? PHASE_MS : browsing && onScreen && !full && !zoomed ? BROWSE_MS : 0} />}
-          {!steps && (
-            <Polaroid
-              key="drawing"
-              className={swapped ? 'tb-live-pop' : ''}
-              src={file('thumb_original.jpg')}
-              artist={creation.name}
-              age={creation.age}
-              label="How it was made"
-              onOpen={(photo) => { flipFrom.current = photo.getBoundingClientRect(); browse('drawing'); }}
-            />
-          )}
-          {browsing && (
-            <Polaroid
-              key="hero"
-              className="tb-live-pop tb-live-mini"
-              src={file(`thumb_${painting}`)}
-              title={heroName}
-              shape={MINI_SHAPE}
-              label={`Back to ${heroName}`}
-              onOpen={leave}
-            />
-          )}
-        </div>
+        <Carousel
+          className="tb-stage tb-hero-stage tb-live-stage"
+          label={`How ${heroName} was made`}
+          slides={slides.map((s) => ({ key: s.key, ...view(s) }))}
+          index={index}
+          onPick={pick}
+          data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
+        />
+        {making?.info}
       </div>
-      {full && <FullDrawing src={file('original.jpg')} artist={creation.name} age={creation.age} onClose={() => setFull(false)} />}
+      {full && (
+        <FullPicture
+          title={full === 'drawing' ? 'The drawing' : 'Painted'}
+          src={file(full === 'drawing' ? 'original.jpg' : PAINTING_FILE)}
+          card={full === 'drawing' || framed}
+          caption={full === 'drawing' ? <Caption artist={creation.name} age={creation.age} /> : null}
+          onClose={() => setFull(null)}
+        />
+      )}
       {offered.length > 0 && <div className="tb-hero-moves">
         <div className={`tb-moves${offered.length < 4 ? ' tb-moves--few' : ''}`} role="toolbar" aria-label="Moves">
           {offered.map((m) => (
@@ -418,78 +316,193 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
   );
 }
 
-/**
- * The steps strip over the top of the stage, a timeline: one circle marks the
- * step on show and slides to the next (SLIDE_MS); the line ahead of it fills
- * while the step plays (`fillMs`, 0 while it waits), so the strip moves with
- * the stage. Behind the circle is purple, its trail; ahead is green, steps
- * made and waiting (Raz: "everything that is behind us is purple and ahead
- * of us is green"), in the intro and while browsing alike. A tap on a step
- * shows that step.
- */
-function StepStrip({ phases, current, onPick, fillMs }: { phases: Phase[]; current: Phase; onPick: (p: Phase) => void; fillMs: number }) {
-  const at = phases.indexOf(current);
-  const dots = useRef<Array<HTMLButtonElement | null>>([]);
-  const [x, setX] = useState<number | null>(null);
-  // The circle lands in place the first time, and slides from then on.
-  const placed = useRef(false);
-  useLayoutEffect(() => {
-    const d = dots.current[at];
-    if (d) setX(d.offsetLeft + d.offsetWidth / 2);
-  }, [at, phases.length]);
-  useEffect(() => { if (x !== null) placed.current = true; }, [x]);
-  const key = at >= 0 ? (current as Exclude<Phase, 'live'>) : null;
+/** A slide's picture that opens full screen: one tap (Enter or Space from the keyboard). */
+function Opener({ label, onOpen, children }: { label: string; onOpen: () => void; children: ReactNode }) {
   return (
-    <div className="tb-live-steps">
-      <div className="tb-stepper" role="toolbar" aria-label="How it was made">
-        {phases.map((p, i) => {
-          const k = p as Exclude<Phase, 'live'>;
-          const state = i < at ? 'past' : 'done';
-          const fill = i < at ? 'full' : i === at && fillMs > 0 ? 'filling' : 'empty';
-          return (
-            <div key={p} style={{ display: 'contents' }}>
-              <button
-                ref={(el) => { dots.current[i] = el; }}
-                type="button"
-                className={`tb-step-dot tb-step-dot--${state}`}
-                aria-label={PHASE_LABEL[k]}
-                aria-current={i === at ? 'step' : undefined}
-                onClick={(e) => { e.stopPropagation(); onPick(p); }}
-              >
-                <Icon name={PHASE_ICON[k]} size={18} />
-              </button>
-              {i < phases.length - 1 && (
-                <div className="tb-step-line">
-                  <span
-                    key={`${current}-${fill}`}
-                    className={`tb-step-line-fill tb-step-line-fill--${fill}`}
-                    style={fill === 'filling' ? { animationDuration: `${fillMs}ms` } : undefined}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {key && x !== null && (
-          <span
-            className="tb-live-steps-now"
-            aria-hidden="true"
-            style={{ transform: `translateX(${x}px) translateX(-50%)`, transition: placed.current ? undefined : 'none' }}
+    <button type="button" className="tb-slide-open" aria-label={label} onClick={onOpen}>
+      {children}
+    </button>
+  );
+}
+
+// ---- The carousel ----
+
+const SNAP_SHARE = 0.18;
+const FLICK_PX_PER_MS = 0.35;
+const SLOP_PX = 8;
+
+/**
+ * Slides side by side in a loop: past the last is the first. Each follows the
+ * finger (or the mouse), and on release snaps to the nearest, or on to the
+ * next past a fifth of the stage or on a flick (HeroLive.css: under 300ms).
+ * The arrow keys and the dots move it too. A drag never counts as a tap.
+ */
+function Carousel({ slides, index, onPick, className, label, data }: {
+  slides: Array<{ key: string; label: string; node: ReactNode }>;
+  index: number;
+  onPick: (i: number) => void;
+  className: string;
+  label: string;
+  data: Record<string, string>;
+}) {
+  const n = slides.length;
+  const el = useRef<HTMLDivElement>(null);
+  // With two slides, the other one waits on the side it will come from.
+  const [side, setSide] = useState<1 | -1>(1);
+  const [dx, setDx] = useState<number | null>(null);
+  const drag = useRef<{ id: number; x: number; y: number; t: number; on: boolean } | null>(null);
+  const dragged = useRef(false);
+  const posOf = (i: number) => {
+    if (n < 2) return 0;
+    if (n === 2) return i === index ? 0 : side;
+    const d = (((i - index) % n) + n) % n;
+    return d > n / 2 ? d - n : d;
+  };
+  // A slide that wraps round (or is new) jumps there: it never crosses the stage.
+  const last = useRef(new Map<string, number>());
+  useLayoutEffect(() => {
+    last.current = new Map(slides.map((s, i) => [s.key, posOf(i)]));
+  });
+
+  const step = (dir: 1 | -1) => {
+    if (n < 2) return;
+    if (n === 2 && side !== dir) {
+      flushSync(() => setSide(dir));
+      el.current?.getBoundingClientRect();
+    }
+    if (n === 2) setSide((-dir) as 1 | -1);
+    onPick((index + dir + n) % n);
+  };
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const goTo = (i: number) => {
+    if (i === index) return;
+    if (n === 2) stepRef.current(side);
+    else stepRef.current(posOf(i) > 0 ? 1 : -1);
+  };
+
+  // The arrow keys, anywhere on the page but in a field or over a sheet.
+  useEffect(() => {
+    if (n < 2) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('[aria-modal="true"]')) return;
+      e.preventDefault();
+      stepRef.current(e.key === 'ArrowRight' ? 1 : -1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [n]);
+
+  const down = (e: PointerEvent<HTMLDivElement>) => {
+    dragged.current = false;
+    if (n < 2 || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), on: false };
+  };
+  const move = (e: PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const mx = e.clientX - d.x;
+    const my = e.clientY - d.y;
+    if (!d.on) {
+      if (Math.abs(mx) < SLOP_PX && Math.abs(my) < SLOP_PX) return;
+      if (Math.abs(my) > Math.abs(mx)) { drag.current = null; return; }
+      d.on = true;
+      dragged.current = true;
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    }
+    if (n === 2 && mx !== 0) {
+      const s = mx < 0 ? 1 : -1;
+      if (s !== side) setSide(s);
+    }
+    setDx(mx);
+  };
+  const up = (e: PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.on) return;
+    const mx = e.clientX - d.x;
+    const speed = Math.abs(mx) / Math.max(1, performance.now() - d.t);
+    const w = el.current?.clientWidth || 1;
+    setDx(null);
+    if (Math.abs(mx) > w * SNAP_SHARE || (speed > FLICK_PX_PER_MS && Math.abs(mx) > 24)) {
+      const dir = mx < 0 ? 1 : -1;
+      if (n === 2) setSide((-dir) as 1 | -1);
+      onPick((index + dir + n) % n);
+    }
+  };
+  const cancel = () => { drag.current = null; setDx(null); };
+
+  return (
+    <div
+      ref={el}
+      className={`${className}${dx !== null ? ' tb-carousel--dragging' : ''}`}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={label}
+      {...data}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={cancel}
+      // Only the stage's own capture: taking it from the finger's first target
+      // (a touch's implicit capture) fires this on that target, and it bubbles.
+      onLostPointerCapture={(e) => { if (e.target === e.currentTarget && drag.current?.on) cancel(); }}
+      // A drag that ends on a picture is not a tap on it.
+      onClickCapture={(e) => { if (dragged.current) { e.preventDefault(); e.stopPropagation(); dragged.current = false; } }}
+      onDragStart={(e) => e.preventDefault()}
+    >
+      {slides.map((s, i) => {
+        const pos = posOf(i);
+        const was = last.current.get(s.key);
+        const jump = was === undefined || Math.abs(was - pos) > 1;
+        const off = pos !== 0;
+        const style: CSSProperties = {
+          transform: `translateX(calc(${pos * 100}% + ${dx ?? 0}px))`,
+          ...(dx !== null || jump ? { transition: 'none' } : {}),
+        };
+        return (
+          <div
+            key={s.key}
+            className="tb-slide"
+            data-slide={s.key}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={s.label}
+            aria-hidden={off ? true : undefined}
+            {...(off ? { inert: '' } : {})}
+            style={style}
           >
-            <Icon name={PHASE_ICON[key]} size={18} />
-          </span>
-        )}
-      </div>
+            {s.node}
+          </div>
+        );
+      })}
+      {n > 1 && (
+        <div className="tb-carousel-dots">
+          {slides.map((s, i) => (
+            <button
+              key={s.key}
+              type="button"
+              className="tb-carousel-dot"
+              aria-label={s.label}
+              aria-current={i === index ? 'true' : undefined}
+              onClick={() => goTo(i)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * The drawing, full screen: a page of the app (cream, the header's round
- * close button), the drawing as its polaroid as big as the screen allows,
- * never cropped; two fingers zoom it. Back closes it, back to browsing.
+ * The drawing or the painting, full screen: a page of the app (cream, the
+ * header's round close button), as big as the screen allows, never cropped;
+ * two fingers zoom it. Back closes it, back to the same slide. The drawing
+ * keeps its white card and its artist's name; a framed painting its card.
  */
-function FullDrawing({ src, artist, age, onClose }: { src: string; artist?: string | null; age?: number | null; onClose: () => void }) {
+function FullPicture({ title, src, card, caption, onClose }: { title: string; src: string; card: boolean; caption: ReactNode; onClose: () => void }) {
   const pinch = usePinchZoom();
   const close = useFullBack(onClose);
   useEffect(() => {
@@ -498,14 +511,14 @@ function FullDrawing({ src, artist, age, onClose }: { src: string; artist?: stri
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
   return createPortal(
-    <div className="tb-drawing-full" role="dialog" aria-modal="true" aria-label="The drawing">
-      <Header left={<NavButton icon="close" label="Close" onClick={close} />} title="The drawing" />
+    <div className="tb-drawing-full" role="dialog" aria-modal="true" aria-label={title}>
+      <Header left={<NavButton icon="close" label="Close" onClick={close} />} title={title} />
       <div className="tb-drawing-full-body" {...pinch.handlers}>
         <div className="tb-drawing-full-fit">
           <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: pinch.transform }}>
-            <div className="tb-live-card">
-              <img className="tb-live-card-img" src={src} alt="The drawing" draggable={false} />
-              <Caption artist={artist} age={age} />
+            <div className={card ? `tb-live-card${caption ? '' : ' tb-live-card--bare'}` : 'tb-live-plain'}>
+              <img className="tb-live-card-img" src={src} alt={title} draggable={false} />
+              {caption}
             </div>
           </div>
         </div>
@@ -516,9 +529,9 @@ function FullDrawing({ src, artist, age, onClose }: { src: string; artist?: stri
 }
 
 /**
- * The full-screen drawing owns a history entry of its own, over browsing's:
- * Back closes it and leaves browsing as it was. Returns the close action,
- * which goes through that entry when it is there.
+ * The full-screen picture owns a history entry of its own: Back closes it and
+ * leaves the hero's page as it was. Returns the close action, which goes
+ * through that entry when it is there.
  */
 const FULL_KEY = 'tbDrawingFull';
 const onFullEntry = () => !!(window.history.state as Record<string, unknown> | null)?.[FULL_KEY];
@@ -538,7 +551,7 @@ function useFullBack(onClose: () => void): () => void {
   return useCallback(() => { if (onFullEntry()) window.history.back(); else cb.current(); }, []);
 }
 
-/** The big drawing's caption: the artist's first name and age, as on the polaroid. */
+/** The full drawing's caption: the artist's first name and age. */
 function Caption({ artist, age }: { artist?: string | null; age?: number | null }) {
   const first = artist?.trim().split(/\s+/)[0] || '';
   return (
@@ -548,117 +561,12 @@ function Caption({ artist, age }: { artist?: string | null; age?: number | null 
   );
 }
 
-// ---- Browsing layout: the big picture, clear of the hero's corner card ----
-
-/** The big drawing's tilt, and the swap's length (HeroLive.css matches both). */
-const BIG_TILT = -2;
-const SWAP_MS = 250;
-/** The hero's card in the corner: a small square photo (paintings are square). */
-const MINI_SHAPE = { w: 60, h: 60 };
-/** The big drawing's white frame: 8px around, a 36px caption under it. */
-const CARD_PAD_X = 16;
-const CARD_PAD_Y = 44;
-const EDGE = 16;
-const GAP = 8;
-
-interface Rect { left: number; right: number; top: number; bottom: number }
-type Box = { left: number; right: number; top: number; bottom: number };
-
-/** Where the corner card sits (toybox .tb-polaroid: 12px in, tilted -6deg), as a box on the stage. */
-function miniFootprint(W: number, H: number): Rect {
-  const w = MINI_SHAPE.w + 12;
-  const h = MINI_SHAPE.h + 6 + 26;
-  const t = (6 * Math.PI) / 180;
-  const bw = w * Math.cos(t) + h * Math.sin(t);
-  const bh = w * Math.sin(t) + h * Math.cos(t);
-  const cx = 12 + w / 2;
-  const cy = H - 12 - h / 2;
-  const r = { left: cx - bw / 2, right: cx + bw / 2, top: cy - bh / 2, bottom: cy + bh / 2 };
-  const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
-  return rtl ? { ...r, left: W - r.right, right: W - r.left } : r;
-}
-
-/**
- * The biggest box for a picture of aspect `ar` (plus its frame) under the
- * strip that stays clear of `a`: the whole stage, or give up the bottom, or
- * both sides equally (always centred). `corner` lets a painting cover the
- * card's corner of its empty floor, as useClearOfPolaroid does.
- */
-function fitClear(W: number, H: number, ar: number, padX: number, padY: number, a: Rect, corner: boolean): Box | undefined {
-  if (!W || !H) return undefined;
-  const place = (b: Box) => {
-    const bw = W - b.left - b.right;
-    const bh = H - b.top - b.bottom;
-    const iw = Math.max(0, Math.min(bw - padX, (bh - padY) * ar));
-    const w = iw + padX;
-    const h = iw / ar + padY;
-    return { box: b, x: b.left + (bw - w) / 2, y: b.top + (bh - h) / 2, w, h };
-  };
-  const clear = ({ x, y, w, h }: ReturnType<typeof place>) => {
-    const across = Math.min(x + w, a.right) - Math.max(x, a.left);
-    const down = Math.min(y + h, a.bottom) - Math.max(y, a.top);
-    if (across <= 0 || down <= 0) return true;
-    return corner && across <= 0.36 * w && a.top >= y + 0.5 * h;
-  };
-  const top = INTRO_INSET + 4;
-  const side = Math.max(EDGE, (a.left < W / 2 ? a.right : W - a.left) + GAP);
-  const options = [
-    place({ left: EDGE, right: EDGE, top, bottom: EDGE }),
-    place({ left: EDGE, right: EDGE, top, bottom: Math.max(EDGE, H - a.top + GAP) }),
-    place({ left: side, right: side, top, bottom: EDGE }),
-  ].filter(clear);
-  const best = options.reduce<ReturnType<typeof place> | null>((m, o) => (!m || o.w * o.h > m.w * m.h ? o : m), null);
-  return best?.box;
-}
-
-function boxStyle(b: Box, size: { w: number; h: number }) {
-  return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: size.w - b.left - b.right, height: size.h - b.top - b.bottom };
-}
-
-function reducedMotion(): boolean {
-  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
-}
-
-/**
- * While `active`, the page owns one history entry: Back (Android's too) calls
- * `onBack` instead of leaving the page. Ended any other way, the entry is
- * dropped, so the next Back is not a dead press.
- */
-const BACK_KEY = 'tbStageBrowse';
-let backEntries = 0;
-const onBackEntry = () => {
-  const s = window.history.state as Record<string, unknown> | null;
-  return !!s && s[BACK_KEY] === true;
-};
-function useBackEntry(active: boolean, onBack: () => void) {
-  const cb = useRef(onBack);
-  cb.current = onBack;
-  useEffect(() => {
-    if (!active) return;
-    backEntries += 1;
-    if (!onBackEntry()) window.history.pushState({ ...(window.history.state ?? {}), [BACK_KEY]: true }, '');
-    let popped = false;
-    const onPop = () => { if (!onBackEntry()) { popped = true; cb.current(); } };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      backEntries -= 1;
-      // Deferred, so a remount (React's strict mode) keeps the entry.
-      if (!popped) window.setTimeout(() => { if (!backEntries && onBackEntry()) window.history.back(); }, 0);
-    };
-  }, [active]);
-}
-
-function Layer({ on, children }: { on: boolean; children: ReactNode }) {
-  return <div className={`tb-layer${on ? ' tb-layer--on' : ''}`} aria-hidden={on ? undefined : true}>{children}</div>;
-}
-
 /** The painting, dimmed, with a ring filling up as the 3D file arrives. */
-function Loading({ image, progress, className = 'tb-stage-img' }: { image: string; progress: number; className?: string }) {
+function Loading({ progress, children }: { progress: number; children: ReactNode }) {
   const pct = Math.round(progress * 100);
   return (
     <div className="tb-live-loading" role="status" aria-label={`Loading ${pct}%`}>
-      <img className={`${className} tb-live-img--dim`} src={image} alt="" />
+      <div className="tb-slide-dim">{children}</div>
       <div className="tb-ring" style={{ ['--p' as string]: `${pct}%` }}>
         <span>{pct}%</span>
       </div>
@@ -666,19 +574,48 @@ function Loading({ image, progress, className = 'tb-stage-img' }: { image: strin
   );
 }
 
-/** The small thumbnail at once (cached from the gallery), the full picture when it lands. */
-function Picture({ thumb, full, alt, onShown, className = 'tb-stage-img', style }: {
-  thumb: string; full: string | null; alt: string; onShown?: (img: HTMLImageElement) => void; className?: string; style?: CSSProperties;
-}) {
+/**
+ * A slide's picture, as big as the slide allows and never cropped: the small
+ * thumbnail at once (cached from the gallery), the full picture when it lands.
+ * Once its shape is known it is sized to it (so a thumbnail is drawn as big as
+ * the full picture, and the drawing's rounded corners are its own).
+ */
+/** The top of the stage the pager dots take: 16px off the top, 16px tall, 8px clear. */
+const DOTS_CLEAR = 40;
+
+/** The caption strip under a drawing (HeroLive.css .tb-slide-card-caption). */
+const CAPTION_H = 40;
+
+function SlidePicture({ thumb, full, framed = false, caption, className = '' }: { thumb: string; full: string; framed?: boolean; caption?: string; className?: string }) {
   const [src, setSrc] = useState(thumb);
+  const [ar, setAr] = useState(0);
   useEffect(() => {
-    if (!full) return;
     const img = new Image();
     img.onload = () => setSrc(full);
     img.src = full;
   }, [full]);
   useEffect(() => setSrc(thumb), [thumb]);
-  // A picture that cannot load still lets the intro move on.
-  const shown = (e: SyntheticEvent<HTMLImageElement>) => onShown?.(e.currentTarget);
-  return <img className={className} src={src} alt={alt} style={style} draggable={false} onLoad={shown} onError={shown} />;
+  const shown = (e: SyntheticEvent<HTMLImageElement>) => {
+    const r = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
+    if (r > 0 && Math.abs(r - ar) > 0.005) setAr(r);
+  };
+  const pad = framed ? 8 : 0;
+  const capH = caption ? CAPTION_H : 0;
+  const style: CSSProperties | undefined = ar
+    ? { width: `min(calc(100cqw - ${2 * pad}px), calc((100cqh - ${2 * pad + capH}px) * ${ar}))`, aspectRatio: `${ar}` }
+    : undefined;
+  const img = <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''} ${caption ? '' : className}`.trim()} src={src} alt="" style={style} draggable={false} onLoad={shown} />;
+  return (
+    <div className={`tb-slide-fit${framed ? ' tb-slide-fit--framed' : ''}`}>
+      {/* A drawing with its artist: one card, the name on a strip under the
+          picture (the gallery tile's card, the polaroid's caption), so the
+          name is part of the drawing, not a line of its own. */}
+      {caption ? (
+        <div className={`tb-slide-card ${className}`.trim()} style={ar ? undefined : { width: '100%', height: '100%' }}>
+          {img}
+          <span className="tb-slide-card-caption" dir="auto">{caption}</span>
+        </div>
+      ) : img}
+    </div>
+  );
 }

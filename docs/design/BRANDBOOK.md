@@ -54,7 +54,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 4. **Symmetry.** Paired things (drawing and hero, two game cards) are the same size, side by side. Control bars centred; never a panel in a corner.
 5. **No dead whitespace.** The hero or stage flexes to fill what is left.
 6. **Scrolling.** "Only scroll if there is significant new information to reveal." Phone screens fit 360 x 640 and up; the hero screen is `100dvh`. Lists (the gallery) are the exception.
-7. **Phone-first.** Desktop adapts the same layout (more gallery columns, bigger stage, one row of 8 moves instead of the phone's 4 x 2: every move in view, never a row that swipes with a button cut at the edge). It never invents screens.
+7. **Phone-first.** Desktop adapts the same layout (more gallery columns, a bigger stage). The hero has four moves, Dance, Wave, Flip, Punch, one row on every screen. It never invents screens.
 
 **Hero tiles.** One tile for every hero shown as a card (`components/tb/HeroTile.tsx`): the gallery, the class page's students, the My classes shelf. Same plate, polaroid and size, in one grid: 2 columns on a phone, 3 from 680px of room, 4 from 1060px. The caption is always two lines, a sibling of "Speckle Sally / by Raz, 11": a hero being made says "Sculpting · 45%" on the second line, a child still drawing "Drawing…". No progress bar inside the caption. A tile with no caption (the shelf) centres its art on the plate.
 
@@ -78,7 +78,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - Never crop: `object-fit: contain`, always.
 - Heroes are transparent and stand on a plate or a sun.
 - An old painting with an opaque studio backdrop is shown from its cut-out (`cut_rendered.png`, `thumb_rendered.png`). One with no confident cut (`painting: "framed"`) is a polaroid, the drawing's tilted white card, never a beige box.
-- The drawing is a polaroid (white frame, -6deg, artist's name and age). Its photo takes the drawing's shape: no empty white beside a tall drawing. On the ready hero's stage, one tap (enlarge mark in its corner) swaps it in: the drawing big on the same stage, the hero small in the corner, and the steps strip on top. The steps then play by themselves at the intro's pace (about 1s each once on screen: drawing, painting, sculpt, then back to the hero), and the strip is a timeline: one purple circle slides from step to step, leaving a purple trail behind it (green ahead), and the line ahead of it fills purple while the step plays. A tap on a step jumps there and it carries on from it. The strip's dots carry no names (Raz's call), and the current dot and its ring sit inside the pill, never against its edge. A tap on the big drawing (its enlarge mark) opens it full screen as a page of the app: cream, the header's round close button, "The drawing", the polaroid as big as it fits, pinch to zoom. Close or Back return to the steps.
+- The hero's stage is one swipe carousel, in a loop: the drawing, the painting, the live hero (the still 3D model is never shown). Swipe only: nothing plays or moves by itself on a ready hero. Three quiet pager dots over the top of the stage (16px from the top) are the only chrome; each picture fills the rest of the stage, 16px clear of its edges, contained, never cropped. The drawing and its artist are one card: the picture, with the artist's first name and age on a white 40px strip under it (display font, 18px, centred). A tap on the drawing or the painting opens it full screen; Close or Back return to the same slide. A ready hero opens on the live hero. Being made, the carousel builds: each part shows its progress where it will appear, and the carousel moves on when it is ready, unless you swiped back to look. Tapping the hero's name in the header renames it (its owner only).
 - Thumbnail first, full size swapped in when loaded.
 - Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
 
@@ -149,6 +149,8 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Helper text under the button.** It moved the primary. Now above.
 - **Corner-panel game.** "this layout is horrible". Now one centred bar.
 - **Unlabelled layers icon** for How it was made: "not clear enough". Now a labelled pill.
+- **Steps strip, polaroid swap, auto-play and 8 moves** on the hero's stage: "You don't see a lot of interesting important things like the drawing or the 3D character". The hero covered 25% of the phone. Now a swipe carousel, no automatic play, four moves.
+- **Artist name and pager dots stacked under the drawing**: "too small, too close to the edge", then "too dense ... not coherent with the rest of the app". The dots went to the top; the name is the drawing card's own strip.
 - **Empty 3D loading card.** "Empty screen for 10 seconds WTF?!" Now a ring over the dimmed painting.
 - **Queue-then-play game.** "as soon as an animation is clicked just play it".
 - **Full-screen drawing viewer** (dark scrim, Drawing | Hero toggle): "It doesn't look like part of the app ... this preview of 2 steps. It's confusing." Now the polaroid swaps into the stage and the 4-step strip is the one way through.

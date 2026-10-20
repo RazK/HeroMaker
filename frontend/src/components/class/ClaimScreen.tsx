@@ -152,7 +152,6 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
         <HeroLive
           key={live.id}
           creation={live}
-          introRequest={0}
           moves={done ? [] : CLAIM_MOVES}
           notice={error && <div className="tb-notice tb-notice--error" role="alert">{error}</div>}
         />

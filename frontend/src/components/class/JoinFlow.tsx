@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
+import { api, ApiError, CreationResponse, paintingFramed } from '../../api/client';
 import { GuestView, studentApi } from '../../api/classes';
 import { FileUpload } from '../FileUpload';
 import { HeroLive } from '../tb/HeroLive';
 import { Icon } from '../tb/Icon';
-import { Header, NavButton, Polaroid, ProgressBar, Sheet, Stepper, useClearOfPolaroid, useFitScreen } from '../tb/parts';
-import { STEP_UI, StepProgress, currentStep, etaText, failedLine, heroState, holdSteady, stepProgress, stepViews } from '../tb/pipeline';
+import { Header, NavButton, ProgressBar, Sheet, Stepper, useFitScreen } from '../tb/parts';
+import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroState, holdSteady, stepProgress, stepViews } from '../tb/pipeline';
 import { StylePicker, useRenderStyles, DEFAULT_STYLE } from '../tb/StylePicker';
 import { PinDigits, Qr } from './parts';
 import { useOverlayBack } from '../../routes';
@@ -369,7 +369,6 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
 }) {
   useFitScreen();
   const state = heroState(creation);
-  const stageRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [, tick] = useState(0);
@@ -380,11 +379,6 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
     const t = window.setInterval(() => tick((n) => n + 1), 1000);
     return () => window.clearInterval(t);
   }, [state]);
-  const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
-  const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
-  const art = painted ? file(PAINTING_FILE) : file('original.jpg');
-  const framed = painted && paintingFramed(creation);
-  useClearOfPolaroid(stageRef, `${state}:${art}`);
   const step = currentStep(creation);
   const title = `${name}’s hero`;
   const now = Date.now();
@@ -392,52 +386,53 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
   const stepKey = `${step?.step_name}:${step?.started_at}`;
   const progress = measured ? (shown.current = holdSteady(shown.current, stepKey, measured)) : null;
   const eta = progress ? etaText(progress.endsAt, now) : '';
-
-  if (state === 'ready') {
-    return (
-      <div className="tb-screen tb-screen--fit tb-hero-screen cls-kid-hero" data-state="ready">
-        <KidHeader title={title} />
-        <HeroLive key={creation.id} creation={creation} introRequest={0} />
-        <div className="tb-bar">
-          <div className="cls-ready-line">{title} is ready!</div>
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--full cls-next" onClick={onNext}><Icon name="users" />Next student</button>
-          <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-show-parents" onClick={onParents}><Icon name="qr" />Show your parents</button>
-        </div>
-      </div>
-    );
-  }
+  const ready = state === 'ready';
   const failed = state === 'failed';
   const label = failed ? 'Oops, that didn’t work' : step ? STEP_UI[step.step_name]?.label ?? 'Making' : 'Getting ready';
+  // One stage in every state (HeroLive), so the carousel built while the hero
+  // is made is the one it lives on when ready.
   return (
     <div className="tb-screen tb-screen--fit tb-hero-screen cls-kid-hero" data-state={state}>
       <KidHeader title={title} />
-      <div className="tb-screen-body">
-        <div ref={stageRef} className="tb-stage tb-hero-stage">
-          <img className={`tb-stage-img${framed ? ' tb-stage-img--framed' : ''}${failed ? ' tb-hero-faded' : ''}`} src={art} alt={title} />
-          {!failed && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
-          {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
-        </div>
-        <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name}>
-          <Stepper steps={stepViews(creation)} />
-          <div className="tb-status">
-            <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
-            <div className="tb-status-eta">{failed ? '' : eta}</div>
-          </div>
-          {/* A class hero's line never mentions credits (the child paid none). */}
-          {failed && <div className="tb-failed-line" role="status">{failedLine(step)}</div>}
-          {!failed && (
-            <ProgressBar
-              key={stepKey}
-              pct={progress?.pct ?? 0}
-              showPct={progress?.real}
-              label={label}
-              valueText={progress ? `${Math.floor(progress.pct)}%${eta ? `, ${eta}` : ''}` : undefined}
-            />
-          )}
-        </div>
-      </div>
+      <HeroLive
+        key={creation.id}
+        creation={creation}
+        making={ready ? undefined : {
+          step: step?.step_name,
+          pct: progress?.pct ?? 0,
+          failed,
+          failedLabel: failedLabel(step),
+          idle: state === 'idle',
+          info: (
+            <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name}>
+              <Stepper steps={stepViews(creation)} />
+              <div className="tb-status">
+                <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
+                <div className="tb-status-eta">{failed ? '' : eta}</div>
+              </div>
+              {/* A class hero's line never mentions credits (the child paid none). */}
+              {failed && <div className="tb-failed-line" role="status">{failedLine(step)}</div>}
+              {!failed && (
+                <ProgressBar
+                  key={stepKey}
+                  pct={progress?.pct ?? 0}
+                  showPct={progress?.real}
+                  label={label}
+                  valueText={progress ? `${Math.floor(progress.pct)}%${eta ? `, ${eta}` : ''}` : undefined}
+                />
+              )}
+            </div>
+          ),
+        }}
+      />
       <div className="tb-bar">
-        {failed ? (
+        {ready ? (
+          <>
+            <div className="cls-ready-line">{title} is ready!</div>
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full cls-next" onClick={onNext}><Icon name="users" />Next student</button>
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-show-parents" onClick={onParents}><Icon name="qr" />Show your parents</button>
+          </>
+        ) : failed ? (
           <>
             {retryError && <div className="tb-bar-note" role="alert">{retryError}</div>}
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full" disabled={busy}

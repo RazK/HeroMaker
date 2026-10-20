@@ -1,11 +1,11 @@
-import { KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { api, ApiError, CreationResponse, CreationStepResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
+import { KeyboardEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
 import { heroLink, leaveFromOverlay } from '../../routes';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
-import { Dialog, Header, NavButton, Polaroid, ProgressBar, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
+import { Dialog, Header, NavButton, ProgressBar, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
 import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, refundWords, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
 
@@ -30,9 +30,9 @@ interface HeroScreenProps {
 /**
  * One hero, in whichever state it is in: being made, failed, or ready.
  * The layout is the same in all three — header, the hero, a bottom bar — so
- * nothing jumps around as the hero comes to life. Ready, the hero is live in
- * 3D on this page, with its moves under it (HeroLive): how it was made plays
- * in the same stage the first time it is opened.
+ * nothing jumps around as the hero comes to life. The stage is one carousel
+ * in every state (HeroLive): the drawing, the painting and the hero, built up
+ * as each is made; ready, the hero is live in 3D, with its moves under it.
  */
 export function HeroScreen(props: HeroScreenProps) {
   const { creation, isLoggedIn, currentUserId, isAdmin, creditBalance } = props;
@@ -46,11 +46,9 @@ export function HeroScreen(props: HeroScreenProps) {
   const backLabel = props.fromClass ? 'Back to class' : props.fromAdmin ? 'Back to user' : 'Back to heroes';
   const name = heroName(creation);
   const [sheet, setSheet] = useState<'more' | 'rename' | 'artist' | 'delete' | 'again' | 'games' | 'details' | null>(null);
-  const [introRequest, setIntroRequest] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
-  const stageRef = useRef<HTMLDivElement>(null);
   const shown = useRef<(StepProgress & { key: string }) | null>(null);
   useFitScreen();
 
@@ -69,13 +67,7 @@ export function HeroScreen(props: HeroScreenProps) {
   // Per run of a step: never backwards, and the time left never jumps up.
   const progress = measured ? (shown.current = holdSteady(shown.current, stepKey, measured)) : null;
   const stepIndex = step ? creation.steps.indexOf(step) : creation.steps.length;
-  // What the user sees grow: the drawing until it is painted, then the painting.
   const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
-  // The painting stands on the stage as its cut-out (PAINTING_FILE), or as a
-  // polaroid when it has no confident one.
-  const art = painted ? file(PAINTING_FILE) : file('original.jpg');
-  const framed = painted && paintingFramed(creation);
-  useClearOfPolaroid(stageRef, `${state}:${art}`);
 
   const run = async (what: () => Promise<unknown>, failMsg: string) => {
     setBusy(true);
@@ -171,7 +163,6 @@ export function HeroScreen(props: HeroScreenProps) {
   // The sheet behind ⋯ : the same button for everyone, more rows for the owner.
   const moreRows = [
     canShare && <SheetRow key="share" icon="share" label="Share" onClick={() => { setSheet(null); share(); }} />,
-    ready && <SheetRow key="made" icon="layers" label="How it was made" onClick={() => { setSheet(null); setIntroRequest((n) => n + 1); }} />,
     ...(owns ? [
       <SheetRow key="rename" icon="pencil" label="Rename" onClick={() => setSheet('rename')} />,
       <SheetRow key="artist" icon="brush" label="Who drew it" trail={artistLine(creation)} onClick={() => setSheet('artist')} />,
@@ -200,19 +191,11 @@ export function HeroScreen(props: HeroScreenProps) {
       left={<NavButton icon="back" label={backLabel} onClick={props.onBack} className="tb-back" />}
       title={name}
       titleClassName="hero-name"
+      // The owner (and an admin) taps the name to rename it; anyone else reads it.
+      onTitle={owns ? () => setSheet('rename') : undefined}
+      titleLabel={owns ? `Rename ${name}` : undefined}
       right={moreRows.length > 0 && <NavButton icon="more" label="More" onClick={() => setSheet('more')} className="tb-more" />}
     />
-  );
-
-  // Being made, or failed: the picture so far. (Ready, HeroLive has the stage.)
-  const stage = (
-    <div ref={stageRef} className="tb-stage tb-hero-stage">
-      <img className={`tb-stage-img${framed ? ' tb-stage-img--framed' : ''}${state === 'failed' ? ' tb-hero-faded' : ''}`} src={art} alt={name} />
-      {/* Something on the stage always moves while the hero is made: a scan
-          over the drawing, then a gloss over the painting. */}
-      {state === 'making' && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
-      {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
-    </div>
   );
 
   const notice = error
@@ -220,7 +203,8 @@ export function HeroScreen(props: HeroScreenProps) {
     // Shared from ⋯ with no Share button on the bar to say so.
     : copied && !(state === 'ready' && shares) && <div className="tb-notice" role="status"><Icon name="check" />Link copied</div>;
 
-  let body;
+  // Under the stage while the hero is not ready: what is happening.
+  let info: ReactNode = null;
   let bar;
   if (state === 'ready') {
     // One secondary, then the primary last: the same place for it whoever is
@@ -236,48 +220,42 @@ export function HeroScreen(props: HeroScreenProps) {
   } else if (state === 'idle') {
     // Picked, never made ("Make my hero" was not pressed). Nothing runs, so
     // nothing here moves or counts down: the drawing and what is true.
-    body = (
-      <>
-        {stage}
-        <div className="tb-making tb-idle">
-          <div className="tb-status"><div className="tb-status-name">Never started</div></div>
-          <div className="tb-failed-line" role="status">Nothing was charged.</div>
-        </div>
-      </>
+    info = (
+      <div className="tb-making tb-idle">
+        <div className="tb-status"><div className="tb-status-name">Never started</div></div>
+        <div className="tb-failed-line" role="status">Nothing was charged.</div>
+      </div>
     );
     bar = <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>{backLabel}</button>;
   } else {
     const failed = state === 'failed';
     const label = failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
     const eta = progress ? etaText(progress.endsAt, now) : '';
-    body = (
-      <>
-        {stage}
-        <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed ? step?.error_code ?? 'unknown' : undefined}>
-          <Stepper steps={stepViews(creation)} />
-          <div className="tb-status">
-            <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
-            {failed
-              // The raw provider error is an admin's, behind Details; never on the page.
-              ? isAdmin && step?.error_detail && <button type="button" className="tb-chip tb-error-details" onClick={() => setSheet('details')}>Details</button>
-              : <div className="tb-status-eta">{eta}</div>}
-          </div>
-          {failed && (supporting
-            ? <SupportFacts creation={creation} step={step} />
-            : <div className="tb-failed-line" role="status">{failedLine(step)}</div>)}
-          {!failed && (
-            // Keyed by the step's run, so a new step starts its bar from empty
-            // instead of sliding backwards from the last one.
-            <ProgressBar
-              key={stepKey}
-              pct={progress?.pct ?? 0}
-              showPct={progress?.real}
-              label={label}
-              valueText={progress ? `${Math.floor(progress.pct)}%${eta ? `, ${eta}` : ''}` : undefined}
-            />
-          )}
+    info = (
+      <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed ? step?.error_code ?? 'unknown' : undefined}>
+        <Stepper steps={stepViews(creation)} />
+        <div className="tb-status">
+          <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
+          {failed
+            // The raw provider error is an admin's, behind Details; never on the page.
+            ? isAdmin && step?.error_detail && <button type="button" className="tb-chip tb-error-details" onClick={() => setSheet('details')}>Details</button>
+            : <div className="tb-status-eta">{eta}</div>}
         </div>
-      </>
+        {failed && (supporting
+          ? <SupportFacts creation={creation} step={step} />
+          : <div className="tb-failed-line" role="status">{failedLine(step)}</div>)}
+        {!failed && (
+          // Keyed by the step's run, so a new step starts its bar from empty
+          // instead of sliding backwards from the last one.
+          <ProgressBar
+            key={stepKey}
+            pct={progress?.pct ?? 0}
+            showPct={progress?.real}
+            label={label}
+            valueText={progress ? `${Math.floor(progress.pct)}%${eta ? `, ${eta}` : ''}` : undefined}
+          />
+        )}
+      </div>
     );
     // Primary last (brand book). A picture the safety system refused will be
     // refused again, so there the way on is another picture; Try again stays
@@ -327,9 +305,21 @@ export function HeroScreen(props: HeroScreenProps) {
   return (
     <div className="tb-screen tb-screen--fit tb-hero-screen" data-state={state}>
       {header}
-      {ready
-        ? <HeroLive key={creation.id} creation={creation} introRequest={introRequest} notice={notice} />
-        : <div className="tb-screen-body">{notice}{body}</div>}
+      {/* One element in every state, so the carousel built while the hero is
+          made is the one it lives on when ready. */}
+      <HeroLive
+        key={creation.id}
+        creation={creation}
+        notice={notice}
+        making={ready ? undefined : {
+          step: step?.step_name,
+          pct: progress?.pct ?? 0,
+          failed: state === 'failed',
+          failedLabel: failedLabel(step),
+          idle: state === 'idle',
+          info,
+        }}
+      />
       <div className="tb-bar">{bar}</div>
 
       {sheet === 'more' && (

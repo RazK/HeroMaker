@@ -2,7 +2,7 @@
 //
 //   landing page -> heroes gallery -> sign up -> buy credits (Lemon Squeezy
 //   test mode) -> upload a drawing -> every pipeline stage completes -> the
-//   hero is in "My Creations" -> its page: the intro, then moves -> Play ->
+//   hero is in "My Creations" -> its page: the carousel, then moves -> Play ->
 //   the game chooser -> Dance party, and the camera-free Robot Rumble ->
 //   I run classes (the account sheet) -> My classes, on the switch under the header -> a new class whose seats it cannot cover from its credits,
 //   paid for in money on Lemon Squeezy -> the seats land on the class (not on
@@ -615,18 +615,13 @@ try {
   });
 
   await step(page, 'game', async () => {
-    // The hero's page plays how it was made the first time a hero is opened on
-    // a device. This robot watched its hero become ready, so forget that and
-    // open it as a first visit.
-    await page.evaluate(() => {
-      for (const k of Object.keys(localStorage)) if (k.startsWith('heromaker.intro.seen.')) localStorage.removeItem(k);
-    });
+    // The hero's page is a carousel of the drawing, the painting and the live
+    // hero (Raz: swipe only, nothing automatic). It opens on the hero.
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
     const stage = page.locator('.tb-live-stage');
     await stage.waitFor({ timeout: 20000 });
-    const phase = await stage.getAttribute('data-phase');
-    if (phase === 'live') throw new Error('a first visit did not open into the intro');
-    await snap(page, 'intro');
+    const slideNow = () => stage.getAttribute('data-slide');
+    if ((await slideNow()) !== 'hero') throw new Error(`the hero opened on the "${await slideNow()}" slide, not the hero`);
     // The hero screen fits the phone, and the document itself cannot scroll:
     // a desktop browser has no collapsing URL bar, so "it fits here" is not
     // enough; the page must be locked (overflow hidden on html and body).
@@ -640,11 +635,29 @@ try {
     const title = (await page.locator('.tb-hero-screen .tb-header-title').innerText()).trim();
     if (!title) throw new Error('the header shows no hero name');
 
-    // A tap on the stage skips the intro, straight to the live hero.
-    if (DEMO) await page.waitForTimeout(4000);
-    await stage.click({ position: { x: 24, y: 120 } });
-    await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-phase') === 'live', null, { timeout: 5000 });
-    await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-shown') === 'hero', null, { timeout: 90000 });
+    // A swipe moves one slide, and the carousel goes round: hero, drawing,
+    // painting, hero.
+    const swipe = async () => {
+      const box = await stage.boundingBox();
+      const y = box.y + box.height / 2;
+      await page.mouse.move(box.x + box.width * 0.75, y);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width * (0.75 - 0.06 * i), y);
+      await page.mouse.up();
+      await page.waitForTimeout(450);
+      return slideNow();
+    };
+    const order = [await swipe(), await swipe(), await swipe()];
+    if (order.join(',') !== 'drawing,painting,hero') throw new Error(`swiping went hero > ${order.join(' > ')}, not drawing > painting > hero`);
+    await snap(page, 'carousel');
+    // A tap on the drawing opens it full screen; Back returns to the drawing.
+    await swipe();
+    await stage.locator('.tb-slide[data-slide="drawing"] .tb-slide-open').click();
+    await page.locator('.tb-drawing-full').waitFor({ timeout: 5000 });
+    await page.goBack();
+    await page.locator('.tb-drawing-full').waitFor({ state: 'detached', timeout: 5000 });
+    if ((await slideNow()) !== 'drawing') throw new Error(`Back from the full drawing landed on "${await slideNow()}"`);
+    if (DEMO) await page.waitForTimeout(2000);
     await page.locator('.tb-move:not([disabled])').first().waitFor({ timeout: 90000 });
     mark('game_ready');
 
@@ -664,8 +677,14 @@ try {
       return page.evaluate(() => Math.round(window.__tap.playing - window.__tap.at));
     };
     mark('play');
-    const jumpMs = await tapToMove('jump');
-    if (jumpMs > 300) throw new Error(`jump started ${jumpMs} ms after the tap`);
+    // Four moves, no more (Raz: only Dance, Wave, Flip and Punch). A move
+    // tapped from the drawing goes to the hero and plays.
+    const moves = await page.locator('.tb-move').evaluateAll((els) => els.map((e) => e.getAttribute('data-move')).join(','));
+    if (moves !== 'dance,bodyroll,backflip,punch') throw new Error(`the moves are ${moves}`);
+    await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-shown') === 'hero', null, { timeout: 90000 });
+    const jumpMs = await tapToMove('punch');
+    if (jumpMs > 300) throw new Error(`punch started ${jumpMs} ms after the tap`);
+    if ((await slideNow()) !== 'hero') throw new Error('a move tapped from the drawing did not bring the hero back');
     await page.waitForTimeout(DEMO ? 300 : 500);
     const flipMs = await tapToMove('backflip');
     await page.waitForTimeout(700);
@@ -673,7 +692,7 @@ try {
     // When a move ends the hero goes back to its idle dance by itself.
     await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-playing') === '', null, { timeout: 30000 });
     if (DEMO) {
-      await tapToMove('victory');
+      await tapToMove('dance');
       await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-playing') === '', null, { timeout: 30000 });
       await page.waitForTimeout(2000);
     }
@@ -731,7 +750,7 @@ try {
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
+    return `"${title}" opened on the live hero; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; 4 moves; punch (from the drawing) played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
   });
 
   await step(page, 'class', async () => {

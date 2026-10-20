@@ -1,7 +1,6 @@
-.tb-hero-screen[data-state='ready'] .tb-hero-stage { background: var(--tb-plate-1); }
-.tb-hero-screen[data-state='making'] .tb-hero-stage,
-.tb-hero-screen[data-state='idle'] .tb-hero-stage,
-.tb-hero-screen[data-state='failed'] .tb-hero-stage { background: var(--tb-white); box-shadow: var(--tb-shadow-card); }
+/* The stage is one carousel in every state (HeroLive): the same plate while
+   the hero is made as when it is ready, so it builds up into the hero. */
+.tb-hero-screen .tb-hero-stage { background: var(--tb-plate-1); }
 .tb-hero-faded { filter: grayscale(0.6); opacity: 0.5; }
 .tb-making, .tb-failed { display: flex; flex-direction: column; gap: 12px; }
 .tb-status-name--failed { color: var(--tb-red); }
