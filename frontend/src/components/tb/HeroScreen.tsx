@@ -2,6 +2,7 @@ import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { api, ApiError, CreationResponse, CreationStepResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
+import { heroLink, leaveFromOverlay } from '../../routes';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, Polaroid, ProgressBar, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
@@ -111,17 +112,52 @@ export function HeroScreen(props: HeroScreenProps) {
     }
   };
   const downloadVrm = () => api.downloadFile(creation.id, 'avatar.vrm', creation.user_id).catch(() => setError('Download failed'));
+
+  // Share sends the hero's own link: whoever opens it (grandma, signed out)
+  // sees the hero move. The picture goes along only where the platform takes
+  // one, read ahead (the gallery's thumbnail, usually cached) so the tap
+  // shares at once: a read after the tap can outlive its permission to share.
+  const pic = useRef<File | null>(null);
+  const [copied, setCopied] = useState(false);
+  const canShareFiles = typeof navigator !== 'undefined' && !!navigator.canShare;
+  useEffect(() => {
+    pic.current = null;
+    if (!canShareFiles || !shares || state !== 'ready') return;
+    let alive = true;
+    fetch(file('thumb_rendered.png'))
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => {
+        if (!alive || !b) return;
+        // Storage can type a picture binary/octet-stream, which no share
+        // target takes: name it by what it is (a thumbnail is WebP or PNG).
+        const type = b.type.startsWith('image/') ? b.type : 'image/png';
+        const f = new File([b], `${name}.${type === 'image/webp' ? 'webp' : 'png'}`, { type });
+        if (navigator.canShare?.({ files: [f] })) pic.current = f;
+      })
+      .catch(() => { /* the link alone */ });
+    return () => { alive = false; };
+  }, [creation.id, shares, state]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => setCopied(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [copied]);
   const share = async () => {
-    const url = file('rendered.png');
-    try {
-      const blob = await (await fetch(url)).blob();
-      const pic = new File([blob], `${name}.png`, { type: blob.type || 'image/png' });
-      if (navigator.canShare?.({ files: [pic] })) {
-        await navigator.share({ files: [pic], title: name });
+    const url = heroLink(creation.id);
+    const title = name;
+    const text = `Meet ${name}! Tap to see it move.`;
+    if (navigator.share) {
+      const withPic = pic.current && { title, url, files: [pic.current], text: `${text} ${url}` };
+      try {
+        // Some apps keep the picture and drop the url field: with a picture, the link rides in the text too.
+        if (withPic && navigator.canShare?.(withPic)) await navigator.share(withPic);
+        else await navigator.share({ title, text, url });
         return;
+      } catch (err) {
+        if ((err as DOMException)?.name === 'AbortError') return;
       }
-    } catch { /* fall through to a plain link */ }
-    window.open(url, '_blank', 'noopener');
+    }
+    try { await navigator.clipboard.writeText(url); setCopied(true); } catch { window.prompt('Copy the link', url); }
   };
 
   const retryCost = remainingCost(creation);
@@ -176,7 +212,10 @@ export function HeroScreen(props: HeroScreenProps) {
     </div>
   );
 
-  const notice = error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button></div>;
+  const notice = error
+    ? <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button></div>
+    // Shared from ⋯ with no Share button on the bar to say so.
+    : copied && !(state === 'ready' && shares) && <div className="tb-notice" role="status"><Icon name="check" />Link copied</div>;
 
   let body;
   let bar;
@@ -186,7 +225,7 @@ export function HeroScreen(props: HeroScreenProps) {
     bar = (
       <>
         {shares
-          ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-share" onClick={share}><Icon name="share" />Share</button>
+          ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-share" onClick={share}><Icon name={copied ? 'check' : 'share'} />{copied ? 'Link copied' : 'Share'}</button>
           : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-make-own" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
         <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('games')}><Icon name="play" />Play</button>
       </>
@@ -288,12 +327,13 @@ export function HeroScreen(props: HeroScreenProps) {
         // One needs nothing but a thumb; the other turns the camera on, and its badge says so.
         <Sheet title="Pick a game" onClose={() => setSheet(null)} className="tb-games-sheet">
           <div className="tb-games">
-            <a className="tb-game" data-game="arena" href={arenaUrl(creation)}>
+            {/* The sheet's entry is replaced: the game's Back lands on the hero, not on this sheet. */}
+            <a className="tb-game" data-game="arena" href={arenaUrl(creation)} onClick={(e) => leaveFromOverlay(e, arenaUrl(creation))}>
               <span className="tb-game-pic"><img src="/games/robot-rumble.webp" srcSet="/games/robot-rumble.webp 1x, /games/robot-rumble@2x.webp 2x" alt="" width={400} height={500} /></span>
               <span className="tb-game-name">Robot Rumble</span>
               <span className="tb-game-line">Punch, jump, score!</span>
             </a>
-            <a className="tb-game" data-game="dance" href={playUrl(creation)}>
+            <a className="tb-game" data-game="dance" href={playUrl(creation)} onClick={(e) => leaveFromOverlay(e, playUrl(creation))}>
               <span className="tb-game-pic"><img src="/games/dance-party.webp" srcSet="/games/dance-party.webp 1x, /games/dance-party@2x.webp 2x" alt="" width={400} height={500} /><span className="tb-game-badge" aria-label="Uses the camera"><Icon name="camera" size={16} /></span></span>
               <span className="tb-game-name">Dance party</span>
               <span className="tb-game-line">Dance on camera</span>

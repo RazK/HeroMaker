@@ -468,9 +468,15 @@ try {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
       await page.waitForTimeout(800);
     }
-    await page.locator('.tb-back').click();
-    await items.first().waitFor();
-    return `${n} Editors' choice heroes shown, no chips signed out; opened one and returned`;
+    // A hero has its own address, and the browser's (Android's) Back returns
+    // to the gallery: it once left the site for about:blank.
+    const heroPath = new URL(page.url()).pathname;
+    if (!/^\/hero\/[^/]+$/.test(heroPath)) throw new Error(`an open hero is at ${heroPath}, not /hero/<id>`);
+    await page.goBack();
+    await items.first().waitFor({ timeout: 15000 }).catch(() => {});
+    const back = new URL(page.url());
+    if (back.origin !== new URL(BASE_URL).origin || back.pathname !== '/') throw new Error(`Back from a hero left the app: ${page.url()}`);
+    return `${n} Editors' choice heroes shown, no chips signed out; opened one at ${heroPath}, and Back returned to the gallery`;
   });
 
   await step(page, 'signup', async () => {
@@ -709,8 +715,14 @@ try {
     const audit = await page.evaluate(() => window.__arena?.audit?.() ?? null);
     if (audit && !audit.ok) throw new Error(`Robot Rumble: a hero is hittable or in the arena: ${JSON.stringify(audit)}`);
 
-    // Dance party's page loads from its card's link. (The app keeps no route
-    // for the hero screen, so going back would land on the gallery.)
+    // "Back to your hero" lands on the hero's own page, not the gallery.
+    const heroAt = games.arena.match(/[?&]back=([^&]+)/);
+    await page.locator('.rr-back-slot .tb-nav, .rr-back-slot button').first().click();
+    await page.waitForURL((u) => u.pathname.startsWith('/hero/'), { timeout: 30000 });
+    await page.locator('.tb-hero-screen').waitFor({ timeout: 30000 });
+    if (heroAt && new URL(page.url()).pathname !== decodeURIComponent(heroAt[1])) throw new Error(`Back from Robot Rumble landed on ${page.url()}`);
+
+    // Dance party's page loads from its card's link.
     await page.goto(`${BASE_URL}${games.dance}`);
     await page.waitForFunction(() => window.__ready !== undefined, null, { timeout: 90000 });
     const ready = await page.evaluate(() => window.__ready);
@@ -718,7 +730,7 @@ try {
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}) and Dance party started`;
+    return `"${title}" opened into the intro; a tap skipped it; jump played ${jumpMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
   });
 
   await step(page, 'class', async () => {
