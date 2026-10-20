@@ -309,7 +309,6 @@ h1, h2, h3, h4 {
 /* Not production (apply-env-look.sh sets data-env): a STAGING tag on the
    logo, over the foot of its icon, so it never moves the header. */
 html[data-env] .tb-logo { position: relative; }
-html[data-env] .tb-logo img { border-radius: 9px; }
 html[data-env] .tb-logo::after {
   content: 'Staging';
   position: absolute;
