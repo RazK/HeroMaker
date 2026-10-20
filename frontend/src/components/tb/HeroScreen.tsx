@@ -40,7 +40,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const shares = owns || !!props.fromClass;
   const backLabel = props.fromClass ? 'Back to class' : 'Back to heroes';
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'games' | 'details' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'again' | 'games' | 'details' | null>(null);
   const [introRequest, setIntroRequest] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +95,10 @@ export function HeroScreen(props: HeroScreenProps) {
     const from = creation.steps.find((x) => x.status === 'pending' || x.status === 'failed');
     if (from) await api.runPipeline(creation.id, from.step_name);
   }, 'Could not start again');
+  // Spends credits, so it is asked first (sheet 'again'), never on one tap.
   const makeAgain = () => run(() => api.runPipeline(creation.id), 'Could not start again');
+  const againCost = getTotalCost();
+  const shortForAgain = creditBalance !== undefined && againCost > creditBalance;
   const remove = async () => {
     setBusy(true);
     try {
@@ -166,7 +169,7 @@ export function HeroScreen(props: HeroScreenProps) {
     ready && <SheetRow key="made" icon="layers" label="How it was made" onClick={() => { setSheet(null); setIntroRequest((n) => n + 1); }} />,
     ...(owns ? [
       <SheetRow key="rename" icon="pencil" label="Rename" onClick={() => setSheet('rename')} />,
-      ready && <SheetRow key="again" icon="redo" label="Make it again" trail={`${getTotalCost()} credits`} onClick={makeAgain} />,
+      ready && <SheetRow key="again" icon="redo" label="Make it again" trail={`${againCost} credits`} onClick={() => setSheet('again')} />,
       ready && <SheetRow key="vrm" icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />,
       // The per-step admin view is a debugging tool, not designed for users.
       isAdmin && <SheetRow key="steps" icon="grid" label="Admin: every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />,
@@ -224,6 +227,19 @@ export function HeroScreen(props: HeroScreenProps) {
         <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('games')}><Icon name="play" />Play</button>
       </>
     );
+  } else if (state === 'idle') {
+    // Picked, never made ("Make my hero" was not pressed). Nothing runs, so
+    // nothing here moves or counts down: the drawing and what is true.
+    body = (
+      <>
+        {stage}
+        <div className="tb-making tb-idle">
+          <div className="tb-status"><div className="tb-status-name">Never started</div></div>
+          <div className="tb-failed-line" role="status">Nothing was charged.</div>
+        </div>
+      </>
+    );
+    bar = <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>{backLabel}</button>;
   } else {
     const failed = state === 'failed';
     const label = failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
@@ -329,6 +345,28 @@ export function HeroScreen(props: HeroScreenProps) {
       )}
       {sheet === 'details' && step && <ErrorDetailsSheet step={step} onClose={() => setSheet(null)} />}
       {sheet === 'rename' && <RenameSheet creation={creation} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}
+      {sheet === 'again' && (
+        // Money confirms first (brand book); primary last.
+        <Dialog label="Make it again?" onClose={() => setSheet(null)}>
+          <div className="tb-h2">Make it again?</div>
+          <div className="tb-muted">{shortForAgain
+            ? `You need ${againCost} credits. You have ${creditBalance}.`
+            : `The same drawing, made again from the start. ${againCost}\u00a0credits.`}</div>
+          {error && <div className="tb-muted" role="alert" style={{ color: 'var(--tb-red)' }}>{error}</div>}
+          <div className="tb-stack">
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setSheet(null)}>Not now</button>
+            {shortForAgain ? (
+              <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => { setSheet(null); window.dispatchEvent(new CustomEvent('credits:buy')); }}>
+                <Icon name="coin" />Buy credits
+              </button>
+            ) : (
+              <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-confirm-again" disabled={busy} onClick={makeAgain}>
+                <Icon name="coin" />{busy ? 'Starting…' : `Pay ${againCost} credits`}
+              </button>
+            )}
+          </div>
+        </Dialog>
+      )}
       {sheet === 'delete' && (
         <Dialog label={`Delete ${name}?`} onClose={() => setSheet(null)}>
           <div className="tb-h2">Delete {name}?</div>

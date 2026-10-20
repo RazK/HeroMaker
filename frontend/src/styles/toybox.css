@@ -427,6 +427,15 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   gap: 8px;
 }
 .tb-sheet-grip { align-self: center; width: 44px; height: 5px; border-radius: 3px; background: var(--tb-track); margin-bottom: 8px; }
+/* A phone on its side has 360px of height or so, and a sheet's last row (its
+   primary) cut by the fold is a sheet that does not work. The sheet may reach
+   nearly to the top, the grip gives its room back, and rows are a little
+   shorter, still over the 44px tap. Sheets with more to show lay it out
+   sideways (App.css, HeroScreen.css). */
+@media (orientation: landscape) and (max-height: 559px) {
+  .tb-sheet { max-height: calc(100vh - var(--tb-space)); max-height: calc(100dvh - var(--tb-space)); }
+  .tb-sheet-grip { display: none; }
+}
 .tb-sheet-title { font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; padding: 0 4px 8px; }
 .tb-dialog {
   width: 100%;
@@ -458,6 +467,7 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 .tb-sheet-row span:first-of-type { flex-grow: 1; }
 .tb-sheet-row-trail { color: var(--tb-ink-2); font-size: 14px; }
 .tb-sheet-row:disabled { cursor: default; }
+@media (orientation: landscape) and (max-height: 559px) { .tb-sheet-row { height: 48px; } }
 /* An on/off switch: a sunken track, grape when on (SheetToggle). */
 .tb-toggle {
   flex-shrink: 0;

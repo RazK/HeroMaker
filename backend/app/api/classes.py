@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Resp
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.creations import _checked_style, create_with_drawing, start_pipeline
+from app.api.creations import _checked_style, create_with_drawing, require_picture, start_pipeline
 from app.database import get_db
 from app.models import ClassGuest, ClassRoom, Creation, User
 from app.config import packs as packs_config
@@ -368,6 +368,7 @@ async def make_my_hero(
     contents = await image_file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="That photo is empty. Try again.")
+    require_picture(contents)   # before the seat and the pass are touched
 
     # DEMO ONLY (off unless PIPELINE_DEMO_LIBRARY is set; never in production):
     # a drawing byte-identical to a library hero's is made in the pipeline's

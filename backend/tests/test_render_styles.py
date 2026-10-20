@@ -54,6 +54,18 @@ PIXAR_VERSION_SHA256 = "cee1068bef4297c16ea8d9d30fec94a760c2f1995a6a56d22e4791e5
 DRAWING = b"\xff\xd8\xff crayon kid drawing"
 
 
+def _jpeg(tag: bytes) -> bytes:
+    """A real (tiny) JPEG, `tag` after its end: an upload must be a picture
+    (creations.require_picture), and each test's drawing stays its own bytes."""
+    from PIL import Image
+    out = io.BytesIO()
+    Image.new("RGB", (4, 4), (200, 30, 30)).save(out, format="JPEG")
+    return out.getvalue() + tag
+
+
+PICTURE = _jpeg(b" crayon kid drawing")   # what an upload must be
+
+
 def _png() -> bytes:
     """A small transparent painting: a figure in the middle, nothing around it."""
     from PIL import Image
@@ -286,7 +298,7 @@ def test_create_stores_the_style_and_answers_it(db, make_user, api):
     client, _ = api
     user = make_user(credits=0)
     r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", DRAWING, "image/jpeg")}, data={"style": "lego"})
+                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")}, data={"style": "lego"})
     assert r.status_code == 201, r.text
     assert r.json()["style"] == "lego"
     assert db.query(Creation).filter_by(id=r.json()["id"]).one().style == "lego"
@@ -296,7 +308,7 @@ def test_create_without_a_style_is_pixar(db, make_user, api):
     client, _ = api
     user = make_user(credits=0)
     r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", DRAWING, "image/jpeg")})
+                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")})
     assert r.status_code == 201, r.text
     assert r.json()["style"] == "pixar"
     assert db.query(Creation).filter_by(id=r.json()["id"]).one().style is None
@@ -306,7 +318,7 @@ def test_create_with_an_unknown_style_is_400_and_makes_nothing(db, make_user, ap
     client, _ = api
     user = make_user(credits=0)
     r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", DRAWING, "image/jpeg")}, data={"style": "cubism"})
+                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")}, data={"style": "cubism"})
     assert r.status_code == 400
     assert "cubism" in r.json()["detail"]
     assert db.query(Creation).count() == 0
@@ -316,7 +328,7 @@ def test_create_with_the_retired_style_is_made_in_the_default(db, make_user, api
     client, _ = api
     user = make_user(credits=0)
     r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", DRAWING, "image/jpeg")}, data={"style": RETIRED})
+                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")}, data={"style": RETIRED})
     assert r.status_code == 201, r.text
     assert r.json()["style"] == "pixar"
     assert db.query(Creation).filter_by(id=r.json()["id"]).one().style is None

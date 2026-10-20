@@ -5,10 +5,11 @@
   --ring: 3px;
   flex-shrink: 0;
   /* Four styles, four equal cards across the margins like every other block:
-     all of them in view, nothing to swipe. The padding is room for the ring. */
+     all of them in view, nothing to swipe. The padding is room for the ring,
+     on every side, so the picked card's ring stays inside the margins too. */
   display: flex;
   gap: var(--gap);
-  padding-block: calc(var(--ring) * 2);
+  padding: calc(var(--ring) * 2);
 }
 
 .tb-style {

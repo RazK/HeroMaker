@@ -324,7 +324,8 @@ def user_heroes(db: Session, user: User) -> List[Tuple[Creation, Optional[AdminA
     """Every hero of this account an admin may look at, newest first:
     live ones (in progress and failed too), and ones an admin removed. A
     teacher's class heroes (owned by each class's wallet) are included, with
-    the class's title. Heroes their owner deleted are not.
+    the class's title. Heroes their owner deleted are not, nor ones never
+    started (the picture was picked, Make never pressed).
 
     Returns (creation, removal row or None, class title or None).
     """
@@ -342,6 +343,8 @@ def user_heroes(db: Session, user: User) -> List[Tuple[Creation, Optional[AdminA
     last = last_hero_actions(db, deleted_ids)
     out = []
     for c in creations:
+        if c.never_started:
+            continue  # picked, never made: nobody's hero (Creation.never_started)
         removal = None
         if c.deleted_at is not None:
             removal = last.get(c.id)
