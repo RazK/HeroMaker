@@ -4,10 +4,18 @@ import { ClassView, SeatPrice, Student, dollars, seatsCents, teacherApi } from '
 import { TileGrid } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
 import { Dialog, Header, NavButton, NoPageScroll, Sheet, SheetRow } from '../tb/parts';
-import { PaySeatsDialog, PinDigits, seatsBeforeCheckout, Qr, Stepper, StudentTile, clock, useSecondsLeft } from './parts';
+import { PaySeatsDialog, PinDigits, seatsBeforeCheckout, Qr, Stepper, StudentTile, clock, kidLabel, useSecondsLeft } from './parts';
 import './class.css';
 
 const DURATIONS = [30, 45, 60];
+
+type StudentAction = 'approve' | 'block' | 'remove' | 'retry';
+/** What the teacher can do to one student's card. */
+interface StudentActions {
+  busy: boolean;
+  onAction: (s: Student, a: StudentAction) => void;
+  onMore: (s: Student) => void;
+}
 
 /**
  * The class this screen last showed, kept while one of its heroes is open:
@@ -42,6 +50,8 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'more' | 'start' | 'seats' | 'end' | null>(null);
   const [busy, setBusy] = useState(false);
+  // One student's sheet (⋯ beside their card), and Remove's confirm.
+  const [who, setWho] = useState<{ student: Student; removing: boolean } | null>(null);
   const [waitingSeats, setWaitingSeats] = useState<'waiting' | 'in' | null>(paid ? 'waiting' : null);
   const [seatsBefore] = useState(() => (paid ? seatsBeforeCheckout(classId) : 0));
 
@@ -99,6 +109,7 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
       setError(e instanceof ApiError ? e.message : fail);
     } finally {
       setBusy(false);
+      setWho(null);
     }
   };
 
@@ -126,14 +137,19 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
   }
 
   const roster = c.roster ?? [];
+  const actions: StudentActions = {
+    busy,
+    onAction: (s, a) => act(() => teacherApi.student(c.id, s.id, a), a === 'retry' ? 'Could not try again' : 'Could not update'),
+    onMore: (s) => setWho({ student: s, removing: false }),
+  };
   return (
     <div ref={root} onScrollCapture={remember} className={`tb-screen tb-screen--wide tb-screen--app cls-class${live ? ' cls-class--live' : ''}`} data-live={live || undefined}>
       <NoPageScroll />
       {header}
       {notice}
       {live && c.live
-        ? <Live c={c} roster={roster} busy={busy} onOpenHero={onOpenHero} onAction={(s, a) => act(() => teacherApi.student(c.id, s.id, a), 'Could not update')} />
-        : <ClassGallery c={c} roster={roster} onOpenHero={onOpenHero} />}
+        ? <Live c={c} roster={roster} actions={actions} onOpenHero={onOpenHero} />
+        : <ClassGallery c={c} roster={roster} actions={actions} onOpenHero={onOpenHero} />}
       <div className="tb-bar">
         {live ? (
           <div className="tb-bar-row">
@@ -161,6 +177,26 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
           <SheetRow icon="plus" label="Add seats" trail={seatPrice ? `${c.hero_cost} credits or ${dollars(seatPrice.seat_cents)}` : `${c.hero_cost} credits each`} onClick={() => setSheet('seats')} />
         </Sheet>
       )}
+      {who && !who.removing && (
+        <Sheet title={kidLabel(who.student)} onClose={() => setWho(null)}>
+          {who.student.hero?.state === 'failed' && (
+            <SheetRow icon="redo" label="Try again" trail={who.student.seat_returned ? 'Takes a seat' : undefined}
+              onClick={() => actions.onAction(who.student, 'retry')} />
+          )}
+          <SheetRow icon="close" label="Remove from class" danger onClick={() => setWho({ ...who, removing: true })} />
+        </Sheet>
+      )}
+      {who?.removing && (
+        <Dialog label={`Remove ${who.student.label}?`} onClose={() => setWho(null)}>
+          <div className="tb-h2">Remove {who.student.label}?</div>
+          <div className="tb-muted">{removeLine(who.student)}</div>
+          <div className="tb-stack">
+            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setWho(null)}>Keep</button>
+            <button type="button" className="tb-btn tb-btn--danger tb-btn--full cls-remove-confirm" disabled={busy}
+              onClick={() => actions.onAction(who.student, 'remove')}>Remove</button>
+          </div>
+        </Dialog>
+      )}
       {sheet === 'start' && <StartDialog c={c} busy={busy} onClose={() => setSheet(null)}
         onStart={(m, a) => act(() => teacherApi.start(c.id, m, a), 'Could not start the class')} />}
       {sheet === 'end' && (
@@ -179,7 +215,16 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
   );
 }
 
-function ClassGallery({ c, roster, onOpenHero }: { c: ClassView; roster: Student[]; onOpenHero: (id: string) => void }) {
+/** What Remove will do, in one line (brand book: one title, one short line). */
+function removeLine(s: Student): string {
+  const state = s.hero?.state;
+  if (state === 'ready') return 'Off the board. Their hero is made, so its seat stays used.';
+  if (state === 'making') return 'Off the board. Their hero will still finish.';
+  if (state === 'failed') return 'Off the board. Their seat goes back to the class.';
+  return 'Off the board. They can join again with the code.';
+}
+
+function ClassGallery({ c, roster, actions, onOpenHero }: { c: ClassView; roster: Student[]; actions: StudentActions; onOpenHero: (id: string) => void }) {
   const made = roster.filter((s) => s.hero);
   return (
     <div className="tb-screen-body cls-gallery">
@@ -195,20 +240,24 @@ function ClassGallery({ c, roster, onOpenHero }: { c: ClassView; roster: Student
         </div>
       ) : (
         <TileGrid className="cls-grid">
-          {made.map((s, i) => <StudentTile key={s.id} student={s} index={i} eager={i < EAGER_TILES} onOpen={() => s.hero && onOpenHero(s.hero.creation_id)} />)}
+          {made.map((s, i) => (
+            <StudentTile key={s.id} student={s} index={i} eager={i < EAGER_TILES} busy={actions.busy}
+              onOpen={() => s.hero && onOpenHero(s.hero.creation_id)}
+              onRetry={() => actions.onAction(s, 'retry')} onMore={() => actions.onMore(s)} />
+          ))}
         </TileGrid>
       )}
     </div>
   );
 }
 
-function Live({ c, roster, busy, onAction, onOpenHero }: {
+function Live({ c, roster, actions, onOpenHero }: {
   c: ClassView;
   roster: Student[];
-  busy: boolean;
-  onAction: (s: Student, a: 'approve' | 'block') => void;
+  actions: StudentActions;
   onOpenHero: (creationId: string) => void;
 }) {
+  const { busy, onAction, onMore } = actions;
   const left = useSecondsLeft(c.live?.ends_at);
   const session = c.live!;
   const url = `${window.location.origin}/join/${session.pin}`;
@@ -245,7 +294,8 @@ function Live({ c, roster, busy, onAction, onOpenHero }: {
               {ordered.map((s, i) => (
                 <StudentTile key={s.id} student={s} index={roster.indexOf(s)} busy={busy} eager={i < EAGER_TILES}
                   onOpen={() => s.hero && onOpenHero(s.hero.creation_id)}
-                  onApprove={() => onAction(s, 'approve')} onBlock={() => onAction(s, 'block')} />
+                  onApprove={() => onAction(s, 'approve')} onBlock={() => onAction(s, 'block')}
+                  onRetry={() => onAction(s, 'retry')} onMore={() => onMore(s)} />
               ))}
             </TileGrid>
           )}

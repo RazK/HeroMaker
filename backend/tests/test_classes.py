@@ -23,7 +23,7 @@ from sqlalchemy.orm import sessionmaker
 from app.config.steps import STEPS, get_step_by_name
 from app.database import SessionLocal
 from app.main import app
-from app.migrations import m015_classes
+from app.migrations import m015_classes, m019_class_seat_returns
 from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreditTransaction, User
 from app.services import classes, demo_library, ledger, pipeline
 from app.services.account_deletion import delete_account
@@ -58,6 +58,9 @@ class _Tasks:
 
     def cancel_all_tasks_for_creation(self, creation_id):
         return 0
+
+    def cancel_task(self, creation_id, step_name):
+        return False
 
     def run_all(self):
         loop = asyncio.new_event_loop()
@@ -378,8 +381,9 @@ def test_seats_bound_the_cost_whatever_the_browsers_do(db, make_user, api, steps
     results = []
     for name in ("Maya", "Noa", "Itai"):
         s = Student()
-        s.join(pin, name)
-        results.append(s.make().status_code)
+        joined = s.join(pin, name)
+        results.append(s.make().status_code if joined.status_code == 200 else joined.status_code)
+    # The third is told the class is full when joining: no pass, no card.
     assert results == [201, 201, 409]
     tasks.run_all()
     room = db.query(ClassRoom).filter_by(id=c["id"]).one()
@@ -454,20 +458,285 @@ def test_a_failed_hero_refunds_the_class_and_can_be_tried_again(db, make_user, a
     tasks.run_all()
 
     assert maya.me().json()["hero"]["state"] == "failed"
-    # The render (2) stays paid; the 3D step (5) came back to the class.
-    assert _balance(db, wallet) == 2 * HERO - get_step_by_name("openai_render")["credit_cost"]
+    # The 3D step (5) came back to the class from its own failure handler, and
+    # the render (2) with the seat: a failed hero takes nothing from the class.
+    assert _balance(db, wallet) == 2 * HERO
     refunds = db.query(CreditTransaction).filter_by(user_id=wallet, reason="refund").all()
-    assert [r.delta for r in refunds] == [get_step_by_name("meshy_3d")["credit_cost"]]
+    assert sorted(r.delta for r in refunds) == sorted(
+        [get_step_by_name("meshy_3d")["credit_cost"], get_step_by_name("openai_render")["credit_cost"]])
     assert ledger.verify_user_balance(wallet, db).consistent
+    db.expire_all()
+    assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 0
 
     monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
     r = maya.client.post("/api/class/me/hero/retry")
     assert r.status_code == 200, r.text
+    db.expire_all()
+    assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 1   # the seat taken again
     tasks.run_all()
     assert maya.me().json()["hero"]["state"] == "ready"
     db.expire_all()
-    assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 1   # no second seat
-    assert _balance(db, wallet) == 2 * HERO - HERO
+    assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 1   # one seat, one hero
+    # The retry ran from the 3D step: the painting it kept is on us.
+    assert _balance(db, wallet) == 2 * HERO - (HERO - get_step_by_name("openai_render")["credit_cost"])
+    assert ledger.verify_user_balance(wallet, db).consistent
+
+
+async def _meshy_down(creation_id, user_id, s):
+    if _current(s, creation_id) == "meshy_3d":
+        raise RuntimeError("NoMorePendingTasks")
+    _deliver(s, creation_id, user_id)
+
+
+def _room(db, class_id):
+    db.expire_all()
+    return db.query(ClassRoom).filter_by(id=class_id).one()
+
+
+def _roster(client, teacher, class_id):
+    r = client.get(f"/api/classes/{class_id}", headers=_auth(teacher))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_a_failed_hero_gives_its_seat_back_once_for_the_next_child(db, make_user, api, monkeypatch):
+    """Daniel's lesson: 1 seat left, a hero fails at 3D. The seat comes back
+    by itself (whole, and only once, however often it is looked at), the next
+    child takes it, and then Try again needs a seat the teacher adds."""
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=1)
+    pin = _start(client, teacher, c["id"])
+    wallet = _room(db, c["id"]).wallet_user_id
+
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _meshy_down)
+    shira = Student()
+    shira.join(pin, "Shira")
+    assert shira.make().status_code == 201
+    assert _room(db, c["id"]).seats_used == 1
+    tasks.run_all()
+
+    view = _roster(client, teacher, c["id"])
+    assert view["seats_used"] == 0 and view["seats_left"] == 1
+    assert view["roster"][0]["hero"]["state"] == "failed" and view["roster"][0]["seat_returned"] is True
+    assert _balance(db, wallet) == HERO                      # the seat back whole
+    # Looked at again and again, swept again: never a second seat or refund.
+    for _ in range(3):
+        _roster(client, teacher, c["id"])
+    assert classes.release_failed_seats(db, _room(db, c["id"])) == 0
+    assert _room(db, c["id"]).seats_used == 0
+    assert db.query(CreditTransaction).filter_by(user_id=wallet, reason="refund").count() == 2
+    assert _balance(db, wallet) == HERO and ledger.verify_user_balance(wallet, db).consistent
+
+    # The next child takes the seat that came back.
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
+    noa = Student()
+    assert noa.join(pin, "Noa").status_code == 200
+    assert noa.make().status_code == 201
+    tasks.run_all()
+    assert _room(db, c["id"]).seats_used == 1 and _balance(db, wallet) == 0
+
+    # Now Shira's Try again needs a seat, on her tablet and on the board.
+    r = shira.client.post("/api/class/me/hero/retry")
+    assert r.status_code == 409 and r.json()["detail"] == "This class is full. Ask your teacher for a seat."
+    shira_id = view["roster"][0]["id"]
+    r = client.post(f"/api/classes/{c['id']}/students/{shira_id}/retry", headers=_auth(teacher))
+    assert r.status_code == 409 and r.json()["detail"] == "No seats left. Add a seat to try again."
+    assert _room(db, c["id"]).seats_used == 1
+
+    # The teacher adds a seat and tries again from the board, after class too.
+    client.post(f"/api/classes/{c['id']}/end", headers=_auth(teacher))
+    assert client.post(f"/api/classes/{c['id']}/seats", json={"seats": 1}, headers=_auth(teacher)).status_code == 200
+    r = client.post(f"/api/classes/{c['id']}/students/{shira_id}/retry", headers=_auth(teacher))
+    assert r.status_code == 200, r.text
+    assert r.json()["roster"][0]["hero"]["state"] != "failed"
+    tasks.run_all()
+    view = _roster(client, teacher, c["id"])
+    assert [s["hero"]["state"] for s in view["roster"]] == ["ready", "ready"]
+    assert view["seats_used"] == 2 and view["heroes_ready"] == 2
+    assert ledger.verify_user_balance(wallet, db).consistent
+
+
+def test_a_hero_cut_off_by_a_restart_gives_its_seat_back_on_the_next_look(db, make_user, api, monkeypatch):
+    """The run's own hand-back never runs when its task is cancelled (a
+    timeout, a deploy): CancelledError is a BaseException. The restart sweep
+    fails and refunds the step; the next look at the class frees the seat."""
+    from app.services import startup_reconcile
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=1)
+    pin = _start(client, teacher, c["id"])
+    wallet = _room(db, c["id"]).wallet_user_id
+
+    async def cut_off_at_3d(creation_id, user_id, s):
+        if _current(s, creation_id) == "meshy_3d":
+            raise asyncio.CancelledError()
+        _deliver(s, creation_id, user_id)
+
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: cut_off_at_3d)
+    kid = Student()
+    kid.join(pin, "Yoni")
+    assert kid.make().status_code == 201
+    with pytest.raises(asyncio.CancelledError):
+        tasks.run_all()
+    assert _room(db, c["id"]).seats_used == 1                     # still held: nothing has failed yet
+
+    startup_reconcile.reconcile_stuck_steps(db)
+    assert _roster(client, teacher, c["id"])["seats_used"] == 0
+    assert _balance(db, wallet) == HERO
+    assert ledger.verify_user_balance(wallet, db).consistent
+
+
+def test_a_cancelled_hero_keeps_its_seat(db, make_user, api):
+    """A cancel keeps its charge, as for any hero: so it keeps its seat too."""
+    client, tasks = api
+    teacher, admin = make_user(credits=100), make_user(is_admin=True)
+    c = _new_class(client, teacher, seats=1)
+    pin = _start(client, teacher, c["id"])
+    kid = Student()
+    kid.join(pin)
+    creation_id = kid.make().json()["hero"]["creation_id"]
+    step = _current(db, creation_id)
+    r = client.post(f"/api/creations/{creation_id}/steps/{step}/cancel", headers=_auth(admin))
+    assert r.status_code == 200, r.text
+    tasks.pending.pop().close()
+    view = _roster(client, teacher, c["id"])
+    assert view["roster"][0]["hero"]["state"] == "failed"
+    assert view["seats_used"] == 1 and view["roster"][0]["seat_returned"] is False
+
+
+def test_a_full_class_turns_new_students_away_before_the_board(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=1)
+    pin = _start(client, teacher, c["id"])
+    maya = Student()
+    maya.join(pin, "Maya")
+    assert maya.make().status_code == 201
+    tasks.run_all()
+
+    late = Student()
+    found = late.client.get(f"/api/class/join/{pin}").json()
+    assert found["seats_left"] == 0 and found["joined"] is False      # told before the name
+    r = late.join(pin, "Itai")
+    assert r.status_code == 409 and r.json()["detail"] == "This class is full. Ask your teacher for a seat."
+    view = _roster(client, teacher, c["id"])
+    assert [s["label"] for s in view["roster"]] == ["Maya"]           # no ghost "Drawing…" card
+
+    # A seat added: the same child gets in.
+    client.post(f"/api/classes/{c['id']}/seats", json={"seats": 1}, headers=_auth(teacher))
+    assert late.client.get(f"/api/class/join/{pin}").json()["seats_left"] == 1
+    assert late.join(pin, "Itai").status_code == 200
+
+
+def test_a_student_who_joined_before_the_seats_ran_out_needs_a_seat(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=1)
+    pin = _start(client, teacher, c["id"])
+    maya, noa = Student(), Student()
+    maya.join(pin, "Maya")
+    noa.join(pin, "Noa")
+    assert _roster(client, teacher, c["id"])["roster"][1]["needs_seat"] is False
+    assert maya.make().status_code == 201
+    r = noa.make()
+    assert r.status_code == 409 and noa.me().json()["reason"] == "class_full"
+    assert [s["needs_seat"] for s in _roster(client, teacher, c["id"])["roster"]] == [False, True]
+
+
+def test_the_same_name_from_another_device_waits_for_the_teacher(db, make_user, api, steps_succeed):
+    """Noam on his tablet, then "Noam" on a second phone: the same child, or a
+    second Noam? Only the teacher knows. He waits, labelled Noam 2."""
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=5)
+    pin = _start(client, teacher, c["id"])
+    first, second = Student(), Student()
+    assert first.join(pin, "Noam").json()["guest"]["status"] == "approved"
+    r = second.join(pin, "noam")
+    assert r.json()["guest"]["status"] == "waiting" and r.json()["can_make"] is False
+    assert second.make().status_code == 409
+    board = _roster(client, teacher, c["id"])["roster"]
+    assert [(s["label"], s["same_name"], s["status"]) for s in board] == [
+        ("Noam", False, "approved"), ("noam 2", True, "waiting")]
+
+
+def test_the_teacher_removes_any_student_from_the_board(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=3)
+    pin = _start(client, teacher, c["id"])
+    noam, dup, ghost = Student(), Student(), Student()
+    noam.join(pin, "Noam")
+    assert noam.make().status_code == 201
+    tasks.run_all()
+    dup.join(pin, "Noam")
+    ghost.join(pin, "Alexandra")
+    board = _roster(client, teacher, c["id"])["roster"]
+    assert len(board) == 3
+
+    # An approved child still drawing, and a waiting duplicate: both off the board.
+    for s in board[1:]:
+        r = client.post(f"/api/classes/{c['id']}/students/{s['id']}/remove", headers=_auth(teacher))
+        assert r.status_code == 200, r.text
+    view = _roster(client, teacher, c["id"])
+    assert [s["label"] for s in view["roster"]] == ["Noam"]
+    assert view["seats_used"] == 1
+    # A removed pass cannot make a hero; that browser joins again as someone new.
+    assert ghost.make().status_code == 403
+    assert ghost.client.get(f"/api/class/join/{pin}").json()["joined"] is False
+    again = ghost.join(pin, "Alexandra")
+    assert again.status_code == 200 and again.json()["pass"]
+    # Another teacher cannot remove anyone; nor can a removed card be removed twice.
+    other = make_user(credits=0)
+    assert client.post(f"/api/classes/{c['id']}/students/{board[0]['id']}/remove",
+                       headers=_auth(other)).status_code == 404
+    assert client.post(f"/api/classes/{c['id']}/students/{board[1]['id']}/remove",
+                       headers=_auth(teacher)).status_code == 404
+
+    # A made hero's card can go too: off the board, its seat stays used.
+    client.post(f"/api/classes/{c['id']}/students/{board[0]['id']}/remove", headers=_auth(teacher))
+    view = _roster(client, teacher, c["id"])
+    assert [s["label"] for s in view["roster"]] == ["Alexandra"]
+    assert view["seats_used"] == 1 and view["heroes_ready"] == 0
+
+
+def test_removing_a_student_whose_hero_failed_gives_the_seat_back(db, make_user, api, monkeypatch):
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=1)
+    pin = _start(client, teacher, c["id"])
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _meshy_down)
+    kid = Student()
+    kid.join(pin, "Shira")
+    kid.make()
+    tasks.run_all()
+    sid = _roster(client, teacher, c["id"])["roster"][0]["id"]
+    view = client.post(f"/api/classes/{c['id']}/students/{sid}/remove", headers=_auth(teacher)).json()
+    assert view["roster"] == [] and view["seats_left"] == 1
+
+
+def test_a_kept_hero_that_fails_later_is_the_parents_not_the_class(db, make_user, api, monkeypatch):
+    """Once a parent keeps the hero, its runs are charged to them. One that
+    fails in their account gives the class no seat, and refunds the parent
+    only the step that failed."""
+    client, tasks = api
+    teacher, parent = make_user(credits=100), make_user(credits=30)
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
+    c, maya, me = _ready_hero(client, tasks, teacher, make_user)
+    token = me["claim_path"].rsplit("/", 1)[1]
+    assert client.post(f"/api/class/claim/{token}", headers=_auth(parent)).status_code == 200
+    creation_id = me["hero"]["creation_id"]
+
+    monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _meshy_down)
+    r = client.post(f"/api/creations/{creation_id}/run-pipeline?from_step=meshy_3d", headers=_auth(parent))
+    assert r.status_code == 200, r.text
+    tasks.run_all()
+    assert db.query(Creation).filter_by(id=creation_id).one().status == "failed"
+    view = _roster(client, teacher, c["id"])
+    assert view["seats_used"] == 1 and view["roster"][0]["seat_returned"] is False
+    assert _balance(db, parent.id) == 30                 # 3D charged, then refunded: no more
+    assert ledger.verify_user_balance(parent.id, db).consistent
 
 
 def test_no_hero_after_class_time_or_when_blocked(db, make_user, api):
@@ -856,6 +1125,10 @@ def test_migration_adds_the_columns_to_an_existing_database(tmp_path, monkeypatc
     assert "class_id" in {c["name"] for c in inspect(engine).get_columns("creations")}
     assert {"classes", "class_sessions", "class_guests"} <= set(inspect(engine).get_table_names())
     assert s.execute(text("SELECT kind, is_teacher FROM users")).one() == ("person", 0)
+    assert "seat_returned_at" not in {c["name"] for c in inspect(engine).get_columns("class_guests")}
+    m019_class_seat_returns.migrate(s)
+    m019_class_seat_returns.migrate(s)   # idempotent
+    assert "seat_returned_at" in {c["name"] for c in inspect(engine).get_columns("class_guests")}
 
 
 # ---------------------------------------------------------------------------
@@ -918,7 +1191,9 @@ def test_a_retry_runs_on_the_real_task_manager(db, make_user, live_client, monke
     assert r.status_code == 201, r.text
     creation_id = r.json()["hero"]["creation_id"]
     assert _settled(db, creation_id).status == "failed"
-    assert _balance(db, wallet) == 2 * HERO - get_step_by_name("openai_render")["credit_cost"]
+    # The run gives the seat back as it ends, with every credit it charged.
+    assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 0
+    assert _balance(db, wallet) == 2 * HERO
 
     monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
     r = client.post("/api/class/me/hero/retry")
@@ -926,5 +1201,6 @@ def test_a_retry_runs_on_the_real_task_manager(db, make_user, live_client, monke
     assert r.json()["hero"]["state"] != "failed"           # shown running at once
     assert _settled(db, creation_id).status == "completed"
     assert client.get("/api/class/me").json()["hero"]["state"] == "ready"
-    assert _balance(db, wallet) == 2 * HERO - HERO
+    assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 1
+    assert _balance(db, wallet) == 2 * HERO - (HERO - get_step_by_name("openai_render")["credit_cost"])
     assert ledger.verify_user_balance(wallet, db).consistent
