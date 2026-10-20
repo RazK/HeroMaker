@@ -91,8 +91,10 @@ export function BuyCredits({ isOpen, onClose, note }: BuyCreditsProps) {
       {/* Who takes the money, and the two pages a buyer may want first. */}
       <div className="buy-credits-legal">
         <span className="tb-muted">Payments by Lemon Squeezy</span>
-        <button type="button" className="tb-chip buy-credits-legal-chip" onClick={() => openPage('refunds')}>Refunds</button>
-        <button type="button" className="tb-chip buy-credits-legal-chip" onClick={() => openPage('terms')}>Terms</button>
+        <div className="tb-chip-row">
+          <button type="button" className="tb-chip buy-credits-legal-chip" onClick={() => openPage('refunds')}>Refunds</button>
+          <button type="button" className="tb-chip buy-credits-legal-chip" onClick={() => openPage('terms')}>Terms</button>
+        </div>
       </div>
     </Sheet>
   );

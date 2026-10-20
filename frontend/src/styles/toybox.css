@@ -305,6 +305,9 @@ h1, h2, h3, h4 {
   color: var(--tb-ink);
 }
 .tb-logo img { width: 36px; height: 36px; object-fit: contain; }
+/* Chips that belong together (Refunds · Terms): one line, never split, on a
+   line of their own under any text about them (brand book: chips row). */
+.tb-chip-row { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: nowrap; }
 .tb-logo span { font-family: var(--tb-font-display); font-weight: 400; font-size: 28px; }
 /* Not production (apply-env-look.sh sets data-env): a STAGING tag on the
    logo, over the foot of its icon, so it never moves the header. */
