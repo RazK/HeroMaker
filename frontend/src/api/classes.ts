@@ -134,10 +134,14 @@ export interface GuestView {
  * child's first name and age, the class's title, and this one hero, with
  * which of its public files exist (enough for the live stage, HeroLive).
  */
+/**
+ * What a claim link shows. Once kept it is spent: to anyone but the parent
+ * who kept it, only `claimed` is set, and nothing about the child.
+ */
 export interface ClaimView {
-  first_name: string;
+  first_name: string | null;
   age: number | null;
-  class_title: string;
+  class_title: string | null;
   hero: (HeroSummary & { file_versions: Record<string, string> }) | null;
   claimed: boolean;
   /** The signed-in account looking at the link is the one that kept it. */

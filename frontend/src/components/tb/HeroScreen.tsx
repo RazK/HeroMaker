@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { api, ApiError, CreationResponse, CreationStepResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
@@ -6,7 +6,7 @@ import { heroLink, leaveFromOverlay } from '../../routes';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, Polaroid, ProgressBar, Sheet, SheetRow, Stepper, useClearOfPolaroid, useFitScreen } from './parts';
-import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, remainingCost, stepProgress, stepViews } from './pipeline';
+import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, refundWords, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
 
 interface HeroScreenProps {
@@ -23,6 +23,8 @@ interface HeroScreenProps {
   onCreditsChanged: () => void;
   /** Opened by a teacher from their class: read-only, back goes to the class. */
   fromClass?: boolean;
+  /** Opened from a user's page in the admin console: back goes to that page. */
+  fromAdmin?: boolean;
 }
 
 /**
@@ -38,9 +40,12 @@ export function HeroScreen(props: HeroScreenProps) {
   const owns = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
   // A teacher looking at a student's hero shares it, never "makes their own".
   const shares = owns || !!props.fromClass;
-  const backLabel = props.fromClass ? 'Back to class' : 'Back to heroes';
+  // An admin looking at someone else's hero: support, not its owner. Their
+  // own balance means nothing here, and the owner's buy/retry bar is not theirs.
+  const supporting = isLoggedIn && isAdmin && creation.user_id !== currentUserId;
+  const backLabel = props.fromClass ? 'Back to class' : props.fromAdmin ? 'Back to user' : 'Back to heroes';
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'delete' | 'again' | 'games' | 'details' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'artist' | 'delete' | 'again' | 'games' | 'details' | null>(null);
   const [introRequest, setIntroRequest] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +174,7 @@ export function HeroScreen(props: HeroScreenProps) {
     ready && <SheetRow key="made" icon="layers" label="How it was made" onClick={() => { setSheet(null); setIntroRequest((n) => n + 1); }} />,
     ...(owns ? [
       <SheetRow key="rename" icon="pencil" label="Rename" onClick={() => setSheet('rename')} />,
+      <SheetRow key="artist" icon="brush" label="Who drew it" trail={artistLine(creation)} onClick={() => setSheet('artist')} />,
       ready && <SheetRow key="again" icon="redo" label="Make it again" trail={`${againCost} credits`} onClick={() => setSheet('again')} />,
       ready && <SheetRow key="vrm" icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />,
       // The per-step admin view is a debugging tool, not designed for users.
@@ -256,7 +262,9 @@ export function HeroScreen(props: HeroScreenProps) {
               ? isAdmin && step?.error_detail && <button type="button" className="tb-chip tb-error-details" onClick={() => setSheet('details')}>Details</button>
               : <div className="tb-status-eta">{eta}</div>}
           </div>
-          {failed && <div className="tb-failed-line" role="status">{failedLine(step)}</div>}
+          {failed && (supporting
+            ? <SupportFacts creation={creation} step={step} />
+            : <div className="tb-failed-line" role="status">{failedLine(step)}</div>)}
           {!failed && (
             // Keyed by the step's run, so a new step starts its bar from empty
             // instead of sliding backwards from the last one.
@@ -285,7 +293,13 @@ export function HeroScreen(props: HeroScreenProps) {
         <span className="tb-btn-trail"><Icon name="coin" size={18} />{retryCost} credits</span>
       </button>
     );
-    bar = failed && owns ? (
+    bar = failed && supporting ? (
+      // Support: the facts are above; the per-step tools are one tap away.
+      <>
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-every-step" onClick={props.onShowSteps}><Icon name="grid" />Every step</button>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={props.onBack}>{backLabel}</button>
+      </>
+    ) : failed && owns ? (
       <>
         {short && <div className="tb-bar-note">You need {retryCost} credits. You have {creditBalance}.</div>}
         {blocked ? (
@@ -344,7 +358,7 @@ export function HeroScreen(props: HeroScreenProps) {
         </Sheet>
       )}
       {sheet === 'details' && step && <ErrorDetailsSheet step={step} onClose={() => setSheet(null)} />}
-      {sheet === 'rename' && <RenameSheet creation={creation} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}
+      {(sheet === 'rename' || sheet === 'artist') && <RenameSheet creation={creation} focus={sheet === 'artist' ? 'artist' : 'hero'} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}
       {sheet === 'again' && (
         // Money confirms first (brand book); primary last.
         <Dialog label="Make it again?" onClose={() => setSheet(null)}>
@@ -409,14 +423,55 @@ function ErrorDetailsSheet({ step, onClose }: { step: CreationStepResponse; onCl
   );
 }
 
-function RenameSheet({ creation, onClose, onSaved }: { creation: CreationResponse; onClose: () => void; onSaved: () => Promise<void> }) {
-  const [value, setValue] = useState(creation.character_name ?? '');
+/** "Lia, 6": who drew it, as the polaroid credits them. */
+function artistLine(c: CreationResponse): string {
+  return c.name ? `${c.name}${c.age ? `, ${c.age}` : ''}` : '';
+}
+
+/**
+ * Support's view of a failed hero that is not theirs: whose it is, the step
+ * that failed and why (its error code), and whether its credits came back.
+ * The provider's own words stay behind Details.
+ */
+function SupportFacts({ creation, step }: { creation: CreationResponse; step: CreationStepResponse | undefined }) {
+  const owner = [creation.owner_name, creation.username].filter(Boolean).join(' · ');
+  return (
+    <dl className="tb-error-facts tb-support-facts" role="status">
+      <dt>Owner</dt><dd dir="auto">{owner || 'Unknown'}</dd>
+      <dt>Failed</dt><dd>{step ? `${STEP_UI[step.step_name]?.short ?? step.step_name} · ${step.error_code ?? 'unknown'}` : 'Unknown'}</dd>
+      <dt>Credits</dt><dd>{refundWords(step) || 'Unknown'}</dd>
+    </dl>
+  );
+}
+
+/** Hero names are kept short enough for a tile; the artist as the server bounds it. */
+const HERO_NAME_MAX = 60;
+const ARTIST_NAME_MAX = 40;
+
+/**
+ * The hero's name and who drew it: the polaroid's "by Lia, 6". A parent's
+ * account credits the parent until they say their child drew it.
+ */
+function RenameSheet({ creation, focus, onClose, onSaved }: { creation: CreationResponse; focus: 'hero' | 'artist'; onClose: () => void; onSaved: () => Promise<void> }) {
+  const [hero, setHero] = useState(creation.character_name ?? '');
+  const [artist, setArtist] = useState(creation.name ?? '');
+  const [age, setAge] = useState(creation.age ? String(creation.age) : '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ageValue = age.trim() === '' ? null : Number(age.trim());
+  const ageOk = ageValue === null || (Number.isInteger(ageValue) && ageValue >= 1 && ageValue <= 120);
+  // A hero that has a name keeps one; an unnamed one may stay unnamed.
+  const heroOk = hero.trim() !== '' || !creation.character_name;
+  const changes: { character_name?: string; name?: string; age?: number | null } = {};
+  if (hero.trim() !== (creation.character_name ?? '')) changes.character_name = hero.trim();
+  if (artist.trim() !== (creation.name ?? '')) changes.name = artist.trim();
+  if (ageValue !== (creation.age ?? null)) changes.age = ageValue;
+  const changed = Object.keys(changes).length > 0;
   const save = async () => {
+    if (!changed || !ageOk || !heroOk) return;
     setSaving(true);
     try {
-      await api.updateCharacterName(creation.id, value.trim());
+      await api.updateHero(creation.id, changes);
       await onSaved();
       onClose();
     } catch (err) {
@@ -424,16 +479,28 @@ function RenameSheet({ creation, onClose, onSaved }: { creation: CreationRespons
       setSaving(false);
     }
   };
+  const enter = (e: KeyboardEvent) => { if (e.key === 'Enter') save(); };
   return (
-    <Sheet title="Rename your hero" onClose={onClose}>
+    <Sheet title={focus === 'artist' ? 'Who drew it' : 'Rename your hero'} onClose={onClose} className="tb-rename-sheet">
       <div className="tb-field">
         <label htmlFor="tb-rename">Hero name</label>
-        <input id="tb-rename" className="tb-input" value={value} maxLength={60} autoFocus onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} />
+        <input id="tb-rename" className="tb-input" value={hero} maxLength={HERO_NAME_MAX} autoFocus={focus === 'hero'} onChange={(e) => setHero(e.target.value)} onKeyDown={enter} />
+      </div>
+      <div className="tb-rename-artist">
+        <div className="tb-field">
+          <label htmlFor="tb-artist">Who drew it</label>
+          <input id="tb-artist" className="tb-input" value={artist} maxLength={ARTIST_NAME_MAX} autoComplete="off" autoFocus={focus === 'artist'} placeholder="Name" onChange={(e) => setArtist(e.target.value)} onKeyDown={enter} />
+        </div>
+        <div className="tb-field tb-rename-age">
+          <label htmlFor="tb-artist-age">Age</label>
+          <input id="tb-artist-age" className="tb-input" value={age} inputMode="numeric" maxLength={3} autoComplete="off" aria-invalid={!ageOk} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={enter} />
+        </div>
       </div>
       {error && <div className="tb-muted" role="alert">{error}</div>}
-      <div className="tb-stack" style={{ paddingTop: 16 }}>
-        <button type="button" className="tb-btn tb-btn--primary tb-btn--full" disabled={saving || !value.trim()} onClick={save}>Save name</button>
+      {/* Secondary, then the primary last (brand book). */}
+      <div className="tb-stack tb-rename-bar">
         <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Cancel</button>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-rename-save" disabled={saving || !changed || !ageOk || !heroOk} onClick={save}>Save</button>
       </div>
     </Sheet>
   );

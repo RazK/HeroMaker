@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, AdminAction, AdminHero, AdminUserDetail, ApiError, CreationResponse, LedgerTransaction, RemovalReason, paintingFramed } from '../../api/client';
+import { api, AdminAction, AdminHero, AdminUserDetail, ApiError, CreationResponse, CreationStepResponse, LedgerTransaction, RemovalReason, paintingFramed } from '../../api/client';
 import { HeroTile, SkeletonTile, TileGrid, makingLine, makingPct } from '../tb/HeroTile';
 import { Icon, IconName } from '../tb/Icon';
 import { Dialog, Sheet, SheetRow } from '../tb/parts';
-import { STEP_UI, currentStep, heroName, heroState, stepProgress } from '../tb/pipeline';
+import { STEP_UI, currentStep, failedStep, heroState, refundWords, stepProgress } from '../tb/pipeline';
 import { CreditsSheet, CreditsMode } from './CreditsSheet';
 import { shortDate } from './format';
 
@@ -95,7 +95,7 @@ function CreditsList({ userId, heroes, version }: { userId: string; heroes: Admi
       .catch(() => { if (live) { setError(true); setTxs((t) => t ?? []); } });
     return () => { live = false; };
   }, [userId, version]);
-  const names = new Map(heroes.map((h) => [h.id, heroName(h)]));
+  const names = new Map(heroes.map((h) => [h.id, adminHeroName(h)]));
   return (
     <section className="adm-card" aria-label="Credits" data-testid="ledger">
       <h2 className="adm-title">Credits</h2>
@@ -170,7 +170,7 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
     setBusy(true);
     try {
       await api.admin.restoreHero(h.id);
-      setNotice(`${heroName(h)} is back.`);
+      setNotice(`${adminHeroName(h)} is back.`);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'That did not work. Try again.');
@@ -208,7 +208,10 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
         )}
         <div className="adm-stats">
           <div className="adm-stat"><span className="adm-stat-num adm-stat-num--credits" data-testid="balance"><Icon name="coin" size={22} />{u.credits}</span><span className="adm-stat-label">credits</span></div>
+          {/* The same numbers as this user's card on the list (backend users.hero_stats). */}
           <div className="adm-stat"><span className="adm-stat-num">{page.counts.heroes}</span><span className="adm-stat-label">{page.counts.heroes === 1 ? 'hero' : 'heroes'}</span></div>
+          {page.counts.failed > 0 && <div className="adm-stat"><span className="adm-stat-num adm-bad">{page.counts.failed}</span><span className="adm-stat-label">failed</span></div>}
+          {page.counts.in_progress > 0 && <div className="adm-stat"><span className="adm-stat-num">{page.counts.in_progress}</span><span className="adm-stat-label">making</span></div>}
           {page.counts.removed > 0 && <div className="adm-stat"><span className="adm-stat-num adm-bad">{page.counts.removed}</span><span className="adm-stat-label">removed</span></div>}
         </div>
         {(u.is_teacher || u.school) && (
@@ -230,7 +233,7 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
             <div key={h.id} className={`adm-tile-wrap${h.removed ? ' adm-tile-wrap--removed' : ''}`} data-removed={h.removed ? 'true' : undefined}>
               <AdminTile hero={h} index={i} onClick={() => onOpenHero(h)} />
               {h.removed && <span className="adm-tile-badge">Removed</span>}
-              <button type="button" className="adm-tile-more" aria-label={`More for ${heroName(h)}`} title="More" onClick={() => setMenu(h)}>
+              <button type="button" className="adm-tile-more" aria-label={`More for ${adminHeroName(h)}`} title="More" onClick={() => setMenu(h)}>
                 <span className="adm-tile-more-dot"><Icon name="more" size={20} /></span>
               </button>
             </div>
@@ -287,7 +290,7 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
       )}
 
       {menu && (
-        <Sheet title={heroName(menu)} onClose={() => setMenu(null)}>
+        <Sheet title={adminHeroName(menu)} onClose={() => setMenu(null)}>
           {menu.removed && (
             <div className="tb-muted adm-sheet-sub">
               Removed · {REASON_LABEL[menu.removed.reason ?? ''] ?? 'No reason'}{menu.removed.note ? ` · “${menu.removed.note}”` : ''}
@@ -310,7 +313,7 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
             setBusy(true);
             try {
               await api.admin.removeHero(removing.id, reason, note);
-              setNotice(`${heroName(removing)} is removed. Only admins can see it.`);
+              setNotice(`${adminHeroName(removing)} is removed. Only admins can see it.`);
               setRemoving(null);
               await load();
             } catch (e) {
@@ -326,10 +329,25 @@ export function UserDetail({ userId, currentUserId, onOpenHero, onGone }: {
   );
 }
 
+/**
+ * A hero's name on the user's page. Unnamed heroes were all "Your hero":
+ * support could not tell them apart, so they read as when they were made.
+ */
+function adminHeroName(h: AdminHero): string {
+  return h.character_name || when(h.created_at);
+}
+
+/** "3D failed · refunded 5": the step, and what it did to the bill. */
+function failedTileLine(step: CreationStepResponse | undefined): string {
+  if (!step) return 'Didn’t finish';
+  const word = STEP_WORD[step.step_name] ?? STEP_UI[step.step_name]?.short ?? 'Making';
+  return `${word} failed · ${refundWords(step)}`;
+}
+
 /** A hero on the user's page: the gallery's tile, with what an admin needs on its second line. */
 function AdminTile({ hero, index, onClick }: { hero: AdminHero; index: number; onClick: () => void }) {
   const state = heroState(hero);
-  const name = heroName(hero);
+  const name = adminHeroName(hero);
   const file = (f: string) => api.heroFileUrl(hero, f);
   const step = currentStep(hero);
   const done = hero.steps.filter((s) => s.status === 'completed').length;
@@ -344,7 +362,7 @@ function AdminTile({ hero, index, onClick }: { hero: AdminHero; index: number; o
     : state === 'ready' ? by
     : state === 'making' ? makingLine(step ? STEP_UI[step.step_name]?.short : undefined,
       makingPct(done, hero.steps.length, step?.status === 'processing', progress?.real ? progress.pct / 100 : undefined))
-    : state === 'failed' ? 'Didn’t finish'
+    : state === 'failed' ? failedTileLine(failedStep(hero))
     : 'Not started';
   return (
     <HeroTile
@@ -376,7 +394,7 @@ function RemoveSheet({ hero, busy, onClose, onRemove }: {
   const [reason, setReason] = useState<RemovalReason | null>(null);
   const [note, setNote] = useState('');
   const [confirming, setConfirming] = useState(false);
-  const name = heroName(hero);
+  const name = adminHeroName(hero);
   const valid = reason !== null && (reason !== 'other' || note.trim().length > 0);
   return (
     <>

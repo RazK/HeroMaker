@@ -74,7 +74,6 @@
   .post-upload-actions-modal > .post-upload-actions-bar { grid-area: bar; align-self: end; }
 }
 
-.app-pipeline-section { gap: 24px; }
 
 /* Notices raised while a fit screen is showing float over it: below such a
    screen they would be outside the visible area, and could not be scrolled to. */

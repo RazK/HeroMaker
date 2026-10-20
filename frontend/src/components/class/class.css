@@ -558,6 +558,12 @@ button.cls-card:active { transform: scale(0.98); }
 
 .cls-claim-stage { background: var(--tb-plate-2); min-height: 260px; }
 .cls-claim-who { display: flex; flex-direction: column; gap: 4px; text-align: center; }
+/* A kept hero's link, opened by anyone else: a sun and a star, nothing of the child. */
+.cls-claim-home { display: grid; place-items: center; }
+.cls-claim-home-badge {
+  position: relative; display: grid; place-items: center; width: 120px; height: 120px;
+  border-radius: 50%; background: var(--tb-white); color: var(--tb-grape-text); box-shadow: var(--tb-shadow-card);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .cls-tile-wrap, .cls-wobble, .cls-live-dot { animation: none; }

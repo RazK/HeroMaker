@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { HeaderAuth } from './components/HeaderAuth';
 import { PURCHASE_RETURN_PARAM, balanceBeforeCheckout } from './components/BuyCredits';
-import { PipelineProgress } from './components/PipelineProgress';
-import { HeroNameEditor } from './components/HeroNameEditor';
+import { AdminSteps } from './components/admin/AdminSteps';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Privacy } from './components/tb/Privacy';
@@ -683,32 +682,14 @@ function MainApp() {
     );
   } else if (view === 'steps' && creation && userInfo?.is_admin) {
     screen = (
-      <div className="tb-screen tb-screen--wide">
-        <Header left={<NavButton icon="back" label="Back to hero" onClick={() => up(heroPath(creation.id))} />} title="Every step" />
-        <div className="tb-screen-body app-pipeline-section">
-          <HeroNameEditor
-            creationId={creation.id}
-            characterName={creation.character_name}
-            name={creation.name}
-            age={creation.age}
-            isAdmin={userInfo?.is_admin ?? false}
-            isLoggedIn={isLoggedIn}
-            onCharacterNameUpdated={(v) => setCreation({ ...creation, character_name: v })}
-            onNameUpdated={(v) => setCreation({ ...creation, name: v })}
-            onAgeUpdated={(v) => setCreation({ ...creation, age: v })}
-          />
-          <PipelineProgress
-            creation={creation}
-            creditBalance={creditBalance}
-            isLoggedIn={isLoggedIn}
-            currentUserId={userInfo?.id}
-            isAdmin={userInfo?.is_admin ?? false}
-            onStepRun={() => refreshCreditBalance()}
-            onCreationRefresh={refreshCreation}
-            onDelete={goHome}
-          />
-        </div>
-      </div>
+      <AdminSteps
+        creation={creation}
+        currentUserId={userInfo.id}
+        onBack={() => up(heroPath(creation.id))}
+        onRefresh={refreshCreation}
+        onCreditsChanged={refreshCreditBalance}
+        onDeleted={backFromHero}
+      />
     );
   } else if ((view === 'hero' || view === 'steps') && creation) {
     screen = (
@@ -725,6 +706,7 @@ function MainApp() {
         onMakeOwn={startNewHero}
         onCreditsChanged={refreshCreditBalance}
         fromClass={openedFrom === 'class'}
+        fromAdmin={openedFrom === 'admin'}
       />
     );
   } else if (view === 'hero' || view === 'steps' || ((view === 'class' || view === 'admin') && !authChecked)) {

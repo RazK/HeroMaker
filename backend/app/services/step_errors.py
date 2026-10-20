@@ -219,7 +219,8 @@ def code_of(step) -> Optional[str]:
 def response_fields(step, admin: bool, in_class: bool = False) -> dict:
     """The error fields of a step as the API serves them.
 
-    Everyone: ``error_code``, ``error_user``, ``credits_refunded``, and
+    Everyone: ``error_code``, ``error_user``, ``credits_refunded`` (and
+    ``refunded_credits``, how many, when known), and
     ``error_message`` set to the safe line (older clients read it). An admin
     also gets ``error_detail`` (the raw text, also in ``error_message``) and
     ``error_request_id``. A class hero's line never mentions credits: the
@@ -227,17 +228,21 @@ def response_fields(step, admin: bool, in_class: bool = False) -> dict:
     """
     code = code_of(step)
     if code is None:
-        return {"error_code": None, "error_user": None, "credits_refunded": False,
+        return {"error_code": None, "error_user": None, "credits_refunded": False, "refunded_credits": None,
                 "error_message": step.error_message if admin else None,
                 "error_detail": step.error_message if admin else None,
                 "error_request_id": None}
-    refunded = bool((step.metadata_json or {}).get(REFUND_KEY))
+    marker = (step.metadata_json or {}).get(REFUND_KEY)
+    refunded = bool(marker)
     safe = user_message(code, step.step_name, refunded and not in_class)
     raw = step.error_message
     return {
         "error_code": code,
         "error_user": safe,
         "credits_refunded": refunded,
+        # How many came back, when the refund recorded it (note_refund); older
+        # refunds recorded only that it happened.
+        "refunded_credits": marker if isinstance(marker, int) and not isinstance(marker, bool) else None,
         "error_message": raw if admin else safe,
         "error_detail": raw if admin else None,
         "error_request_id": request_id(raw) if admin else None,

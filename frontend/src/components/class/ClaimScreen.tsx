@@ -91,12 +91,16 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
     }
   }, [token, load]);
 
-  // Back from the sign-in sheet, signed in: finish what "Keep" started.
+  // Back from the sign-in sheet, signed in: finish what "Keep" started, or
+  // (a kept hero's link) look again: the parent who kept it sees it as theirs.
   useEffect(() => {
-    const onLogin = () => { if (wantsClaim.current) { wantsClaim.current = false; keep(); } };
+    const onLogin = () => {
+      if (wantsClaim.current) { wantsClaim.current = false; keep(); return; }
+      load();
+    };
     window.addEventListener('auth:login', onLogin);
     return () => window.removeEventListener('auth:login', onLogin);
-  }, [keep]);
+  }, [keep, load]);
 
   const first = view?.first_name ?? '';
   const askAccount = (mode: 'signup' | 'login') => {
@@ -116,6 +120,9 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
 
   const ready = hero?.state === 'ready';
   const done = mine || !!view?.kept_by_you;
+  // Kept by someone else: the link is spent and the server sends nothing of
+  // the child, so a link forwarded to a class group exposes no one.
+  const spent = !!view?.claimed && !done;
   const heroName = hero?.character_name || `${first}’s hero`;
   const art = hero && !ready ? heroFile(hero, 'original.jpg') : null;
   useClearOfPolaroid(stageRef, art);
@@ -128,9 +135,20 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
             <img src="/app-icon.png" alt="" width={40} height={40} />
           </button>
         )}
-        title={view ? heroName : 'HeroMaker'}
+        title={view && !spent ? heroName : 'HeroMaker'}
       />
-      {ready && live ? (
+      {spent ? (
+        <div className="tb-screen-body">
+          <div className="tb-stage cls-claim-stage cls-claim-home">
+            <div className="tb-stage-sun" />
+            <span className="cls-claim-home-badge" aria-hidden="true"><Icon name="star" size={56} /></span>
+          </div>
+          <div className="cls-claim-who">
+            <div className="tb-h2">This hero has a home</div>
+            <div className="tb-muted">The parent who kept it finds it in their heroes.</div>
+          </div>
+        </div>
+      ) : ready && live ? (
         <HeroLive
           key={live.id}
           creation={live}
@@ -163,9 +181,14 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
             <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Make more</button>
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-open-hero" onClick={() => hero && onOpenHero(hero.creation_id)}><Icon name="star" />Open the hero</button>
           </>
-        ) : view?.claimed ? (
+        ) : spent ? (
           <>
-            <div className="tb-bar-note">This hero already has a home.</div>
+            {account === null && (
+              <button type="button" className="tb-btn tb-btn--secondary tb-btn--full cls-claim-signin"
+                onClick={() => window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'login' } }))}>
+                <Icon name="user" />Sign in
+              </button>
+            )}
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={onSeeHeroes}>Open HeroMaker</button>
           </>
         ) : (

@@ -883,12 +883,25 @@ def test_the_claim_link_gives_the_live_hero_and_nothing_more(db, make_user, api,
     kept = client.post(f"/api/class/claim/{token}", headers=_auth(parent)).json()
     assert kept["claimed"] is True and kept["kept_by_you"] is True
     assert kept["hero"]["user_id"] == parent.id and "avatar.vrm" in kept["hero"]["file_versions"]
-    assert client.get(f"/api/class/claim/{token}", headers=_auth(parent)).json()["kept_by_you"] is True
-    assert client.get(f"/api/class/claim/{token}", headers=_auth(make_user())).json()["kept_by_you"] is False
-    assert client.get(f"/api/class/claim/{token}").json()["kept_by_you"] is False
-    # A stale token never hides the hero from the page.
+    again = client.get(f"/api/class/claim/{token}", headers=_auth(parent)).json()
+    assert again["kept_by_you"] is True and again["first_name"] == "Maya" and again["hero"] is not None
+    # Anyone else (a forwarded link): it has a home, and nothing about the child.
+    for headers in ({}, _auth(make_user()), {"Authorization": "Bearer not-a-jwt"}):
+        r = client.get(f"/api/class/claim/{token}", headers=headers)
+        assert r.status_code == 200
+        assert r.json() == {"first_name": None, "age": None, "class_title": None, "hero": None,
+                            "claimed": True, "kept_by_you": False}
+        assert "Maya" not in r.text and me["hero"]["creation_id"] not in r.text and parent.id not in r.text
+
+
+def test_a_stale_token_never_hides_an_unkept_hero(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c, maya, me = _ready_hero(client, tasks, teacher, make_user)
+    token = me["claim_path"].rsplit("/", 1)[1]
     stale = client.get(f"/api/class/claim/{token}", headers={"Authorization": "Bearer not-a-jwt"})
     assert stale.status_code == 200 and stale.json()["kept_by_you"] is False
+    assert stale.json()["first_name"] == "Maya" and stale.json()["hero"]["state"] == "ready"
 
 
 def test_a_hero_being_made_lists_only_the_files_it_has(db, make_user, api, steps_succeed):

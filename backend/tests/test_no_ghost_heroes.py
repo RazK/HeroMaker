@@ -132,13 +132,13 @@ def test_admin_counts_leave_out_a_hero_never_started(db, make_user, client):
     r = client.get("/api/admin/users?include_test=true", headers=_auth(admin))
     assert r.status_code == 200, r.text
     [row] = [u for u in r.json() if u["id"] == user.id]
-    assert row["creation_stats"] == {"completed": 0, "failed": 0, "in_progress": 1}
+    assert row["creation_stats"] == {"total": 1, "completed": 0, "failed": 0, "in_progress": 1}
 
     # The user's page: the same one hero, and no "Not started" tiles.
     r = client.get(f"/api/admin/users/{user.id}", headers=_auth(admin))
     assert r.status_code == 200, r.text
     page = r.json()
-    assert page["counts"]["heroes"] == 1
+    assert page["counts"]["heroes"] == page["counts"]["total"] == 1 and page["counts"]["in_progress"] == 1
     assert [h["id"] for h in page["heroes"]] == [made]
 
 

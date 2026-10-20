@@ -181,7 +181,7 @@ def test_admin_lists_a_users_heroes_in_every_state_and_removed_ones(client, db, 
     assert heroes[failed.id]["status"] == "failed"
     assert heroes[removed.id]["removed"]["reason"] == "not_a_drawing"
     assert heroes[removed.id]["removed"]["by"] == "raz"
-    assert page["counts"] == {"heroes": 3, "removed": 1}
+    assert {k: page["counts"][k] for k in ("heroes", "removed")} == {"heroes": 3, "removed": 1}
 
 
 def test_a_teachers_page_shows_their_school_and_their_class_heroes(client, db, admin, make_user, completed_steps):
@@ -410,6 +410,30 @@ def test_the_user_list_counts_only_live_heroes(client, db, admin, make_user, mak
                if u["id"] == owner.id)
     assert row["creation_stats"]["completed"] == 1
     assert keep.id
+
+
+def test_the_user_list_and_the_user_page_count_the_same_heroes(client, db, admin, make_user, make_creation,
+                                                                completed_steps, tasks):
+    """Support compares the card with the page: "4 heroes" on one and "9" on
+    the other read as heroes gone missing. Both count every live hero, class
+    heroes too, and split them the same way. A drawing never started
+    (Creation.never_started) is in neither: not a hero, least of all "making"."""
+    teacher = make_user(username="counted2")
+    make_creation(teacher.id, completed_steps)
+    make_creation(teacher.id, {"image_processing": "completed", "openai_render": "failed"})
+    make_creation(teacher.id, {"image_processing": "completed", "openai_render": "processing"})
+    make_creation(teacher.id, {"image_processing": "pending", "openai_render": "pending"})
+    gone = make_creation(teacher.id, completed_steps)
+    assert _remove(client, admin, gone.id).status_code == 200
+    _class_with_hero(db, teacher, completed_steps)
+
+    row = next(u for u in client.get("/api/admin/users?include_test=true", headers=_auth(admin)).json()
+               if u["id"] == teacher.id)
+    stats = row["creation_stats"]
+    assert stats == {"total": 4, "completed": 2, "failed": 1, "in_progress": 1}
+    counts = _detail(client, admin, teacher.id)["counts"]
+    assert counts["heroes"] == stats["total"] == 4 and counts["removed"] == 1
+    assert {k: counts[k] for k in stats} == stats
 
 
 # ---------------------------------------------------------------------------

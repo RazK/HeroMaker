@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from pydantic import BaseModel, ConfigDict
+from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List, Dict
 from app.config.steps import STEPS, get_step_by_name
 from app.models import CreationStep
@@ -7,10 +7,28 @@ from app.services.openai import DEFAULT_STYLE, resolve_style
 from app.services import step_errors
 from app.utils.cutout import CUTOUT_VERSION
 
+# Who drew it: the polaroid's "by Lia, 6". Its owner sets it (the Rename
+# sheet), so it is bounded like any text a person types for others to read.
+ARTIST_NAME_MAX = 40
+ARTIST_AGE_MAX = 120
+
+
 class CreationRequest(BaseModel):
     character_name: Optional[str] = None
+    # The artist's name; empty clears it (the polaroid then shows the
+    # account's display name).
     name: Optional[str] = None
-    age: Optional[int] = None
+    age: Optional[int] = Field(None, ge=1, le=ARTIST_AGE_MAX)
+
+    @field_validator('name')
+    @classmethod
+    def _artist_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = " ".join(v.split())
+        if len(v) > ARTIST_NAME_MAX:
+            raise ValueError(f"Keep the name to {ARTIST_NAME_MAX} characters")
+        return v
 
 class MessageResponse(BaseModel):
     message: str
@@ -56,6 +74,11 @@ class CreationStepResponse(BaseModel):
     credits_refunded: bool = False
     error_detail: Optional[str] = None
     error_request_id: Optional[str] = None
+    # How many credits the failed step's refund gave back, when it recorded that.
+    refunded_credits: Optional[int] = None
+    # Admins only, from the ledger (credits.step_billing): what the failed
+    # attempt was charged; 0 when it never got as far as its charge.
+    charged_credits: Optional[int] = None
     metadata_json: Optional[dict] = None  # Step-specific metadata (e.g., Meshy API task IDs, animation URLs)
     # 0-100 as the PROVIDER reported it: Meshy's task progress, which the
     # pipeline's poller stores every 3 s. None while a step runs means the
@@ -88,6 +111,23 @@ class CreationStepResponse(BaseModel):
             in_class = bool(getattr(getattr(step, "creation", None), "class_id", None))
         data.update(step_errors.response_fields(step, admin=admin, in_class=in_class))
         return cls(**data)
+
+# A step is charged just before it starts; a charge older than this before
+# the failed attempt started belongs to an earlier attempt.
+_CHARGE_SLACK = timedelta(seconds=60)
+
+
+def _bill(view: "CreationStepResponse", step, entry: Optional[dict]) -> None:
+    """What the ledger says the failed attempt cost: charged, and given back.
+    The ledger is the truth; the step's refund marker is newer than many refunds."""
+    started = step.started_at
+    if entry is None or started is None or entry["at"] is None or entry["at"] < started - _CHARGE_SLACK:
+        view.charged_credits, view.refunded_credits = 0, None
+        return
+    view.charged_credits = entry["charged"]
+    view.refunded_credits = entry["refunded"] or None
+    view.credits_refunded = entry["refunded"] > 0
+
 
 PAINTING = "rendered.png"
 
@@ -145,11 +185,17 @@ class CreationResponse(BaseModel):
     
     id: str
     character_name: Optional[str] = None
-    name: Optional[str] = None  # Creator's name (user who created this)
-    age: Optional[int] = None  # Person's age (for original image)
+    name: Optional[str] = None  # Who drew it: the artist's name, else the owner's display name
+    age: Optional[int] = None  # The artist's age
     status: str  # Derived from steps
+    # The owner's id: the files live under it (/api/files/<user_id>/<id>/...).
+    # An opaque UUID, not a credential: nobody signs in with it.
     user_id: str
-    username: Optional[str] = None  # User's username (deprecated, use name instead)
+    # The owner's login name. Half of a sign-in (username + password), so it
+    # goes only to the owner and to admins, never to the public gallery.
+    username: Optional[str] = None
+    # Admins only: the owner's display name, for "whose hero is this".
+    owner_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None  # Derived from steps
@@ -166,18 +212,27 @@ class CreationResponse(BaseModel):
     painting: Optional[str] = None
 
     @classmethod
-    def from_creation(cls, creation, admin: bool = False):
+    def from_creation(cls, creation, admin: bool = False, viewer_id: Optional[str] = None,
+                      billing: Optional[dict] = None):
         """Build CreationResponse from Creation model, including steps. Safe by
-        default: only ``admin=True`` carries a failed step's raw error."""
+        default: only ``admin=True`` carries a failed step's raw error and the
+        owner's account details (and ``billing``, from credits.step_billing:
+        what each failed step was charged and given back), and only the owner (``viewer_id``) or an
+        admin gets the owner's login name."""
+        owner = creation.user
+        private = admin or (viewer_id is not None and viewer_id == creation.user_id)
         # Build response manually to avoid issues with removed properties
         response = cls(
             id=creation.id,
             character_name=creation.character_name,
-            name=creation.name or (creation.user.username if creation.user else None),
+            # Never the login name: an unnamed drawing reads as the owner's
+            # display name, as the gallery shows it.
+            name=creation.name or (owner.name if owner else None),
             age=creation.age,
             status=creation.status,
             user_id=creation.user_id,
-            username=creation.user.username if creation.user else None,
+            username=owner.username if owner and private else None,
+            owner_name=owner.name if owner and admin else None,
             created_at=creation.created_at,
             updated_at=creation.updated_at,
             completed_at=creation.completed_at,
@@ -196,7 +251,10 @@ class CreationResponse(BaseModel):
         for step_config in STEPS:
             step = steps_by_name.get(step_config["name"])
             if step:
-                response.steps.append(CreationStepResponse.from_step(step, admin=admin, in_class=in_class))
+                view = CreationStepResponse.from_step(step, admin=admin, in_class=in_class)
+                if admin and billing is not None and step.status == "failed":
+                    _bill(view, step, billing.get((creation.id, step.step_name)))
+                response.steps.append(view)
             else:
                 # Step not found - create a pending step response
                 dummy_step = CreationStep(

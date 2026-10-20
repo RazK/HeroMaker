@@ -274,6 +274,50 @@ def refund_last_step_charge(
         return None
 
 
+def step_billing(db: Session, creation_ids) -> Dict[tuple, Dict[str, Any]]:
+    """What each step's latest charge was and how much of it came back, read
+    from the ledger, for support ("3D failed · refunded 5").
+
+    The ledger, not the step's refund marker (step_errors.note_refund): the
+    marker is newer than many refunds, and a hero failed before it existed
+    would read "not refunded" when its credits came back.
+
+    Returns {(creation_id, step_name): {"charged": n, "refunded": m, "at": t}}
+    for every step ever charged; `at` is when, so the caller can tell a charge
+    of the attempt that failed from an earlier attempt's. One query.
+    """
+    ids = list({i for i in creation_ids if i})
+    if not ids:
+        return {}
+    rows = (
+        db.query(ledger.CreditTransaction)
+        .filter(
+            ledger.CreditTransaction.creation_id.in_(ids),
+            ledger.CreditTransaction.reason.in_(("spend", "refund")),
+        )
+        .order_by(ledger.CreditTransaction.created_at.asc(), ledger.CreditTransaction.id.asc())
+        .all()
+    )
+    out: Dict[tuple, Dict[str, Any]] = {}
+    spend_key: Dict[str, tuple] = {}
+    for tx in rows:
+        meta = tx.metadata_json or {}
+        step = meta.get("step_name")
+        if tx.reason == "spend":
+            if not step:
+                continue
+            key = (tx.creation_id, step)
+            out[key] = {"charged": abs(tx.delta), "refunded": 0, "at": tx.created_at, "tx": tx.id}
+            spend_key[tx.id] = key
+            continue
+        # A refund names the spend it gives back (refunded_tx); older ones
+        # only their step, and follow the charge they refund.
+        key = spend_key.get(meta.get("refunded_tx") or "") or ((tx.creation_id, step) if step else None)
+        if key in out and (not meta.get("refunded_tx") or out[key]["tx"] == meta.get("refunded_tx")):
+            out[key]["refunded"] += abs(tx.delta)
+    return out
+
+
 def refund_creation_charges(db: Session, creation_id: str, note: str, user_id: str) -> int:
     """
     Give back EVERY step charge `user_id` paid for a hero and was not refunded

@@ -24,7 +24,8 @@ from app.services.account_kinds import is_test_account
 from app.schemas.creation import CreationResponse
 from app.services.auth import get_current_user
 from app.services.task_manager import get_task_manager
-from app.services.users import count_users, list_users_with_stats, update_user
+from app.services.credits import step_billing
+from app.services.users import count_users, hero_stats, list_users_with_stats, update_user
 from app.api import finance, money
 
 logger = logging.getLogger(__name__)
@@ -228,8 +229,8 @@ def _moderation_error(e: moderation.ModerationError) -> HTTPException:
     return HTTPException(status_code=e.status, detail=e.message)
 
 
-def _hero_view(creation, removal, class_title) -> dict:
-    view = CreationResponse.from_creation(creation, admin=True).model_dump()  # admin-only: raw step errors too
+def _hero_view(creation, removal, class_title, billing=None) -> dict:
+    view = CreationResponse.from_creation(creation, admin=True, billing=billing).model_dump()  # admin-only: raw step errors too
     view["removed"] = None if removal is None else {
         "at": creation.deleted_at,
         "reason": removal.reason,
@@ -271,6 +272,8 @@ def admin_user_detail(
         raise HTTPException(status_code=404, detail="User not found")
 
     heroes = moderation.user_heroes(db, user)
+    # What each failed step cost and gave back, from the ledger: one query.
+    billing = step_billing(db, [c.id for c, _, _ in heroes])
     removed = sum(1 for _, r, _ in heroes if r is not None)
     school = None
     if user.school_name:
@@ -293,8 +296,13 @@ def admin_user_detail(
             "school": school,
             "classes": db.query(ClassRoom).filter(ClassRoom.owner_id == user.id).count(),
         },
-        "counts": {"heroes": len(heroes) - removed, "removed": removed},
-        "heroes": [_hero_view(c, r, t) for c, r, t in heroes],
+        # The same numbers as their card on the users list (hero_stats).
+        "counts": {
+            **hero_stats([c for c, r, _ in heroes if r is None]),
+            "heroes": len(heroes) - removed,
+            "removed": removed,
+        },
+        "heroes": [_hero_view(c, r, t, billing) for c, r, t in heroes],
         "audit": [moderation.action_view(a) for a in moderation.audit_for_user(db, user.id)],
     }
 

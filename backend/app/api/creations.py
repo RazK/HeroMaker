@@ -18,6 +18,7 @@ from app.services.auth import (
     get_current_user_required, get_current_user_optional, security as bearer, verify_access_token,
 )
 from app.services import step_errors
+from app.services.credits import step_billing
 from app.services import classes as classes_service
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
 from app.services.pipeline import (
@@ -56,16 +57,21 @@ def _is_admin(user: Optional[User]) -> bool:
     return bool(user is not None and user.is_admin)
 
 
-def _admin_or_none(
+def _viewer_or_none(
         credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
         db: Session = Depends(get_db),
 ) -> Optional[User]:
-    """The caller, if they are an admin; None for anyone else. Never raises:
-    a hero's page is public, and a stale token must not turn it into a 401."""
+    """The signed-in caller, or None. Never raises: a hero's page is public,
+    and a stale token must not turn it into a 401."""
     user_id = verify_access_token(credentials.credentials) if credentials else None
     if not user_id:
         return None
-    return db.query(User).filter(User.id == user_id, User.is_admin.is_(True), User.deleted_at.is_(None)).first()
+    return db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
+
+
+def _admin_or_none(viewer: Optional[User] = Depends(_viewer_or_none)) -> Optional[User]:
+    """The caller, if they are an admin; None for anyone else. Never raises."""
+    return viewer if _is_admin(viewer) else None
 
 
 def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
@@ -127,8 +133,9 @@ def get_step_status(
 def get_creation(
         creation_id: str,
         db: Session = Depends(get_db),
-        admin: Optional[User] = Depends(_admin_or_none),
+        viewer: Optional[User] = Depends(_viewer_or_none),
 ):
+    admin = viewer if _is_admin(viewer) else None
     creation = _live_creation(db, creation_id)
     if not creation and admin is not None:
         # An admin opening a hero they removed, from the user's page.
@@ -139,7 +146,11 @@ def get_creation(
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
 
-    return CreationResponse.from_creation(creation, admin=admin is not None)
+    # An admin reads what a failed step cost and gave back, from the ledger.
+    billing = step_billing(db, [creation.id]) if admin is not None else None
+    return CreationResponse.from_creation(
+        creation, admin=admin is not None, viewer_id=viewer.id if viewer else None, billing=billing,
+    )
 
 
 @router.patch("/{creation_id}", response_model=CreationResponse)
@@ -169,7 +180,7 @@ def update_creation(
     db.commit()
     db.refresh(creation)
 
-    return CreationResponse.from_creation(creation, admin=_is_admin(user))
+    return CreationResponse.from_creation(creation, admin=_is_admin(user), viewer_id=user.id)
 
 
 @router.get("/", response_model=List[CreationResponse])
@@ -212,8 +223,12 @@ def list_creations(
     # a progress screen with nothing running.
     creations = [c for c in creations if not c.never_started]
 
+    # Public: each hero's owner is named only as the gallery shows them (the
+    # drawing's artist); the login name goes to the owner and admins only.
     admin = _is_admin(user)
-    return [CreationResponse.from_creation(c, admin=admin) for c in creations]
+    viewer_id = user.id if user else None
+    billing = step_billing(db, [c.id for c in creations if c.status == "failed"]) if admin else None
+    return [CreationResponse.from_creation(c, admin=admin, viewer_id=viewer_id, billing=billing) for c in creations]
 
 
 @router.put("/{creation_id}/featured", response_model=CreationResponse)
@@ -302,7 +317,7 @@ async def create_creation(
         db, user.id, contents, character_name=character_name, name=user.name, style=style,
     )
     # Return creation response (no pipeline run - frontend will call /run separately)
-    return CreationResponse.from_creation(new_creation, admin=_is_admin(user))
+    return CreationResponse.from_creation(new_creation, admin=_is_admin(user), viewer_id=user.id)
 
 
 # What a drawing may be: the photo formats phones and browsers hand over.

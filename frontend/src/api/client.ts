@@ -33,6 +33,10 @@ export interface CreationStepResponse {
   error_user?: string | null;
   /** The step's charge really was given back. */
   credits_refunded?: boolean;
+  /** How many credits came back, when the refund recorded it. */
+  refunded_credits?: number | null;
+  /** Admins only, from the ledger: what the failed attempt was charged (0: never charged). */
+  charged_credits?: number | null;
   /** Admins only: the raw provider error, and its request ID if it had one. */
   error_detail?: string | null;
   error_request_id?: string | null;
@@ -49,8 +53,12 @@ export interface CreationResponse {
   name: string | null;
   age: number | null;
   status: 'pending' | 'processing' | 'completed' | 'failed';
+  /** The owner's id: the path of the hero's files. */
   user_id: string;
-  username: string | null; // Deprecated, use name instead
+  /** The owner's login name: only for the owner and admins (null for everyone else). */
+  username: string | null;
+  /** Admins only: the owner's display name. */
+  owner_name?: string | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -340,6 +348,15 @@ export const api = {
   /**
    * Update creation character name
    */
+  /** Rename a hero and say who drew it, in one save. */
+  async updateHero(creationId: string, fields: { character_name?: string; name?: string; age?: number | null }): Promise<CreationResponse> {
+    return fetchJson<CreationResponse>(`${API_BASE_URL}/api/creations/${creationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields),
+    });
+  },
+
   async updateCharacterName(creationId: string, characterName: string): Promise<CreationResponse> {
     console.log('[API] updateCharacterName:', { creationId, characterName });
     const result = await fetchJson<CreationResponse>(
@@ -996,9 +1013,13 @@ export interface CreditPack {
   highlight: boolean;
 }
 
+/** A user's heroes, counted the same way on the users list and their page. */
 export interface CreationStats {
+  /** Every live hero; the rest split it. */
+  total: number;
   completed: number;
   failed: number;
+  /** A step running or done, not finished. */
   in_progress: number;
 }
 
@@ -1073,7 +1094,7 @@ export interface AdminUserDetail {
     school: { name: string; city: string | null; country: string | null; type: string | null } | null;
     classes: number;
   };
-  counts: { heroes: number; removed: number };
+  counts: CreationStats & { heroes: number; removed: number };
   heroes: AdminHero[];
   audit: AdminAction[];
 }
