@@ -34,20 +34,34 @@
 .tb-ring::before { content: ''; position: absolute; inset: 10px; border-radius: 50%; background: var(--tb-white); }
 .tb-ring span { position: relative; font-family: var(--tb-font-display); font-weight: 700; font-size: 20px; color: var(--tb-grape); }
 
-/* The intro's stepper, small, on its own white ground over the top of the stage. */
+/* The steps strip, on its own white ground over the top of the stage: each
+   step is its icon with its name under it (the brand book: icon alone only
+   for back, close, more, play), and the whole column is the 44px tap. */
 .tb-live-steps {
   position: absolute;
   z-index: 2;
   inset-block-start: 12px;
   inset-inline: 0;
   margin-inline: auto;
-  width: min(232px, calc(100% - 24px));
-  padding: 0 12px;
-  border-radius: 999px;
+  width: min(320px, calc(100% - 24px));
+  padding: 6px 8px;
+  border-radius: 20px;
   background: var(--tb-white);
   box-shadow: var(--tb-shadow-card);
 }
-.tb-live-steps .tb-stepper { height: 44px; gap: 4px; }
+.tb-live-steps .tb-stepper { height: auto; gap: 0; align-items: flex-start; }
+.tb-live-steps .tb-step-line { min-width: 8px; margin-block-start: 15px; }
+.tb-live-step {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 56px; min-height: 52px; padding: 0;
+  border: 0; background: none; color: var(--tb-ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-live-step:focus-visible { outline: none; border-radius: 12px; box-shadow: 0 0 0 4px rgba(91, 61, 245, .25); }
+.tb-live-step-slot { height: 34px; display: grid; place-items: center; }
+.tb-live-step-label { font-size: 12px; line-height: 16px; font-weight: 800; color: var(--tb-ink); }
+.tb-live-step--now .tb-live-step-label { color: var(--tb-grape-text); }
+.tb-live-step--next .tb-live-step-label { opacity: .6; }
 .tb-live-steps .tb-step-dot { width: 28px; height: 28px; }
 .tb-live-steps .tb-step-dot svg { width: 16px; height: 16px; }
 .tb-live-steps .tb-step-dot--now { width: 34px; height: 34px; box-shadow: 0 0 0 4px var(--tb-track); }

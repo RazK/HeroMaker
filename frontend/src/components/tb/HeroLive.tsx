@@ -23,6 +23,8 @@ export const MOVES: Array<{ id: string; label: string; icon: IconName }> = [
 type Phase = 'drawing' | 'painting' | 'sculpt' | 'alive' | 'live';
 const PHASE_ICON: Record<Exclude<Phase, 'live'>, IconName> = { drawing: 'pencil', painting: 'brush', sculpt: 'cube', alive: 'run' };
 const PHASE_LABEL: Record<Exclude<Phase, 'live'>, string> = { drawing: 'The drawing', painting: 'Painted', sculpt: 'Sculpted in 3D', alive: 'Brought to life' };
+/** Each step's name under its icon in the strip (an icon alone did not read as a step). */
+const PHASE_SHORT: Record<Exclude<Phase, 'live'>, string> = { drawing: 'Drawing', painting: 'Painting', sculpt: 'Sculpt', alive: 'Alive' };
 /**
  * The intro is a quick slideshow of the process (Raz: "don't pause for more
  * than about 1 second on each phase"): each phase is on screen PHASE_MS, its
@@ -37,11 +39,11 @@ const PHASE_MS = 900;
 const PHASE_MIN_MS = 500;
 const PICTURE_WAIT_MS = 400;
 const PICTURE_MIN_MS = 500;
-/** The intro's stepper: 12px from the top of the stage, 44px tall, 4px clear.
+/** The intro's stepper: 12px from the top of the stage, 64px tall, 4px clear.
  *  The hero keeps this margin at the top and the bottom, so it shrinks in place
  *  on the sun rather than moving down (measured: 10px or more under the strip
  *  on tall and T-posed heroes, at 360x640). */
-const INTRO_INSET = 60;
+const INTRO_INSET = 80;
 
 // The intro plays the first time a hero is opened on this device. Storage can
 // throw (private windows, blocked site data); then it simply plays every time.
@@ -391,12 +393,16 @@ function StepStrip({ phases, current, browsing, onPick }: { phases: Phase[]; cur
             <div key={p} style={{ display: 'contents' }}>
               <button
                 type="button"
-                className={`tb-step-dot tb-step-dot--${state}`}
-                aria-label={PHASE_LABEL[key]}
+                className={`tb-live-step tb-live-step--${state}`}
                 aria-current={i === at ? 'step' : undefined}
                 onClick={(e) => { e.stopPropagation(); onPick(p); }}
               >
-                <Icon name={!browsing && state === 'done' ? 'check' : PHASE_ICON[key]} size={state === 'now' ? 24 : 18} />
+                <span className="tb-live-step-slot">
+                  <span className={`tb-step-dot tb-step-dot--${state}`}>
+                    <Icon name={!browsing && state === 'done' ? 'check' : PHASE_ICON[key]} size={state === 'now' ? 24 : 18} />
+                  </span>
+                </span>
+                <span className="tb-live-step-label">{PHASE_SHORT[key]}</span>
               </button>
               {i < phases.length - 1 && <div className={`tb-step-line${browsing || i < at ? ' tb-step-line--done' : ''}`} />}
             </div>
