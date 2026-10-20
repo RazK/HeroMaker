@@ -833,6 +833,12 @@ export const api = {
       return r.providers;
     },
 
+    lemonSqueezyCheck(refresh = false): Promise<LemonSqueezyCheck> {
+      return fetchJson<LemonSqueezyCheck>(
+        `${API_BASE_URL}/api/admin/money/lemonsqueezy${refresh ? '?refresh=true' : ''}`
+      );
+    },
+
     createRecurring(data: { name: string; amount_usd: number; started_on?: string }): Promise<RecurringExpense> {
       return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/admin/money/recurring`, {
         method: 'POST',
@@ -912,6 +918,31 @@ export interface ProviderBalance {
   projected_usage_usd_micros?: number | null;
   credit_balance_usd_micros?: number | null;
   period_end?: string | null;
+}
+
+/** Lemon Squeezy's last 30 days of orders beside our payment rows. */
+export interface LemonSqueezyCheck {
+  status: 'ok' | 'not_configured' | 'error';
+  mode: 'test' | 'live';
+  hint: string | null;
+  checked_at: string;
+  cached?: boolean;
+  // status "ok" only
+  window_days?: number;
+  since?: string;
+  store?: {
+    name: string | null;
+    currency: string | null;
+    total_sales: number;
+    total_revenue_usd_micros: number;
+    thirty_day_sales: number;
+    thirty_day_revenue_usd_micros: number;
+  };
+  orders?: { count: number; gross_usd_micros: number; truncated: boolean; max_orders: number };
+  ours?: { count: number; gross_usd_micros: number };
+  missing?: { order_id: string; order_number: number | null; status: string; total_usd_micros: number; created_at: string | null }[];
+  unknown_payments?: { order_id: string; order_number: number | null; gross_usd_micros: number; created_at: string | null }[];
+  matches?: boolean;
 }
 
 // Admin types

@@ -24,6 +24,7 @@ from app.services.task_manager import get_task_manager
 MONEY_ROUTES = [
     ("get", "/api/admin/money/summary"),
     ("get", "/api/admin/money/providers"),
+    ("get", "/api/admin/money/lemonsqueezy"),
     ("get", "/api/admin/money/recurring"),
     ("post", "/api/admin/money/recurring"),
     ("patch", "/api/admin/money/recurring/x"),

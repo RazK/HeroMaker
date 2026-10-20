@@ -5,13 +5,14 @@ Mounted under /api/admin/money by app/api/admin.py. Admin-only, every route.
 
     GET    /summary?period=month|30d|all   income, costs, net, credits held
     GET    /providers[?refresh=1]          live Meshy / OpenAI / Railway figures
+    GET    /lemonsqueezy[?refresh=1]       Lemon Squeezy's orders vs our payments
     GET    /recurring                      the monthly bills
     POST   /recurring                      add one
     PATCH  /recurring/{id}                 change one
     DELETE /recurring/{id}                 remove one
 
 What each number is computed from: app/services/company_finance.py and
-app/services/provider_balances.py.
+app/services/provider_balances.py and app/services/lemonsqueezy_check.py.
 """
 from datetime import date
 from typing import Optional
@@ -24,7 +25,7 @@ from app.api.finance import require_admin
 from app.config import pricing
 from app.database import get_db
 from app.models import RecurringExpense, User
-from app.services import company_finance, provider_balances
+from app.services import company_finance, lemonsqueezy_check, provider_balances
 
 router = APIRouter()
 
@@ -47,6 +48,16 @@ def provider_status(
     admin: User = Depends(require_admin),
 ):
     return {"providers": provider_balances.get_all(refresh=refresh)}
+
+
+@router.get("/lemonsqueezy")
+def lemonsqueezy_cross_check(
+    refresh: bool = Query(False, description="Ask Lemon Squeezy now, ignoring the cache"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Lemon Squeezy's last 30 days of orders beside our payment rows: a missed webhook shows here."""
+    return lemonsqueezy_check.get_check(db, refresh=refresh)
 
 
 class RecurringIn(BaseModel):
