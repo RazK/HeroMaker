@@ -16,10 +16,10 @@
 .tb-layer--on { opacity: 1; }
 .tb-live-canvas canvas { display: block; width: 100%; height: 100%; }
 .tb-live-stage .tb-polaroid { z-index: 2; }
-/* The sun never moves. During the intro the hero shrinks in place, centred on
+/* The sun never moves. During the intro (and browsing) the hero shrinks in place, centred on
    it, with the same margin top and bottom so it stays clear of the stepper
    (the 3D does the same: HeroStage.setInsetTop). */
-.tb-live-stage--intro .tb-stage-img { top: 76px; bottom: 76px; height: calc(100% - 152px); }
+.tb-live-stage--steps .tb-stage-img { top: 76px; bottom: 76px; height: calc(100% - 152px); }
 
 /* The painting, dimmed, under a ring that fills as the 3D file arrives. */
 .tb-live-loading { position: absolute; inset: 0; display: grid; place-items: center; }
@@ -137,27 +137,74 @@
   .tb-layer, .tb-live-canvas { transition: none; }
 }
 
-/* The drawing in the intro sits in the same polaroid frame as on the gallery
-   tiles: a white frame hugging the picture (never cropped), soft shadow,
-   slight tilt, over the plate and the sun. */
+/* The drawing, big, in the intro and while browsing: a polaroid of its own,
+   a white frame hugging the picture (never cropped) with the artist's name
+   and age, a slight tilt, over the plate and the sun. Its box is the
+   container the picture fits (cq units); browsing sets the box clear of the
+   hero's card in the corner (HeroLive fitClear). */
 .tb-live-drawing {
   position: absolute;
   inset: 72px 24px;
+  container-type: size;
+}
+.tb-live-zoom {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  transform-origin: center;
 }
-.tb-live-drawing-img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  box-sizing: border-box;
-  padding: 8px;
-  object-fit: contain;
+.tb-live-zoom--settle { transition: transform 200ms ease-out; }
+.tb-live-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 8px 0;
   background: var(--tb-white);
   border-radius: 14px;
   box-shadow: 0 10px 24px rgba(35, 25, 66, 0.2);
-  transform: rotate(-3deg);
+  transform: rotate(-2deg); /* BIG_TILT */
+}
+.tb-live-card-img {
+  display: block;
+  max-width: calc(100cqw - 16px);
+  max-height: calc(100cqh - 44px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #faf7f2;
+  -webkit-user-drag: none;
+}
+.tb-live-card-caption {
+  height: 36px;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--tb-font-display);
+  font-synthesis: none;
+  font-size: 18px;
+  color: var(--tb-ink-2);
+}
+.tb-live-stage .tb-stage-img { -webkit-user-drag: none; }
+
+/* The steps strip is the one way through how it was made: each dot shows
+   its step. The hit area is 44px, more than the dot. */
+.tb-live-steps .tb-step-dot { position: relative; padding: 0; border: 0; cursor: pointer; font: inherit; }
+.tb-live-steps .tb-step-dot::before { content: ''; position: absolute; inset: -8px; }
+.tb-live-steps .tb-step-dot:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
+
+/* The swap: the hero's card (and, on the way back, the drawing's) shrinks
+   into its corner; the drawing grows out of it (HeroLive SWAP_MS). */
+.tb-live-pop { animation: tb-live-pop 250ms cubic-bezier(.2, .8, .2, 1); transform-origin: bottom left; }
+@keyframes tb-live-pop { from { transform: scale(2.2) rotate(-6deg); opacity: 0; } }
+.tb-live-mini .tb-polaroid-caption { font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-live-pop { animation: none; }
+  .tb-live-zoom--settle { transition: none; }
 }

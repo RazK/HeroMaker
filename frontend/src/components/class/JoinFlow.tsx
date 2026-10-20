@@ -377,7 +377,7 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
         <div ref={stageRef} className="tb-stage tb-hero-stage">
           <img className={`tb-stage-img${failed ? ' tb-hero-faded' : ''}`} src={art} alt={title} />
           {!failed && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
-          {painted && <Polaroid src={file('thumb_original.jpg')} drawing={file('original.jpg')} hero={file('rendered.png')} artist={creation.name} age={creation.age} />}
+          {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
         </div>
         <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name}>
           <Stepper steps={stepViews(creation)} />

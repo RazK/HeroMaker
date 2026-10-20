@@ -1,5 +1,4 @@
 import { ReactNode, RefObject, useEffect, useRef, useState } from 'react';
-import { DrawingViewer } from './DrawingViewer';
 import { Icon, IconName } from './Icon';
 import '../../styles/toybox.css';
 
@@ -145,24 +144,32 @@ export function useFitScreen() {
  * The kid's drawing as a small tilted polaroid in the stage's corner, with the
  * artist's first name and age under it. The caption is one line that never
  * leaves the card: a long first name ellipsizes, the age always shows, and
- * the full name is the tooltip.
+ * the full name is the tooltip. `title` captions it with a whole name instead
+ * (the hero's own card, while the stage shows how it was made).
  *
- * Given the full-size `drawing` (original.jpg), it is a button with an enlarge
- * mark: one tap opens the drawing full screen (DrawingViewer), with a toggle
- * to the painted `hero` (rendered.png) when there is one. `src` stays the
- * thumbnail the small card shows.
+ * With `onOpen` it is a button with an enlarge mark in its corner: on the
+ * ready hero's stage, a tap swaps it into the stage (HeroLive).
  *
  * The photo takes the drawing's shape, so there is no empty white beside a
- * tall drawing (Raz): the area of today's 84 x 84 square, at most 96 on the
- * long side and at least 56 on the short one (only a very long or very wide
- * drawing leaves a sliver of margin; nothing is ever cropped). The picture
- * remounts once sized, so its load event (useClearOfPolaroid listens for it)
- * comes with the card at its final size.
+ * tall drawing (Raz): the area of an 84 x 84 square, at most 96 on the long
+ * side and at least 56 on the short one (only a very long or very wide
+ * drawing leaves a sliver of margin; nothing is ever cropped); `shape` fixes
+ * it instead. The picture remounts once sized, so its load event
+ * (useClearOfPolaroid listens for it) comes with the card at its final size.
  */
-export function Polaroid({ src, artist, age, drawing, hero }: { src: string; artist?: string | null; age?: number | null; drawing?: string; hero?: string | null }) {
-  const [open, setOpen] = useState(false);
-  const [shape, setShape] = useState<{ w: number; h: number } | null>(null);
-  useEffect(() => setShape(null), [src]);
+export function Polaroid({ src, artist, age, title, shape: fixed, onOpen, label, className = '' }: {
+  src: string;
+  artist?: string | null;
+  age?: number | null;
+  title?: string;
+  shape?: { w: number; h: number };
+  onOpen?: (photo: HTMLElement) => void;
+  label?: string;
+  className?: string;
+}) {
+  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => setMeasured(null), [src]);
+  const shape = fixed ?? measured;
   const measure = (img: HTMLImageElement) => {
     const ar = img.naturalWidth / img.naturalHeight;
     if (shape || !(ar > 0)) return;
@@ -171,36 +178,33 @@ export function Polaroid({ src, artist, age, drawing, hero }: { src: string; art
     let h = w / ar;
     if (w > LONG) { w = LONG; h = LONG / ar; }
     if (h > LONG) { h = LONG; w = LONG * ar; }
-    setShape({ w: Math.round(Math.max(SHORT, w)), h: Math.round(Math.max(SHORT, h)) });
+    setMeasured({ w: Math.round(Math.max(SHORT, w)), h: Math.round(Math.max(SHORT, h)) });
   };
   const size = shape ? { ['--tb-pol-w' as string]: `${shape.w}px`, ['--tb-pol-h' as string]: `${shape.h}px` } : undefined;
   const full = artist?.trim() || '';
   const first = full.split(/\s+/)[0];
   const body = (
     <>
-      <img key={shape ? 'sized' : 'square'} src={src} alt="The drawing" onLoad={(e) => measure(e.currentTarget)} />
-      <span className="tb-polaroid-caption" dir="auto" title={full || undefined}>
-        <span className="tb-polaroid-name">{first || 'The drawing'}</span>
-        {first && age ? <span className="tb-polaroid-age">, {age}</span> : null}
+      <img key={shape ? 'sized' : 'square'} src={src} alt={title ?? 'The drawing'} onLoad={(e) => measure(e.currentTarget)} />
+      <span className="tb-polaroid-caption" dir="auto" title={title ?? (full || undefined)}>
+        <span className="tb-polaroid-name">{title ?? (first || 'The drawing')}</span>
+        {!title && first && age ? <span className="tb-polaroid-age">, {age}</span> : null}
       </span>
     </>
   );
-  if (!drawing) return <div className="tb-polaroid" style={size}>{body}</div>;
+  const cls = `tb-polaroid ${className}`.trim();
+  if (!onOpen) return <div className={cls} style={size}>{body}</div>;
   return (
-    <>
-      <button
-        type="button"
-        style={size}
-        className="tb-polaroid tb-polaroid--button"
-        aria-label={first ? `See ${first}’s drawing` : 'See the drawing'}
-        aria-haspopup="dialog"
-        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-      >
-        {body}
-        <span className="tb-polaroid-zoom" aria-hidden="true"><Icon name="expand" size={14} /></span>
-      </button>
-      {open && <DrawingViewer drawing={drawing} hero={hero} artist={full} age={age} onClose={() => setOpen(false)} />}
-    </>
+    <button
+      type="button"
+      style={size}
+      className={`${cls} tb-polaroid--button`}
+      aria-label={label ?? (first ? `${first}’s drawing` : 'The drawing')}
+      onClick={(e) => { e.stopPropagation(); onOpen(e.currentTarget.querySelector('img') ?? e.currentTarget); }}
+    >
+      {body}
+      <span className="tb-polaroid-zoom" aria-hidden="true"><Icon name="expand" size={14} /></span>
+    </button>
   );
 }
 

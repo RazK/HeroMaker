@@ -530,6 +530,25 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 }
 .tb-polaroid-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tb-polaroid-age { flex-shrink: 0; }
+.tb-polaroid--button { cursor: pointer; border: 0; font: inherit; color: inherit; text-align: inherit; display: block; }
+.tb-polaroid--button:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 8px 20px rgba(35, 25, 66, 0.18); }
+.tb-polaroid--button:active { transform: rotate(-6deg) scale(0.96); transition: transform 80ms ease; }
+/* A polaroid that opens (Polaroid's onOpen). The enlarge mark, a badge on the card's top corner (outside its box, so it
+   neither covers the drawing nor changes what useClearOfPolaroid measures). */
+.tb-polaroid-zoom {
+  position: absolute;
+  inset-block-start: -8px;
+  inset-inline-end: -8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--tb-white);
+  color: var(--tb-ink);
+  box-shadow: 0 0 0 2px var(--tb-ink);
+  pointer-events: none;
+}
 
 /* ---------- Stepper ---------- */
 
