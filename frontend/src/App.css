@@ -11,6 +11,7 @@
 
 .tb-intro { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
 .tb-intro-title { font-size: 40px; line-height: 42px; letter-spacing: -0.5px; }
+.tb-intro-classes { align-self: flex-start; margin-block: 4px var(--tb-depth-sm); }
 
 .tb-footer { padding: 24px 0 0; text-align: center; font-size: 13px; color: var(--tb-ink-2); display: flex; flex-direction: column; gap: 4px; }
 /* The deployed version, so a refresh can confirm the latest build. Wraps whole. */

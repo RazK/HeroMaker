@@ -1,7 +1,8 @@
-.tb-gallery { display: flex; flex-direction: column; gap: var(--tb-space); }
-/* The tabs. Three fit a 360px phone; with more (an admin who teaches has
-   five) the row runs to the screen's edges and scrolls, so the next chip
-   peeks in from the side margin, like the hero's moves. */
+.tb-gallery { display: flex; flex-direction: column; gap: var(--tb-space); flex-grow: 1; }
+/* The tabs. Two or three fit a 360px phone; with more (an admin has four)
+   the row runs to the screen's edges and scrolls, so the next chip peeks in
+   from the side margin, like the hero's moves. My classes is not a chip: it
+   is a place of its own, on the switch above (Segmented.tsx). */
 .tb-gallery-chips {
   display: flex;
   gap: 8px;
@@ -16,8 +17,8 @@
   overscroll-behavior-x: contain;
 }
 .tb-gallery-chips::-webkit-scrollbar { display: none; }
-/* A little tighter than a chip elsewhere, so Editors' choice, My heroes and
-   My classes fit whole on a 360px phone without shrinking the text. */
+/* A little tighter than a chip elsewhere, so more chips fit whole on a
+   360px phone without shrinking the text. */
 .tb-gallery-chips .tb-chip { padding: 0 12px; }
 @media (max-width: 380px) {
   .tb-gallery-chips { gap: 6px; }
@@ -69,3 +70,10 @@
   .tb-tile-wrap, .tb-tile-star-dot { transition: none; }
 }
 
+
+/* An empty place (My heroes with none yet): one picture, one title, one line.
+   The same as My classes' empty state (class.css .cls-empty). */
+.tb-empty { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 24px 0; }
+.tb-empty-art { width: 160px; height: 160px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--tb-grape); margin-bottom: 8px; }
+.tb-empty-art svg { width: 76px; height: 76px; }
+@media (max-height: 700px) { .tb-empty-art { width: 120px; height: 120px; } .tb-empty-art svg { width: 56px; height: 56px; } }
