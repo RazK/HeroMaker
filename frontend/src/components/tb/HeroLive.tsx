@@ -160,6 +160,8 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     if (!mod || !host.current) return;
     const s = new mod.HeroStage(host.current, { onPlaying: setPlaying });
     stage.current = s;
+    // The pager dots sit over the top of the stage: keep the hero clear of them.
+    s.setInsetTop(DOTS_CLEAR);
     let alive = true;
     s.movesReady(vrm).then(() => { if (alive) setMovesReady(true); }, () => {});
     s.showHero(vrm).then(() => { if (alive) setShown(true); }, () => { if (alive) setFailed3d(true); });
@@ -196,9 +198,10 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   };
   const comingLabel = (key: SlideKey) => (key === 'painting' ? 'Painting' : making?.step === 'meshy_3d' ? 'Sculpting in 3D' : 'Bringing to life');
 
-  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} className="tb-slide-pic--drawing" />;
-  const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} />;
   const artist = creation.name?.trim().split(/\s+/)[0] || '';
+  const credit = artist ? `${artist}${creation.age ? `, ${creation.age}` : ''}` : undefined;
+  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} caption={credit} className="tb-slide-pic--drawing" />;
+  const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} />;
 
   const view = (s: Slide): { label: string; node: ReactNode } => {
     if (s.key === 'drawing') {
@@ -207,7 +210,6 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
         node: (
           <>
             <Opener label="Show the drawing full screen" onOpen={() => setFull('drawing')}>{drawingPic}</Opener>
-            {artist && <span className="tb-slide-credit" dir="auto">{artist}{creation.age ? `, ${creation.age}` : ''}</span>}
           </>
         ),
       };
@@ -578,7 +580,13 @@ function Loading({ progress, children }: { progress: number; children: ReactNode
  * Once its shape is known it is sized to it (so a thumbnail is drawn as big as
  * the full picture, and the drawing's rounded corners are its own).
  */
-function SlidePicture({ thumb, full, framed = false, className = '' }: { thumb: string; full: string; framed?: boolean; className?: string }) {
+/** The top of the stage the pager dots take: 16px off the top, 16px tall, 8px clear. */
+const DOTS_CLEAR = 40;
+
+/** The caption strip under a drawing (HeroLive.css .tb-slide-card-caption). */
+const CAPTION_H = 40;
+
+function SlidePicture({ thumb, full, framed = false, caption, className = '' }: { thumb: string; full: string; framed?: boolean; caption?: string; className?: string }) {
   const [src, setSrc] = useState(thumb);
   const [ar, setAr] = useState(0);
   useEffect(() => {
@@ -592,12 +600,22 @@ function SlidePicture({ thumb, full, framed = false, className = '' }: { thumb: 
     if (r > 0 && Math.abs(r - ar) > 0.005) setAr(r);
   };
   const pad = framed ? 8 : 0;
+  const capH = caption ? CAPTION_H : 0;
   const style: CSSProperties | undefined = ar
-    ? { width: `min(calc(100cqw - ${2 * pad}px), calc((100cqh - ${2 * pad}px) * ${ar}))`, aspectRatio: `${ar}` }
+    ? { width: `min(calc(100cqw - ${2 * pad}px), calc((100cqh - ${2 * pad + capH}px) * ${ar}))`, aspectRatio: `${ar}` }
     : undefined;
+  const img = <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''} ${caption ? '' : className}`.trim()} src={src} alt="" style={style} draggable={false} onLoad={shown} />;
   return (
     <div className={`tb-slide-fit${framed ? ' tb-slide-fit--framed' : ''}`}>
-      <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''} ${className}`.trim()} src={src} alt="" style={style} draggable={false} onLoad={shown} />
+      {/* A drawing with its artist: one card, the name on a strip under the
+          picture (the gallery tile's card, the polaroid's caption), so the
+          name is part of the drawing, not a line of its own. */}
+      {caption ? (
+        <div className={`tb-slide-card ${className}`.trim()} style={ar ? undefined : { width: '100%', height: '100%' }}>
+          {img}
+          <span className="tb-slide-card-caption" dir="auto">{caption}</span>
+        </div>
+      ) : img}
     </div>
   );
 }

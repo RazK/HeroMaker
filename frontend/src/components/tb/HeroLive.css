@@ -17,13 +17,15 @@
 }
 .tb-carousel--dragging { cursor: grabbing; }
 
-/* The pager: three quiet dots over the foot of the stage, the only chrome,
-   so people know it swipes. Each dot's hit area is bigger than the dot. */
+/* The pager: three quiet dots over the top of the stage, the only chrome,
+   so people know it swipes; the foot stays the picture's (Raz: the name and
+   the dots stacked at the foot were "too dense"). Each dot's hit area is
+   bigger than the dot. */
 .tb-carousel-dots {
   position: absolute;
   z-index: 2;
   inset-inline: 0;
-  inset-block-end: 8px;
+  inset-block-start: 16px;
   display: flex;
   justify-content: center;
   gap: 4px;
@@ -55,11 +57,13 @@
 .tb-carousel-dot:focus-visible { outline: none; }
 .tb-carousel-dot:focus-visible::after { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
 
-/* A slide's picture fills the slide, contained, never cropped: 12px clear
-   of the edges, and of the dots under it (the band at the foot). */
+/* A slide's picture fills the slide, contained, never cropped: 16px
+   (tb-space) clear of the stage's edges, and 8px clear of the dots over it
+   (16px off the top, 16px tall). Raz: "too small, too close to the edge ...
+   alignment and spacing and font sizes". */
 .tb-slide-fit {
   position: absolute;
-  inset: 12px 12px 28px;
+  inset: 40px 16px 16px;
   container-type: size;
   display: flex;
   align-items: center;
@@ -72,7 +76,25 @@
 .tb-slide-pic--drawing { border-radius: 12px; background: #faf7f2; box-shadow: 0 6px 18px rgba(35, 25, 66, 0.16); }
 /* A painting with no confident cut-out: on its white card (toybox.css
    .tb-stage-img--framed), the card clear of the stage's edges when tilted. */
-.tb-slide-fit--framed { inset: 22px 22px 34px; }
+.tb-slide-fit--framed { inset: 46px 22px 22px; }
+/* A drawing and its artist's name: one card, the name on a white strip
+   (CAPTION_H, 40px) under the picture. */
+.tb-slide-card { display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; background: var(--tb-white); box-shadow: 0 6px 18px rgba(35, 25, 66, 0.16); }
+.tb-slide-card .tb-slide-pic { border-radius: 0; box-shadow: none; flex-shrink: 0; }
+.tb-slide-card-caption {
+  height: 40px;
+  padding-inline: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--tb-font-display);
+  font-synthesis: none;
+  font-size: 18px;
+  color: var(--tb-ink-2);
+}
 .tb-slide-pic--framed { box-sizing: content-box; padding: 8px; background: var(--tb-white); border-radius: 16px; box-shadow: 0 8px 20px rgba(35, 25, 66, 0.18); transform: rotate(-4deg); }
 
 /* A picture that opens full screen: the whole slide is the tap. */
@@ -88,22 +110,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 .tb-slide-open:focus-visible { outline: none; box-shadow: inset 0 0 0 4px rgba(91, 61, 245, 0.25); border-radius: var(--tb-radius-card); }
-/* Who drew it: one small line in the band at the foot, beside the dots. */
-.tb-slide-credit {
-  position: absolute;
-  inset-block-end: 6px;
-  inset-inline-start: 16px;
-  max-width: calc(50% - 44px);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-family: var(--tb-font-display);
-  font-synthesis: none;
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--tb-ink-2);
-  pointer-events: none;
-}
 
 /* A part being made: what it is made from, dimmed, under a ring and its name. */
 .tb-slide-coming { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
