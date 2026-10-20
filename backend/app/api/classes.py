@@ -231,10 +231,26 @@ def end_class(class_id: str, db: Session = Depends(get_db), user: User = Depends
     return classes.class_view(db, classroom, with_roster=True)
 
 
+@teacher_router.post("/{class_id}/students/{guest_id}/retry")
+async def retry_student_hero(class_id: str, guest_id: str, db: Session = Depends(get_db),
+                             user: User = Depends(get_current_user_required),
+                             task_manager=Depends(get_task_manager)):
+    """The teacher tries a student's failed hero again, from the class's seats:
+    the same run as the student's own Try again, at any time (the class need
+    not be live). `async`, like every endpoint that starts a run."""
+    with _refusals():
+        classroom = classes.owned_class(db, user, class_id)
+        guest = classes.class_guest(db, classroom, guest_id)
+        creation, from_step = classes.retry_guest_hero(db, guest, by_teacher=True)
+    start_pipeline(creation, db, task_manager, from_step=from_step)
+    return classes.class_view(db, classroom, with_roster=True)
+
+
 @teacher_router.post("/{class_id}/students/{guest_id}/{action}")
 def student_action(class_id: str, guest_id: str, action: str, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user_required)):
-    status = {"approve": "approved", "block": "blocked"}.get(action)
+    """Approve, block or remove a student (remove: off the board, any card)."""
+    status = {"approve": "approved", "block": "blocked", "remove": "removed"}.get(action)
     if status is None:
         raise HTTPException(status_code=404, detail="Unknown action")
     with _refusals():
@@ -298,13 +314,16 @@ def find_class(pin: str, request: Request, response: Response, db: Session = Dep
         _set_cookie(response, request, classes.DEVICE_COOKIE, device)
     classroom = session.classroom
     guest = classes.guest_by_token(db, _pass_token(request))
+    # Full is said before the name, never after (a failed hero's seat counts as free).
+    classes.class_is_full(db, classroom)
     return {
         "title": classroom.title,
         "seats_left": max(0, classroom.seats - classroom.seats_used),
         "seconds_left": classes.session_view(session)["seconds_left"],
         "device_token": device,
         # This browser already joined this class: skip the name, show its hero.
-        "joined": guest is not None and guest.class_id == classroom.id,
+        # A student the teacher removed joins again, as someone new.
+        "joined": guest is not None and guest.class_id == classroom.id and guest.status != "removed",
     }
 
 
@@ -372,31 +391,19 @@ async def make_my_hero(
 
 @student_router.post("/me/hero/retry")
 async def retry_my_hero(request: Request, db: Session = Depends(get_db), task_manager=Depends(get_task_manager)):
-    """A hero that failed is made again: same pass, same seat, charged again
-    to the class and refunded again if it fails again.
+    """A hero that failed is made again: same pass, charged again to the class
+    and refunded again if it fails again. Its seat went back to the class when
+    it failed, so it takes one again (classes.retry_guest_hero).
 
     `async` for the same reason as make_my_hero and every endpoint in
     creations.py that starts a run: start_pipeline hands its task to the event
     loop, and FastAPI runs a plain `def` in a worker thread, which has none."""
     guest = _guest(request, db)
-    creation = db.query(Creation).filter(Creation.id == guest.creation_id, Creation.deleted_at.is_(None)).first()
-    if creation is None or creation.status != "failed":
-        raise HTTPException(status_code=409, detail="Nothing to try again")
-    if classes.current_session_for(db, guest) is None:
-        raise HTTPException(status_code=410, detail="Class time is over")
-    if guest.status == "blocked":
-        raise HTTPException(status_code=403, detail="Ask your teacher")
-    from_step = next((s.step_name for s in sorted(creation.steps, key=lambda s: _step_index(s.step_name))
-                      if s.status in ("failed", "pending")), None)
+    with _refusals():
+        creation, from_step = classes.retry_guest_hero(db, guest)
     start_pipeline(creation, db, task_manager, from_step=from_step)
     db.refresh(guest)
     return classes.guest_view(db, guest)
-
-
-def _step_index(name: str) -> int:
-    from app.config.steps import get_all_step_names
-    names = get_all_step_names()
-    return names.index(name) if name in names else len(names)
 
 
 # ---------------------------------------------------------------------------

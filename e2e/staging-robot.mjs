@@ -8,6 +8,7 @@
 //   paid for in money on Lemon Squeezy -> the seats land on the class (not on
 //   the robot's balance) -> Start class shows a PIN and a QR -> a student
 //   joins on a phone and makes a hero -> the teacher opens it from the class
+//   -> the same name from a second phone waits for the teacher, who removes it
 //   -> Gallery shows the live class as one strip, one tap back to it
 //   -> End class -> I run classes off: the switch goes
 //
@@ -925,6 +926,31 @@ try {
       await kidCtx.close();
     }
 
+    // The same name from a second phone: the same child twice, or a second
+    // Robo? It waits for the teacher, as "Robo 2", and the teacher can take
+    // any card off the board (⋯ beside it, Remove). Makes no hero.
+    const twinCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'en-US' });
+    try {
+      const twin = await twinCtx.newPage();
+      await twin.goto(`${BASE_URL}/join/${pin}`, { waitUntil: 'domcontentloaded' });
+      await twin.locator('.cls-name-input').fill(kidName);
+      await twin.locator('.cls-go').click();
+      await twin.getByText('Almost!').waitFor({ timeout: 30000 });
+      const twinMore = page.getByRole('button', { name: `More for ${kidName} 2` });
+      await twinMore.waitFor({ timeout: 30000 });
+      const twinCard = page.locator('.cls-tile-wrap', { has: twinMore });
+      if ((await twinCard.getAttribute('data-state')) !== 'waiting') throw new Error(`a second "${kidName}" from another phone is "${await twinCard.getAttribute('data-state')}" on the board, want waiting for the teacher`);
+      await snap(page, 'class-same-name');
+      await twinMore.click();
+      await page.getByRole('button', { name: 'Remove from class' }).click();
+      await page.locator('.cls-remove-confirm').click();
+      await twinMore.waitFor({ state: 'detached', timeout: 15000 });
+      const joinedNow = await page.locator('.cls-stat', { hasText: 'joined' }).innerText();
+      if (!/^\s*1 joined/.test(joinedNow)) throw new Error(`after removing the duplicate the board says "${joinedNow}", want 1 joined`);
+    } finally {
+      await twinCtx.close();
+    }
+
     await page.locator('.cls-end').click();
     await page.locator('.cls-end-confirm').click();
     await start.waitFor({ timeout: 15000 });
@@ -954,7 +980,7 @@ try {
       await switchBar.waitFor({ state: 'detached', timeout: 15000 });
       await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
-    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; the live strip on Gallery led back to it; ended; group mode off again`;
+    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
   });
 } catch {
   exitCode = 1;

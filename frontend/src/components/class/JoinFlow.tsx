@@ -13,7 +13,10 @@ import './class.css';
 
 export const JOIN_PATH = '/join';
 
-type Step = 'pin' | 'name' | 'loading' | 'hero';
+type Step = 'pin' | 'name' | 'full' | 'loading' | 'hero';
+
+/** How often a full class is asked again for a seat the teacher added. */
+const FULL_POLL_MS = 4000;
 
 /**
  * A student joining a class: the code, their first name and age, their
@@ -43,7 +46,8 @@ export function JoinFlow({ initialPin }: { initialPin: string }) {
         setAgain(!!v.hero);
         showMe(v);
       } else {
-        setStep('name');
+        // Every seat taken: said before the name, never after it.
+        setStep(found.seats_left > 0 ? 'name' : 'full');
       }
       window.history.replaceState(null, '', `${JOIN_PATH}/${code}`);
     } catch (e) {
@@ -61,10 +65,16 @@ export function JoinFlow({ initialPin }: { initialPin: string }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (step === 'pin') return <PinStep pin={pin} setPin={setPin} error={error} onDone={lookUp} />;
+  if (step === 'full') return <ClassFull pin={pin} title={title} onSeat={() => setStep('name')} />;
   if (step === 'name') {
     return <NameStep title={title} onBack={() => { setStep('pin'); setPin(''); }} onJoin={async (name, age) => {
-      const v = await studentApi.join(pin, name, age);
-      showMe(v);
+      try {
+        showMe(await studentApi.join(pin, name, age));
+      } catch (e) {
+        // The last seat went while this child typed their name.
+        if (e instanceof ApiError && e.status === 409) { setStep('full'); return; }
+        throw e;
+      }
     }} />;
   }
   if (step === 'hero' && me) {
@@ -81,6 +91,24 @@ export function JoinFlow({ initialPin }: { initialPin: string }) {
       <div className="tb-screen-body"><div className="cls-moment"><div className="cls-moment-art cls-wobble"><Icon name="school" /></div></div></div>
     </div>
   );
+}
+
+/**
+ * Every seat is taken: the child is told before typing a name, and is not
+ * put on the board. When the teacher adds a seat, it moves on by itself.
+ */
+function ClassFull({ pin, title, onSeat }: { pin: string; title: string; onSeat: () => void }) {
+  useEffect(() => {
+    let alive = true;
+    const t = window.setInterval(async () => {
+      try {
+        const found = await studentApi.find(pin);
+        if (alive && found.seats_left > 0) onSeat();
+      } catch { /* try again on the next tick */ }
+    }, FULL_POLL_MS);
+    return () => { alive = false; window.clearInterval(t); };
+  }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <Moment title={title} big="This class is full" line="Ask your teacher for a seat." art={<Icon name="users" />} />;
 }
 
 function KidHeader({ title, onBack }: { title: string; onBack?: () => void }) {
@@ -117,7 +145,7 @@ function PinStep({ pin, setPin, error, onDone }: { pin: string; setPin: (p: stri
           ))}
           <span />
           <button type="button" className="cls-key" onClick={() => press('0')}>0</button>
-          <button type="button" className="cls-key cls-key--quiet" aria-label="Delete" onClick={() => setPin(pin.slice(0, -1))}><Icon name="back" /></button>
+          <button type="button" className="cls-key cls-key--quiet" aria-label="Delete" onClick={() => setPin(pin.slice(0, -1))}><Icon name="backspace" size={30} /></button>
         </div>
       </div>
       <div className="tb-bar">
@@ -147,7 +175,7 @@ function NameStep({ title, onBack, onJoin }: { title: string; onBack: () => void
     }
   };
   return (
-    <div className="tb-screen tb-screen--fit cls-kid-screen">
+    <div className="tb-screen tb-screen--fit cls-kid-screen cls-name-screen">
       <KidHeader title={title} onBack={onBack} />
       <div className="tb-screen-body">
         <div className="cls-form">
@@ -217,9 +245,9 @@ function MyHero({ me, again, onChange, onNext }: { me: GuestView; again: boolean
   }
   if (me.hero) return <Moment title={`${name}’s hero`} big="Here it comes…" art={<Icon name="star" />} />;
   if (me.guest.status === 'waiting') return <Moment title={me.class.title} big="Almost!" line="Your teacher will say yes in a moment." art={<Icon name="users" />} wobble />;
-  if (me.guest.status === 'blocked') return <Moment title={me.class.title} big="Ask your teacher" art={<Icon name="users" />} />;
+  if (me.guest.status === 'blocked' || me.guest.status === 'removed') return <Moment title={me.class.title} big="Ask your teacher" art={<Icon name="users" />} />;
   if (me.reason === 'ended') return <Moment title={me.class.title} big="Class time is over" line="Ask your teacher about next time." art={<Icon name="clock" />} />;
-  if (me.reason === 'class_full' || me.reason === 'class_credits') return <Moment title={me.class.title} big="This class is full" line="Ask your teacher for a seat." art={<Icon name="star" />} />;
+  if (me.reason === 'class_full' || me.reason === 'class_credits') return <Moment title={me.class.title} big="This class is full" line="Ask your teacher for a seat." art={<Icon name="users" />} />;
   return <Draw me={me} onMade={onChange} />;
 }
 
@@ -336,6 +364,7 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
   const state = heroState(creation);
   const stageRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [, tick] = useState(0);
   const shown = useRef<(StepProgress & { key: string }) | null>(null);
   // The bar and the time left move every second, between polls (as HeroScreen).
@@ -402,10 +431,17 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
       </div>
       <div className="tb-bar">
         {failed ? (
-          <button type="button" className="tb-btn tb-btn--primary tb-btn--full" disabled={busy}
-            onClick={async () => { setBusy(true); try { await onRetry(); } finally { setBusy(false); } }}>
-            <Icon name="redo" />Try again
-          </button>
+          <>
+            {retryError && <div className="tb-bar-note" role="alert">{retryError}</div>}
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full" disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setRetryError(null);
+                try { await onRetry(); } catch (e) { setRetryError(e instanceof ApiError ? e.message : 'Something went wrong. Try again.'); } finally { setBusy(false); }
+              }}>
+              <Icon name="redo" />Try again
+            </button>
+          </>
         ) : (
           <>
             <div className="tb-bar-note">Your hero is on its way!</div>

@@ -465,7 +465,8 @@ class ClassRoom(Base):
     wallet_user_id = Column(String, ForeignKey("users.id"), nullable=False, unique=True)
     title = Column(String(60), nullable=False)
     # Seats paid for, and seats taken by a hero. seats_used <= seats always:
-    # it only moves through one conditional UPDATE (classes._take_seat).
+    # it only moves through conditional UPDATEs (classes._take_seat, and a
+    # failed hero giving its seat back, classes._return_seat).
     seats = Column(Integer, nullable=False, default=0)
     seats_used = Column(Integer, nullable=False, default=0)
     # The children's ages, one of app.services.classes.AGE_BANDS, or None (m016).
@@ -514,9 +515,14 @@ class ClassGuest(Base):
     # random value we issued, sent only to /api/class.
     device_hash = Column(String(64), nullable=True, index=True)
     shared_device = Column(Boolean, nullable=False, default=False)
-    status = Column(String(16), nullable=False, default="approved")  # approved | waiting | blocked
-    # Set by the atomic one-hero guard, before the creation exists.
+    # approved | waiting | blocked | removed (taken off the board by the teacher)
+    status = Column(String(16), nullable=False, default="approved")
+    # Set by the atomic one-hero guard, before the creation exists; moved on
+    # by each retry, so a seat given back is always the attempt that failed.
     hero_started_at = Column(DateTime, nullable=True)
+    # When a hero that failed gave its seat back to the class (classes.py,
+    # release_failed_seats). Null while the student holds a seat, or has none.
+    seat_returned_at = Column(DateTime, nullable=True)
     creation_id = Column(String, ForeignKey("creations.id"), nullable=True, index=True)
     # sha256 of the parent link's token (derived: classes.claim_token).
     claim_hash = Column(String(64), nullable=True, unique=True)
