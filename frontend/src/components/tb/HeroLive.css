@@ -69,9 +69,11 @@
   transition: transform 300ms cubic-bezier(.2, .8, .2, 1);
 }
 .tb-live-steps-now svg { width: 18px; height: 18px; }
-/* The line ahead of the step on show fills while it plays. */
+/* Behind the circle is its purple trail; ahead, green (made, waiting). The
+   line ahead of the step on show fills purple while it plays. */
+.tb-live-steps .tb-step-dot--past { background: var(--tb-grape); color: var(--tb-white); }
 .tb-live-steps .tb-step-line { position: relative; overflow: hidden; background: var(--tb-track); }
-.tb-step-line-fill { position: absolute; inset: 0; background: var(--tb-green); transform-origin: left; transform: scaleX(0); }
+.tb-step-line-fill { position: absolute; inset: 0; background: var(--tb-grape); transform-origin: left; transform: scaleX(0); }
 .tb-step-line-fill--full { transform: none; }
 .tb-step-line-fill--filling { animation: tb-step-line-fill linear forwards; }
 @keyframes tb-step-line-fill { to { transform: none; } }

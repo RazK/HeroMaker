@@ -370,7 +370,7 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
           <Layer on={waiting && !failed}>
             <Loading image={file(`thumb_${painting}`)} progress={(waitUrl && progress[waitUrl]) || 0} className={paintingClass} />
           </Layer>
-          {steps && <StepStrip phases={phases} current={phase} browsing={browsing} onPick={browse} fillMs={intro ? PHASE_MS : browsing && onScreen && !full && !zoomed ? BROWSE_MS : 0} />}
+          {steps && <StepStrip phases={phases} current={phase} onPick={browse} fillMs={intro ? PHASE_MS : browsing && onScreen && !full && !zoomed ? BROWSE_MS : 0} />}
           {!steps && (
             <Polaroid
               key="drawing"
@@ -422,10 +422,12 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
  * The steps strip over the top of the stage, a timeline: one circle marks the
  * step on show and slides to the next (SLIDE_MS); the line ahead of it fills
  * while the step plays (`fillMs`, 0 while it waits), so the strip moves with
- * the stage. In the intro, steps behind are ticked and steps ahead are grey;
- * while browsing every step is made. A tap on a step shows that step.
+ * the stage. Behind the circle is purple, its trail; ahead is green, steps
+ * made and waiting (Raz: "everything that is behind us is purple and ahead
+ * of us is green"), in the intro and while browsing alike. A tap on a step
+ * shows that step.
  */
-function StepStrip({ phases, current, browsing, onPick, fillMs }: { phases: Phase[]; current: Phase; browsing: boolean; onPick: (p: Phase) => void; fillMs: number }) {
+function StepStrip({ phases, current, onPick, fillMs }: { phases: Phase[]; current: Phase; onPick: (p: Phase) => void; fillMs: number }) {
   const at = phases.indexOf(current);
   const dots = useRef<Array<HTMLButtonElement | null>>([]);
   const [x, setX] = useState<number | null>(null);
@@ -442,19 +444,19 @@ function StepStrip({ phases, current, browsing, onPick, fillMs }: { phases: Phas
       <div className="tb-stepper" role="toolbar" aria-label="How it was made">
         {phases.map((p, i) => {
           const k = p as Exclude<Phase, 'live'>;
-          const state = i === at ? 'now' : browsing || i < at ? 'done' : 'next';
+          const state = i < at ? 'past' : 'done';
           const fill = i < at ? 'full' : i === at && fillMs > 0 ? 'filling' : 'empty';
           return (
             <div key={p} style={{ display: 'contents' }}>
               <button
                 ref={(el) => { dots.current[i] = el; }}
                 type="button"
-                className={`tb-step-dot tb-step-dot--${state === 'now' ? 'done' : state}`}
+                className={`tb-step-dot tb-step-dot--${state}`}
                 aria-label={PHASE_LABEL[k]}
                 aria-current={i === at ? 'step' : undefined}
                 onClick={(e) => { e.stopPropagation(); onPick(p); }}
               >
-                <Icon name={!browsing && state === 'done' ? 'check' : PHASE_ICON[k]} size={18} />
+                <Icon name={PHASE_ICON[k]} size={18} />
               </button>
               {i < phases.length - 1 && (
                 <div className="tb-step-line">
