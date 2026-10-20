@@ -3,6 +3,7 @@ import { api, ApiError, MoneyPeriod, MoneySummary, ProviderBalance, RecurringExp
 import { Icon } from '../tb/Icon';
 import { Dialog, Sheet, SheetRow } from '../tb/parts';
 import { providerName, shortDate, todayIso, usd } from './format';
+import { LemonSqueezyCheckCard } from './LemonSqueezyCheckCard';
 
 const PERIODS: { id: MoneyPeriod; label: string }[] = [
   { id: 'month', label: 'This month' },
@@ -114,6 +115,8 @@ export function MoneySection() {
             ? <div className="adm-note adm-note--bad">Provider figures are unavailable right now.</div>
             : providers.map((p) => <ProviderRow key={p.provider} p={p} />)}
       </section>
+
+      <LemonSqueezyCheckCard />
 
       {s && (
         <section className="adm-card">
