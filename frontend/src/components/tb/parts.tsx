@@ -1,10 +1,13 @@
 import { ReactNode, RefObject, useEffect, useRef, useState } from 'react';
 import { Icon, IconName } from './Icon';
+import { useOverlayBack } from '../../routes';
 import '../../styles/toybox.css';
 
 /** A bottom sheet over a dimmed screen. Tapping the dim area closes it. */
 export function Sheet({ title, onClose, children, className = '' }: { title?: string; onClose: () => void; children: ReactNode; className?: string }) {
   useEscape(onClose);
+  // Back (Android's too) closes the sheet, never the screen under it.
+  useOverlayBack(true, onClose);
   return (
     <div className="tb-scrim" onClick={onClose}>
       <div className={`tb-sheet ${className}`} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
@@ -19,6 +22,7 @@ export function Sheet({ title, onClose, children, className = '' }: { title?: st
 /** A centered dialog, for confirmations. */
 export function Dialog({ onClose, children, label }: { onClose: () => void; children: ReactNode; label: string }) {
   useEscape(onClose);
+  useOverlayBack(true, onClose);
   return (
     <div className="tb-scrim tb-scrim--center" onClick={onClose}>
       <div className="tb-dialog" role="alertdialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()}>

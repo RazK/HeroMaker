@@ -24,12 +24,13 @@ import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/Sty
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
+import { ADMIN_PATH, CLASS_PATH, HeroFrom, adminPath, classPath, goUp, heroFrom, heroPath, navigate, overlayDepth, prevPath, replaceRoute, routeAt, stepsPath } from './routes';
 import './styles/toybox.css';
 import './App.css';
 
 type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | LegalPage | 'class' | 'claim';
 
-// The only URL the app routes on: the link in a "Forgot password?" email.
+// The link in a "Forgot password?" email.
 const isResetUrl = () => window.location.pathname === RESET_PASSWORD_PATH;
 
 // A student joining a class (/join, /join/123456): no account, nothing else of the app.
@@ -57,6 +58,8 @@ const BALANCE_BEFORE_CHECKOUT = PURCHASE_ON_LOAD ? balanceBeforeCheckout() : und
 
 // The class a teacher comes back to from a seat checkout (?class_paid=<id>).
 const CLASS_PAID_ON_LOAD = new URLSearchParams(window.location.search).get(CLASS_PAID_PARAM);
+// The screen this address is (routes.ts): a hero, a class, the admin console.
+const ROUTE_ON_LOAD = routeAt(window.location.pathname);
 
 function App() {
   const pin = joinPin();
@@ -65,14 +68,18 @@ function App() {
 }
 
 function MainApp() {
-  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : CLASS_PAID_ON_LOAD ? 'class' : legalPageAt(window.location.pathname) ?? (claimToken() ? 'claim' : 'gallery'));
+  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : CLASS_PAID_ON_LOAD ? 'class' : legalPageAt(window.location.pathname) ?? (claimToken() ? 'claim' : ROUTE_ON_LOAD?.view ?? 'gallery'));
   const [claim] = useState(claimToken);
+  // The path the screen shown is drawn for. A popstate to the same path is an
+  // overlay's (a sheet closing), not a change of screen.
+  const shownPath = useRef(window.location.pathname);
+  const go = (path: string, extra?: { from?: HeroFrom }) => { navigate(path, extra); shownPath.current = path; };
   // A legal page, on its own URL, opened from the footer or a sheet.
   useEffect(() => {
     const open = (e: Event) => {
       const page = (e as CustomEvent<LegalPage>).detail;
       if (!(page in LEGAL_PATHS)) return;
-      window.history.pushState(null, '', LEGAL_PATHS[page]);
+      go(LEGAL_PATHS[page]);
       setView(page);
       window.scrollTo({ top: 0 });
     };
@@ -87,11 +94,16 @@ function MainApp() {
     if (!params.has(CLASS_PAID_PARAM)) return;
     params.delete(CLASS_PAID_PARAM);
     const query = params.toString();
-    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
-  }, []);
-  const [classId, setClassId] = useState<string | null>(classPaid);
-  // Where Back from a hero goes: the gallery, or the class it was opened from.
-  const [heroFrom, setHeroFrom] = useState<'gallery' | 'class' | 'admin'>('gallery');
+    const path = classPaid ? classPath(classPaid) : window.location.pathname;
+    replaceRoute(path + (query ? `?${query}` : ''));
+    shownPath.current = path;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [classId, setClassId] = useState<string | null>(classPaid ?? (ROUTE_ON_LOAD?.view === 'class' ? ROUTE_ON_LOAD.id : null));
+  // The user page open in the admin console (/admin/users/<id>), or the list.
+  const [adminUser, setAdminUser] = useState<string | null>(ROUTE_ON_LOAD?.view === 'admin' ? ROUTE_ON_LOAD.userId : null);
+  // Where Back from a hero goes: the gallery, or the class or the admin's
+  // user page it was opened from. Kept in its history entry across a reload.
+  const [openedFrom, setOpenedFrom] = useState<HeroFrom>(heroFrom);
   // Where the home screen is, on two levels: the place (a teacher's switch:
   // the gallery or My classes) and, in the gallery, the tab (the chips).
   // Each is the one last chosen, kept apart; a teacher back from paying for
@@ -200,6 +212,8 @@ function MainApp() {
     const handleUnauthorized = () => setCreditBalance(undefined);
     let noticeTimer: number | undefined;
     const handleAccountDeleted = () => {
+      replaceRoute('/');
+      shownPath.current = '/';
       setView('gallery');
       setCreation(null);
       setError(null);
@@ -292,12 +306,9 @@ function MainApp() {
     return () => { cancelled = true; };
   }, []);
 
-  // Back to the gallery. From another screen it comes back as it was left
-  // (Gallery remembers its list and scroll, and refreshes behind the scenes);
-  // the logo on the gallery itself starts it over from the top.
-  const goHome = () => {
-    if (view === 'gallery') resetGalleryScroll();
-    if (isResetUrl() || legalPageAt(window.location.pathname) || claimToken()) window.history.replaceState(null, '', '/');
+  // The gallery as it was left (Gallery remembers its list and scroll, and
+  // refreshes behind the scenes).
+  const showGallery = () => {
     setView('gallery');
     setCreation(null);
     setError(null);
@@ -305,11 +316,74 @@ function MainApp() {
     window.scrollTo({ top: 0 });
   };
 
-  const openHero = (c: CreationResponse, from: 'gallery' | 'class' | 'admin' = 'gallery') => {
-    setHeroFrom(from);
+  // The hero at /hero/<id>: the one in hand, or read (a reload, a link, Back).
+  const creationRef = useRef(creation);
+  creationRef.current = creation;
+  const showHero = (id: string, v: 'hero' | 'steps') => {
+    setError(null);
+    setView(v);
+    window.scrollTo({ top: 0 });
+    if (creationRef.current?.id === id) return;
+    setCreation(null);
+    const stillHere = () => shownPath.current === heroPath(id) || shownPath.current === stepsPath(id);
+    api.getCreation(id)
+      .then((c) => { if (stillHere()) setCreation(c); })
+      .catch(() => {
+        if (!stillHere()) return;
+        replaceRoute('/');
+        shownPath.current = '/';
+        showGallery();
+        setError('That hero isn’t here any more.');
+      });
+  };
+
+  // Draw the screen the address bar names: on load, on Back and Forward, and
+  // after an in-app Back replaced the entry.
+  const showLocation = () => {
+    const path = window.location.pathname;
+    shownPath.current = path;
+    const legal = legalPageAt(path);
+    if (legal) { setView(legal); window.scrollTo({ top: 0 }); return; }
+    if (path === RESET_PASSWORD_PATH) { setView('reset'); return; }
+    if (claim && claimToken() === claim) { setView('claim'); return; }
+    const r = routeAt(path) ?? { view: 'gallery' as const };
+    if (r.view === 'gallery') { showGallery(); return; }
+    if (r.view === 'hero' || r.view === 'steps') { setOpenedFrom(heroFrom()); showHero(r.id, r.view); return; }
+    setError(null);
+    setCreation(null);
+    window.scrollTo({ top: 0 });
+    if (r.view === 'class') { setClassId(r.id); setView('class'); return; }
+    setAdminUser(r.userId);
+    setView('admin');
+  };
+  const showLocationRef = useRef(showLocation);
+  showLocationRef.current = showLocation;
+  useEffect(() => {
+    // An overlay's entry from before a reload (or a page left from a sheet):
+    // nothing is open over the screen now.
+    if (overlayDepth()) replaceRoute(window.location.pathname + window.location.search);
+    const onPop = () => { if (window.location.pathname !== shownPath.current) showLocationRef.current(); };
+    window.addEventListener('popstate', onPop);
+    // Opened at a hero's address: read it.
+    if (ROUTE_ON_LOAD && (ROUTE_ON_LOAD.view === 'hero' || ROUTE_ON_LOAD.view === 'steps') && !CLASS_PAID_ON_LOAD) showHero(ROUTE_ON_LOAD.id, ROUTE_ON_LOAD.view);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // An in-app Back to `parent`: the browser's Back when that is where it
+  // leads, else the entry becomes the parent (routes.ts goUp).
+  const up = (parent: string) => { goUp(parent, () => showLocationRef.current()); };
+
+  // Back to the gallery; the logo on the gallery itself starts it over from the top.
+  const goHome = () => {
+    if (view === 'gallery') { resetGalleryScroll(); showGallery(); return; }
+    up('/');
+  };
+
+  const openHero = (c: CreationResponse, from: HeroFrom = 'gallery') => {
+    setOpenedFrom(from);
     setCreation(c);
     setError(null);
     setView('hero');
+    go(heroPath(c.id), { from });
     window.scrollTo({ top: 0 });
   };
 
@@ -458,6 +532,16 @@ function MainApp() {
     if (!placeChosen.current && hasLiveClass(myClasses.classes)) setSectionState('classes');
   }, [myClasses.classes]);
 
+  // A class is a teacher's, the console an admin's: at either address
+  // without the account for it, the gallery.
+  useEffect(() => {
+    if (!authChecked) return;
+    if ((view === 'class' && !userInfo) || (view === 'admin' && !userInfo?.is_admin)) {
+      replaceRoute('/');
+      showLocation();
+    }
+  }, [authChecked, view, userInfo]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const hasProcessingStep = creation?.steps.some((s) => s.status === 'processing');
   const shouldPoll = view !== 'gallery' && creation && (hasProcessingStep || creation.status === 'pending');
   useCreationPolling(shouldPoll ? creation.id : null, (updated) => setCreation(updated));
@@ -484,13 +568,23 @@ function MainApp() {
   const openClass = (id: string) => {
     setClassId(id);
     setView('class');
+    go(classPath(id));
     window.scrollTo({ top: 0 });
   };
+  const openAdmin = (userId: string | null = null) => {
+    setAdminUser(userId);
+    setCreation(null);
+    setView('admin');
+    go(adminPath(userId));
+    window.scrollTo({ top: 0 });
+  };
+  // Back from a hero: to the class or the admin's user page it was opened
+  // from (its entry knows, after a reload too), else the gallery.
   const backFromHero = () => {
-    if (heroFrom === 'class' && classId) { setCreation(null); setView('class'); return; }
-    // Opened from a user's page in the admin console: back to that page.
-    if (heroFrom === 'admin' && userInfo?.is_admin) { setCreation(null); setView('admin'); return; }
-    goHome();
+    const prev = prevPath();
+    if (openedFrom === 'class') { up(prev?.startsWith(CLASS_PATH) ? prev : classId ? classPath(classId) : '/'); return; }
+    if (openedFrom === 'admin' && userInfo?.is_admin) { up(prev?.startsWith(ADMIN_PATH) ? prev : adminPath(adminUser)); return; }
+    up('/');
   };
   const appHeader = (
     <Header
@@ -500,7 +594,7 @@ function MainApp() {
           <span>HeroMaker</span>
         </button>
       )}
-      right={<HeaderAuth onOpenAdmin={() => setView('admin')} onClassesMode={(on) => { if (on) setSection('classes'); else leaveClasses(); }} />}
+      right={<HeaderAuth onOpenAdmin={() => openAdmin()} onClassesMode={(on) => { if (on) setSection('classes'); else leaveClasses(); }} />}
     />
   );
   const footer = (extra?: JSX.Element) => (
@@ -551,7 +645,8 @@ function MainApp() {
         onSeeHeroes={() => { showTab('mine'); goHome(); }}
         // The kept hero on its own page; Back from it lands on My heroes.
         onOpenHero={(id) => api.getCreation(id).then((c) => {
-          window.history.replaceState(null, '', '/');
+          replaceRoute('/');
+          shownPath.current = '/';
           showTab('mine');
           openHero(c);
         }).catch(() => setError('Could not open that hero'))}
@@ -577,11 +672,19 @@ function MainApp() {
   } else if (view === 'reset') {
     screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
   } else if (view === 'admin' && userInfo) {
-    screen = <AdminPanel onClose={goHome} currentUserId={userInfo.id} onOpenHero={(c) => openHero(c, 'admin')} />;
+    screen = (
+      <AdminPanel
+        onClose={goHome}
+        currentUserId={userInfo.id}
+        userId={adminUser}
+        onUser={(id) => (id ? openAdmin(id) : up(ADMIN_PATH))}
+        onOpenHero={(c) => openHero(c, 'admin')}
+      />
+    );
   } else if (view === 'steps' && creation && userInfo?.is_admin) {
     screen = (
       <div className="tb-screen tb-screen--wide">
-        <Header left={<NavButton icon="back" label="Back to hero" onClick={() => setView('hero')} />} title="Every step" />
+        <Header left={<NavButton icon="back" label="Back to hero" onClick={() => up(heroPath(creation.id))} />} title="Every step" />
         <div className="tb-screen-body app-pipeline-section">
           <HeroNameEditor
             creationId={creation.id}
@@ -607,7 +710,7 @@ function MainApp() {
         </div>
       </div>
     );
-  } else if (view === 'hero' && creation) {
+  } else if ((view === 'hero' || view === 'steps') && creation) {
     screen = (
       <HeroScreen
         creation={creation}
@@ -618,11 +721,20 @@ function MainApp() {
         onBack={backFromHero}
         onRefresh={refreshCreation}
         onDeleted={backFromHero}
-        onShowSteps={() => setView('steps')}
+        onShowSteps={() => { go(stepsPath(creation.id)); setView('steps'); }}
         onMakeOwn={startNewHero}
         onCreditsChanged={refreshCreditBalance}
-        fromClass={heroFrom === 'class'}
+        fromClass={openedFrom === 'class'}
       />
+    );
+  } else if (view === 'hero' || view === 'steps' || ((view === 'class' || view === 'admin') && !authChecked)) {
+    // At an address whose screen is still being read (a hero, or who is
+    // signed in): the header's Back, and nothing that is not there yet.
+    screen = (
+      <div className="tb-screen app-route-wait" aria-busy="true">
+        <Header left={<NavButton icon="back" label="Back" onClick={view === 'hero' || view === 'steps' ? backFromHero : goHome} className="tb-back" />} />
+        <div className="tb-screen-body" />
+      </div>
     );
   } else {
     screen = (
