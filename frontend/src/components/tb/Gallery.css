@@ -1,7 +1,7 @@
 .tb-gallery { display: flex; flex-direction: column; gap: var(--tb-space); flex-grow: 1; }
 /* The tabs. Two or three fit a 360px phone; with more (an admin has four)
    the row runs to the screen's edges and scrolls, so the next chip peeks in
-   from the side margin, like the hero's moves. My classes is not a chip: it
+   from the side margin. My classes is not a chip: it
    is a place of its own, on the switch above (Segmented.tsx). */
 .tb-gallery-chips {
   display: flex;
