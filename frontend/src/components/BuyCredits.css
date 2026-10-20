@@ -27,6 +27,7 @@
 .buy-credits-pack-price { font-family: var(--tb-font-display); font-weight: 600; font-size: 26px; }
 .buy-credits-pack-credits { font-size: 13px; font-weight: 800; color: var(--tb-ink-2); white-space: nowrap; }
 /* One quiet line under the packs: who takes the money, Refunds, Terms. */
-.buy-credits-legal { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; padding-top: var(--tb-space); }
+/* The line, then its chips together on the next line (brand book: chips row). */
+.buy-credits-legal { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: var(--tb-space); }
 .buy-credits-legal .tb-muted { font-size: 13px; }
 .buy-credits-legal-chip { height: 32px; padding: 0 12px; font-size: 13px; color: var(--tb-ink-2); }

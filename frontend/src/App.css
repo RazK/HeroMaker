@@ -14,8 +14,9 @@
 .tb-intro-classes { align-self: flex-start; margin-block: 4px var(--tb-depth-sm); }
 
 .tb-footer { padding: 24px 0 0; text-align: center; font-size: 13px; color: var(--tb-ink-2); display: flex; flex-direction: column; gap: 4px; }
-/* The deployed version, so a refresh can confirm the latest build. Wraps whole. */
-.tb-footer-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+/* The chips together on their line; the deployed version on its own line
+   under them, so a refresh can confirm the latest build. */
+.tb-footer-row { margin-block: 4px; }
 .tb-footer-chip { height: 32px; padding: 0 12px; font-size: 13px; color: var(--tb-ink-2); }
 .tb-version { white-space: nowrap; font-size: 12px; font-variant-numeric: tabular-nums; }
 

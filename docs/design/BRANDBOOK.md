@@ -97,6 +97,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - Only `components/tb/Icon.tsx`: 24 viewBox, stroke 2.4, round caps and joins, `currentColor`. Add new glyphs there, same style.
 - No emoji in the UI.
 - Icon alone only for back, close, more, play. Everything else gets a label.
+- Chips that belong together sit on one line of their own (`.tb-chip-row`): never split across lines, never sharing a line with the text about them, which goes on the line above.
 
 **Staging.** Staging never looks like production. It has its own icon (the hero on ink with a sun STAGING band), its installed name is "HM Staging", and the logo carries a small sun STAGING tag over the foot of its icon. Production has none of these. See CLAUDE.md, "Staging never looks like production".
 
@@ -151,6 +152,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Empty 3D loading card.** "Empty screen for 10 seconds WTF?!" Now a ring over the dimmed painting.
 - **Queue-then-play game.** "as soon as an animation is clicked just play it".
 - **Full-screen drawing viewer** (dark scrim, Drawing | Hero toggle): "It doesn't look like part of the app ... this preview of 2 steps. It's confusing." Now the polaroid swaps into the stage and the 4-step strip is the one way through.
+- **Chips broken across lines.** "Refunds and terms should be in new line not break line like currently. This is a recurring comment." A line of text and the chips about it never share a line: the text on its own line, the chips together on the next (`.tb-chip-row`, never wraps). The footer's version gets its own line too.
 - **Underlined text links.** "No underlined links." Every action is a button, a row, a chip or a toggle; `.tb-link` is gone.
 - **Names under the step dots.** Tried; Raz: "Remove the labels, but make the transition automatic between the phases." The steps now play by themselves.
 - **My classes as a chip.** The fourth chip on a phone, cut off at the edge: "I could miss it. It needs a higher level in the hierarchy." Now the switch.

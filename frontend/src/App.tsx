@@ -417,12 +417,12 @@ function MainApp() {
     <footer className="tb-footer">
       {extra}
       <div>Made by Raz Karl &amp; Elad Shikley</div>
-      <div className="tb-footer-row">
+      <div className="tb-chip-row tb-footer-row">
         <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('privacy')}>Privacy</button>
         <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('terms')}>Terms</button>
         <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('refunds')}>Refunds</button>
-        <span className="tb-version">{__APP_VERSION__}</span>
       </div>
+      <div className="tb-version">{__APP_VERSION__}</div>
     </footer>
   );
   // The gallery's tabs (the chips). A teacher's classes are not one of them:
