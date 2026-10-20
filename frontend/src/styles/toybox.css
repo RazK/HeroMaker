@@ -433,6 +433,34 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 }
 .tb-sheet-row span:first-of-type { flex-grow: 1; }
 .tb-sheet-row-trail { color: var(--tb-ink-2); font-size: 14px; }
+.tb-sheet-row:disabled { cursor: default; }
+/* An on/off switch: a sunken track, grape when on (SheetToggle). */
+.tb-toggle {
+  flex-shrink: 0;
+  position: relative;
+  width: 52px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--tb-track);
+  transition: background 120ms ease;
+}
+.tb-toggle::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-start: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  box-shadow: 0 2px 0 rgba(35, 25, 66, 0.2);
+  transition: inset-inline-start 120ms ease;
+}
+[aria-checked='true'] > .tb-toggle { background: var(--tb-grape); }
+[aria-checked='true'] > .tb-toggle::after { inset-inline-start: 24px; }
+.tb-sheet-toggle:focus-visible { outline: none; }
+.tb-sheet-toggle:focus-visible > .tb-toggle { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
+@media (prefers-reduced-motion: reduce) { .tb-toggle, .tb-toggle::after { transition: none; } }
 .tb-sheet-row--danger { color: var(--tb-red); }
 .tb-sheet-divider { border-top: 2px solid #f6eee1; margin: 4px 0; }
 .tb-stack { display: flex; flex-direction: column; gap: var(--tb-stack); }

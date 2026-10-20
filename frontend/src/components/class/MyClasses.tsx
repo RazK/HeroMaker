@@ -22,11 +22,12 @@ export interface MyClassesData {
 }
 
 /**
- * A teacher's classes, for the gallery's My classes tab. Read once when a
- * teacher signs in (a class running right now opens that tab), then every
- * 10 seconds while the tab is showing: the seats and the Live badge move.
+ * A teacher's classes, for My classes. Read once when a teacher signs in (a
+ * class running right now opens My classes), then every `polling` ms: App
+ * asks often while My classes shows (the seats and the Live badge move), and
+ * rarely from the gallery (the switch's live dot). false: not at all.
  */
-export function useMyClasses(enabled: boolean, polling: boolean): MyClassesData {
+export function useMyClasses(enabled: boolean, polling: number | false): MyClassesData {
   const [classes, setClasses] = useState<ClassView[] | null>(null);
   const [heroCost, setHeroCost] = useState(10);
   const [seatPrice, setSeatPrice] = useState<SeatPrice | null>(null);
@@ -44,7 +45,7 @@ export function useMyClasses(enabled: boolean, polling: boolean): MyClassesData 
     if (!enabled) { setClasses(null); setSchool(undefined); setError(null); return undefined; }
     reload();
     if (!polling) return undefined;
-    const t = window.setInterval(reload, 10000);
+    const t = window.setInterval(reload, polling);
     return () => window.clearInterval(t);
   }, [enabled, polling, reload]);
 
@@ -56,15 +57,13 @@ const isLive = (c: ClassView) => !!c.live?.open;
 export const hasLiveClass = (classes: ClassView[] | null) => !!classes?.some(isLive);
 
 /**
- * The My classes tab: the school, then the class cards, a class running now
+ * My classes: the school's card, then the class cards, a class running now
  * pinned first. Each class was paid for up front (docs/product/class-sessions.md).
  */
-export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
+export function MyClasses({ data, onOpen, onEditSchool }: {
   data: MyClassesData;
   onOpen: (c: ClassView) => void;
   onEditSchool: () => void;
-  /** "Stop showing My classes": teacher mode off, quietly, from the tab itself. */
-  onStop: () => void;
 }) {
   const { classes, school, error, reload } = data;
   const sorted = classes && [...classes.filter(isLive), ...classes.filter((c) => !isLive(c))];
@@ -85,11 +84,6 @@ export function MyClasses({ data, onOpen, onEditSchool, onStop }: {
             {sorted?.map((c, i) => <ClassCard key={c.id} c={c} index={i} onOpen={() => onOpen(c)} />)}
           </div>
         </>
-      )}
-      {classes && (
-        <div className="cls-tab-foot">
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm cls-stop-classes" onClick={onStop}><Icon name="close" size={18} />Stop showing My classes</button>
-        </div>
       )}
     </div>
   );
@@ -174,15 +168,40 @@ function ClassCard({ c, index, onOpen }: { c: ClassView; index: number; onOpen: 
     );
   }
   return (
-    <div className="cls-card cls-card--live" data-class={c.title}>
+    // The whole card opens the class too: on a short phone its button can sit under the bar.
+    <div className="cls-card cls-card--live" data-class={c.title} onClick={onOpen}>
       <LiveLine endsAt={c.live?.ends_at} />
       {shelf}
       <span className="cls-card-body">{text}</span>
-      <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-open-live" onClick={onOpen} aria-label={`Open ${c.title}`}>
+      <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-open-live" onClick={(e) => { e.stopPropagation(); onOpen(); }} aria-label={`Open ${c.title}`}>
         Open class
       </button>
     </div>
   );
+}
+
+/**
+ * A class in session, from the gallery: one sun strip under the switch, the
+ * whole strip one tap to the class. The gallery's grape action stays Make a
+ * hero; the strip is how a live class is never more than one tap away.
+ */
+export function LiveStrip({ classes, onOpen }: { classes: ClassView[] | null; onOpen: (c: ClassView) => void }) {
+  const live = classes?.filter(isLive) ?? [];
+  if (!live.length) return null;
+  const c = live[0];
+  return (
+    <button type="button" className="cls-strip" onClick={() => onOpen(c)} aria-label={`Open ${c.title}, live now`}>
+      <span className="cls-live"><span className="cls-live-dot" />Live</span>
+      <span className="cls-strip-title" dir="auto">{c.title}</span>
+      <StripLeft endsAt={c.live?.ends_at} />
+      <span className="cls-strip-go" aria-hidden="true"><Icon name="back" size={20} /></span>
+    </button>
+  );
+}
+
+function StripLeft({ endsAt }: { endsAt: string | undefined }) {
+  const left = useSecondsLeft(endsAt);
+  return <span className="cls-strip-left">{clock(left)}</span>;
 }
 
 function LiveLine({ endsAt }: { endsAt: string | undefined }) {

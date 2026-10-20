@@ -5,7 +5,7 @@ import { CouponRedeem } from './CouponRedeem';
 import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
 import { Icon } from './tb/Icon';
-import { Dialog, Sheet, SheetRow } from './tb/parts';
+import { Dialog, Sheet, SheetRow, SheetToggle } from './tb/parts';
 import './HeaderAuth.css';
 
 /**
@@ -92,14 +92,22 @@ function AccountButton({ user, onClick }: { user: User; onClick: () => void }) {
 
 interface HeaderAuthProps {
   onOpenAdmin?: () => void;
-  /** After "Run a class" turned teacher mode on: show the My classes tab. */
-  onRunClass?: () => void;
+  /** After "I run classes" was switched: on shows My classes, off the gallery. */
+  onClassesMode?: (on: boolean) => void;
   /** False on screens whose header has its own buttons: the dialogs stay mounted, the controls don't show. */
   controls?: boolean;
 }
 
-export function HeaderAuth({ onOpenAdmin, onRunClass, controls = true }: HeaderAuthProps = {}) {
-  const [user, setUser] = useState<User | null>(null);
+/**
+ * The account last read, kept for the life of the page. The header remounts
+ * each time the home screen comes back (from a hero, from a class); starting
+ * from nothing, it showed "Sign in" for a moment before the account arrived.
+ */
+let lastUser: User | null = null;
+
+export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: HeaderAuthProps = {}) {
+  const [user, setUserState] = useState<User | null>(() => (getAuthToken() ? lastUser : null));
+  const setUser = (u: User | null) => { lastUser = u; setUserState(u); };
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   // A line the sheet shows for whoever opened it, e.g. where a kept hero goes.
@@ -109,6 +117,7 @@ export function HeaderAuth({ onOpenAdmin, onRunClass, controls = true }: HeaderA
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [savingClasses, setSavingClasses] = useState(false);
 
   // Check auth status on mount
   useEffect(() => {
@@ -199,17 +208,23 @@ export function HeaderAuth({ onOpenAdmin, onRunClass, controls = true }: HeaderA
     setShowProfileModal(true);
   };
 
-  // "Run a class": teacher mode on, and straight to the gallery's My classes
-  // tab (docs/product/class-sessions.md). A teacher has no row: the tab is
-  // their way in, and turns teacher mode off from inside itself.
-  const handleRunClass = async () => {
-    setShowUserMenu(false);
+  // "I run classes": group mode on or off, from the account sheet. On, the
+  // home gets its switch and lands on My classes; off, the switch goes and
+  // the classes are kept for when it is turned on again
+  // (docs/product/creator-and-group-leader.md).
+  const handleClassesMode = async (on: boolean) => {
+    setSavingClasses(true);
     try {
-      await api.updateProfile({ is_teacher: true });
-    } catch { return; /* nothing changed; the row is still there */ }
+      await api.updateProfile({ is_teacher: on });
+    } catch {
+      setSavingClasses(false);
+      return; /* nothing changed; the switch shows what is true */
+    }
     await checkAuth();
+    setSavingClasses(false);
+    setShowUserMenu(false);
     window.dispatchEvent(new CustomEvent('auth:login'));
-    onRunClass?.();
+    onClassesMode?.(on);
   };
 
   const handleOpenDeleteAccount = () => {
@@ -238,7 +253,7 @@ export function HeaderAuth({ onOpenAdmin, onRunClass, controls = true }: HeaderA
         )}
         <AuthModal
           isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => { setShowAuthModal(false); window.dispatchEvent(new CustomEvent('auth:closed')); }}
           onSuccess={handleLoginSuccess}
           initialMode={authMode}
           note={authNote}
@@ -264,7 +279,9 @@ export function HeaderAuth({ onOpenAdmin, onRunClass, controls = true }: HeaderA
           <SheetRow icon="coin" label="Buy credits" onClick={handleOpenBuyModal} />
           <SheetRow icon="ticket" label="Redeem a coupon" onClick={handleOpenCouponModal} />
           <SheetRow icon="pencil" label="Edit profile" onClick={handleOpenProfile} />
-          {!user.is_teacher && <SheetRow icon="school" label="Run a class" onClick={handleRunClass} />}
+          {/* Three groups, two lines: you, your tools, the session. */}
+          <div className="tb-sheet-divider" />
+          <SheetToggle icon="school" label="I run classes" on={!!user.is_teacher} busy={savingClasses} onChange={handleClassesMode} className="header-auth-classes" />
           {user.is_admin && <SheetRow icon="gear" label="Admin" onClick={handleOpenAdmin} />}
           <div className="tb-sheet-divider" />
           <SheetRow icon="logout" label="Sign out" onClick={handleLogout} />
