@@ -418,12 +418,22 @@ try {
     const prod = JSON.parse(readFileSync(path.join(HERE, '../devops/railway/project.json'), 'utf8')).environments.production.urls.frontend;
     const env = await page.evaluate(() => document.documentElement.dataset.env);
     if (env !== 'staging') throw new Error(`staging is not marked as staging (data-env=${env}): it looks like production`);
-    const manifest = await (await page.request.get(BASE_URL + '/manifest.webmanifest')).json();
-    if (!/staging/i.test(manifest.short_name)) throw new Error(`installed staging app is named "${manifest.short_name}", like production`);
+    // What Android installs is what Chrome reads as this page's manifest, so
+    // ask Chrome, not the server. It must also never be a cached copy: the
+    // service worker and a long cache once kept a staging install named and
+    // drawn like production.
+    const cdp = await page.context().newCDPSession(page);
+    const appManifest = await cdp.send('Page.getAppManifest');
+    await cdp.detach();
+    const manifest = JSON.parse(appManifest.data || '{}');
+    if (!/staging/i.test(manifest.short_name || '')) throw new Error(`installed staging app is named "${manifest.short_name}", like production (${appManifest.url})`);
+    if (!/[?&]env=staging/.test(appManifest.url)) throw new Error(`staging's manifest is ${appManifest.url}, the URL the service worker precaches`);
+    const manifestCache = (await page.request.get(appManifest.url)).headers()['cache-control'] || '';
+    if (!/no-cache|no-store|max-age=0/.test(manifestCache)) throw new Error(`the manifest is cacheable ("${manifestCache}"): installed apps would keep an old name and icon`);
     // The installed app's icon is staging's own; the in-app logo keeps
     // production's picture, with the tag.
     const icon = manifest.icons?.[0]?.src || '';
-    const [ours, theirs] = await Promise.all([`${BASE_URL}/${icon.replace(/^\//, '')}`, `${prod}/app-icon.png`].map(async (u) => (await page.request.get(u)).body()));
+    const [ours, theirs] = await Promise.all([new URL(icon, appManifest.url).href, `${prod}/app-icon.png`].map(async (u) => (await page.request.get(u)).body()));
     if (ours.equals(theirs)) throw new Error(`staging's installed app uses production's icon (${icon})`);
     const tag = await page.evaluate(() => getComputedStyle(document.querySelector('.tb-logo'), '::after').content);
     if (!/staging/i.test(tag)) throw new Error(`no STAGING tag on the logo (${tag})`);

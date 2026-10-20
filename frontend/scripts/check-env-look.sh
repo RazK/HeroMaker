@@ -31,6 +31,7 @@ grep -q 'data-env="staging"' "$tmp/staging/index.html" || fail "staging index.ht
 grep -q '"short_name":"HM Staging"' "$tmp/staging/manifest.webmanifest" || fail "staging manifest keeps production's name"
 grep -q '"src":"app-icon-staging.png"' "$tmp/staging/manifest.webmanifest" || fail "staging's installed app keeps production's icon"
 grep -q 'href="/app-icon-staging.png"' "$tmp/staging/index.html" || fail "staging's tab keeps production's icon"
+grep -q 'rel="manifest" href="/manifest.webmanifest?env=staging"' "$tmp/staging/index.html" || fail "staging's manifest URL is the one the service worker precaches"
 cmp -s "$tmp/staging/app-icon-staging.png" dist/app-icon.png && fail "staging's icon is production's"
 cmp -s "$tmp/staging/app-icon.png" dist/app-icon.png || fail "staging changed the in-app logo picture"
 

@@ -170,6 +170,15 @@ and production keeps its own icon. Keep it that way:
   fails until you do.
 - Never make staging's look a build-time or per-commit difference, and never
   put the staging icon in `public/`.
+- Staging's manifest is served from its own URL
+  (`/manifest.webmanifest?env=staging`) and is never cached (nginx no-cache).
+  The service worker precaches `/manifest.webmanifest` with the build's
+  revision, and that once kept an installed staging app named and drawn like
+  production. The robot asks Chrome itself (`Page.getAppManifest`) what it
+  would install.
+- An app installed before a look change keeps its old icon until Android
+  updates it, which takes about a day. Uninstalling and reinstalling from the
+  staging link is immediate.
 - The staging robot fails if staging looks like production. After every
   promote, check that production shows no STAGING tag.
 
