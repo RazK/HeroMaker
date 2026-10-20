@@ -30,3 +30,5 @@
 .buy-credits-legal { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; padding-top: var(--tb-space); }
 .buy-credits-legal .tb-muted { font-size: 13px; }
 .buy-credits-legal-chip { height: 32px; padding: 0 12px; font-size: 13px; color: var(--tb-ink-2); }
+/* Why the sheet opened (not enough credits for a hero): above the packs. */
+.buy-credits-why { margin: 0 0 12px; background: var(--tb-plate-2); box-shadow: none; }

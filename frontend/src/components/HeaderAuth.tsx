@@ -114,6 +114,7 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
   const [authNote, setAuthNote] = useState<string | undefined>(undefined);
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [showBuyModal, setShowBuyModal] = useState(false);
+  const [buyNote, setBuyNote] = useState<string | undefined>(undefined);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
@@ -133,7 +134,12 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
     };
     
     // Anywhere in the app can ask for the buy dialog, e.g. "not enough credits".
-    const handleOpenBuy = () => setShowBuyModal(true);
+    // A detail.note says why (e.g. "A hero is 10 credits. You have 0.").
+    const handleOpenBuy = (e: Event) => {
+      const note = (e as CustomEvent).detail?.note;
+      setBuyNote(typeof note === 'string' ? note : undefined);
+      setShowBuyModal(true);
+    };
     // Anywhere can ask for sign-in or sign-up, e.g. "Make a hero" while signed out.
     const handleOpenAuth = (e: Event) => {
       const { mode, note } = (e as CustomEvent).detail ?? {};
@@ -168,6 +174,8 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
     try {
       const userData = await api.getMe();
       setUser(userData);
+      // App keeps the balance "Make this hero?" checks: hand it the new one.
+      window.dispatchEvent(new CustomEvent('credits:seen', { detail: { credits: userData.credits } }));
     } catch (err) {
       setUser(null);
     }
@@ -297,7 +305,7 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
         />
       )}
 
-      <BuyCredits isOpen={showBuyModal} onClose={() => setShowBuyModal(false)} />
+      <BuyCredits isOpen={showBuyModal} note={buyNote} onClose={() => { setShowBuyModal(false); setBuyNote(undefined); }} />
       <CouponRedeem
         isOpen={showCouponModal}
         onClose={() => setShowCouponModal(false)}
