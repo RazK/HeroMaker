@@ -4,7 +4,7 @@ import { Icon, IconName } from './tb/Icon';
 import { Header, NavButton } from './tb/parts';
 import { MoneySection } from './admin/MoneySection';
 import { CouponsSection } from './admin/CouponsSection';
-import { UsersSection } from './admin/UsersSection';
+import { UsersFilter, UsersSection } from './admin/UsersSection';
 import { SchoolsSection } from './admin/SchoolsSection';
 import { UserDetail } from './admin/UserDetail';
 import './admin/admin.css';
@@ -29,6 +29,8 @@ const KEY = 'heromaker.admin.section';
 // The user page open when a hero was opened from it: Back from the hero
 // comes back to it. Per tab, so a new tab starts at the list.
 const USER_KEY = 'heromaker.admin.user';
+// The Users search and test-accounts toggle, per tab.
+const FILTER_KEY = 'heromaker.admin.usersFilter';
 
 function initialSection(): Section {
   try {
@@ -36,6 +38,14 @@ function initialSection(): Section {
     if (saved === 'money' || saved === 'coupons' || saved === 'users' || saved === 'schools') return saved;
   } catch { /* private mode: default */ }
   return 'money';
+}
+
+function initialFilter(): UsersFilter {
+  try {
+    const f = JSON.parse(sessionStorage.getItem(FILTER_KEY) ?? 'null');
+    if (f && typeof f.query === 'string' && typeof f.showTest === 'boolean') return { query: f.query, showTest: f.showTest };
+  } catch { /* fine */ }
+  return { query: '', showTest: false };
 }
 
 function initialUser(): string | null {
@@ -52,6 +62,12 @@ function initialUser(): string | null {
 export function AdminPanel({ onClose, currentUserId, onOpenHero }: AdminPanelProps) {
   const [section, setSection] = useState<Section>(initialSection);
   const [userId, setUserIdState] = useState<string | null>(initialUser);
+  // Lives here, not in the list: Back to users finds the same search and toggle.
+  const [usersFilter, setUsersFilter] = useState<UsersFilter>(initialFilter);
+  const filterUsers = (f: UsersFilter) => {
+    setUsersFilter(f);
+    try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch { /* fine */ }
+  };
   const pick = (s: Section) => {
     setSection(s);
     try { localStorage.setItem(KEY, s); } catch { /* fine */ }
@@ -100,7 +116,7 @@ export function AdminPanel({ onClose, currentUserId, onOpenHero }: AdminPanelPro
           </div>
           {section === 'money' && <MoneySection />}
           {section === 'coupons' && <CouponsSection />}
-          {section === 'users' && <UsersSection currentUserId={currentUserId} onOpen={(id) => setUserId(id)} />}
+          {section === 'users' && <UsersSection currentUserId={currentUserId} onOpen={(id) => setUserId(id)} filter={usersFilter} onFilter={filterUsers} />}
           {section === 'schools' && <SchoolsSection />}
         </div>
       </div>

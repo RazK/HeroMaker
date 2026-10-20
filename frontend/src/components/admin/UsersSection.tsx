@@ -12,18 +12,30 @@ export function matchesUser(u: Pick<AdminUserResponse, 'username' | 'email' | 'n
   return [u.name, u.email, u.username].some((f) => (f ?? '').toLowerCase().includes(q));
 }
 
-export function UsersSection({ currentUserId, onOpen }: { currentUserId: string; onOpen: (userId: string) => void }) {
+/** The search and the test-accounts toggle: owned by the admin console, so a user's page and back keeps them. */
+export interface UsersFilter { query: string; showTest: boolean }
+
+export function UsersSection({ currentUserId, onOpen, filter, onFilter }: {
+  currentUserId: string;
+  onOpen: (userId: string) => void;
+  filter: UsersFilter;
+  onFilter: (f: UsersFilter) => void;
+}) {
   const [users, setUsers] = useState<AdminUserResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const { query, showTest } = filter;
+  const setQuery = (q: string) => onFilter({ ...filter, query: q });
   const [menu, setMenu] = useState<AdminUserResponse | null>(null);
   const [creditsFor, setCreditsFor] = useState<AdminUserResponse | null>(null);
   const [deleting, setDeleting] = useState<AdminUserResponse | null>(null);
   const [busy, setBusy] = useState(false);
   // Test accounts (the staging robot's robot_*, anything @example.com) are
   // hidden by default, server-side, so leftovers never bury real people.
-  const [showTest, setShowTest] = useState(false);
+  const setShowTest = (on: boolean) => { setUsers(null); onFilter({ ...filter, showTest: on }); };
   const [testCount, setTestCount] = useState<number | null>(null);
+  // Every account, test ones too: read only when a search finds no one with
+  // test accounts hidden, to say whether a hidden one matches.
+  const [everyone, setEveryone] = useState<AdminUserResponse[] | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -57,6 +69,14 @@ export function UsersSection({ currentUserId, onOpen }: { currentUserId: string;
   };
 
   const shown = useMemo(() => (users ? users.filter((u) => matchesUser(u, query)) : users), [users, query]);
+  const searchMissed = !showTest && !!query.trim() && shown !== null && shown.length === 0 && (testCount ?? 0) > 0;
+  useEffect(() => {
+    if (!searchMissed || everyone) return;
+    let live = true;
+    api.admin.listUsers(true).then((all) => { if (live) setEveryone(all); }).catch(() => { /* the plain empty state stays */ });
+    return () => { live = false; };
+  }, [searchMissed, everyone]);
+  const hiddenMatches = searchMissed && everyone ? everyone.filter((u) => u.is_test_account && matchesUser(u, query)).length : 0;
 
   return (
     <>
@@ -80,14 +100,22 @@ export function UsersSection({ currentUserId, onOpen }: { currentUserId: string;
                 type="button"
                 className={`tb-chip${showTest ? ' tb-chip--on' : ''}`}
                 aria-pressed={showTest}
-                onClick={() => { setUsers(null); setShowTest((s) => !s); }}
+                onClick={() => setShowTest(!showTest)}
               >
-                Show test accounts{testCount !== null ? ` (${testCount})` : ''}
+                {showTest ? 'Hide test accounts' : 'Show test accounts'}{testCount !== null ? ` (${testCount})` : ''}
               </button>
             )}
           </div>
           {shown.length === 0 && query.trim() && (
-            <div className="adm-card adm-empty"><Icon name="user" size={28} />No one matches “{query.trim()}”</div>
+            <div className="adm-card adm-empty" data-testid="users-empty">
+              <Icon name="user" size={28} />
+              {hiddenMatches > 0 ? (
+                <>
+                  <span>No one matches. {hiddenMatches} test {hiddenMatches === 1 ? 'account matches' : 'accounts match'}</span>
+                  <button type="button" className="tb-btn tb-btn--secondary adm-btn-xs" onClick={() => setShowTest(true)}>Show</button>
+                </>
+              ) : <>No one matches “{query.trim()}”</>}
+            </div>
           )}
           {shown.map((u) => (
             <div key={u.id} className="adm-card adm-user">
@@ -102,7 +130,7 @@ export function UsersSection({ currentUserId, onOpen }: { currentUserId: string;
                 <span className="adm-user-email">{u.name ? `${u.username} · ` : ''}{u.email}</span>
                 <span className="adm-coupon-meta">
                   <span className="adm-coupon-credits"><Icon name="coin" size={16} />{u.credits}</span>
-                  <span>{u.creation_stats.completed} heroes</span>
+                  <span>{u.creation_stats.completed} {u.creation_stats.completed === 1 ? 'hero' : 'heroes'}</span>
                   {u.creation_stats.failed > 0 && <span className="adm-bad">{u.creation_stats.failed} failed</span>}
                   {u.creation_stats.in_progress > 0 && <span>{u.creation_stats.in_progress} making</span>}
                   <span>since {shortDate(u.created_at)}</span>

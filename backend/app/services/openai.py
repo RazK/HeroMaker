@@ -23,6 +23,12 @@ from app.services import provider_errors
 
 logger = logging.getLogger(__name__)
 
+# What an admin reads under Details when an OpenAI call fails. It must be
+# true: the SDK's own short retries are already spent by the time we get the
+# exception, the pipeline runs each step once, and execute_step refunds the
+# step's credits. Never "will be retried automatically".
+_NOT_RETRIED = "The step failed and its credits were refunded; it is not retried. Make the hero again to try once more."
+
 
 # Prompt for transforming drawing to 3D render in T-pose
 # Note: Keep prompt neutral to avoid OpenAI's safety filters
@@ -581,8 +587,7 @@ def render_image(
         error_msg = (
             f"OpenAI API timeout: The request took longer than 120 seconds.\n"
             f"Original error: {str(e)}\n"
-            "This may be due to high API load. The request will be retried automatically, "
-            "or you can retry the task manually."
+            "This may be due to high API load. " + _NOT_RETRIED
         )
         logger.error(error_msg)
         raise Exception(error_msg) from e
@@ -595,8 +600,7 @@ def render_image(
             raise provider_errors.ProviderOutOfCredits(pricing.PROVIDER_OPENAI, str(e)) from e
         error_msg = (
             f"OpenAI API rate limit exceeded: {str(e)}\n"
-            "You've hit OpenAI's rate limits. The request will be retried automatically with backoff. "
-            "If this persists, please wait a few minutes and try again."
+            "We hit OpenAI's rate limits. " + _NOT_RETRIED
         )
         logger.warning(error_msg)
         raise Exception(error_msg) from e
@@ -604,8 +608,7 @@ def render_image(
     except APIConnectionError as e:
         error_msg = (
             f"OpenAI API connection error: {str(e)}\n"
-            "Failed to connect to OpenAI's servers. This may be a network issue. "
-            "The request will be retried automatically."
+            "Failed to connect to OpenAI's servers. This may be a network issue. " + _NOT_RETRIED
         )
         logger.error(error_msg)
         raise Exception(error_msg) from e
@@ -618,9 +621,7 @@ def render_image(
         if status_code == 500:
             error_msg = (
                 f"OpenAI API server error (500): {error_str}\n"
-                "OpenAI's servers returned an internal error. This is usually temporary. "
-                "The OpenAI client will automatically retry with exponential backoff. "
-                "If this persists after several retries, please try again later or contact OpenAI support."
+                "OpenAI's servers returned an internal error. This is usually temporary. " + _NOT_RETRIED
             )
             logger.warning(f"OpenAI 500 error (will retry): {error_msg}")
             raise Exception(error_msg) from e
@@ -629,7 +630,7 @@ def render_image(
         if status_code in (502, 503, 504):
             error_msg = (
                 f"OpenAI API gateway error ({status_code}): {error_str}\n"
-                "OpenAI's gateway is experiencing issues. The request will be retried automatically."
+                "OpenAI's gateway is experiencing issues. " + _NOT_RETRIED
             )
             logger.warning(f"OpenAI gateway error (will retry): {error_msg}")
             raise Exception(error_msg) from e

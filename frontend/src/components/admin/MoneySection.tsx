@@ -43,10 +43,18 @@ export function MoneySection() {
   useEffect(() => { loadProviders(false); }, [loadProviders]);
 
   const s = summary;
+  const empty = (providers ?? []).filter((p) => p.status === 'ok' && p.out_of_credit);
   const income = s ? s.income.live.net_usd_micros - s.income.refunds.net_usd_micros : 0;
 
   return (
     <>
+      {empty.map((p) => (
+        <div key={p.provider} className="adm-error adm-alert" role="alert" data-testid="provider-out">
+          <Icon name="coin" size={22} />
+          <span>{providerName(p.provider)} is out of credit: {p.out_of_credit_effect ?? 'its steps fail'}</span>
+        </div>
+      ))}
+
       <div className="adm-chips" role="group" aria-label="Period">
         {PERIODS.map((p) => (
           <button key={p.id} type="button" className={`tb-chip${period === p.id ? ' tb-chip--on' : ''}`} aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}>
@@ -192,7 +200,7 @@ function ProviderRow({ p }: { p: ProviderBalance }) {
         {p.status !== 'ok' && p.hint && <small className={p.status === 'error' ? 'adm-bad' : ''}>{p.hint}</small>}
       </span>
       {p.status === 'ok'
-        ? <span className="adm-row-value">{value}</span>
+        ? <span className={`adm-row-value${p.out_of_credit ? ' adm-bad' : ''}`}>{value}</span>
         : <span className={`adm-pill${p.status === 'error' ? ' adm-pill--bad' : ''}`}>{p.status === 'error' ? 'Error' : 'Not connected'}</span>}
     </div>
   );

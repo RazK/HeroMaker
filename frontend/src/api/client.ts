@@ -768,6 +768,11 @@ export const api = {
       return fetchJson<AdminUserDetail>(`${API_BASE_URL}/api/admin/users/${userId}`);
     },
 
+    /** One user's credit ledger, newest first: purchases, step charges, refunds, grants. */
+    userLedger(userId: string, limit = 200): Promise<UserLedger> {
+      return fetchJson<UserLedger>(`${API_BASE_URL}/api/admin/finance/ledger/${userId}?limit=${limit}`);
+    },
+
     removeHero(creationId: string, reason: RemovalReason, note: string): Promise<AdminAction> {
       return fetchJson<AdminAction>(`${API_BASE_URL}/api/admin/creations/${creationId}/remove`, {
         method: 'POST',
@@ -925,6 +930,12 @@ export interface ProviderBalance {
   hint: string | null;
   checked_at: string;
   cached?: boolean;
+  /** Set where the balance is readable: true when it cannot pay for one more step of its kind. */
+  out_of_credit?: boolean;
+  /** What fails while it is out, e.g. "every 3D step fails". */
+  out_of_credit_effect?: string | null;
+  /** What one such step costs, in the provider's own credits. */
+  step_credits?: number;
   // meshy
   credits?: number;
   value_usd_micros?: number;
@@ -1005,6 +1016,23 @@ export interface AdminUserResponse {
 export interface AdminUserCounts {
   users: number;
   test_accounts: number;
+}
+
+/** One movement in a user's credit ledger (app/models.py CREDIT_REASONS). */
+export interface LedgerTransaction {
+  id: string;
+  delta: number;
+  reason: string;
+  external_ref: string | null;
+  creation_id: string | null;
+  balance_after: number;
+  metadata: Record<string, unknown>;
+  created_at: string | null;
+}
+
+export interface UserLedger {
+  user_id: string;
+  transactions: LedgerTransaction[];
 }
 
 export type RemovalReason = 'inappropriate' | 'not_a_drawing' | 'duplicate' | 'other';

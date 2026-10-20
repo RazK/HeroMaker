@@ -28,6 +28,7 @@ class ProviderOutOfCredits(Exception):
         self.detail = detail
         super().__init__(
             f"{provider_label(provider)} service unavailable: our account is out of credits. "
+            f"The step failed and its credits were refunded; it is not retried. "
             f"Not a rate limit; it will not clear until the account is topped up. "
             f"Provider said: {detail}"
         )

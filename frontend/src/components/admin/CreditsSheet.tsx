@@ -8,6 +8,21 @@ export type CreditsMode = 'give' | 'take';
 const QUICK = [5, 10, 25, 50];
 
 /**
+ * The amount as typed, or why it cannot be used. Whole positive numbers only:
+ * "1e3" is not 1, "5.7" is not 5, and 0 or a minus sign is refused, never
+ * quietly rounded into something else.
+ */
+export function parseAmount(raw: string, max: number): { n: number } | { reason: string | null } {
+  const t = raw.trim();
+  if (!t) return { reason: null };
+  if (!/^\d+$/.test(t)) return { reason: 'Whole numbers only.' };
+  const n = Number(t);
+  if (n <= 0) return { reason: 'At least 1.' };
+  if (n > max) return { reason: `Up to ${max}.` };
+  return { n };
+}
+
+/**
  * Give credits, or take some back: an amount and a note (required), then a
  * confirmation, because it is money. Booked in the ledger as an admin
  * adjustment, and in the audit log with the note. Taking back stops at zero.
@@ -25,9 +40,11 @@ export function CreditsSheet({ user, mode, onClose, onDone }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const who = user.name || user.username;
-  const n = parseInt(value, 10);
   const max = mode === 'take' ? user.credits : 1000;
-  const amountOk = Number.isFinite(n) && n > 0 && n <= max;
+  const parsed = parseAmount(value, max);
+  const amountOk = 'n' in parsed;
+  const n = 'n' in parsed ? parsed.n : NaN;
+  const reason = 'reason' in parsed ? parsed.reason : null;
   const valid = amountOk && note.trim().length > 0;
   const after = mode === 'give' ? user.credits + (amountOk ? n : 0) : user.credits - (amountOk ? n : 0);
 
@@ -61,8 +78,10 @@ export function CreditsSheet({ user, mode, onClose, onDone }: {
           )}
           <div className="tb-field">
             <label htmlFor="adm-credits-amount">{mode === 'give' ? 'Credits to give' : `Credits to take back (up to ${user.credits})`}</label>
-            <input id="adm-credits-amount" className="tb-input" type="number" inputMode="numeric" min="1" max={max}
+            <input id="adm-credits-amount" className="tb-input" type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off"
+              aria-invalid={reason ? true : undefined} aria-describedby={reason ? 'adm-credits-why' : undefined}
               value={value} autoFocus onChange={(e) => { setValue(e.target.value); setError(null); }} />
+            {reason && <div id="adm-credits-why" className="adm-note adm-note--bad">{reason}</div>}
           </div>
           <div className="tb-field">
             <label htmlFor="adm-credits-note">Note (why)</label>

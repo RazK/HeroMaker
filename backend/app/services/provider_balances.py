@@ -11,6 +11,11 @@ Every result has the same outer shape:
     {"provider": "meshy", "status": "ok" | "not_configured" | "error",
      "checked_at": iso, "hint": str | None, ...provider fields}
 
+A provider whose balance we can read also says whether it can pay for one
+more step of its kind: "out_of_credit" (bool) and, when true,
+"out_of_credit_effect" ("every 3D step fails"). The console turns that into
+its red notice; nothing there knows which provider is which.
+
 SECRETS: keys are read from the environment at call time and only ever placed
 in an Authorization header. Error text is built from the HTTP status or the
 exception's class name, never from the request or the provider's response
@@ -93,9 +98,15 @@ def fetch_meshy() -> Dict[str, Any]:
         return _http_error("meshy", exc)
     balance = int(data.get("balance") or 0)
     resets_ms = data.get("monthly_resets_at")
+    # The dearest step Meshy runs for us is image-to-3D. Below its price the
+    # account cannot run one more, so every hero fails at 3D until a top-up.
+    step_credits = pricing.MESHY_IMAGE_TO_3D_CREDITS
     return _result(
         "meshy", "ok",
         credits=balance,
+        step_credits=step_credits,
+        out_of_credit=balance < step_credits,
+        out_of_credit_effect="every 3D step fails" if balance < step_credits else None,
         monthly_credits=data.get("monthly_credits"),
         permanent_credits=data.get("permanent_credits"),
         monthly_resets_at=(

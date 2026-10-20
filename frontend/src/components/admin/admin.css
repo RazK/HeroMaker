@@ -134,6 +134,10 @@
   color: var(--tb-red);
   font-weight: 700;
 }
+/* A provider that cannot pay for one more step: the loudest thing on Money. */
+.adm-alert { display: flex; align-items: center; gap: 10px; border: 2px solid var(--tb-red); font-weight: 800; }
+.adm-alert svg { flex-shrink: 0; }
+.adm-ledger-more { align-self: center; margin-block-start: 8px; }
 
 .adm-pill {
   display: inline-flex;

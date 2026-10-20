@@ -274,6 +274,7 @@ def test_configured_providers_report_balances(client, as_admin, monkeypatch):
     assert by["meshy"]["status"] == "ok"
     assert by["meshy"]["credits"] == 1000
     assert by["meshy"]["value_usd_micros"] == 1000 * by["meshy"]["usd_micros_per_credit"]
+    assert by["meshy"]["out_of_credit"] is False
     assert by["openai"]["month_to_date_usd_micros"] == 1_750_000
     assert by["railway"]["current_usage_usd_micros"] == 3_200_000
     assert by["railway"]["workspace"] == "Raz"
@@ -287,6 +288,30 @@ def test_configured_providers_report_balances(client, as_admin, monkeypatch):
     # Unless asked to.
     client.get("/api/admin/money/providers?refresh=true", headers=as_admin)
     assert len(calls) == 2 * n
+
+
+def test_meshy_below_one_3d_step_is_out_of_credit(client, as_admin, monkeypatch):
+    """5 credits left and a 3D step costs 20: the console must say every 3D step fails."""
+    monkeypatch.setenv("MESHY_API_KEY", "msy-secret-meshy")
+    cost = provider_balances.pricing.MESHY_IMAGE_TO_3D_CREDITS
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if url == provider_balances.MESHY_BALANCE_URL:
+            return _Resp(200, {"balance": cost - 1})
+        raise AssertionError(url)
+
+    monkeypatch.setattr(provider_balances.requests, "get", fake_get)
+    by = {p["provider"]: p for p in client.get("/api/admin/money/providers?refresh=true", headers=as_admin).json()["providers"]}
+    assert by["meshy"]["out_of_credit"] is True
+    assert by["meshy"]["step_credits"] == cost
+    assert by["meshy"]["out_of_credit_effect"] == "every 3D step fails"
+
+    def enough(url, headers=None, params=None, timeout=None):
+        return _Resp(200, {"balance": cost})
+
+    monkeypatch.setattr(provider_balances.requests, "get", enough)
+    by = {p["provider"]: p for p in client.get("/api/admin/money/providers?refresh=true", headers=as_admin).json()["providers"]}
+    assert by["meshy"]["out_of_credit"] is False
 
 
 def test_a_failing_provider_is_one_error_card_with_no_secret(client, as_admin, monkeypatch, caplog):
