@@ -6,7 +6,10 @@ import { PipelineProgress } from './components/PipelineProgress';
 import { HeroNameEditor } from './components/HeroNameEditor';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
-import { Privacy, PRIVACY_PATH } from './components/tb/Privacy';
+import { Privacy } from './components/tb/Privacy';
+import { Terms } from './components/tb/Terms';
+import { Refunds } from './components/tb/Refunds';
+import { LEGAL_OPEN_EVENT, LEGAL_PATHS, LegalPage, legalPageAt, openLegal } from './components/tb/Legal';
 import { Gallery, Filter, Section, forgetGallery, galleryTabs, hadSwitch, rememberSection, rememberTab, rememberedSection, rememberedTab, resetGalleryScroll } from './components/tb/Gallery';
 import { Segmented } from './components/tb/Segmented';
 import { LiveStrip, MyClasses, NewClassFlow, hasLiveClass, useMyClasses } from './components/class/MyClasses';
@@ -24,7 +27,7 @@ import { loadStepConfig, getTotalCost } from './config/steps';
 import './styles/toybox.css';
 import './App.css';
 
-type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | 'privacy' | 'class' | 'claim';
+type View = 'gallery' | 'hero' | 'steps' | 'admin' | 'reset' | LegalPage | 'class' | 'claim';
 
 // The only URL the app routes on: the link in a "Forgot password?" email.
 const isResetUrl = () => window.location.pathname === RESET_PASSWORD_PATH;
@@ -57,8 +60,20 @@ function App() {
 }
 
 function MainApp() {
-  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : CLASS_PAID_ON_LOAD ? 'class' : window.location.pathname === PRIVACY_PATH ? 'privacy' : claimToken() ? 'claim' : 'gallery');
+  const [view, setView] = useState<View>(isResetUrl() ? 'reset' : CLASS_PAID_ON_LOAD ? 'class' : legalPageAt(window.location.pathname) ?? (claimToken() ? 'claim' : 'gallery'));
   const [claim] = useState(claimToken);
+  // A legal page, on its own URL, opened from the footer or a sheet.
+  useEffect(() => {
+    const open = (e: Event) => {
+      const page = (e as CustomEvent<LegalPage>).detail;
+      if (!(page in LEGAL_PATHS)) return;
+      window.history.pushState(null, '', LEGAL_PATHS[page]);
+      setView(page);
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener(LEGAL_OPEN_EVENT, open);
+    return () => window.removeEventListener(LEGAL_OPEN_EVENT, open);
+  }, []);
   // Back from paying for a class's seats (?class_paid=<id>): open that class,
   // which watches its seats arrive by webhook. Read once per page load.
   const [classPaid] = useState(CLASS_PAID_ON_LOAD);
@@ -240,7 +255,7 @@ function MainApp() {
   // the logo on the gallery itself starts it over from the top.
   const goHome = () => {
     if (view === 'gallery') resetGalleryScroll();
-    if (isResetUrl() || window.location.pathname === PRIVACY_PATH || claimToken()) window.history.replaceState(null, '', '/');
+    if (isResetUrl() || legalPageAt(window.location.pathname) || claimToken()) window.history.replaceState(null, '', '/');
     setView('gallery');
     setCreation(null);
     setError(null);
@@ -403,7 +418,9 @@ function MainApp() {
       {extra}
       <div>Made by Raz Karl &amp; Elad Shikley</div>
       <div className="tb-footer-row">
-        <button type="button" className="tb-chip tb-footer-chip" onClick={() => { window.history.pushState(null, '', PRIVACY_PATH); setView('privacy'); }}>Privacy</button>
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('privacy')}>Privacy</button>
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('terms')}>Terms</button>
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('refunds')}>Refunds</button>
         <span className="tb-version">{__APP_VERSION__}</span>
       </div>
     </footer>
@@ -463,6 +480,10 @@ function MainApp() {
     );
   } else if (view === 'privacy') {
     screen = <Privacy onBack={goHome} />;
+  } else if (view === 'terms') {
+    screen = <Terms onBack={goHome} />;
+  } else if (view === 'refunds') {
+    screen = <Refunds onBack={goHome} />;
   } else if (view === 'reset') {
     screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
   } else if (view === 'admin' && userInfo) {
