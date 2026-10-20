@@ -15,13 +15,27 @@ export function clearAuthToken(): void {
   localStorage.removeItem(JWT_TOKEN_KEY);
 }
 
+export type StepErrorCode =
+  | 'safety_blocked' | 'provider_busy' | 'bad_input' | 'out_of_credits_provider'
+  | 'not_enough_credits' | 'cancelled' | 'unknown';
+
 export interface CreationStepResponse {
   step_name: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   started_at: string | null;
   completed_at: string | null;
   estimated_completion_time: string | null;
+  /** The safe line below, or for an admin the raw provider error. */
   error_message: string | null;
+  /** Why a failed step failed (backend app/services/step_errors.py). */
+  error_code?: StepErrorCode | null;
+  /** One short line for whoever made the hero. Never the provider's text. */
+  error_user?: string | null;
+  /** The step's charge really was given back. */
+  credits_refunded?: boolean;
+  /** Admins only: the raw provider error, and its request ID if it had one. */
+  error_detail?: string | null;
+  error_request_id?: string | null;
   metadata_json?: { [key: string]: any } | null;
   /** 0-100 as the provider reported it (Meshy); null when the provider reports nothing. */
   progress?: number | null;

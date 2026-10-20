@@ -167,7 +167,7 @@ export function StepCard({
   };
 
   const handleCancel = async () => {
-    if (step.status === 'failed' && step.error_message === 'Step cancelled by user') {
+    if (step.status === 'failed' && (step.error_code === 'cancelled' || step.error_message === 'Step cancelled by user')) {
       return;
     }
     
@@ -239,7 +239,7 @@ export function StepCard({
 
   // Render action button based on status
   const renderActionButton = () => {
-    const isCancelled = step.status === 'failed' && step.error_message === 'Step cancelled by user';
+    const isCancelled = step.status === 'failed' && (step.error_code === 'cancelled' || step.error_message === 'Step cancelled by user');
     
     // Processing: show Cancel button
     if (step.status === 'processing') {

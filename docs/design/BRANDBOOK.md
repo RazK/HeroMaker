@@ -75,6 +75,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - **Kid for play** (making, playing): short, playful, "!" allowed. "Itai's hero is ready", "STUNT! NEW!"
 - **Parent for money** (buying, account, errors): calm, plain, precise. "Credits returned", "This can't be undone."
 - Our errors never blame the user: "Payments are unavailable right now."
+- A failed step reads "Painting failed" and one line chosen by its error code (`backend/app/services/step_errors.py`): "We couldn't paint this picture. Credits returned. Try another drawing or photo." A provider's own words never reach a user; an admin reads them behind a quiet Details chip.
 - Words: hero, drawing, gallery, make a hero, play, credits.
 
 ## Icons
@@ -145,7 +146,7 @@ Mock-ups of each are in the artifact's "Rejected" card.
 
 ## Known debt (do not copy)
 
-- Primary above secondary in the failed bar, New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
+- Primary above secondary in the New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
 - Hero screen being made or failed, at 844 x 390: the sticky bar covers the stage. At 1280 x 800 it stays a 560px column. (A ready hero is fixed: stage beside moves and bar sideways, a 720px column with one row of 8 moves on a desktop.)
 - Signed-out gallery has a 25-word paragraph under the headline.
 - Some paintings (`rendered.png`) are opaque and hide the sun.

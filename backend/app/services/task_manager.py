@@ -10,6 +10,7 @@ from collections.abc import Coroutine
 from app.database import SessionLocal
 from app.models import CreationStep
 from app.services.credits import refund_last_step_charge
+from app.services import step_errors
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +97,10 @@ class TaskManager:
                                 CreationStep.step_name == step_name
                             ).first()
                         if step and step.status == "processing":
-                            step.status = "failed"
-                            step.error_message = f"Step timed out after {timeout_seconds} seconds"
+                            step_errors.mark_failed(
+                                step, f"Step timed out after {timeout_seconds} seconds",
+                                code=step_errors.PROVIDER_BUSY,
+                            )
                             db.commit()
                             logger.info(f"[{creation_id}] Marked step {step.step_name} as failed (timeout)")
                             # The step was charged before the provider was
@@ -106,10 +109,13 @@ class TaskManager:
                             # reaches the `except Exception` refund in
                             # pipeline.execute_step - this is the only place a
                             # timed-out step can be made whole.
-                            refund_last_step_charge(
+                            refund = refund_last_step_charge(
                                 db, creation_id, step.step_name,
                                 note=f"{step.step_name} timed out after {timeout_seconds}s",
                             )
+                            if refund is not None:
+                                step_errors.note_refund(step, refund)
+                                db.commit()
                     except Exception as e:
                         logger.error(f"[{creation_id}] Error marking timed-out step as failed: {e}")
                     finally:

@@ -4,6 +4,7 @@ from typing import Optional, List, Dict
 from app.config.steps import STEPS, get_step_by_name
 from app.models import CreationStep
 from app.services.openai import DEFAULT_STYLE, resolve_style
+from app.services import step_errors
 
 class CreationRequest(BaseModel):
     character_name: Optional[str] = None
@@ -44,7 +45,16 @@ class CreationStepResponse(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     estimated_completion_time: Optional[datetime] = None  # Calculated completion time, updated when progress changes
+    # A failed step (app/services/step_errors.py). Everyone gets error_code and
+    # error_user, one safe line; error_message is that same line, except for an
+    # admin, who also gets the raw provider text (error_detail) and its request
+    # ID. The raw text never reaches anyone else.
     error_message: Optional[str] = None
+    error_code: Optional[str] = None
+    error_user: Optional[str] = None
+    credits_refunded: bool = False
+    error_detail: Optional[str] = None
+    error_request_id: Optional[str] = None
     metadata_json: Optional[dict] = None  # Step-specific metadata (e.g., Meshy API task IDs, animation URLs)
     # 0-100 as the PROVIDER reported it: Meshy's task progress, which the
     # pipeline's poller stores every 3 s. None while a step runs means the
@@ -56,8 +66,9 @@ class CreationStepResponse(BaseModel):
     estimated_duration: Optional[int] = None
 
     @classmethod
-    def from_step(cls, step):
-        """Build CreationStepResponse from a CreationStep model."""
+    def from_step(cls, step, admin: bool = False, in_class: Optional[bool] = None):
+        """Build CreationStepResponse from a CreationStep model. Safe by
+        default: only ``admin=True`` carries the raw error."""
         progress = step.estimated_progress
         if progress is not None:
             progress = max(0, min(100, int(progress)))
@@ -68,11 +79,13 @@ class CreationStepResponse(BaseModel):
             "started_at": step.started_at,
             "completed_at": step.completed_at,
             "estimated_completion_time": step.estimated_completion_time,
-            "error_message": step.error_message,
             "metadata_json": step.metadata_json or {},
             "progress": progress,
             "estimated_duration": config.get("estimated_duration") or step.estimated_duration,
         }
+        if in_class is None:
+            in_class = bool(getattr(getattr(step, "creation", None), "class_id", None))
+        data.update(step_errors.response_fields(step, admin=admin, in_class=in_class))
         return cls(**data)
 
 # The drawing is uploaded once, when the hero is created; every other file is
@@ -127,7 +140,7 @@ class CreationResponse(BaseModel):
     updated_at: datetime
     completed_at: Optional[datetime] = None  # Derived from steps
     steps: List[CreationStepResponse] = []
-    error_message: Optional[str] = None  # Derived from failed step
+    error_message: Optional[str] = None  # The failed step's error_message (safe unless admin)
     style: str = DEFAULT_STYLE  # Key of the painting's style; a NULL column reads as the default
     featured: bool = False  # Starred by an admin: shown under Editors' choice
     # Made in a class and not yet kept by a parent: private, never featured.
@@ -135,8 +148,9 @@ class CreationResponse(BaseModel):
     file_versions: Dict[str, str] = {}  # file name -> version token for its URL (see file_versions)
 
     @classmethod
-    def from_creation(cls, creation):
-        """Build CreationResponse from Creation model, including steps."""
+    def from_creation(cls, creation, admin: bool = False):
+        """Build CreationResponse from Creation model, including steps. Safe by
+        default: only ``admin=True`` carries a failed step's raw error."""
         # Build response manually to avoid issues with removed properties
         response = cls(
             id=creation.id,
@@ -149,7 +163,7 @@ class CreationResponse(BaseModel):
             created_at=creation.created_at,
             updated_at=creation.updated_at,
             completed_at=creation.completed_at,
-            error_message=creation.error_message,
+            error_message=None,
             style=resolve_style(creation.style),
             featured=bool(creation.featured),
             in_class=bool(getattr(creation, "class_id", None)),
@@ -158,11 +172,12 @@ class CreationResponse(BaseModel):
         )
         
         # Build steps list in STEPS config order (not DB order)
+        in_class = bool(getattr(creation, "class_id", None))
         steps_by_name = {step.step_name: step for step in creation.steps}
         for step_config in STEPS:
             step = steps_by_name.get(step_config["name"])
             if step:
-                response.steps.append(CreationStepResponse.from_step(step))
+                response.steps.append(CreationStepResponse.from_step(step, admin=admin, in_class=in_class))
             else:
                 # Step not found - create a pending step response
                 dummy_step = CreationStep(
@@ -170,7 +185,13 @@ class CreationResponse(BaseModel):
                     step_name=step_config["name"],
                     status="pending"
                 )
-                response.steps.append(CreationStepResponse.from_step(dummy_step))
+                response.steps.append(CreationStepResponse.from_step(dummy_step, admin=admin, in_class=in_class))
+
+        # The hero's error is its first failed step's, as that step serves it.
+        if creation.status == "failed":
+            response.error_message = next(
+                (s.error_message for s in response.steps if s.status == "failed" and s.error_message), None
+            )
         
         return response
     

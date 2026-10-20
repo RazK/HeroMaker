@@ -32,7 +32,7 @@ for step in creation.steps:
         print(f"  {step.step_name}: status={step.status}, completed_at={step.completed_at}")
 
 # Build API response
-response = CreationResponse.from_creation(creation)
+response = CreationResponse.from_creation(creation, admin=True)  # an operator script: the raw errors
 print("\nSteps in API response:")
 for step in response.steps:
     if step.step_name == "openai_render":

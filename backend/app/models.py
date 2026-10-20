@@ -166,7 +166,8 @@ class CreationStep(Base):
     estimated_progress = Column(Integer, nullable=True)  # 0-100, nullable
     estimated_completion_time = Column(DateTime, nullable=True)  # Calculated completion time, updated when progress changes
     status = Column(String, default="pending")  # pending, processing, completed, failed
-    error_message = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)  # The raw failure: admins only (app/services/step_errors.py)
+    error_code = Column(String(40), nullable=True)  # What the user is told: one of step_errors.CODES
     metadata_json = Column(JSON, default={}, name="metadata")  # Step-specific metadata (e.g., Meshy API task IDs, animation URLs)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -5,7 +5,7 @@ import { FileUpload } from '../FileUpload';
 import { HeroLive } from '../tb/HeroLive';
 import { Icon } from '../tb/Icon';
 import { Header, NavButton, Polaroid, ProgressBar, Sheet, Stepper, useClearOfPolaroid, useFitScreen } from '../tb/parts';
-import { STEP_UI, StepProgress, currentStep, etaText, heroState, holdSteady, stepProgress, stepViews } from '../tb/pipeline';
+import { STEP_UI, StepProgress, currentStep, etaText, failedLine, heroState, holdSteady, stepProgress, stepViews } from '../tb/pipeline';
 import { StylePicker, useRenderStyles, DEFAULT_STYLE } from '../tb/StylePicker';
 import { PinDigits, Qr } from './parts';
 import '../tb/HeroScreen.css';
@@ -385,6 +385,8 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
             <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
             <div className="tb-status-eta">{failed ? '' : eta}</div>
           </div>
+          {/* A class hero's line never mentions credits (the child paid none). */}
+          {failed && <div className="tb-failed-line" role="status">{failedLine(step)}</div>}
           {!failed && (
             <ProgressBar
               key={stepKey}
