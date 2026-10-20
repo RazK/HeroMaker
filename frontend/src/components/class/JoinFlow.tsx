@@ -86,7 +86,7 @@ export function JoinFlow({ initialPin }: { initialPin: string }) {
 function KidHeader({ title, onBack }: { title: string; onBack?: () => void }) {
   return (
     <Header
-      left={onBack ? <NavButton icon="back" label="Back" onClick={onBack} /> : <img className="cls-kid-logo" src="/logo-head-transparent.png" alt="HeroMaker" width={40} height={40} />}
+      left={onBack ? <NavButton icon="back" label="Back" onClick={onBack} /> : <img className="cls-kid-logo" src="/app-icon.png" alt="HeroMaker" width={40} height={40} />}
       title={title}
     />
   );

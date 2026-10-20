@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
         enabled: true,
         type: 'module'
       },
-      includeAssets: ['logo-head-transparent.png'],
+      includeAssets: ['app-icon.png'],
       manifest: {
         name: 'HeroMaker',
         short_name: 'HeroMaker',
@@ -37,17 +37,17 @@ export default defineConfig(({ mode }) => {
         start_url: '/',
         icons: [
           {
-            src: 'logo-head-transparent.png',
+            src: 'app-icon.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'logo-head-transparent.png',
+            src: 'app-icon.png',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: 'logo-head-transparent.png',
+            src: 'app-icon.png',
             sizes: '1024x1024',
             type: 'image/png',
             purpose: 'any maskable'

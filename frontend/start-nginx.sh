@@ -13,6 +13,10 @@ sed -e "s|\${PORT}|${PORT}|g" \
     < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf.tmp
 mv /tmp/nginx.conf.tmp /etc/nginx/conf.d/default.conf
 
+# Staging looks unlike production: its own icon, app name and a STAGING tag
+# (apply-env-look.sh). Railway names the environment; production is untouched.
+/apply-env-look.sh "${RAILWAY_ENVIRONMENT_NAME:-}" /usr/share/nginx/html /usr/share/nginx/env-assets || exit 1
+
 # Verify nginx config is valid
 nginx -t || {
     echo "ERROR: nginx config is invalid after PORT substitution!"

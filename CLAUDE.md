@@ -154,6 +154,25 @@ open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
 
+## Staging never looks like production (Raz's rule)
+
+Staging has its own app icon (a dark tile with a yellow STAGING band), its own
+installed-app name ("HM Staging"), a STAGING tag on the in-app logo and a
+"· Staging" tab title, so Raz can always tell the two apart. The code is the
+same in both. `frontend/apply-env-look.sh` applies the staging look when the
+container starts on any Railway environment except `production`, which it
+reads from `RAILWAY_ENVIRONMENT_NAME`. A promote therefore carries none of it,
+and production keeps its own icon. Keep it that way:
+
+- Change `frontend/public/app-icon.png` → run
+  `.venv/bin/python scripts/make_staging_icon.py` and commit
+  `frontend/env-assets/staging/`. CI (`frontend/scripts/check-env-look.sh`)
+  fails until you do.
+- Never make staging's look a build-time or per-commit difference, and never
+  put the staging icon in `public/`.
+- The staging robot fails if staging looks like production. After every
+  promote, check that production shows no STAGING tag.
+
 ## Releasing: how a change reaches production
 
 Raz's flow, agreed 2026-10-18. Production stays stable; staging is the next
@@ -167,7 +186,7 @@ release.
    staging SHA yourself (`gh api -X POST
    repos/RazK/HeroMaker/actions/workflows/promote-production.yml/dispatches
    -f ref=main -f 'inputs[ref]=<sha>'`), wait for it, then check production
-   yourself (`/api/version`, sign-in, gallery, packs) and reply with the
+   yourself (`/api/version`, sign-in, gallery, packs, no STAGING tag) and reply with the
    version now live. Never promote without that yes.
 4. **Hotfix** (production is broken and staging holds unreleased work): cut
    `hotfix/<topic>` from the commit production runs, fix it, CI green, robot

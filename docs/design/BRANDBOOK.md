@@ -98,6 +98,8 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - No emoji in the UI.
 - Icon alone only for back, close, more, play. Everything else gets a label.
 
+**Staging.** Staging never looks like production. It has its own icon (the hero on ink with a sun STAGING band), its installed name is "HM Staging", and the logo carries a small sun STAGING tag over the foot of its icon. Production has none of these. See CLAUDE.md, "Staging never looks like production".
+
 ## Interaction, feedback, motion
 
 - Tap = instant action. No queues, no "build a sequence then press play".

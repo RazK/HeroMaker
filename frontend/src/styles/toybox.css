@@ -306,6 +306,28 @@ h1, h2, h3, h4 {
 }
 .tb-logo img { width: 36px; height: 36px; object-fit: contain; }
 .tb-logo span { font-family: var(--tb-font-display); font-weight: 400; font-size: 28px; }
+/* Not production (apply-env-look.sh sets data-env): a STAGING tag on the
+   logo, over the foot of its icon, so it never moves the header. */
+html[data-env] .tb-logo { position: relative; }
+html[data-env] .tb-logo img { border-radius: 9px; }
+html[data-env] .tb-logo::after {
+  content: 'Staging';
+  position: absolute;
+  inset-inline-start: -4px;
+  inset-block-end: -7px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--tb-sun);
+  color: var(--tb-ink);
+  box-shadow: 0 0 0 2px var(--tb-cream);
+  font-family: var(--tb-font-body);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  pointer-events: none;
+}
 
 /* ---------- Screen + bottom bar ---------- */
 
