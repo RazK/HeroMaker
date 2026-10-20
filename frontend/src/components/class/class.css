@@ -459,6 +459,12 @@ button.cls-card:active { transform: scale(0.98); }
 .cls-moment-art--sun { background: var(--tb-sun); }
 .cls-moment-art svg { width: 40%; height: 40%; }
 .cls-moment-art img { position: absolute; inset: 6%; width: 88%; height: 88%; object-fit: contain; }
+/* A painting with no confident cut-out: a tilted white card, not a beige box on the sun. */
+.cls-moment-art img.cls-moment-img--framed {
+  inset: 14%; margin: auto; width: auto; height: auto; max-width: 72%; max-height: 72%;
+  box-sizing: border-box; padding: 5px; background: var(--tb-white); border-radius: 10px;
+  box-shadow: 0 6px 14px rgba(35, 25, 66, 0.18); transform: rotate(-4deg);
+}
 .cls-wobble { animation: cls-wobble 2.6s ease-in-out infinite; }
 @keyframes cls-wobble { 50% { transform: rotate(-4deg) scale(1.03); } }
 .cls-ready-line { text-align: center; font-family: var(--tb-font-display); font-size: 24px; line-height: 28px; color: var(--tb-ink); }

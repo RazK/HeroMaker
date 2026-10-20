@@ -5,6 +5,7 @@ from app.config.steps import STEPS, get_step_by_name
 from app.models import CreationStep
 from app.services.openai import DEFAULT_STYLE, resolve_style
 from app.services import step_errors
+from app.utils.cutout import CUTOUT_VERSION
 
 class CreationRequest(BaseModel):
     character_name: Optional[str] = None
@@ -88,6 +89,8 @@ class CreationStepResponse(BaseModel):
         data.update(step_errors.response_fields(step, admin=admin, in_class=in_class))
         return cls(**data)
 
+PAINTING = "rendered.png"
+
 # The drawing is uploaded once, when the hero is created; every other file is
 # the output of a step, rewritten each time that step runs again.
 ORIGINAL_FILE = "original.jpg"
@@ -100,6 +103,12 @@ def _version(at: Optional[datetime]) -> Optional[str]:
     if at.tzinfo is None:
         at = at.replace(tzinfo=timezone.utc)
     return format(int(at.timestamp() * 1000), "x")
+
+
+def painting_look(creation) -> Optional[str]:
+    """CreationResponse.painting: see services/painting_cut.py."""
+    from app.services.painting_cut import painting_look as look
+    return look(creation)
 
 
 def file_versions(creation) -> Dict[str, str]:
@@ -123,6 +132,11 @@ def file_versions(creation) -> Dict[str, str]:
             done = _version(step.completed_at)
             if done:
                 versions[output] = done
+    # The painting's derived files (thumb_ and cut_rendered.png) also change
+    # when the cut-out algorithm does: fold its version in, so every browser
+    # fetches the new cut instead of the copy it cached for a year.
+    if PAINTING in versions:
+        versions[PAINTING] = f"{versions[PAINTING]}c{CUTOUT_VERSION}"
     return versions
 
 
@@ -146,6 +160,10 @@ class CreationResponse(BaseModel):
     # Made in a class and not yet kept by a parent: private, never featured.
     in_class: bool = False
     file_versions: Dict[str, str] = {}  # file name -> version token for its URL (see file_versions)
+    # How the painting stands on a plate (services/painting_cut.py): "cut"
+    # (show cut_rendered.png), "transparent" (it needs no cut), "framed" (no
+    # confident cut: show it in a polaroid frame), or None until decided.
+    painting: Optional[str] = None
 
     @classmethod
     def from_creation(cls, creation, admin: bool = False):
@@ -168,6 +186,7 @@ class CreationResponse(BaseModel):
             featured=bool(creation.featured),
             in_class=bool(getattr(creation, "class_id", None)),
             file_versions=file_versions(creation),
+            painting=painting_look(creation),
             steps=[],
         )
         

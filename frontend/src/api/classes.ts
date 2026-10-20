@@ -8,7 +8,7 @@
  * one of the two does. Every student call answers 403, never 401, so a
  * teacher signed in on the same tablet is never signed out by it.
  */
-import { fetchJson, shrinkPhoto } from './client';
+import { fetchJson, shrinkPhoto, type Painting } from './client';
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -24,6 +24,8 @@ export interface HeroSummary {
   steps_total: number;
   /** File name -> version, as on CreationResponse: versioned thumbnails cache. */
   file_versions?: Record<string, string>;
+  /** How the painting stands on a plate, as on CreationResponse. */
+  painting?: Painting | null;
 }
 
 export interface Student {
@@ -76,7 +78,7 @@ export interface ClassView {
   sessions: number;
   heroes_ready: number;
   /** Up to four finished heroes, for the class card. */
-  preview: Array<{ creation_id: string; user_id: string; label: string; file_versions?: Record<string, string> }>;
+  preview: Array<{ creation_id: string; user_id: string; label: string; file_versions?: Record<string, string>; painting?: Painting | null }>;
   roster?: Student[];
   /** Only on GET /api/classes/{id}. */
   seat_price?: SeatPrice | null;

@@ -77,6 +77,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 
 - Never crop: `object-fit: contain`, always.
 - Heroes are transparent and stand on a plate or a sun.
+- An old painting with an opaque studio backdrop is shown from its cut-out (`cut_rendered.png`, `thumb_rendered.png`). One with no confident cut (`painting: "framed"`) is a polaroid, the drawing's tilted white card, never a beige box.
 - The drawing is a polaroid (white frame, -6deg, artist's name and age). Its photo takes the drawing's shape: no empty white beside a tall drawing. On the ready hero's stage, one tap (enlarge mark in its corner) swaps it in: the drawing big on the same stage, the hero small in the corner, and the steps strip on top to see each step (drawing, painting, sculpt). Alive, the corner card or Back return to the hero. The steps strip is the only way through how it was made: no overlays, no other toggles.
 - Thumbnail first, full size swapped in when loaded.
 - Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
@@ -170,7 +171,6 @@ Mock-ups of each are in the artifact's "Rejected" card.
 - Primary above secondary in the New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
 - Hero screen being made or failed, at 844 x 390: the sticky bar covers the stage. At 1280 x 800 it stays a 560px column. (A ready hero is fixed: stage beside moves and bar sideways, a 720px column with one row of 8 moves on a desktop.)
 - Signed-out gallery has a 25-word paragraph under the headline.
-- Some paintings (`rendered.png`) are opaque and hide the sun.
 - The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.
 - `--tb-line` borders on inputs and chips are 1.3:1, under the 3:1 a control border needs.
 - toybox.css's header comment says "Header 64px" and "32px from the bottom"; real: 80px + 4px depth, 16px visible.

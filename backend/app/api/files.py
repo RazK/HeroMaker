@@ -17,6 +17,8 @@ from app.utils.storage import get_storage, LocalFileStorage, THUMB_PREFIX, OPT_P
 from app.utils.gltf_optimize import optimize_glb
 from app.services.auth import get_current_user_required
 from app.services import moderation
+from app.services import painting_cut
+from app.utils import cutout
 from app.models import User, Creation
 from app.database import get_db
 
@@ -327,6 +329,10 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
     ?v=<version> (CreationResponse.file_versions) it may be cached for a year:
     see "Thumbnails: one hop" above.
 
+    'cut_rendered.png' is the painting cut out of an opaque studio backdrop
+    (services/painting_cut.py), or the painting itself when it needs no cut
+    or has no confident one; 'thumb_rendered.png' is made from it.
+
     Likewise 'opt_' + a .glb or .vrm name (e.g. opt_walking.glb) serves a copy
     ~5x smaller and visually identical (see app/utils/gltf_optimize.py), made on
     first request and cached the same way. If it cannot be made, the original
@@ -353,6 +359,36 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
     else:
         original_filename = filename
 
+    # The painting shown on a plate: its cut-out (services/painting_cut.py).
+    # cut_rendered.png is the painting with its studio backdrop removed, or
+    # the painting itself when there is nothing to remove (or no confident
+    # cut); thumb_rendered.png is made from whichever that is. Both are
+    # derived on first request, like every other thumbnail.
+    # (Too busy to cut it now: the painting as it is, and nothing may cache
+    # that answer under the URL the cut will have.)
+    if filename == painting_cut.CUT_FILE:
+        kind = await run_in_threadpool(painting_cut.prepare, storage, user_id, creation_id)
+        source = painting_cut.CUT_FILE if kind == cutout.CUT else painting_cut.SOURCE
+        if not storage.file_exists(user_id, creation_id, source):
+            raise HTTPException(status_code=404, detail="File not found")
+        if not isinstance(storage, LocalFileStorage):
+            if kind == painting_cut.BUSY:
+                return RedirectResponse(url=storage.get_file_url(user_id, creation_id, source),
+                                        status_code=302, headers={"Cache-Control": "no-store"})
+            return _s3_redirect(storage, user_id, creation_id, source)
+        path = storage.get_file_path(user_id, creation_id, source)
+        return FileResponse(path, media_type=_sniff_mime(path), headers={
+            "Cache-Control": "no-store" if kind == painting_cut.BUSY else IMMUTABLE if v else "no-cache",
+            "ETag": f'"{path.stat().st_mtime}"',
+        })
+    thumb_source = original_filename
+    if filename == painting_cut.THUMB_FILE and not (v and _thumb_memory.get((user_id, creation_id, filename, v))):
+        kind = await run_in_threadpool(painting_cut.prepare, storage, user_id, creation_id)
+        if kind == cutout.CUT:
+            thumb_source = painting_cut.CUT_FILE
+        elif kind == painting_cut.BUSY:
+            v = None  # answered, but neither cached for a year nor kept in memory
+
     if not isinstance(storage, LocalFileStorage):
         # S3 storage: redirect to a presigned URL of the (cached) derived copy or file.
         if is_optimized:
@@ -365,7 +401,7 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
             hit = _thumb_memory.get(key) if versioned else None
             if hit is None:
                 loaded = await run_in_threadpool(
-                    _s3_thumbnail_bytes, storage, user_id, creation_id, filename, original_filename
+                    _s3_thumbnail_bytes, storage, user_id, creation_id, filename, thumb_source
                 )
                 if loaded is None:
                     # Not an image we can read: fall back to the original, as on disk.
@@ -397,7 +433,7 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
         thumb_path = original_path.parent / filename
         # Generate thumbnail if it doesn't exist yet
         if not thumb_path.exists():
-            if not _generate_thumbnail(original_path, thumb_path):
+            if not _generate_thumbnail(original_path.parent / thumb_source, thumb_path):
                 # Fallback to original if thumbnail generation fails
                 return FileResponse(original_path, headers={"Cache-Control": "no-cache"})
         file_path = thumb_path

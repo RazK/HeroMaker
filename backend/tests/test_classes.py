@@ -569,7 +569,7 @@ def test_the_claim_link_gives_the_live_hero_and_nothing_more(db, make_user, api,
     assert set(seen) == {"first_name", "age", "class_title", "hero", "claimed", "kept_by_you"}
     hero = seen["hero"]
     assert set(hero) == {"creation_id", "user_id", "character_name", "state", "step", "steps_done",
-                         "steps_total", "file_versions"}
+                         "steps_total", "file_versions", "painting"}
     assert hero["state"] == "ready" and seen["kept_by_you"] is False
     # Everything the live stage loads: the rigged avatar (served as
     # opt_avatar.vrm), the 3D sculpt (opt_model.glb), the painting, the drawing.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError, CreationResponse } from '../../api/client';
+import { api, ApiError, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { GuestView, studentApi } from '../../api/classes';
 import { FileUpload } from '../FileUpload';
 import { HeroLive } from '../tb/HeroLive';
@@ -242,13 +242,14 @@ function Moment({ title, big, line, art, wobble, sun }: { title: string; big: st
 function AlreadyMade({ me, onSee }: { me: GuestView; onSee: () => void }) {
   useFitScreen();
   const h = me.hero!;
-  const art = `/api/files/${h.user_id}/${h.creation_id}/${h.state === 'ready' ? 'thumb_rendered.png' : 'thumb_original.jpg'}`;
+  const art = api.heroFileUrl({ id: h.creation_id, user_id: h.user_id, file_versions: h.file_versions }, h.state === 'ready' ? 'thumb_rendered.png' : 'thumb_original.jpg');
+  const framed = h.state === 'ready' && paintingFramed(h);
   return (
     <div className="tb-screen tb-screen--fit cls-kid-screen cls-already">
       <KidHeader title={me.class.title} />
       <div className="tb-screen-body">
         <div className="cls-moment">
-          <div className="cls-moment-art cls-moment-art--sun"><img src={art} alt={`${me.guest.first_name}’s hero`} /></div>
+          <div className="cls-moment-art cls-moment-art--sun"><img className={framed ? 'cls-moment-img--framed' : undefined} src={art} alt={`${me.guest.first_name}’s hero`} /></div>
           <div className="cls-kid-title">You already made your hero!</div>
           <div className="tb-muted">One hero each. Yours is great!</div>
         </div>
@@ -345,7 +346,8 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
   }, [state]);
   const file = (f: string) => api.getFileUrl(creation.id, f, creation.user_id);
   const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
-  const art = painted ? file('rendered.png') : file('original.jpg');
+  const art = painted ? file(PAINTING_FILE) : file('original.jpg');
+  const framed = painted && paintingFramed(creation);
   useClearOfPolaroid(stageRef, `${state}:${art}`);
   const step = currentStep(creation);
   const title = `${name}’s hero`;
@@ -375,7 +377,7 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
       <KidHeader title={title} />
       <div className="tb-screen-body">
         <div ref={stageRef} className="tb-stage tb-hero-stage">
-          <img className={`tb-stage-img${failed ? ' tb-hero-faded' : ''}`} src={art} alt={title} />
+          <img className={`tb-stage-img${framed ? ' tb-stage-img--framed' : ''}${failed ? ' tb-hero-faded' : ''}`} src={art} alt={title} />
           {!failed && (painted ? <div className="tb-shimmer" /> : <div className="tb-scanline" />)}
           {painted && <Polaroid src={file('thumb_original.jpg')} artist={creation.name} age={creation.age} />}
         </div>

@@ -73,7 +73,7 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
   const hero = view?.hero;
   useEffect(() => {
     if (!view || !hero || hero.state !== 'ready' || live) return;
-    setLive({ id: hero.creation_id, user_id: hero.user_id, name: view.first_name, age: view.age, character_name: hero.character_name, file_versions: hero.file_versions });
+    setLive({ id: hero.creation_id, user_id: hero.user_id, name: view.first_name, age: view.age, character_name: hero.character_name, file_versions: hero.file_versions, painting: hero.painting });
   }, [view, hero, live]);
 
   const keep = useCallback(async () => {

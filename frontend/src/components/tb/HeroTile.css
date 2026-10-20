@@ -131,17 +131,19 @@ button.tb-tile:active { transform: scale(0.98); }
    loaded and staggers tiles through --tb-fade-delay. Keep FADE_CYCLE_S there
    in step with the 4 s here. */
 .tb-tile-fade { position: absolute; inset: 0; display: block; }
-.tb-tile-drawing {
+.tb-tile-drawing,
+.tb-tile-framed {
   position: absolute;
   inset: var(--tb-tile-pic);
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
 }
+.tb-tile-drawing { opacity: 0; }
 /* The drawing as a small polaroid on the plate, like on the hero page:
    a white frame hugging the picture (never cropped), soft shadow, slight tilt. */
-.tb-tile-drawing img {
+.tb-tile-drawing img,
+.tb-tile-framed img {
   display: block;
   max-width: 100%;
   max-height: 100%;

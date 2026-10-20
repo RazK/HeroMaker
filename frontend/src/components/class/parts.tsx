@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import qrcode from 'qrcode-generator';
-import { api, ApiError } from '../../api/client';
+import { api, ApiError, paintingFramed } from '../../api/client';
 import { HeroSummary, SeatsCheckout, Student, dollars } from '../../api/classes';
 import { STEP_UI } from '../tb/pipeline';
 import { HeroTile, TileArt, makingLine, makingPct } from '../tb/HeroTile';
@@ -149,7 +149,7 @@ export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy, 
   // The gallery's rule: painted (or ready), the drawing cross-fades to the
   // hero; before that, or if it stopped, the drawing alone.
   const art: TileArt = !hero || !drawing ? { kind: 'initial', letter: student.first_name.slice(0, 1).toUpperCase() }
-    : ready || (state === 'making' && painted(hero)) ? { kind: 'fade', drawing, hero: studentFile(hero, 'thumb_rendered.png') }
+    : ready || (state === 'making' && painted(hero)) ? { kind: 'fade', drawing, hero: studentFile(hero, 'thumb_rendered.png'), framed: paintingFramed(hero) }
     : { kind: 'drawing', src: drawing };
 
   return (

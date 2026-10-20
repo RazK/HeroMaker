@@ -45,9 +45,9 @@ from app.config.packs import CLASS_MAX_SEATS, creation_credit_price
 from app.config.settings import get_jwt_secret_key
 from app.config.steps import get_all_step_names
 from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreationStep, User
-from app.schemas.creation import file_versions
+from app.schemas.creation import file_versions, painting_look
 from app.services import ledger
-from app.utils.storage import OPT_PREFIX, THUMB_PREFIX, get_storage
+from app.utils.storage import get_storage, is_derived
 
 logger = logging.getLogger(__name__)
 funnel_logger = logging.getLogger("class_funnel")
@@ -804,8 +804,8 @@ def claim(db: Session, guest: ClassGuest, parent: User, now: Optional[datetime] 
     storage = get_storage()
     copied = 0
     for name in storage.list_files(old_owner, creation.id):
-        # Thumbnails and optimised copies are rebuilt on first request.
-        if name.startswith(THUMB_PREFIX) or name.startswith(OPT_PREFIX):
+        # Thumbnails, optimised copies and cut-outs are rebuilt on first request.
+        if is_derived(name):
             continue
         storage.upload_file(parent.id, creation.id, name, storage.download_file(old_owner, creation.id, name))
         copied += 1
@@ -885,6 +885,8 @@ def hero_view(creation: Optional[Creation]) -> Optional[dict]:
         # The same versions a CreationResponse carries, so a roster tile's
         # thumbnail URL is the gallery's and the hero page's: cached once.
         "file_versions": file_versions(creation),
+        # How its painting stands on a plate (cut / transparent / framed).
+        "painting": painting_look(creation),
     }
 
 
@@ -956,7 +958,7 @@ def class_view(db: Session, classroom: ClassRoom, now: Optional[datetime] = None
     # classes tab, versioned like the gallery's tiles so their thumbnails cache.
     view["preview"] = [
         {"creation_id": g["hero"]["creation_id"], "user_id": g["hero"]["user_id"], "label": g["label"],
-         "file_versions": g["hero"]["file_versions"]}
+         "file_versions": g["hero"]["file_versions"], "painting": g["hero"]["painting"]}
         for g in r if g["hero"] and g["hero"]["state"] == "ready"
     ][:PREVIEW_HEROES]
     if with_roster:

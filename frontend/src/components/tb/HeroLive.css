@@ -20,6 +20,8 @@
    it, with the same margin top and bottom so it stays clear of the stepper
    (the 3D does the same: HeroStage.setInsetTop). */
 .tb-live-stage--steps .tb-stage-img { top: 76px; bottom: 76px; height: calc(100% - 152px); }
+/* A framed painting (toybox.css .tb-stage-img--framed) keeps the same margins. */
+.tb-stage.tb-live-stage--steps .tb-stage-img.tb-stage-img--framed { inset-block: 76px; height: auto; max-height: calc(100% - 152px); }
 
 /* The painting, dimmed, under a ring that fills as the 3D file arrives. */
 .tb-live-loading { position: absolute; inset: 0; display: grid; place-items: center; }

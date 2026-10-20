@@ -64,7 +64,24 @@ export interface CreationResponse {
   in_class?: boolean;
   /** File name -> a token that changes whenever that file does (see heroFileUrl). */
   file_versions?: Record<string, string>;
+  /** How the painting stands on a plate (see Painting). Absent or null: not decided yet. */
+  painting?: Painting | null;
 }
+
+/**
+ * How a hero's painting is shown on a plate. Older paintings have an opaque
+ * studio backdrop baked in; the backend cuts it away (cut_rendered.png):
+ * - cut: the backdrop was removed, the hero stands free
+ * - transparent: the painting never had one
+ * - framed: no confident cut, so the painting is a polaroid, like the drawing
+ */
+export type Painting = 'cut' | 'transparent' | 'framed';
+
+/** The painting to stand on a plate: its cut-out, or the painting itself when it needs none. */
+export const PAINTING_FILE = 'cut_rendered.png';
+
+/** Show this hero's painting in a polaroid frame (no confident cut-out)? */
+export const paintingFramed = (h: { painting?: Painting | null } | null | undefined) => h?.painting === 'framed';
 
 /** A look the painting can be made in. The first one is the default. */
 export interface RenderStyle {
@@ -313,8 +330,10 @@ export const api = {
    */
   heroFileUrl(creation: Pick<CreationResponse, 'id' | 'user_id' | 'file_versions'>, filename: string): string {
     const url = api.getFileUrl(creation.id, filename, creation.user_id);
-    if (!filename.startsWith('thumb_')) return url;
-    const version = creation.file_versions?.[filename.slice('thumb_'.length)];
+    // Derived files (thumb_x, cut_x) carry the version of the file they are made from.
+    const derived = /^(thumb|cut)_/.exec(filename);
+    if (!derived) return url;
+    const version = creation.file_versions?.[filename.slice(derived[0].length)];
     return version ? `${url}?v=${encodeURIComponent(version)}` : url;
   },
 
