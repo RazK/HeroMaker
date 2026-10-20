@@ -13,6 +13,7 @@ vocabulary - `ledger.spend_credits`, `ledger.record_purchase`,
 external_ref) that makes the ledger worth having.
 """
 import logging
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -162,6 +163,7 @@ def refund_last_step_charge(
     creation_id: str,
     step_name: str,
     note: str,
+    charged_since: Optional[datetime] = None,
 ) -> Optional["ledger.CreditTransaction"]:
     """
     Give back the credits charged for a pipeline step we failed to deliver.
@@ -179,8 +181,18 @@ def refund_last_step_charge(
     twice and be refunded once. One refund per spend row is the correct grain,
     and `external_ref` being UNIQUE still makes a redelivery a no-op.
 
+    `charged_since` bounds which attempt is being refunded. The handlers inside
+    a running step need no bound: they run after their own charge, so the
+    latest spend is theirs. The startup reconciliation does: it finds a step
+    "processing" without knowing whether the attempt the restart cut off had
+    got as far as charging. If it had not, the latest spend belongs to an
+    EARLIER attempt (a hero that completed, or a cancel that keeps its charge)
+    and must not be given back. A spend older than `charged_since` is treated
+    as that earlier attempt's, and nothing is refunded.
+
     Returns the refund transaction, or None when there is nothing to refund
-    (the step was never charged) or it has already been refunded.
+    (the step was never charged, or not in this attempt). An already-refunded
+    charge returns the refund it already has, and grants nothing.
 
     NEVER RAISES. This runs inside a failure handler; a problem refunding must
     not mask the provider error that caused it, and must not turn a failed step
@@ -213,6 +225,13 @@ def refund_last_step_charge(
         if spend is None:
             # Never charged: a step that failed before the deduction (missing
             # input, unmet dependency, insufficient credits) owes nothing back.
+            return None
+        if charged_since is not None and spend.created_at < charged_since:
+            logger.info(
+                "[%s] Step %s's last charge %s (%s) predates this attempt (%s); "
+                "nothing to refund",
+                creation_id, step_name, spend.id, spend.created_at, charged_since,
+            )
             return None
 
         external_ref = f"refund:tx:{spend.id}"
