@@ -5,13 +5,12 @@ from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base, SessionLocal
+from app.database import engine, Base
 from app.config.settings import DEBUG, ALLOWED_ORIGINS, DATABASE_URL, FILES_ROOT, VRM_CONVERTER_SERVICE_URL
 from app.migrations.registry import run_migrations
 from app.utils.storage import get_storage
 from app.services.task_manager import TaskManager, set_task_manager, get_task_manager
-from app.models import CreationStep
-from app.services import step_errors
+from app.services.startup_reconcile import sweep_forever
 import os
 
 # Configure structured logging
@@ -82,37 +81,18 @@ async def lifespan(app: FastAPI):
     task_manager = TaskManager()
     set_task_manager(task_manager)  # Set global instance
     
-    # Reconcile stuck steps from previous session
-    db = SessionLocal()
-    try:
-        stuck_steps = db.query(CreationStep).filter(
-            CreationStep.status == "processing"
-        ).all()
-        
-        if stuck_steps:
-            logger.warning(f"Found {len(stuck_steps)} stuck steps from previous session")
-            for step in stuck_steps:
-                # Not refunded here (it never was): the user is told
-                # "Something went wrong. Try again." without "Credits returned".
-                step_errors.mark_failed(
-                    step, "Step was processing when server restarted. Please retry.",
-                    code=step_errors.UNKNOWN,
-                )
-                logger.info(f"Marked step {step.creation_id}:{step.step_name} as failed (server restart)")
-            
-            db.commit()
-            logger.info(f"Reconciled {len(stuck_steps)} stuck steps")
-    except Exception as e:
-        logger.error(f"Error during startup reconciliation: {e}")
-        db.rollback()
-    finally:
-        db.close()
-    
+    # Steps a previous process left "processing" are failed and refunded by a
+    # sweep that starts once that process is surely gone: a deploy overlaps,
+    # and the old process keeps running its steps for a while
+    # (app/services/startup_reconcile.py).
+    sweeper = asyncio.create_task(sweep_forever(task_manager))
+
     logger.info("TaskManager initialized")
     yield
     
     # Shutdown: Cancel all tasks gracefully
     logger.info("Shutting down: Cancelling all tasks...")
+    sweeper.cancel()
     if task_manager:
         cancelled = task_manager.cancel_all_tasks()
         logger.info(f"Cancelled {cancelled} tasks")

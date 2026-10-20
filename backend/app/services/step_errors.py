@@ -23,8 +23,9 @@ no code: it is classified from its raw text when read.
 
 ``credits_refunded`` (in the step's metadata) is set only when a refund was
 actually written, so "Credits returned" is never said when it is not true: a
-step that failed before it was charged, a cancel (which keeps its charge), or
-a step a restart cut off.
+step that failed before it was charged, or a cancel (which keeps its charge).
+A step a restart cut off is refunded (startup_reconcile) and says so; one
+failed by a restart before that existed was not, and does not.
 """
 import re
 from typing import Optional, Union
@@ -35,11 +36,12 @@ BAD_INPUT = "bad_input"
 OUT_OF_CREDITS_PROVIDER = "out_of_credits_provider"  # OUR account at a provider, not the user's
 NOT_ENOUGH_CREDITS = "not_enough_credits"  # the user's balance
 CANCELLED = "cancelled"
+INTERRUPTED = "interrupted"  # our server restarted mid-step (startup_reconcile)
 UNKNOWN = "unknown"
 
 CODES = (
     SAFETY_BLOCKED, PROVIDER_BUSY, BAD_INPUT, OUT_OF_CREDITS_PROVIDER,
-    NOT_ENOUGH_CREDITS, CANCELLED, UNKNOWN,
+    NOT_ENOUGH_CREDITS, CANCELLED, INTERRUPTED, UNKNOWN,
 )
 
 # The raw text of a user cancel. Compared as-is by the pipeline and the cancel
@@ -103,6 +105,8 @@ def classify(error: Union[BaseException, str, None]) -> str:
             return UNKNOWN
         if text.strip() == CANCELLED_MESSAGE:
             return CANCELLED
+        if "server restarted" in low:
+            return INTERRUPTED
         # Before any 429 or "insufficient credit": an empty provider account
         # also answers 429, and says "insufficient", but is ours to fix.
         if any(m in low for m in _PROVIDER_EMPTY):
@@ -168,6 +172,8 @@ def user_message(code: str, step_name: str, refunded: bool = False) -> str:
         return "You need more credits to finish this hero."
     if code == CANCELLED:
         return "Stopped before it finished. Try again any time."
+    if code == INTERRUPTED:
+        return f"Our {worker} was interrupted.{back} Try again."
     return f"Something went wrong.{back} Try again."
 
 
