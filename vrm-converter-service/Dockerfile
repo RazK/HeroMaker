@@ -50,5 +50,8 @@ EXPOSE 8000
 
 # Start the service (use PORT env var for Railway, default to 8000)
 # Use --reload for hot reload in development (when DEBUG=true)
-CMD sh -c "if [ \"$DEBUG\" = \"true\" ]; then uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --reload; else uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}; fi"
+# `exec` in an exec-form CMD, so uvicorn is PID 1 and gets a deploy's SIGTERM
+# (the shell above it used to swallow it), and a conversion in flight can
+# finish within --timeout-graceful-shutdown and Railway's drainingSeconds.
+CMD ["sh", "-c", "if [ \"$DEBUG\" = \"true\" ]; then exec uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --reload; else exec uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --timeout-graceful-shutdown 20; fi"]
 

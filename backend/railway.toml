@@ -17,6 +17,11 @@ healthcheckPath = "/health"
 # Migrations run before the server listens, and may wait up to ~60 s for a
 # lock the backend being replaced still holds (app/migrations/runner.run_ddl).
 healthcheckTimeout = 120
+# SIGTERM to SIGKILL for the deploy being replaced. Railway's default is 0: the
+# old process would be killed before uvicorn could drain (up to 20 s,
+# --timeout-graceful-shutdown in backend/Dockerfile) and the lifespan shutdown
+# refund the steps it cuts off (startup_reconcile.interrupt_running, ~5 s).
+drainingSeconds = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
