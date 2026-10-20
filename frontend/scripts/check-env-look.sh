@@ -29,6 +29,10 @@ cp -r dist "$tmp/staging"
 ./apply-env-look.sh staging "$tmp/staging" env-assets
 grep -q 'data-env="staging"' "$tmp/staging/index.html" || fail "staging index.html has no data-env"
 grep -q '"short_name":"HM Staging"' "$tmp/staging/manifest.webmanifest" || fail "staging manifest keeps production's name"
-cmp -s "$tmp/staging/app-icon.png" dist/app-icon.png && fail "staging serves production's icon"
+grep -q '"src":"app-icon-staging.png"' "$tmp/staging/manifest.webmanifest" || fail "staging's installed app keeps production's icon"
+grep -q 'href="/app-icon-staging.png"' "$tmp/staging/index.html" || fail "staging's tab keeps production's icon"
+cmp -s "$tmp/staging/app-icon-staging.png" dist/app-icon.png && fail "staging's icon is production's"
+cmp -s "$tmp/staging/app-icon.png" dist/app-icon.png || fail "staging changed the in-app logo picture"
+
 
 echo "env look: staging differs from production, production untouched"

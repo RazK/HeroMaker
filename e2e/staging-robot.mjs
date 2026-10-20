@@ -420,8 +420,13 @@ try {
     if (env !== 'staging') throw new Error(`staging is not marked as staging (data-env=${env}): it looks like production`);
     const manifest = await (await page.request.get(BASE_URL + '/manifest.webmanifest')).json();
     if (!/staging/i.test(manifest.short_name)) throw new Error(`installed staging app is named "${manifest.short_name}", like production`);
-    const [ours, theirs] = await Promise.all([BASE_URL, prod].map(async (u) => (await page.request.get(u + '/app-icon.png')).body()));
-    if (ours.equals(theirs)) throw new Error('staging serves production\'s app icon');
+    // The installed app's icon is staging's own; the in-app logo keeps
+    // production's picture, with the tag.
+    const icon = manifest.icons?.[0]?.src || '';
+    const [ours, theirs] = await Promise.all([`${BASE_URL}/${icon.replace(/^\//, '')}`, `${prod}/app-icon.png`].map(async (u) => (await page.request.get(u)).body()));
+    if (ours.equals(theirs)) throw new Error(`staging's installed app uses production's icon (${icon})`);
+    const tag = await page.evaluate(() => getComputedStyle(document.querySelector('.tb-logo'), '::after').content);
+    if (!/staging/i.test(tag)) throw new Error(`no STAGING tag on the logo (${tag})`);
     await linger(page, 3500);
     mark('landing');
     return `HTTP ${res.status()}, looks like staging ("${manifest.short_name}", own icon)`;
