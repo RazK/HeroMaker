@@ -407,7 +407,15 @@ def _claim_view(db: Session, guest: ClassGuest, viewer_id: Optional[str] = None)
     """What the claim link shows. The token is its only credential, so this
     holds the child's first name and age, the class's title, and this one
     hero's summary and public files. Nothing about the class, the teacher,
-    other children or the account that kept it."""
+    other children or the account that kept it.
+
+    Once kept, the link is spent: it says only that the hero has a home,
+    except to the parent who kept it. A link forwarded to a class group must
+    not show anyone else the child's name, age or hero."""
+    kept_by_you = viewer_id is not None and guest.claimed_by == viewer_id
+    if guest.claimed_by is not None and not kept_by_you:
+        return {"first_name": None, "age": None, "class_title": None, "hero": None,
+                "claimed": True, "kept_by_you": False}
     creation = db.query(Creation).filter(Creation.id == guest.creation_id).first()
     hero = classes.hero_view(creation)
     if hero is not None:
@@ -422,7 +430,7 @@ def _claim_view(db: Session, guest: ClassGuest, viewer_id: Optional[str] = None)
         "claimed": guest.claimed_by is not None,
         # Lets the parent who kept it, opening the link again, see that it is
         # theirs rather than "already has a home".
-        "kept_by_you": viewer_id is not None and guest.claimed_by == viewer_id,
+        "kept_by_you": kept_by_you,
     }
 
 

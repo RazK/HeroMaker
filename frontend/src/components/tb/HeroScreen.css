@@ -18,6 +18,11 @@
 .tb-error-facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0 0 12px; font-size: 15px; }
 .tb-error-facts dt { color: var(--tb-ink-2); font-weight: 700; }
 .tb-error-facts dd { margin: 0; font-weight: 800; overflow-wrap: anywhere; }
+/* An admin on someone else's failed hero: the facts in the failed line's place. */
+.tb-support-facts { margin: 0; }
+/* Rename: the artist's name and age side by side, the age a short box. */
+.tb-rename-artist { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 12px; margin-top: var(--tb-space); }
+.tb-rename-bar { padding-top: var(--tb-space); }
 /* Copied into a support ticket: Nunito 800, never the display face (brand book). */
 .tb-error-id { font-family: var(--tb-font-body); user-select: all; }
 .tb-error-raw {

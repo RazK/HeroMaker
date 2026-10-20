@@ -35,7 +35,6 @@
 .tb-new-hero-tip { padding: 0 4px 12px; }
 .post-upload-actions-bar { flex-shrink: 0; padding-top: 2px; }
 
-.app-pipeline-section { gap: 24px; }
 
 /* Notices raised while a fit screen is showing float over it: below such a
    screen they would be outside the visible area, and could not be scrolled to. */

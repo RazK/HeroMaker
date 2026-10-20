@@ -1,8 +1,8 @@
 """User management service functions."""
 from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
-from app.models import User, Creation
+from app.models import ClassRoom, User, Creation
 from app.services import ledger
 from app.services.account_kinds import is_test_account, sql_is_test_account
 
@@ -22,6 +22,26 @@ def count_users(db: Session) -> Dict[str, int]:
     return {"users": total - test, "test_accounts": test}
 
 
+def hero_stats(creations) -> Dict[str, int]:
+    """How the admin console counts a person's heroes, on the users list and
+    on their page alike, so the two never disagree. ``total`` is every live
+    hero; the rest split it: finished, failed, being made (a step running or
+    done), and never started (nothing ran: a drawing picked and left)."""
+    stats = {"total": 0, "completed": 0, "failed": 0, "in_progress": 0, "not_started": 0}
+    for creation in creations:
+        stats["total"] += 1
+        status = creation.status
+        if status == "completed":
+            stats["completed"] += 1
+        elif status == "failed":
+            stats["failed"] += 1
+        elif status == "processing" or any(s.status == "completed" for s in creation.steps):
+            stats["in_progress"] += 1
+        else:
+            stats["not_started"] += 1
+    return stats
+
+
 def list_users_with_stats(db: Session, include_test: bool = True) -> List[Dict[str, Any]]:
     """
     List all live users with creation statistics.
@@ -33,25 +53,23 @@ def list_users_with_stats(db: Session, include_test: bool = True) -> List[Dict[s
         query = query.filter(~sql_is_test_account())
     users = query.order_by(User.created_at.desc()).all()
     
+    # A teacher's class heroes belong to each class's wallet until a parent
+    # keeps one; the user's page lists them with the teacher's own, so the
+    # list counts them too. One query for every class, not one per user.
+    wallet_owner = {w: o for o, w in db.query(ClassRoom.owner_id, ClassRoom.wallet_user_id).all() if w}
+    class_heroes: Dict[str, list] = {}
+    if wallet_owner:
+        for c in (db.query(Creation).options(selectinload(Creation.steps))
+                  .filter(Creation.user_id.in_(list(wallet_owner)), Creation.deleted_at.is_(None))):
+            class_heroes.setdefault(wallet_owner[c.user_id], []).append(c)
+
     result = []
     for user in users:
-        # Count creations by status. A deleted hero, or one an admin removed
-        # (app/services/moderation.py), is not one of their heroes any more.
+        # A deleted hero, or one an admin removed (app/services/moderation.py),
+        # is not one of their heroes any more.
         creations = [c for c in (user.creations or []) if c.deleted_at is None]
-        stats = {
-            "completed": 0,
-            "failed": 0,
-            "in_progress": 0,
-        }
-        for creation in creations:
-            status = creation.status
-            if status == "completed":
-                stats["completed"] += 1
-            elif status == "failed":
-                stats["failed"] += 1
-            else:  # pending or processing
-                stats["in_progress"] += 1
-        
+        stats = hero_stats(creations + class_heroes.get(user.id, []))
+
         result.append({
             "id": user.id,
             "username": user.username,

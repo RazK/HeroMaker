@@ -130,7 +130,8 @@ export function UsersSection({ currentUserId, onOpen, filter, onFilter }: {
                 <span className="adm-user-email">{u.name ? `${u.username} · ` : ''}{u.email}</span>
                 <span className="adm-coupon-meta">
                   <span className="adm-coupon-credits"><Icon name="coin" size={16} />{u.credits}</span>
-                  <span>{u.creation_stats.completed} {u.creation_stats.completed === 1 ? 'hero' : 'heroes'}</span>
+                  {/* Every live hero, class heroes too: the number on their page. */}
+                  <span>{u.creation_stats.total} {u.creation_stats.total === 1 ? 'hero' : 'heroes'}</span>
                   {u.creation_stats.failed > 0 && <span className="adm-bad">{u.creation_stats.failed} failed</span>}
                   {u.creation_stats.in_progress > 0 && <span>{u.creation_stats.in_progress} making</span>}
                   <span>since {shortDate(u.created_at)}</span>

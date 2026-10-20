@@ -173,7 +173,7 @@ Mock-ups of each are in the artifact's "Rejected" card.
 
 ## Known debt (do not copy)
 
-- Primary above secondary in the New hero sheet, Rename sheet and Delete dialog. Rule: primary last.
+- Primary above secondary in the New hero sheet and Delete dialog. Rule: primary last.
 - Hero screen being made or failed, at 844 x 390: the sticky bar covers the stage. At 1280 x 800 it stays a 560px column. (A ready hero is fixed: stage beside moves and bar sideways, a 720px column with one row of 8 moves on a desktop.)
 - Signed-out gallery has a 25-word paragraph under the headline.
 - The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.

@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { HeaderAuth } from './components/HeaderAuth';
 import { PURCHASE_RETURN_PARAM } from './components/BuyCredits';
-import { PipelineProgress } from './components/PipelineProgress';
-import { HeroNameEditor } from './components/HeroNameEditor';
+import { AdminSteps } from './components/admin/AdminSteps';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Privacy } from './components/tb/Privacy';
@@ -19,7 +18,7 @@ import { JoinFlow, JOIN_PATH } from './components/class/JoinFlow';
 import { ClaimScreen, CLAIM_PATH } from './components/class/ClaimScreen';
 import { HeroScreen } from './components/tb/HeroScreen';
 import { Icon } from './components/tb/Icon';
-import { Header, NavButton, NoPageScroll, Sheet } from './components/tb/parts';
+import { Header, NoPageScroll, Sheet } from './components/tb/parts';
 import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/StylePicker';
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
@@ -526,32 +525,14 @@ function MainApp() {
     screen = <AdminPanel onClose={goHome} currentUserId={userInfo.id} onOpenHero={(c) => openHero(c, 'admin')} />;
   } else if (view === 'steps' && creation && userInfo?.is_admin) {
     screen = (
-      <div className="tb-screen tb-screen--wide">
-        <Header left={<NavButton icon="back" label="Back to hero" onClick={() => setView('hero')} />} title="Every step" />
-        <div className="tb-screen-body app-pipeline-section">
-          <HeroNameEditor
-            creationId={creation.id}
-            characterName={creation.character_name}
-            name={creation.name}
-            age={creation.age}
-            isAdmin={userInfo?.is_admin ?? false}
-            isLoggedIn={isLoggedIn}
-            onCharacterNameUpdated={(v) => setCreation({ ...creation, character_name: v })}
-            onNameUpdated={(v) => setCreation({ ...creation, name: v })}
-            onAgeUpdated={(v) => setCreation({ ...creation, age: v })}
-          />
-          <PipelineProgress
-            creation={creation}
-            creditBalance={creditBalance}
-            isLoggedIn={isLoggedIn}
-            currentUserId={userInfo?.id}
-            isAdmin={userInfo?.is_admin ?? false}
-            onStepRun={() => refreshCreditBalance()}
-            onCreationRefresh={refreshCreation}
-            onDelete={goHome}
-          />
-        </div>
-      </div>
+      <AdminSteps
+        creation={creation}
+        currentUserId={userInfo.id}
+        onBack={() => setView('hero')}
+        onRefresh={refreshCreation}
+        onCreditsChanged={refreshCreditBalance}
+        onDeleted={backFromHero}
+      />
     );
   } else if (view === 'hero' && creation) {
     screen = (
@@ -568,6 +549,7 @@ function MainApp() {
         onMakeOwn={startNewHero}
         onCreditsChanged={refreshCreditBalance}
         fromClass={heroFrom === 'class'}
+        fromAdmin={heroFrom === 'admin'}
       />
     );
   } else {

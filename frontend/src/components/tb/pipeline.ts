@@ -124,3 +124,29 @@ export function etaText(endsAt: number | null, now = Date.now()): string {
 export function heroName(c: CreationResponse): string {
   return c.character_name || 'Your hero';
 }
+
+/** The first failed step: where a failed hero stopped. */
+export function failedStep(c: CreationResponse): CreationStepResponse | undefined {
+  return c.steps.find((s) => s.status === 'failed');
+}
+
+/**
+ * What a failed step did to the bill, for support: "refunded 5", or why
+ * nothing came back. Credits are charged before a step runs and given back
+ * when it fails, except a cancel (kept on purpose) and a step that never got
+ * its charge (not enough credits).
+ */
+export function refundWords(step: CreationStepResponse | undefined): string {
+  if (!step) return '';
+  // An admin's view carries the ledger's answer: what this attempt was charged.
+  const charged = step.charged_credits;
+  if (charged === 0) return 'nothing charged';
+  if (charged && !step.credits_refunded) return step.error_code === 'cancelled' ? `cancelled, ${charged} kept` : `${charged} not refunded`;
+  if (step.credits_refunded) {
+    const n = step.refunded_credits ?? getStepCost(step.step_name);
+    return n ? `refunded ${n}` : 'refunded';
+  }
+  if (step.error_code === 'not_enough_credits') return 'nothing charged';
+  if (step.error_code === 'cancelled') return 'cancelled, kept';
+  return 'not refunded';
+}

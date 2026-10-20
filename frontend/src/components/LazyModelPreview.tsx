@@ -6,8 +6,8 @@ const Impl = lazy(() => import('./ModelPreview').then((m) => ({ default: m.Model
 
 /**
  * ModelPreview, loaded when first shown. It brings @react-three/fiber, drei
- * and their own three.js (~220 KB gzipped), which only "Every step" and its
- * preview dialog use; nothing on the gallery or a hero's page needs them.
+ * and their own three.js (~220 KB gzipped), which only the admin "Every step"
+ * page uses; nothing on the gallery or a hero's page needs them.
  */
 export function ModelPreview(props: Props) {
   return (

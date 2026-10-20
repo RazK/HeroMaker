@@ -281,6 +281,10 @@
 /* A hero tile with its admin controls: "Removed" on the top leading corner,
    more on the trailing one. Siblings of the tile, never inside it. */
 .adm-tile-wrap { position: relative; min-width: 0; }
+/* Support reads the whole line ("Painting failed · refunded 2"): on a phone
+   tile it wraps instead of being cut, and the bubble grows up to hold it. */
+.adm-tile-wrap .tb-tile-card { height: auto; min-height: 56px; padding-block: 7px; }
+.adm-tile-wrap .tb-tile-line { white-space: normal; overflow-wrap: anywhere; }
 .adm-tile-badge {
   position: absolute;
   inset-block-start: 10px;
@@ -363,3 +367,50 @@
 .adm-pill--live { background: var(--tb-ink); color: var(--tb-white); }
 .adm-warn { color: #7a4a00 !important; }
 .adm-ls-more { align-self: center; margin-block: 6px 4px; }
+
+/* ---- Every step: one hero's pipeline, a card per step ------------------- */
+
+.adm-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 15px; align-items: center; }
+.adm-facts dt { color: var(--tb-ink-2); font-weight: 700; }
+.adm-facts dd { margin: 0; font-weight: 800; overflow-wrap: anywhere; min-width: 0; }
+.adm-facts-id { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Text support copies into a ticket: Nunito 800, never the display face. */
+.adm-copyable { font-family: var(--tb-font-body); font-weight: 800; user-select: all; overflow-wrap: anywhere; min-width: 0; }
+
+.adm-step { gap: 12px; }
+.adm-step-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.adm-step-num {
+  flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--tb-track); color: var(--tb-ink-2); font-family: var(--tb-font-display); font-size: 20px;
+}
+.adm-step-num--completed { background: var(--tb-green); color: var(--tb-white); }
+.adm-step-num--processing { background: var(--tb-grape); color: var(--tb-white); }
+.adm-step-num--failed { background: var(--tb-red); color: var(--tb-white); }
+/* The name wraps: it is never cut to "Im…". */
+.adm-step-title { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.adm-step-title .adm-title { margin: 0; overflow-wrap: anywhere; }
+.adm-step-title small { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); overflow-wrap: anywhere; }
+
+.adm-step-error { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.adm-step-error-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 800; }
+/* The provider's own words, whole: wrapped inside its box, scrolled if long. */
+.adm-step-raw {
+  margin: 0; max-height: 220px; overflow: auto; padding: 12px 14px;
+  border-radius: var(--tb-radius-input); border: 2px solid var(--tb-line); background: var(--tb-cream);
+  font-family: var(--tb-font-body); font-size: 14px; font-weight: 700; line-height: 1.4;
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: text;
+}
+
+.adm-step-output {
+  display: flex; align-items: center; justify-content: center; height: 240px; border-radius: var(--tb-radius-input);
+  background: var(--tb-plate-1); overflow: hidden;
+}
+.adm-step:nth-of-type(even) .adm-step-output { background: var(--tb-plate-3); }
+/* Never cropped. */
+.adm-step-output img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.adm-step-output--3d { height: 280px; }
+
+.adm-step-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.adm-step-actions .tb-btn { flex: 1 1 auto; }
+.adm-step-cost { display: inline-flex; align-items: center; gap: 2px; margin-inline-start: 4px; color: var(--tb-ink-2); }
+.adm-step-cost svg { color: var(--tb-sun-deep); }

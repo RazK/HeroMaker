@@ -7,10 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 # ============ User Schemas ============
 
 class CreationStats(BaseModel):
-    """Creation statistics for a user."""
+    """A user's heroes, counted as their admin page counts them
+    (app/services/users.hero_stats): total, and how it splits."""
+    total: int = 0
     completed: int
     failed: int
     in_progress: int
+    not_started: int = 0
 
 
 class AdminUserResponse(BaseModel):
