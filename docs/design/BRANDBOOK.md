@@ -64,7 +64,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 
 - Never crop: `object-fit: contain`, always.
 - Heroes are transparent and stand on a plate or a sun.
-- The drawing is a polaroid (white frame, -6deg, artist's name and age).
+- The drawing is a polaroid (white frame, -6deg, artist's name and age). Its photo takes the drawing's shape: no empty white beside a tall drawing. On a stage, one tap (enlarge mark in its corner) opens the drawing full screen, with a Drawing | Hero toggle; Back closes it.
 - Thumbnail first, full size swapped in when loaded.
 - Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
 
