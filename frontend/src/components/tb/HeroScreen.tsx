@@ -167,7 +167,7 @@ export function HeroScreen(props: HeroScreenProps) {
     </div>
   );
 
-  const notice = error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>;
+  const notice = error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button></div>;
 
   let body;
   let bar;

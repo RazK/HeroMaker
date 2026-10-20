@@ -45,6 +45,19 @@ export function SheetRow({ icon, label, trail, danger, onClick, href }: { icon: 
     : <button type="button" className={cls} onClick={onClick}>{body}</button>;
 }
 
+/**
+ * A setting in a sheet: a row whose trailing edge is an on/off switch. The
+ * whole row is the tap. `busy` holds it while the change is saved.
+ */
+export function SheetToggle({ icon, label, on, busy, onChange, className = '' }: { icon: IconName; label: string; on: boolean; busy?: boolean; onChange: (on: boolean) => void; className?: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} className={`tb-sheet-row tb-sheet-toggle ${className}`.trim()}
+      disabled={busy} onClick={() => onChange(!on)}>
+      <Icon name={icon} /><span>{label}</span><span className="tb-toggle" aria-hidden="true" />
+    </button>
+  );
+}
+
 /** The round button used on both edges of every header. */
 export function NavButton({ icon, label, onClick, className = '' }: { icon: IconName; label: string; onClick: () => void; className?: string }) {
   return (

@@ -111,7 +111,7 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
   );
   const notice = (
     <>
-      {error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-link" onClick={() => setError(null)}>OK</button></div>}
+      {error && <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button></div>}
       {waitingSeats && (
         <div className="tb-notice cls-seats-notice" role="status">
           <Icon name={waitingSeats === 'in' ? 'check' : 'coin'} />

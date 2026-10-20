@@ -28,7 +28,6 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
-  const [isTeacher, setIsTeacher] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -46,7 +45,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
         return;
       }
       if (mode === 'signup') {
-        await api.signup(username, email, password, name, dateOfBirth, isTeacher);
+        await api.signup(username, email, password, name, dateOfBirth);
       } else {
         await api.login(username, password);
       }
@@ -85,7 +84,6 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
     setPassword('');
     setName('');
     setDateOfBirth('');
-    setIsTeacher(false);
     setError(null);
     setMode('login');
     setResetSent(false);
@@ -155,12 +153,6 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
                   disabled={isLoading}
                 />
               </div>
-              {/* A teacher's home is their classes; it can be switched later in the account sheet. */}
-              <label className="cls-toggle auth-modal-teacher">
-                <input type="checkbox" checked={isTeacher} onChange={(e) => setIsTeacher(e.target.checked)} disabled={isLoading} />
-                <span className="cls-toggle-track" />
-                I’m a teacher
-              </label>
             </>
           )}
           <div className="tb-field">
@@ -178,19 +170,17 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
               disabled={isLoading}
             />
             {mode === 'login' && canReset && (
-              <button type="button" className="tb-link auth-modal-forgot" onClick={() => switchTo('forgot')}>Forgot password?</button>
+              <button type="button" className="tb-chip auth-modal-forgot" onClick={() => switchTo('forgot')}>Forgot password?</button>
             )}
           </div>
         </div>
 
         <div className="tb-stack auth-modal-actions">
           {error && <div className="auth-modal-error" role="alert">{error}</div>}
-          <div className="tb-bar-note">
-            {mode === 'login' ? 'New here? ' : 'Already have an account? '}
-            <button type="button" className="tb-link auth-modal-tab" onClick={() => switchTo(mode === 'login' ? 'signup' : 'login')}>
-              {mode === 'login' ? 'Create an account' : 'Sign in'}
-            </button>
-          </div>
+          {/* The other way in: a secondary above the primary (the bar's order). */}
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--full auth-modal-tab" onClick={() => switchTo(mode === 'login' ? 'signup' : 'login')}>
+            {mode === 'login' ? 'New account' : 'I have an account'}
+          </button>
           <button type="submit" className="tb-btn tb-btn--primary tb-btn--full auth-modal-submit" disabled={isLoading}>
             {isLoading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>

@@ -172,7 +172,7 @@ export function StudentTile({ student, index, onOpen, onApprove, onBlock, busy, 
       {state === 'waiting' && onApprove && (
         <div className="cls-tile-actions">
           <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full cls-approve" disabled={busy} onClick={onApprove}><Icon name="check" size={18} />Approve</button>
-          {onBlock && <button type="button" className="tb-link cls-block" disabled={busy} onClick={onBlock}>Block</button>}
+          {onBlock && <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-btn--full cls-block" disabled={busy} onClick={onBlock}>Block</button>}
         </div>
       )}
     </div>
