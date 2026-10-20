@@ -30,7 +30,7 @@ export function Privacy({ onBack }: { onBack: () => void }) {
       <p>We don't sell your data.<br />No analytics, ads or tracking.</p>
 
       <h2>Public gallery</h2>
-      <p>Heroes appear in the public gallery with the creator's name.</p>
+      <p>Heroes we pick for Editors' choice appear in the public gallery with the creator's name. Every other hero is listed only to you.</p>
 
       <h2>Camera</h2>
       <p>Dance party uses the camera on your device only.<br />Video is never uploaded.</p>
