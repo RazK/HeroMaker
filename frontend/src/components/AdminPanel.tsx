@@ -1,14 +1,19 @@
 import { useState } from 'react';
+import { CreationResponse } from '../api/client';
 import { Icon, IconName } from './tb/Icon';
+import { Header, NavButton } from './tb/parts';
 import { MoneySection } from './admin/MoneySection';
 import { CouponsSection } from './admin/CouponsSection';
 import { UsersSection } from './admin/UsersSection';
 import { SchoolsSection } from './admin/SchoolsSection';
+import { UserDetail } from './admin/UserDetail';
 import './admin/admin.css';
 
 interface AdminPanelProps {
   onClose: () => void;
   currentUserId: string;
+  /** Open a hero's own page (from a user's page). Back from it returns here. */
+  onOpenHero: (c: CreationResponse) => void;
 }
 
 type Section = 'money' | 'coupons' | 'users' | 'schools';
@@ -21,6 +26,9 @@ const SECTIONS: { id: Section; label: string; icon: IconName }[] = [
 ];
 
 const KEY = 'heromaker.admin.section';
+// The user page open when a hero was opened from it: Back from the hero
+// comes back to it. Per tab, so a new tab starts at the list.
+const USER_KEY = 'heromaker.admin.user';
 
 function initialSection(): Section {
   try {
@@ -30,40 +38,72 @@ function initialSection(): Section {
   return 'money';
 }
 
+function initialUser(): string | null {
+  try { return sessionStorage.getItem(USER_KEY); } catch { return null; }
+}
+
 /**
  * The admin console: Money (is the company net positive, what is left at each
- * provider, what is due), Coupons (give people credits), Users, and Schools
- * (teachers: where, what kind, classes, seats bought, heroes made). Rendered
- * under App's "Admin" header; this owns everything below it.
+ * provider, what is due), Coupons (give people credits), Users (and each
+ * user's page: their heroes, credits and audit log), and Schools (teachers:
+ * where, what kind, classes, seats bought, heroes made). Owns its whole
+ * screen, header included, so a user's page has its own Back.
  */
-export function AdminPanel({ currentUserId }: AdminPanelProps) {
+export function AdminPanel({ onClose, currentUserId, onOpenHero }: AdminPanelProps) {
   const [section, setSection] = useState<Section>(initialSection);
+  const [userId, setUserIdState] = useState<string | null>(initialUser);
   const pick = (s: Section) => {
     setSection(s);
     try { localStorage.setItem(KEY, s); } catch { /* fine */ }
   };
+  const setUserId = (id: string | null) => {
+    setUserIdState(id);
+    try {
+      if (id) sessionStorage.setItem(USER_KEY, id); else sessionStorage.removeItem(USER_KEY);
+    } catch { /* fine */ }
+    window.scrollTo({ top: 0 });
+  };
+  const leave = () => { setUserId(null); onClose(); };
+
+  if (userId) {
+    return (
+      <div className="tb-screen tb-screen--wide">
+        <Header left={<NavButton icon="back" label="Back to users" onClick={() => setUserId(null)} />} title="User" />
+        <div className="tb-screen-body">
+          <div className="adm adm--wide">
+            <UserDetail userId={userId} currentUserId={currentUserId} onOpenHero={onOpenHero} onGone={() => setUserId(null)} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="adm">
-      <div className="adm-tabs" role="tablist" aria-label="Admin sections">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={section === s.id}
-            className={`adm-tab${section === s.id ? ' adm-tab--on' : ''}`}
-            onClick={() => pick(s.id)}
-          >
-            <Icon name={s.icon} size={20} />
-            {s.label}
-          </button>
-        ))}
+    <div className="tb-screen tb-screen--wide">
+      <Header left={<NavButton icon="back" label="Back" onClick={leave} />} title="Admin" />
+      <div className="tb-screen-body">
+        <div className="adm">
+          <div className="adm-tabs" role="tablist" aria-label="Admin sections">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={section === s.id}
+                className={`adm-tab${section === s.id ? ' adm-tab--on' : ''}`}
+                onClick={() => pick(s.id)}
+              >
+                <Icon name={s.icon} size={20} />
+                {s.label}
+              </button>
+            ))}
+          </div>
+          {section === 'money' && <MoneySection />}
+          {section === 'coupons' && <CouponsSection />}
+          {section === 'users' && <UsersSection currentUserId={currentUserId} onOpen={(id) => setUserId(id)} />}
+          {section === 'schools' && <SchoolsSection />}
+        </div>
       </div>
-      {section === 'money' && <MoneySection />}
-      {section === 'coupons' && <CouponsSection />}
-      {section === 'users' && <UsersSection currentUserId={currentUserId} />}
-      {section === 'schools' && <SchoolsSection />}
     </div>
   );
 }

@@ -64,7 +64,7 @@ function MainApp() {
   }, []);
   const [classId, setClassId] = useState<string | null>(classPaid);
   // Where Back from a hero goes: the gallery, or the class it was opened from.
-  const [heroFrom, setHeroFrom] = useState<'gallery' | 'class'>('gallery');
+  const [heroFrom, setHeroFrom] = useState<'gallery' | 'class' | 'admin'>('gallery');
   // The gallery's tab: the one last chosen, or My classes for a teacher back
   // from paying for a class. Chosen once (a tap, or a flow that leads to a
   // tab), it is never changed under the viewer's feet.
@@ -220,7 +220,7 @@ function MainApp() {
     window.scrollTo({ top: 0 });
   };
 
-  const openHero = (c: CreationResponse, from: 'gallery' | 'class' = 'gallery') => {
+  const openHero = (c: CreationResponse, from: 'gallery' | 'class' | 'admin' = 'gallery') => {
     setHeroFrom(from);
     setCreation(c);
     setError(null);
@@ -349,6 +349,8 @@ function MainApp() {
   };
   const backFromHero = () => {
     if (heroFrom === 'class' && classId) { setCreation(null); setView('class'); return; }
+    // Opened from a user's page in the admin console: back to that page.
+    if (heroFrom === 'admin' && userInfo?.is_admin) { setCreation(null); setView('admin'); return; }
     goHome();
   };
   const appHeader = (
@@ -416,12 +418,7 @@ function MainApp() {
   } else if (view === 'reset') {
     screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
   } else if (view === 'admin' && userInfo) {
-    screen = (
-      <div className="tb-screen tb-screen--wide">
-        <Header left={<NavButton icon="back" label="Back" onClick={goHome} />} title="Admin" />
-        <div className="tb-screen-body"><AdminPanel onClose={goHome} currentUserId={userInfo.id} /></div>
-      </div>
-    );
+    screen = <AdminPanel onClose={goHome} currentUserId={userInfo.id} onOpenHero={(c) => openHero(c, 'admin')} />;
   } else if (view === 'steps' && creation && userInfo?.is_admin) {
     screen = (
       <div className="tb-screen tb-screen--wide">

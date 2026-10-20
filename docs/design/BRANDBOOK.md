@@ -86,6 +86,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 ## Interaction, feedback, motion
 
 - Tap = instant action. No queues, no "build a sequence then press play".
+- **No underlined text links.** An action is a button, a row (a tappable card or a `SheetRow`) or a sheet, never a line of underlined text. A card that opens something is the whole card; its ⋯ sits beside it, not inside it.
 - Only spending money and deleting confirm first (`Dialog`).
 - No wait over 300ms shows nothing: thumbnail or placeholder first, a progress ring with %, the painting dimmed under the ring for 3D, skeleton tiles in the gallery.
 - Prefetch what the next step needs. Serve `opt_` GLBs and thumbnails.
@@ -118,6 +119,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 | One title, one short line | A title, a subtitle and a paragraph |
 | Line icons | Emoji |
 | `margin-inline-start` | `margin-left` |
+| A button, a tappable row, a sheet | An underlined text link |
 
 ## Rejected, and why
 
