@@ -314,6 +314,14 @@ function MainApp() {
 
   const handleUpload = async (file: File, characterName?: string) => {
     if (uploadingRef.current) return;
+    // The picker's accept="image/*" is only a hint: a text file got through
+    // and was charged a painting (persona review). Nothing that is not a
+    // picture is uploaded.
+    if (!file.type.startsWith('image/')) {
+      setShowNewHero(false);
+      setError("That isn't a picture. Choose a photo or a drawing.");
+      return;
+    }
     uploadingRef.current = true;
     setShowNewHero(false);
     setIsUploading(true);

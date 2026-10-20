@@ -70,7 +70,7 @@ export function Header({ left, title, right, titleClassName = '' }: { left?: Rea
   return (
     <header className="tb-header">
       <div className="tb-header-side">{left}</div>
-      {title && <div className={`tb-header-title ${titleClassName}`.trim()}>{title}</div>}
+      {title && <div className={`tb-header-title ${titleClassName}`.trim()} dir="auto">{title}</div>}
       <div className="tb-header-side tb-header-side--end">{right}</div>
     </header>
   );
