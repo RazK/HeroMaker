@@ -1,8 +1,9 @@
-import { CSSProperties, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, KeyboardEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
-import { Polaroid } from './parts';
+import { createPortal } from 'react-dom';
+import { Header, NavButton, Polaroid } from './parts';
 import { HeroStageInstance, StageModule, loadStage } from './stage';
 import { usePinchZoom } from './usePinchZoom';
 import './HeroLive.css';
@@ -23,8 +24,6 @@ export const MOVES: Array<{ id: string; label: string; icon: IconName }> = [
 type Phase = 'drawing' | 'painting' | 'sculpt' | 'alive' | 'live';
 const PHASE_ICON: Record<Exclude<Phase, 'live'>, IconName> = { drawing: 'pencil', painting: 'brush', sculpt: 'cube', alive: 'run' };
 const PHASE_LABEL: Record<Exclude<Phase, 'live'>, string> = { drawing: 'The drawing', painting: 'Painted', sculpt: 'Sculpted in 3D', alive: 'Brought to life' };
-/** Each step's name under its icon in the strip (an icon alone did not read as a step). */
-const PHASE_SHORT: Record<Exclude<Phase, 'live'>, string> = { drawing: 'Drawing', painting: 'Painting', sculpt: 'Sculpt', alive: 'Alive' };
 /**
  * The intro is a quick slideshow of the process (Raz: "don't pause for more
  * than about 1 second on each phase"): each phase is on screen PHASE_MS, its
@@ -39,11 +38,18 @@ const PHASE_MS = 900;
 const PHASE_MIN_MS = 500;
 const PICTURE_WAIT_MS = 400;
 const PICTURE_MIN_MS = 500;
-/** The intro's stepper: 12px from the top of the stage, 64px tall, 4px clear.
+/** The intro's stepper: 12px from the top of the stage, 48px tall, 4px clear.
  *  The hero keeps this margin at the top and the bottom, so it shrinks in place
  *  on the sun rather than moving down (measured: 10px or more under the strip
  *  on tall and T-posed heroes, at 360x640). */
-const INTRO_INSET = 80;
+const INTRO_INSET = 64;
+/**
+ * Browsing plays through the steps by itself as well, slower than the intro
+ * (Raz: "make the transition automatic between the phases"): each step stays
+ * BROWSE_MS once it is on screen, or BROWSE_WAIT_MS if it never loads.
+ */
+const BROWSE_MS = 2500;
+const BROWSE_WAIT_MS = 6000;
 
 // The intro plays the first time a hero is opened on this device. Storage can
 // throw (private windows, blocked site data); then it simply plays every time.
@@ -121,6 +127,8 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
   };
   // Once the stage has swapped, the corner cards pop in when they come back.
   const [swapped, setSwapped] = useState(false);
+  // The drawing, full screen (a tap on the big drawing while browsing).
+  const [full, setFull] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const stageEl = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -133,7 +141,7 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
   // The steps strip is up during the intro and while browsing.
   const steps = phase !== 'live';
   const intro = steps && !browsing;
-  const leave = () => { setBrowsing(false); setPhase('live'); };
+  const leave = () => { setFull(false); setBrowsing(false); setPhase('live'); };
   const browse = (p: Phase) => {
     if (p === 'alive' || p === 'live') { leave(); return; }
     setSwapped(true);
@@ -243,6 +251,20 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
     return () => clearTimeout(t);
   }, [phase, intro, pictureUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Browsing moves on by itself: drawing, painting, sculpt, then the hero.
+  // A tap on a step jumps there and it carries on from that step. It holds
+  // while the drawing is full screen or a picture is zoomed in.
+  const onScreen = phase === 'sculpt' ? shown === 'sculpt' : !!pictured[phase];
+  const zoomed = pinch.zoom.s > 1;
+  useEffect(() => {
+    if (!browsing || full || zoomed) return;
+    const t = setTimeout(() => setPhase((p) => {
+      const i = phases.indexOf(p);
+      return i < 0 || i >= phases.length - 1 ? 'alive' : phases[i + 1];
+    }), onScreen ? BROWSE_MS : BROWSE_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [phase, browsing, full, zoomed, onScreen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // The swap: the drawing grows out of the polaroid into the stage (about
   // 250ms, a scale and position morph), while the hero shrinks into the corner.
   useLayoutEffect(() => {
@@ -311,9 +333,20 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
           <Layer on={steps && phase === 'drawing'}>
             <div className="tb-live-drawing" style={drawingBox}>
               <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: phase === 'drawing' ? pinch.transform : undefined }}>
-                <div ref={card} className="tb-live-card">
+                <div
+                  ref={card}
+                  className={`tb-live-card${browsing ? ' tb-live-card--open' : ''}`}
+                  {...(browsing ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': 'Show the drawing full screen',
+                    onClick: (e: { stopPropagation: () => void }) => { e.stopPropagation(); setFull(true); },
+                    onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFull(true); } },
+                  } : {})}
+                >
                   <Picture thumb={file('thumb_original.jpg')} full={steps ? file('original.jpg') : null} alt={steps ? 'The drawing' : ''} onShown={pictureShown('drawing')} className="tb-live-card-img" />
                   <Caption artist={creation.name} age={creation.age} />
+                  {browsing && <span className="tb-polaroid-zoom" aria-hidden="true"><Icon name="expand" size={14} /></span>}
                 </div>
               </div>
             </div>
@@ -354,6 +387,7 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
           )}
         </div>
       </div>
+      {full && <FullDrawing src={file('original.jpg')} artist={creation.name} age={creation.age} onClose={() => setFull(false)} />}
       {offered.length > 0 && <div className="tb-hero-moves">
         <div className={`tb-moves${offered.length < 4 ? ' tb-moves--few' : ''}`} role="toolbar" aria-label="Moves">
           {offered.map((m) => (
@@ -393,16 +427,12 @@ function StepStrip({ phases, current, browsing, onPick }: { phases: Phase[]; cur
             <div key={p} style={{ display: 'contents' }}>
               <button
                 type="button"
-                className={`tb-live-step tb-live-step--${state}`}
+                className={`tb-step-dot tb-step-dot--${state}`}
+                aria-label={PHASE_LABEL[key]}
                 aria-current={i === at ? 'step' : undefined}
                 onClick={(e) => { e.stopPropagation(); onPick(p); }}
               >
-                <span className="tb-live-step-slot">
-                  <span className={`tb-step-dot tb-step-dot--${state}`}>
-                    <Icon name={!browsing && state === 'done' ? 'check' : PHASE_ICON[key]} size={state === 'now' ? 24 : 18} />
-                  </span>
-                </span>
-                <span className="tb-live-step-label">{PHASE_SHORT[key]}</span>
+                <Icon name={!browsing && state === 'done' ? 'check' : PHASE_ICON[key]} size={state === 'now' ? 24 : 18} />
               </button>
               {i < phases.length - 1 && <div className={`tb-step-line${browsing || i < at ? ' tb-step-line--done' : ''}`} />}
             </div>
@@ -411,6 +441,60 @@ function StepStrip({ phases, current, browsing, onPick }: { phases: Phase[]; cur
       </div>
     </div>
   );
+}
+
+/**
+ * The drawing, full screen: a page of the app (cream, the header's round
+ * close button), the drawing as its polaroid as big as the screen allows,
+ * never cropped; two fingers zoom it. Back closes it, back to browsing.
+ */
+function FullDrawing({ src, artist, age, onClose }: { src: string; artist?: string | null; age?: number | null; onClose: () => void }) {
+  const pinch = usePinchZoom();
+  const close = useFullBack(onClose);
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [close]);
+  return createPortal(
+    <div className="tb-drawing-full" role="dialog" aria-modal="true" aria-label="The drawing">
+      <Header left={<NavButton icon="close" label="Close" onClick={close} />} title="The drawing" />
+      <div className="tb-drawing-full-body" {...pinch.handlers}>
+        <div className="tb-drawing-full-fit">
+          <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: pinch.transform }}>
+            <div className="tb-live-card">
+              <img className="tb-live-card-img" src={src} alt="The drawing" draggable={false} />
+              <Caption artist={artist} age={age} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * The full-screen drawing owns a history entry of its own, over browsing's:
+ * Back closes it and leaves browsing as it was. Returns the close action,
+ * which goes through that entry when it is there.
+ */
+const FULL_KEY = 'tbDrawingFull';
+const onFullEntry = () => !!(window.history.state as Record<string, unknown> | null)?.[FULL_KEY];
+function useFullBack(onClose: () => void): () => void {
+  const cb = useRef(onClose);
+  cb.current = onClose;
+  useEffect(() => {
+    window.history.pushState({ ...(window.history.state ?? {}), [FULL_KEY]: true }, '');
+    const onPop = () => { if (!onFullEntry()) cb.current(); };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // Closed any other way: drop the entry, so the next Back is not a dead press.
+      window.setTimeout(() => { if (onFullEntry()) window.history.back(); }, 0);
+    };
+  }, []);
+  return useCallback(() => { if (onFullEntry()) window.history.back(); else cb.current(); }, []);
 }
 
 /** The big drawing's caption: the artist's first name and age, as on the polaroid. */
