@@ -1,5 +1,6 @@
 """Creation and pipeline API endpoints."""
 import asyncio
+import io
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, List
@@ -190,7 +191,8 @@ def list_creations(
 ):
     """List creations for the gallery. Public endpoint.
 
-    - mine_only (signed in): the caller's own heroes, in any state.
+    - mine_only (signed in): the caller's own heroes, in any state but never
+      started (Creation.never_started, left out of every list).
     - featured_only: Editors' choice, the gallery's default view - the
       finished heroes an admin has starred.
     - neither: every hero ("All heroes") for an admin. "All heroes" is an
@@ -215,6 +217,10 @@ def list_creations(
         creations = personal.filter(Creation.featured.is_(True)).order_by(Creation.updated_at.desc()).all()
         # status is derived from the steps, so "finished" is checked here.
         creations = [c for c in creations if c.status == "completed"]
+    # A hero whose picture was picked but never made (Creation.never_started)
+    # is in no list: it used to sit in My heroes as "Not started", and open on
+    # a progress screen with nothing running.
+    creations = [c for c in creations if not c.never_started]
 
     # Public: each hero's owner is named only as the gallery shows them (the
     # drawing's artist); the login name goes to the owner and admins only.
@@ -313,6 +319,28 @@ async def create_creation(
     return CreationResponse.from_creation(new_creation, admin=_is_admin(user), viewer_id=user.id)
 
 
+# What a drawing may be: the photo formats phones and browsers hand over.
+# Pillow opens more (EPS runs Ghostscript, for one); nothing else is a drawing.
+PICTURE_FORMATS = ("JPEG", "PNG", "WEBP", "GIF", "BMP", "TIFF")   # JPEG opens MPO too
+NOT_A_PICTURE = "That isn't a picture. Choose a photo or a drawing."
+
+
+def require_picture(contents: bytes) -> None:
+    """Refuse anything Pillow cannot read as a picture, before a hero exists.
+
+    The app's file picker only hints at images, and a text file once became a
+    hero whose first step "completed" and whose painting was then charged and
+    failed (persona review). 400, in words the app shows as they are."""
+    from PIL import Image
+
+    Image.init()   # registers WEBP and TIFF, which a first open does not
+    try:
+        with Image.open(io.BytesIO(contents), formats=PICTURE_FORMATS) as img:
+            img.verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail=NOT_A_PICTURE)
+
+
 def create_with_drawing(
         db: Session,
         owner_id: str,
@@ -330,7 +358,10 @@ def create_with_drawing(
     The one way a hero comes into being: POST /create and a class student's
     hero (app/api/classes.py) both go through here. `owner_id` is who
     pays for the pipeline and under whose prefix the files are stored.
+    Anything that is not a picture is refused here (require_picture), so
+    neither way can make a hero of one.
     """
+    require_picture(contents)
     new_creation = Creation(
         user_id=owner_id,
         character_name=character_name,

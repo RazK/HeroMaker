@@ -464,12 +464,14 @@ export const api = {
   /**
    * Delete a creation
    */
-  async deleteCreation(creationId: string): Promise<void> {
+  /** `keepalive`: the request outlives the page (sent as the tab closes). */
+  async deleteCreation(creationId: string, { keepalive = false } = {}): Promise<void> {
     console.log('[API] deleteCreation:', { creationId });
     await fetchJson<void>(
       `${API_BASE_URL}/api/creations/${creationId}`,
       {
         method: 'DELETE',
+        keepalive,
       }
     );
     console.log('[API] deleteCreation success');
@@ -1019,8 +1021,6 @@ export interface CreationStats {
   failed: number;
   /** A step running or done, not finished. */
   in_progress: number;
-  /** Nothing ever ran. */
-  not_started: number;
 }
 
 export interface AdminUserResponse {

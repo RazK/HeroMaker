@@ -10,11 +10,13 @@ output file or raise. The task manager is a stand-in that keeps the pipeline
 coroutine so the test can run it to the end.
 """
 import asyncio
+import io
 import threading
 from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
@@ -30,7 +32,16 @@ from app.services.task_manager import get_task_manager
 from app.utils.storage import get_storage
 
 HERO = sum(s["credit_cost"] for s in STEPS)   # 10 credits
-DRAWING = b"\xff\xd8\xff a crayon dragon"
+
+def _jpeg(tag: bytes) -> bytes:
+    """A real (tiny) JPEG, `tag` after its end: an upload must be a picture
+    (creations.require_picture), and each test's drawing stays its own bytes."""
+    out = io.BytesIO()
+    Image.new("RGB", (4, 4), (200, 30, 30)).save(out, format="JPEG")
+    return out.getvalue() + tag
+
+
+DRAWING = _jpeg(b" a crayon dragon")
 
 
 class _Tasks:
@@ -306,6 +317,22 @@ def test_a_second_hero_is_refused_kindly(db, make_user, api, steps_succeed):
     assert maya.make().status_code == 409
     assert db.query(Creation).count() == 1
     assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 1
+
+
+def test_a_text_file_spends_no_seat_and_the_child_can_still_make_a_hero(db, make_user, api, steps_succeed):
+    client, tasks = api
+    teacher = make_user(credits=100)
+    c = _new_class(client, teacher, seats=1)
+    pin = _start(client, teacher, c["id"])
+    maya = Student()
+    maya.join(pin)
+    r = maya.make(drawing=b"Dear diary, today I drew a dragon.")
+    assert r.status_code == 400
+    assert r.json()["detail"] == "That isn't a picture. Choose a photo or a drawing."
+    assert db.query(Creation).count() == 0
+    assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 0
+    # The pass is unspent: the one seat is still hers, for a real drawing.
+    assert maya.make().status_code == 201
 
 
 def test_a_second_student_on_the_same_tablet_waits_for_the_teacher(db, make_user, api, steps_succeed):

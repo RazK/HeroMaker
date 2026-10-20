@@ -24,21 +24,22 @@ def count_users(db: Session) -> Dict[str, int]:
 
 def hero_stats(creations) -> Dict[str, int]:
     """How the admin console counts a person's heroes, on the users list and
-    on their page alike, so the two never disagree. ``total`` is every live
-    hero; the rest split it: finished, failed, being made (a step running or
-    done), and never started (nothing ran: a drawing picked and left)."""
-    stats = {"total": 0, "completed": 0, "failed": 0, "in_progress": 0, "not_started": 0}
+    on their page alike, so the two never disagree. A hero never started
+    (Creation.never_started: picked, never made) is nobody's hero and is not
+    counted at all, least of all as "making". ``total`` is every other live
+    hero; the rest split it: finished, failed, and being made."""
+    stats = {"total": 0, "completed": 0, "failed": 0, "in_progress": 0}
     for creation in creations:
+        if creation.never_started:
+            continue
         stats["total"] += 1
         status = creation.status
         if status == "completed":
             stats["completed"] += 1
         elif status == "failed":
             stats["failed"] += 1
-        elif status == "processing" or any(s.status == "completed" for s in creation.steps):
+        else:  # processing, or pending between steps
             stats["in_progress"] += 1
-        else:
-            stats["not_started"] += 1
     return stats
 
 
@@ -66,7 +67,8 @@ def list_users_with_stats(db: Session, include_test: bool = True) -> List[Dict[s
     result = []
     for user in users:
         # A deleted hero, or one an admin removed (app/services/moderation.py),
-        # is not one of their heroes any more.
+        # is not one of their heroes any more; hero_stats leaves out the ones
+        # never started (Creation.never_started).
         creations = [c for c in (user.creations or []) if c.deleted_at is None]
         stats = hero_stats(creations + class_heroes.get(user.id, []))
 

@@ -416,8 +416,8 @@ def test_the_user_list_and_the_user_page_count_the_same_heroes(client, db, admin
                                                                 completed_steps, tasks):
     """Support compares the card with the page: "4 heroes" on one and "9" on
     the other read as heroes gone missing. Both count every live hero, class
-    heroes too, and split them the same way: a drawing never started is not
-    "making"."""
+    heroes too, and split them the same way. A drawing never started
+    (Creation.never_started) is in neither: not a hero, least of all "making"."""
     teacher = make_user(username="counted2")
     make_creation(teacher.id, completed_steps)
     make_creation(teacher.id, {"image_processing": "completed", "openai_render": "failed"})
@@ -430,9 +430,9 @@ def test_the_user_list_and_the_user_page_count_the_same_heroes(client, db, admin
     row = next(u for u in client.get("/api/admin/users?include_test=true", headers=_auth(admin)).json()
                if u["id"] == teacher.id)
     stats = row["creation_stats"]
-    assert stats == {"total": 5, "completed": 2, "failed": 1, "in_progress": 1, "not_started": 1}
+    assert stats == {"total": 4, "completed": 2, "failed": 1, "in_progress": 1}
     counts = _detail(client, admin, teacher.id)["counts"]
-    assert counts["heroes"] == stats["total"] == 5 and counts["removed"] == 1
+    assert counts["heroes"] == stats["total"] == 4 and counts["removed"] == 1
     assert {k: counts[k] for k in stats} == stats
 
 

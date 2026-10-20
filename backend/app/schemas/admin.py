@@ -13,7 +13,6 @@ class CreationStats(BaseModel):
     completed: int
     failed: int
     in_progress: int
-    not_started: int = 0
 
 
 class AdminUserResponse(BaseModel):

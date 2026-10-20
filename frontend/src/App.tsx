@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { HeaderAuth } from './components/HeaderAuth';
-import { PURCHASE_RETURN_PARAM } from './components/BuyCredits';
+import { PURCHASE_RETURN_PARAM, balanceBeforeCheckout } from './components/BuyCredits';
 import { AdminSteps } from './components/admin/AdminSteps';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
@@ -49,6 +49,11 @@ const claimToken = (): string | null => {
 const CLASSES_INTENT = 'heromaker.intent.classes';
 const intendsClasses = () => { try { return sessionStorage.getItem(CLASSES_INTENT) === '1'; } catch { return false; } };
 const setClassesIntent = (on: boolean) => { try { if (on) sessionStorage.setItem(CLASSES_INTENT, '1'); else sessionStorage.removeItem(CLASSES_INTENT); } catch { /* fine */ } };
+
+// Back from buying credits (?purchase=done), and the balance the buyer left
+// with. Read once per page load, so the wait below survives a re-run effect.
+const PURCHASE_ON_LOAD = new URLSearchParams(window.location.search).get(PURCHASE_RETURN_PARAM) === 'done';
+const BALANCE_BEFORE_CHECKOUT = PURCHASE_ON_LOAD ? balanceBeforeCheckout() : undefined;
 
 // The class a teacher comes back to from a seat checkout (?class_paid=<id>).
 const CLASS_PAID_ON_LOAD = new URLSearchParams(window.location.search).get(CLASS_PAID_PARAM);
@@ -114,6 +119,10 @@ function MainApp() {
   const [classSheet, setClassSheet] = useState<'new' | 'school' | null>(null);
   const [resetToken] = useState(() => (isResetUrl() ? new URLSearchParams(window.location.search).get('token') ?? '' : ''));
   const [creation, setCreation] = useState<CreationResponse | null>(null);
+  // The hero made from the photo just picked, on "Make this hero?". Kept apart
+  // from `creation` (the hero on screen): picked from a hero's page ("Use
+  // another picture"), it never takes that page over.
+  const [picked, setPicked] = useState<CreationResponse | null>(null);
   const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -133,10 +142,13 @@ function MainApp() {
   const uploadingRef = useRef(false);
   const startingRef = useRef(false);
   // The hero made from the photo just picked, until "Make my hero" starts it.
-  // Picking a photo creates the hero right away, so leaving without starting it
-  // (Cancel, tapping outside, picking another photo) must remove it again, or
-  // it sits in "My heroes" as "Not started" for good.
+  // Picking a photo creates the hero right away, so every way of leaving
+  // without starting it (Cancel, tapping outside, Escape, picking another
+  // photo, leaving the page) removes it again. One that slips through (the
+  // tab killed) is still nobody's: the server lists no hero never started.
   const unstartedRef = useRef<string | null>(null);
+  // "Make a hero" while signed out opens sign-up; signed in, it carries on.
+  const makeAfterAuth = useRef(false);
   const isLoggedIn = creditBalance !== undefined;
   // Who is looking is known: signed out, or the account read. Until then a
   // remembered tab is not judged (My heroes is not dropped while signing in).
@@ -188,6 +200,14 @@ function MainApp() {
   useEffect(() => {
     refreshCreditBalance();
     const handleAuthChange = () => refreshCreditBalance();
+    // Signed up (or in) from "Make a hero": on to the next step, as if it had
+    // been tapped again: the New hero sheet, or Buy credits for a new account.
+    const handleLogin = async () => {
+      const wantsMake = makeAfterAuth.current;
+      makeAfterAuth.current = false;
+      const balance = await refreshCreditBalance();
+      if (wantsMake && balance !== undefined) proceedToMakeRef.current(balance);
+    };
     const handleUnauthorized = () => setCreditBalance(undefined);
     let noticeTimer: number | undefined;
     const handleAccountDeleted = () => {
@@ -205,12 +225,13 @@ function MainApp() {
       window.clearTimeout(noticeTimer);
       noticeTimer = window.setTimeout(() => setAccountNotice(null), 6000);
     };
-    window.addEventListener('auth:login', handleAuthChange);
+    window.addEventListener('auth:login', handleLogin);
     window.addEventListener('auth:logout', handleAuthChange);
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     window.addEventListener('auth:account-deleted', handleAccountDeleted);
-    // The sign-in sheet closed: a "Run a class" that did not sign in is forgotten.
-    const handleAuthClosed = () => setClassesIntent(false);
+    // The sign-in sheet closed: a "Run a class" or "Make a hero" that did not
+    // sign in is forgotten.
+    const handleAuthClosed = () => { setClassesIntent(false); makeAfterAuth.current = false; };
     window.addEventListener('auth:closed', handleAuthClosed);
     // Anything that changes the balance outside App (a redeemed coupon) says
     // so; and coming back to the tab (from checkout, or another device's
@@ -234,7 +255,7 @@ function MainApp() {
       window.removeEventListener('credits:changed', handleCreditsChanged);
       window.removeEventListener('credits:seen', handleCreditsSeen);
       document.removeEventListener('visibilitychange', handleVisible);
-      window.removeEventListener('auth:login', handleAuthChange);
+      window.removeEventListener('auth:login', handleLogin);
       window.removeEventListener('auth:logout', handleAuthChange);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
       window.removeEventListener('auth:account-deleted', handleAccountDeleted);
@@ -248,8 +269,8 @@ function MainApp() {
   // all this does is re-read the balance until it moves (or give up quietly).
   const [purchaseNotice, setPurchaseNotice] = useState<string | null>(null);
   useEffect(() => {
+    if (!PURCHASE_ON_LOAD) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get(PURCHASE_RETURN_PARAM) !== 'done') return;
     params.delete(PURCHASE_RETURN_PARAM);
     const query = params.toString();
     window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
@@ -258,12 +279,15 @@ function MainApp() {
     setPurchaseNotice('Thanks! Adding your credits…');
     let cancelled = false;
     (async () => {
-      let start: number | undefined;
+      // Moved from the balance the buyer left with; when that is not known,
+      // from the first one read here.
+      let start = BALANCE_BEFORE_CHECKOUT;
+      let moved = false;
       for (let attempt = 0; attempt < 15 && !cancelled; attempt++) {
         try {
           const me = await api.getMe();
           if (start === undefined) start = me.credits;
-          if (me.credits !== start) break;
+          else if (me.credits !== start) { moved = true; break; }
         } catch {
           break;
         }
@@ -271,8 +295,12 @@ function MainApp() {
       }
       if (cancelled) return;
       await refreshCreditBalance();
-      setPurchaseNotice('Thanks! Your credits are in.');
-      setTimeout(() => setPurchaseNotice(null), 6000);
+      // The notice never outlives the wait: "Credits added" for a moment once
+      // they are in, and nothing more if they have not arrived yet (coming
+      // back to the tab re-reads the balance).
+      if (!moved) { setPurchaseNotice(null); return; }
+      setPurchaseNotice('Credits added');
+      setTimeout(() => setPurchaseNotice(null), 4000);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -363,27 +391,49 @@ function MainApp() {
   // credits first, before any photo is taken or uploaded (Raz: "why you let
   // me start making hero even though I don't have credits"). The balance is
   // re-read before saying no, so a stale copy never turns anyone away.
+  const enoughForHero = (b: number | undefined) => b === undefined || pipelineCost <= 0 || b >= pipelineCost;
+  // With the balance read: the New hero sheet, or Buy credits first.
+  const proceedToMake = (balance: number | undefined) => {
+    if (enoughForHero(balance)) { setShowNewHero(true); return; }
+    window.dispatchEvent(new CustomEvent('credits:buy', { detail: { note: `A hero is ${pipelineCost} credits. You have ${balance}.` } }));
+  };
+  // The listeners above are set once; this is always today's.
+  const proceedToMakeRef = useRef(proceedToMake);
+  proceedToMakeRef.current = proceedToMake;
   const startNewHero = async () => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup' } }));
+      makeAfterAuth.current = true;
+      window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup', note: 'Then make your hero.' } }));
       return;
     }
-    const enough = (b: number | undefined) => b === undefined || pipelineCost <= 0 || b >= pipelineCost;
-    if (enough(creditBalance)) {
+    if (enoughForHero(creditBalance)) {
       setShowNewHero(true);
       refreshCreditBalance();
       return;
     }
-    const balance = await refreshCreditBalance();
-    if (enough(balance)) { setShowNewHero(true); return; }
-    window.dispatchEvent(new CustomEvent('credits:buy', { detail: { note: `A hero is ${pipelineCost} credits. You have ${balance}.` } }));
+    proceedToMake(await refreshCreditBalance());
   };
 
-  const discardUnstarted = () => {
+  const discardUnstarted = (keepalive = false) => {
     const id = unstartedRef.current;
     unstartedRef.current = null;
-    if (id) api.deleteCreation(id).catch((err) => console.error('[App] Failed to remove unstarted hero:', err));
+    if (id) api.deleteCreation(id, { keepalive }).catch((err) => console.error('[App] Failed to remove unstarted hero:', err));
   };
+  // Leaving the page on "Make this hero?" (the phone's Back, closing the tab,
+  // off to checkout from Buy credits): the picked hero goes too. keepalive
+  // lets the request outlive the page. Back from the back-forward cache, the
+  // sheet is gone with it.
+  useEffect(() => {
+    const onHide = () => {
+      if (!unstartedRef.current) return;
+      discardUnstarted(true);
+      setShowPostUploadActions(false);
+      setPicked(null);
+      setUploadedFilePreview(null);
+    };
+    window.addEventListener('pagehide', onHide);
+    return () => window.removeEventListener('pagehide', onHide);
+  }, []);
 
   const handleUpload = async (file: File, characterName?: string) => {
     if (uploadingRef.current) return;
@@ -408,7 +458,7 @@ function MainApp() {
       reader.readAsDataURL(file);
       const newCreation = await api.createCreation(file, characterName);
       unstartedRef.current = newCreation.id;
-      setCreation(newCreation);
+      setPicked(newCreation);
       setRenderStyle(DEFAULT_STYLE);
       setShowPostUploadActions(true);
     } catch (err) {
@@ -424,25 +474,29 @@ function MainApp() {
   const cancelUpload = () => {
     discardUnstarted();
     setShowPostUploadActions(false);
-    setCreation(null);
+    setPicked(null);
     setUploadedFilePreview(null);
   };
 
   const handleStartPipeline = async () => {
+    const creation = picked;
     if (!creation || startingRef.current) return;
     startingRef.current = true;
     setIsStarting(true);
     setError(null);
+    // Being started: leaving the page now must not delete it under the run.
+    unstartedRef.current = null;
     try {
       await api.runPipeline(creation.id, undefined, renderStyle);
-      unstartedRef.current = null;
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       await refreshCreditBalance();
       setShowPostUploadActions(false);
       setUploadedFilePreview(null);
+      setPicked(null);
       const fresh = await api.getCreation(creation.id).catch(() => creation);
       openHero(fresh);
     } catch (err) {
+      unstartedRef.current = creation.id;   // not started after all: still the sheet's to remove
       setError(err instanceof ApiError ? err.message : 'Failed to start pipeline');
       await refreshCreditBalance();
     } finally {
@@ -774,7 +828,7 @@ function MainApp() {
         />
       )}
 
-      {showPostUploadActions && creation && (
+      {showPostUploadActions && picked && (
         <Sheet title="Make this hero?" onClose={() => { if (!isStarting) cancelUpload(); }} className="post-upload-actions-modal">
           {uploadedFilePreview && (
             <div className="tb-upload-preview">
