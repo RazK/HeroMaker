@@ -479,10 +479,23 @@ function setProgress(f: number) {
       const r = renderer.domElement.getBoundingClientRect()
       return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height }
     }
+    /** An object's bounding box on screen, in page pixels. */
+    const screenBox = (o: THREE.Object3D) => {
+      o.updateWorldMatrix(true, true)
+      const b = new THREE.Box3().setFromObject(o)
+      const pts = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => project(new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z)))
+      const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y)
+      return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }
+    }
     return {
       phase, time: game.time, remaining: game.remaining, score: game.score, combo: game.combo,
       hero: { x: game.pos.x, y: game.pos.y, z: game.pos.z, heading: game.heading, airborne: game.airborne, playing: game.moves.playing, height: game.hero.height, width: game.hero.width, radius: game.radius, screen: project(game.pos) },
-      crowd: { size: crowd.size, onScreen: crowd.onScreen, cheers, fans: crowd.fans.map((f) => ({ name: f.name, from: f.from, x: f.base.x, z: f.base.z, screen: project(f.base) })) },
+      crowd: {
+        size: crowd.size, onScreen: crowd.onScreen, cheers, cards: crowd.board.size,
+        // Screen boxes, for the harness's "in shot, clear of heads" check.
+        fans: crowd.fans.map((f) => ({ name: f.name, from: f.from, on: f.on, x: f.base.x, y: f.base.y, z: f.base.z, screen: project(f.base), box: screenBox(f.hero.root) })),
+        drawings: crowd.board.cards.map((c) => screenBox(c)),
+      },
       things: game.things.filter((t) => !t.dead && !t.dying).map((t) => ({ kind: t.kind, age: t.age, x: t.pos.x, y: t.pos.y, z: t.pos.z, vx: t.vel.x, vz: t.vel.z, hp: t.hp, screen: project(t.pos) })),
       stats: game.stats,
       facing: { front: game.facing.front, total: game.facing.total, detail: game.facing.detail },
@@ -493,17 +506,26 @@ function setProgress(f: number) {
   },
   resetPerf: () => { perf.frames = 0; perf.ms = 0; perf.worst = 0 },
   /**
-   * The rule Raz set, as a check: nothing the player can hit is a hero.
-   * Every live target is a generated toy with no skinned mesh in it; no fan
-   * is inside the game's tree (the only one the punch reads); and every fan
-   * stands outside the play area.
+   * The rule Raz set, as a check: nothing the player can hit is a hero, or a
+   * child's drawing. Every live target is a generated toy with no skinned
+   * mesh in it; no fan and no pinned drawing is inside the game's tree (the
+   * only one the punch reads) or inside any target; every fan is in the
+   * stands (on a letter block or a grandstand row, behind the court and
+   * within its width); every drawing hangs on the back wall.
    */
   audit: () => {
     const g = game?.audit() ?? { things: 0, kinds: [], bad: [] }
-    const fansInGame = game ? crowd.fans.filter((f) => { let o: THREE.Object3D | null = f.hero.root; while (o) { if (o === game!.root) return true; o = o.parent } return false }).length : 0
-    const outside = crowd.outside()
+    const under = (o: THREE.Object3D, root: THREE.Object3D) => { let q: THREE.Object3D | null = o; while (q) { if (q === root) return true; q = q.parent } return false }
+    const fansInGame = game ? crowd.fans.filter((f) => under(f.hero.root, game!.root)).length : 0
+    const targets = game ? game.things.filter((t) => !t.dead).map((t) => t.obj) : []
+    const cardsHittable = crowd.board.cards.filter((c) => (game && under(c, game.root)) || targets.some((t) => under(c, t))).length
+    const seated = crowd.seated()
+    const onWall = crowd.board.onWall()
     // The detector itself, shown a real hero: it must say "not a toy".
     const detects = (!game || !isToy(game.hero.root)) && crowd.fans.every((f) => !isToy(f.hero.root))
-    return { ok: g.bad.length === 0 && fansInGame === 0 && outside && detects, ...g, crowd: crowd.size, fansInGame, crowdOutside: outside, detectorCatchesHeroes: detects }
+    return {
+      ok: g.bad.length === 0 && fansInGame === 0 && cardsHittable === 0 && seated && onWall && detects,
+      ...g, crowd: crowd.size, drawings: crowd.board.size, fansInGame, cardsHittable, crowdSeated: seated, drawingsOnWall: onWall, detectorCatchesHeroes: detects,
+    }
   },
 }

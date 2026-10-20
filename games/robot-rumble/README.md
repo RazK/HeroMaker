@@ -23,18 +23,35 @@ kids."* So:
   can hold, and `isToy` (no skinned mesh, no VRM) is checked when a thing is
   added and again on every hit, which throws rather than score a non-toy.
 * **Other heroes are the crowd** (`src/arena/crowd.ts`), in their own group
-  outside the walls and never in `Game.things`, the only list the punch, the
-  auto-aim and the ground pound read. They stand on the big H E R O blocks
-  either side of the chest (in shot even in a phone's portrait view) and on
-  plates behind the side walls, facing the camera's side so the front the
-  child drew shows. Each loops two cheers out of step with its neighbours
+  behind the court and never in `Game.things`, the only list the punch, the
+  auto-aim and the ground pound read. They are an audience in a grandstand:
+  two stepped rows of the room's toy blocks between the H E R O letter blocks
+  and the back wall (one merged mesh, one draw call), with the E and R blocks
+  as the front row — an arc of six seats across the back of the court, all
+  in a portrait phone's shot, none beside the court. (A first version stood
+  two of them on plates outside the side walls; Raz: "strained outside the
+  boundaries".) They face the camera's side so the front the child drew
+  shows. Each loops two cheers out of step with its neighbours
   (`Jumping_Jacks`, `Victory_Fist_Pump`, `Greeting`, `Dance_Simple`,
   `Dance_Charleston`) and jumps with its arms up (`Victory` plus a hop) when
   the player scores; a crate, a combo step or a smash brings everyone up, and
   so does the end of the round.
+* **Their drawings hang on the wall** (`src/arena/pinboard.ts`): each fan's
+  original drawing (`thumb_original.jpg`, the backend's small thumbnail) as
+  the app's polaroid — white card, drawing contained, the child's first name
+  and age, a slight tilt, a coloured pushpin — on its fan's side. Raz: "hang
+  the original drawings on the wall, with pins maybe". A portrait screen sees
+  the wall narrow but tall, so they hang in a band above the fans' heads,
+  clear of the combo pill in the middle; a landscape screen sees the whole
+  wall but only ~2.2 m of it, so they hang either side of the grandstand. The
+  board re-hangs itself when the camera's shape flips. They load after the
+  crowd, while the round is already playable, and a drawing that does not
+  arrive is simply not hung. Decor: not in `Game.things`, never hittable.
 * **Proved, not promised.** `window.__arena.audit()` reports that every live
-  target is a toy, that no fan is in the game's tree, that every fan stands
-  outside the play area, and that the detector says "not a toy" when shown a
+  target is a toy, that no fan and no drawing is in the game's tree or in a
+  target, that every fan is in the stands (on a letter block, or on a
+  grandstand row within the court's width), that every drawing hangs on the
+  back wall, and that the detector says "not a toy" when shown a
   real hero. `tools/arena-crowdcheck.mjs` plays a round with full stands and
   checks it every half second; the staging robot checks it in its game step.
 
@@ -220,7 +237,8 @@ and every sound is synthesised (`src/arena/sfx.ts`).
 The player's skinned VRM (plus its drawn outline), up to six fans in the
 stands (no outline, humanoid only, culled when out of shot), the room, and
 every toy as one merged vertex-coloured mesh with a painted blob shadow; all
-particles in one `Points` call; the fans' plates one instanced call; no
+particles in one `Points` call; the grandstand one merged mesh; each pinned
+drawing one card (a 192x236 canvas) and every pin head one instanced call; no
 shadow maps. Clips are parsed once per page and bound per hero.
 
 Measured with `tools/arena-perf.mjs` at **4x CPU throttling** (DevTools'
@@ -235,6 +253,21 @@ gallery. *Before* is the rival-hero build (up to three rivals in the room),
 | After (crowd capped at 4) | 390x844 | 51 | ~130k | 14.1 ms | 3.4 |
 | Before (rivals) | 844x390 | 73 | ~193k | 16.3 ms | 2.9 |
 | After (all 5 in shot) | 844x390 | 80 | ~230k | 14.8 ms | 2.2 |
+
+**The grandstand and the pinned drawings**, measured the same way against the
+build before them (same five fans; a busier machine that day, so every number
+is slower than the table above):
+
+| | Viewport | Draw calls | Triangles | JS per frame (4x) | SwiftShader fps |
+|---|---|---|---|---|---|
+| Fans on blocks and side plates | 390x844 | 49-55 | 130-160k (2-3 fans in shot) | 18.0-18.4 ms | 0.8-1.0 |
+| Grandstand + 5 drawings | 390x844 | 73 | ~226k (all 5 in shot) | 18.6 ms | 0.7 |
+| Fans on blocks and side plates | 844x390 | 78 | ~170k | 18.4 ms | 0.7 |
+| Grandstand + 5 drawings | 844x390 | 81 | ~227k | 19.1 ms | 1.0 |
+
+JavaScript is unchanged within noise. More triangles reach the GPU in
+portrait because every fan is now in shot, which was the point; the cards add
+two draw calls each (card and shadow) and the pins one.
 
 The JavaScript per frame is the same or a little lower than with rivals: a
 fan has no path-finding, no spring bones and no updates out of shot. In

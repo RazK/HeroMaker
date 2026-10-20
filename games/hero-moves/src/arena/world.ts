@@ -23,11 +23,34 @@ export const CHEST = new THREE.Vector3(0, 0, -3.95)
  * where even a phone's narrow portrait view sees them.
  */
 export const BACK_BLOCKS: [number, number, number][] = [
-  [-3.25, ARENA.minZ - 1.2, -0.35], [-2.2, ARENA.minZ - 1.05, -0.1],
-  [2.2, ARENA.minZ - 1.05, 0.15], [3.25, ARENA.minZ - 1.2, 0.4],
+  [-3.25, ARENA.minZ - 1.12, -0.35], [-2.2, ARENA.minZ - 1.05, -0.1],
+  [2.2, ARENA.minZ - 1.05, 0.15], [3.25, ARENA.minZ - 1.12, 0.4],
 ]
 /** Their size: a block is this tall, and a fan stands on its top. */
 export const BLOCK_SIZE = 0.8
+
+/**
+ * The grandstand: two stepped rows of toy blocks between the letter blocks
+ * and the papered back wall, where the crowd sits like an audience. Shallow on
+ * purpose: a phone in portrait sees the back of the room up to about 3 m high
+ * whatever its depth, so the closer the wall, the bigger the drawings pinned
+ * on it look.
+ */
+export const STAND = {
+  /** Half its width: within the court's, and in a portrait phone's shot. */
+  halfWidth: 3.6,
+  /** Each row: its centre line front to back, and the height of its top. */
+  rows: [
+    { z: ARENA.minZ - 1.88, top: 0.4 },
+    { z: ARENA.minZ - 2.33, top: 0.75 },
+  ],
+  depth: 0.45,
+  /** The papered wall right behind the top row, where the drawings hang. */
+  wallZ: ARENA.minZ - 2.6,
+  /** The wall's half-width and height. Tall enough for a portrait shot, which sees it up to ~3.6 m. */
+  wallHalfWidth: (ARENA.maxX - ARENA.minX + 0.6) / 2 + 1.2,
+  wallHeight: 4,
+}
 
 /** Toy Box palette, as linear-ready hex for materials. */
 export const PAL = {
@@ -145,7 +168,7 @@ export class World {
     // grape skirting board, and low toy-block walls down both sides, so the
     // edges of the world read at a glance. The front stays open: the camera
     // is there, and the robots come in that way.
-    const back = ARENA.minZ - 1.75
+    const back = STAND.wallZ
     const paper = canvasTexture(256, 256, (g) => {
       g.fillStyle = hex(PAL.cream); g.fillRect(0, 0, 256, 256)
       g.fillStyle = hex(PAL.lilac)
@@ -155,9 +178,9 @@ export class World {
     })
     paper.wrapS = paper.wrapT = THREE.RepeatWrapping
     const wallW = W + 2.4
-    paper.repeat.set(wallW / 1.2, 3.2 / 1.2)
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(wallW, 3.2), new THREE.MeshStandardMaterial({ map: paper, roughness: 1 }))
-    wall.position.set(0, 1.6 - 0.17, back)
+    paper.repeat.set(wallW / 1.2, STAND.wallHeight / 1.2)
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(wallW, STAND.wallHeight), new THREE.MeshStandardMaterial({ map: paper, roughness: 1 }))
+    wall.position.set(0, STAND.wallHeight / 2 - 0.17, back)
     s.add(wall)
     const skirting = new THREE.Mesh(new THREE.BoxGeometry(wallW, 0.32, 0.12), edge)
     skirting.position.set(0, 0.0, back + 0.06)
@@ -181,6 +204,28 @@ export class World {
     }
     const sideWalls = new THREE.Mesh(mergeGeometries(parts)!, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }))
     s.add(sideWalls)
+
+    // ---- the grandstand: two stepped rows of the same toy blocks as the
+    // side walls, one merged mesh (a single draw call). Each block is a
+    // column from the floor to its row's top, in the palette, offset a colour
+    // per row so the steps read.
+    const stand: THREE.BufferGeometry[] = []
+    const cols = Math.round((STAND.halfWidth * 2) / 0.6)
+    STAND.rows.forEach((row, r) => {
+      for (let c = 0; c < cols; c++) {
+        const h = row.top + 0.17
+        const g = new THREE.BoxGeometry(0.57, h, STAND.depth - 0.03).toNonIndexed()
+        g.translate(-STAND.halfWidth + 0.3 + c * 0.6, -0.17 + h / 2, row.z)
+        const col = new THREE.Color(blockCols[(c + r * 2) % blockCols.length])
+        const n = g.getAttribute('position').count
+        const arr = new Float32Array(n * 3)
+        for (let k = 0; k < n; k++) { arr[k * 3] = col.r; arr[k * 3 + 1] = col.g; arr[k * 3 + 2] = col.b }
+        g.setAttribute('color', new THREE.BufferAttribute(arr, 3))
+        g.deleteAttribute('uv')
+        stand.push(g)
+      }
+    })
+    s.add(new THREE.Mesh(mergeGeometries(stand)!, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 })))
 
     // Big toy blocks as scenery behind the back edge: colour, depth, and
     // something the camera's eye can rest on above the hero's head.
