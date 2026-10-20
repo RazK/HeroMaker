@@ -226,3 +226,110 @@
 .adm-skel-row { height: 44px; border-radius: 12px; margin-block: 4px; }
 @keyframes adm-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .adm-skel { animation: none; } }
+
+/* ---- Users: the card opens the user's page ------------------------------ */
+
+.adm-user-open {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  min-height: 44px;
+  border-radius: 12px;
+  touch-action: manipulation;
+}
+.adm-user-open:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
+
+/* ---- A user's page -------------------------------------------------------- */
+
+/* Wider than the console's one column: the heroes get a third column on a desktop. */
+.adm--wide { max-width: 960px; }
+
+.adm-profile { gap: 8px; }
+.adm-profile-name { font-family: var(--tb-font-display); font-size: 30px; line-height: 34px; overflow-wrap: anywhere; }
+.adm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin-block-start: 6px; }
+.adm-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: var(--tb-radius-input); background: #fbf5ea; min-width: 0; }
+.adm-stat-num { font-family: var(--tb-font-display); font-size: 28px; line-height: 32px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 4px; }
+.adm-stat-num--credits svg { color: var(--tb-sun-deep); }
+.adm-stat-label { font-size: 13px; font-weight: 800; color: var(--tb-ink-2); }
+.adm-school { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--tb-ink-2); font-size: 15px; overflow-wrap: anywhere; }
+.adm-school svg { color: var(--tb-grape); flex-shrink: 0; }
+
+.adm-section-title { padding-inline: 4px; margin-block-end: -6px; }
+
+.adm-done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--tb-radius-input);
+  background: var(--tb-plate-3);
+  color: #0b6b55;
+  font-weight: 800;
+}
+.adm-done svg { flex-shrink: 0; }
+
+/* A hero tile with its admin controls: "Removed" on the top leading corner,
+   more on the trailing one. Siblings of the tile, never inside it. */
+.adm-tile-wrap { position: relative; min-width: 0; }
+.adm-tile-badge {
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-start: 10px;
+  height: 28px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--tb-red);
+  color: var(--tb-white);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+.adm-tile-more {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--tb-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.adm-tile-more-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  border: 2px solid var(--tb-ink);
+  box-shadow: 0 3px 0 var(--tb-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.adm-tile-more:active .adm-tile-more-dot { transform: translateY(3px); box-shadow: none; }
+.adm-tile-more:focus-visible { outline: none; }
+.adm-tile-more:focus-visible .adm-tile-more-dot { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.35); }
+
+/* The history. */
+.adm-audit-row { align-items: flex-start; padding-block: 10px; }
+.adm-audit-icon { width: 36px; height: 36px; border-radius: 999px; background: var(--tb-plate-1); color: var(--tb-grape-text); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.adm-audit-icon--bad { background: #fde3e3; color: var(--tb-red); }
+.adm-audit-note { font-weight: 700; color: var(--tb-ink); }
+
+/* Sheets: reasons, notes. */
+.adm-reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.adm-reason { min-height: 44px; height: auto; }
+.adm-textarea { height: auto; min-height: 76px; padding: 12px 16px; line-height: 1.35; resize: vertical; font-family: var(--tb-font-body); }

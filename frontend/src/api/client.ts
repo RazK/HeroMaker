@@ -743,6 +743,33 @@ export const api = {
       console.log('[API] admin.deleteUser success');
     },
 
+    /** One account: who, their heroes (removed ones too) and the audit log.
+     * Also gives this browser the pass to load removed heroes' files. */
+    userDetail(userId: string): Promise<AdminUserDetail> {
+      return fetchJson<AdminUserDetail>(`${API_BASE_URL}/api/admin/users/${userId}`);
+    },
+
+    removeHero(creationId: string, reason: RemovalReason, note: string): Promise<AdminAction> {
+      return fetchJson<AdminAction>(`${API_BASE_URL}/api/admin/creations/${creationId}/remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, note }),
+      });
+    },
+
+    restoreHero(creationId: string): Promise<AdminAction> {
+      return fetchJson<AdminAction>(`${API_BASE_URL}/api/admin/creations/${creationId}/restore`, { method: 'POST' });
+    },
+
+    /** Give (amount > 0) or take back (amount < 0) credits. The note is required. */
+    changeCredits(userId: string, amount: number, note: string): Promise<{ credits: number; action: AdminAction }> {
+      return fetchJson<{ credits: number; action: AdminAction }>(`${API_BASE_URL}/api/admin/users/${userId}/credits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, note }),
+      });
+    },
+
     // Coupons
     async listCoupons(): Promise<AdminCouponResponse[]> {
       console.log('[API] admin.listCoupons');
@@ -928,6 +955,47 @@ export interface AdminUserResponse {
 export interface AdminUserCounts {
   users: number;
   test_accounts: number;
+}
+
+export type RemovalReason = 'inappropriate' | 'not_a_drawing' | 'duplicate' | 'other';
+
+/** One row of the admin audit log: who did what, when and why. */
+export interface AdminAction {
+  id: string;
+  action: 'remove_hero' | 'restore_hero' | 'grant_credits' | 'take_credits' | 'set_credits' | 'make_admin' | 'remove_admin' | 'delete_account';
+  reason: RemovalReason | null;
+  note: string | null;
+  amount: number | null;
+  creation_id: string | null;
+  details: { hero_name?: string | null; balance_after?: number; previous_balance?: number };
+  created_at: string;
+  admin: { id: string; username: string | null; name: string | null };
+}
+
+export interface AdminHero extends CreationResponse {
+  /** Set when an admin took it down: hidden from everyone but admins. */
+  removed: { at: string; reason: RemovalReason | null; note: string | null; by: string | null } | null;
+  /** A teacher's class hero: the class it was made in. */
+  class_title: string | null;
+}
+
+export interface AdminUserDetail {
+  user: {
+    id: string;
+    username: string;
+    email: string | null;
+    name: string | null;
+    credits: number;
+    is_admin: boolean;
+    is_teacher: boolean;
+    is_test_account: boolean;
+    created_at: string;
+    school: { name: string; city: string | null; country: string | null; type: string | null } | null;
+    classes: number;
+  };
+  counts: { heroes: number; removed: number };
+  heroes: AdminHero[];
+  audit: AdminAction[];
 }
 
 export interface AdminCouponResponse {

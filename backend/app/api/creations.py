@@ -11,7 +11,10 @@ from app.schemas.creation import (
     CreationRequest, CreationResponse, CreationStepResponse, FeaturedRequest,
     MessageResponse, CostResponse, StepConfigResponse, StepActionResponse, PipelineActionResponse
 )
-from app.services.auth import get_current_user_required, get_current_user_optional, get_current_user_lenient
+from fastapi.security import HTTPAuthorizationCredentials
+from app.services.auth import (
+    get_current_user_required, get_current_user_optional, security as bearer, verify_access_token,
+)
 from app.services import step_errors
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
 from app.services.pipeline import (
@@ -48,6 +51,18 @@ def _checked_style(style: Optional[str]) -> Optional[str]:
 def _is_admin(user: Optional[User]) -> bool:
     """Whether the caller may read a failed step's raw provider error."""
     return bool(user is not None and user.is_admin)
+
+
+def _admin_or_none(
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
+        db: Session = Depends(get_db),
+) -> Optional[User]:
+    """The caller, if they are an admin; None for anyone else. Never raises:
+    a hero's page is public, and a stale token must not turn it into a 401."""
+    user_id = verify_access_token(credentials.credentials) if credentials else None
+    if not user_id:
+        return None
+    return db.query(User).filter(User.id == user_id, User.is_admin.is_(True), User.deleted_at.is_(None)).first()
 
 
 def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
@@ -87,7 +102,7 @@ def get_step_status(
         creation_id: str,
         step_name: str,
         db: Session = Depends(get_db),
-        viewer: Optional[User] = Depends(get_current_user_lenient),
+        admin: Optional[User] = Depends(_admin_or_none),
 ):
     """Get status of a single step (for polling during processing)."""
     creation = _live_creation(db, creation_id)
@@ -102,20 +117,26 @@ def get_step_status(
     if not step:
         raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
     
-    return CreationStepResponse.from_step(step, admin=_is_admin(viewer))
+    return CreationStepResponse.from_step(step, admin=admin is not None)
 
 
 @router.get("/{creation_id}", response_model=CreationResponse)
 def get_creation(
         creation_id: str,
         db: Session = Depends(get_db),
-        user: Optional[User] = Depends(get_current_user_lenient),
+        admin: Optional[User] = Depends(_admin_or_none),
 ):
     creation = _live_creation(db, creation_id)
+    if not creation and admin is not None:
+        # An admin opening a hero they removed, from the user's page.
+        from app.services import moderation
+        removed = db.query(Creation).filter(Creation.id == creation_id).first()
+        if removed is not None and moderation.removal_of(db, removed) is not None:
+            creation = removed
     if not creation:
         raise HTTPException(status_code=404, detail="Creation not found")
-    
-    return CreationResponse.from_creation(creation, admin=_is_admin(user))
+
+    return CreationResponse.from_creation(creation, admin=admin is not None)
 
 
 @router.patch("/{creation_id}", response_model=CreationResponse)

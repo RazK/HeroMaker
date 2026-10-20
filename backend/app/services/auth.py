@@ -135,24 +135,6 @@ def get_current_user_optional(
     return user
 
 
-def get_current_user_lenient(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: Session = Depends(get_db)
-) -> Optional[User]:
-    """
-    Who is looking, for a public endpoint that answers everyone but tells an
-    admin more (a hero's page: the raw error of a failed step). Never raises:
-    a stale token reads as a visitor, so a shared link keeps working exactly
-    as it did before the endpoint asked who was looking.
-    """
-    if not credentials:
-        return None
-    user_id = verify_access_token(credentials.credentials)
-    if user_id is None:
-        return None
-    return db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
-
-
 def get_current_user_required(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)

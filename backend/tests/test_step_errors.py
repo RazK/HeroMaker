@@ -352,15 +352,15 @@ def test_a_class_heros_line_never_mentions_credits(db, failed_hero, make_user):
 def test_migration_adds_error_code_to_an_existing_database(tmp_path):
     from sqlalchemy import create_engine, inspect, text
     from sqlalchemy.orm import sessionmaker
-    from app.migrations import m017_step_error_code
+    from app.migrations import m018_step_error_code
 
     engine = create_engine(f"sqlite:///{tmp_path}/old.db")
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE creation_steps (id TEXT PRIMARY KEY, error_message TEXT)"))
     db = sessionmaker(bind=engine)()
     try:
-        m017_step_error_code.migrate(db)
-        m017_step_error_code.migrate(db)          # idempotent
+        m018_step_error_code.migrate(db)
+        m018_step_error_code.migrate(db)          # idempotent
         assert "error_code" in {c["name"] for c in inspect(engine).get_columns("creation_steps")}
     finally:
         db.close()

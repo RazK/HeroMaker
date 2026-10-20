@@ -1,4 +1,3 @@
-.tb-polaroid--button { cursor: pointer; border: 0; font: inherit; text-align: inherit; }
 .tb-hero-screen[data-state='ready'] .tb-hero-stage { background: var(--tb-plate-1); }
 .tb-hero-screen[data-state='making'] .tb-hero-stage,
 .tb-hero-screen[data-state='idle'] .tb-hero-stage,
