@@ -1,4 +1,5 @@
 import { CreationResponse } from '../api/client';
+import { heroPath } from '../routes';
 
 type HeroRef = Pick<CreationResponse, 'id' | 'user_id' | 'character_name' | 'name'>;
 
@@ -32,9 +33,10 @@ export function arenaUrl(creation: HeroRef): string {
   return gameUrl('arena.html', creation);
 }
 
+/** ?back= is the hero's own page: where the game's Back goes when it has no history to go back through (a new tab). */
 function gameUrl(page: string, creation: HeroRef): string {
   const name = creation.character_name || creation.name || 'Your hero';
-  return `/play/${page}?vrm=${encodeURIComponent(heroVrmUrl(creation))}&name=${encodeURIComponent(name)}`;
+  return `/play/${page}?vrm=${encodeURIComponent(heroVrmUrl(creation))}&name=${encodeURIComponent(name)}&back=${encodeURIComponent(heroPath(creation.id))}`;
 }
 
 export function canPlay(creation: Pick<CreationResponse, 'steps'>): boolean {
