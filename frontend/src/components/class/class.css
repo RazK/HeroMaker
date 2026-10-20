@@ -257,7 +257,11 @@ button.cls-card:active { transform: scale(0.98); }
 .cls-tile-actions .cls-block { margin-bottom: var(--tb-depth-sm); color: var(--tb-red); }
 @keyframes cls-in { from { transform: scale(0.9); opacity: 0; } to { transform: none; opacity: 1; } }
 
-.cls-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+/* The stat chips are one row, never split across lines (brand book: chips
+   row; the persona review saw "0 of 2 heroes" alone on a second line at
+   every size). A narrow row drops the icons rather than wrap. */
+.cls-stats { display: flex; flex-wrap: nowrap; gap: 6px; container-type: inline-size; }
+.cls-stat { white-space: nowrap; flex-shrink: 0; }
 .cls-stat {
   display: inline-flex;
   align-items: center;
@@ -276,6 +280,14 @@ button.cls-card:active { transform: scale(0.98); }
 .cls-stat--sun svg { color: var(--tb-ink); }
 .cls-stat--low { background: var(--tb-red); color: var(--tb-white); box-shadow: none; }
 .cls-stat--low svg { color: var(--tb-white); }
+/* (After the chip's own rules, so these win.) */
+@container (max-width: 420px) {
+  .cls-stat { padding: 0 12px; }
+  .cls-stat svg { display: none; }
+}
+@container (max-width: 330px) {
+  .cls-stat { padding: 0 8px; font-size: 13px; gap: 4px; }
+}
 
 /* The live session: the join card (QR, address, code) and the roster. The
    teacher projects it, so the QR is as big as the room allows: Qr `fit` reads
