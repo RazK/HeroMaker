@@ -41,6 +41,23 @@ class AdminUserUpdate(BaseModel):
     is_admin: Optional[bool] = None
 
 
+class AdminHeroRemove(BaseModel):
+    """Remove a hero: why (one of app.models.REMOVAL_REASONS), and a note
+    ("other" needs one). Checked in app/services/moderation.py."""
+    reason: str
+    note: Optional[str] = None
+
+
+class AdminHeroRestore(BaseModel):
+    note: Optional[str] = None
+
+
+class AdminCreditChange(BaseModel):
+    """Give (amount > 0) or take back (amount < 0) credits. The note is required."""
+    amount: int
+    note: str = ""
+
+
 # ============ Coupon Schemas ============
 
 class AdminCouponResponse(BaseModel):

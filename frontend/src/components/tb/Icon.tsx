@@ -12,6 +12,9 @@ const PATHS: Record<string, JSX.Element> = {
   // Enlarge: the polaroid opens the drawing full screen.
   expand: <><path d="M14 4h6v6" /><path d="M20 4l-6 6" /><path d="M10 20H4v-6" /><path d="M4 20l6-6" /></>,
   plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+  minus: <path d="M5 12h14" />,
+  // An eye struck through: taken out of sight (an admin removing a hero).
+  hide: <><path d="M3.5 12c2-3.8 5-5.7 8.5-5.7s6.5 1.9 8.5 5.7c-2 3.8-5 5.7-8.5 5.7S5.5 15.8 3.5 12z" /><circle cx="12" cy="12" r="2.6" /><path d="M4.5 4.5l15 15" /></>,
   camera: <><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-9 9" /></>,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,

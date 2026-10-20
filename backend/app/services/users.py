@@ -35,8 +35,9 @@ def list_users_with_stats(db: Session, include_test: bool = True) -> List[Dict[s
     
     result = []
     for user in users:
-        # Count creations by status
-        creations = user.creations or []
+        # Count creations by status. A deleted hero, or one an admin removed
+        # (app/services/moderation.py), is not one of their heroes any more.
+        creations = [c for c in (user.creations or []) if c.deleted_at is None]
         stats = {
             "completed": 0,
             "failed": 0,

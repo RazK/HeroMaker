@@ -525,3 +525,50 @@ class ClassGuest(Base):
 
     session = relationship("ClassSession")
     classroom = relationship("ClassRoom")
+
+
+# What an admin did to an account or a hero, for the user's page in the admin
+# console. One row per action: who, what, when and why. See
+# app/services/moderation.py and m017_admin_actions.
+ADMIN_ACTIONS = (
+    "remove_hero",      # hidden from everyone but admins (creations.deleted_at), files kept
+    "restore_hero",     # a removal undone
+    "grant_credits",    # credits given (ledger: admin_adjust, positive)
+    "take_credits",     # credits taken back (ledger: admin_adjust, negative, never below 0)
+    "set_credits",      # the older "set the balance" form (ledger: admin_adjust)
+    "make_admin",
+    "remove_admin",
+    "delete_account",
+)
+
+# Why a hero was removed. "other" needs a note.
+REMOVAL_REASONS = ("inappropriate", "not_a_drawing", "duplicate", "other")
+
+
+class AdminAction(Base):
+    """
+    The admin audit log. Append-only, like the ledger: a removal undone is a
+    second row (restore_hero), never an edit of the first.
+
+    `creation_id` is deliberately not a foreign key: deleting an account
+    deletes its heroes' rows (account_deletion), and the record of what an
+    admin did to one must outlive it. `details` keeps what the screen needs
+    to say it afterwards (the hero's name, the balance after a grant).
+    """
+    __tablename__ = "admin_actions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    admin_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    target_user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    creation_id = Column(String, nullable=True, index=True)
+    # One of ADMIN_ACTIONS.
+    action = Column(String(32), nullable=False)
+    # One of REMOVAL_REASONS, for remove_hero.
+    reason = Column(String(32), nullable=True)
+    note = Column(Text, nullable=True)
+    # Credits moved (signed), for the credit actions.
+    amount = Column(Integer, nullable=True)
+    details = Column(JSONVariant, nullable=False, default=dict)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    admin = relationship("User", foreign_keys=[admin_id])
