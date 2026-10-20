@@ -20,10 +20,19 @@ function ownHeroUrl(): string | null {
 export const OWN_HERO = ownHeroUrl()
 export const OWN_NAME = new URLSearchParams(location.search).get('name') || 'Your hero'
 
-/** Back to the app: the page that opened the game, or the app's home. */
+/**
+ * Where Back goes with no app page to go back to (a game opened in a new tab):
+ * `?back=`, the hero's own page, a path on this site only.
+ */
+function backPath(): string {
+  const raw = new URLSearchParams(location.search).get('back')
+  return raw && raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/\\') ? raw : '/'
+}
+
+/** Back to the app: the page that opened the game (the hero's), or `?back=`. */
 export function goBack() {
   if (window.history.length > 1 && document.referrer.startsWith(location.origin)) window.history.back()
-  else location.assign('/')
+  else location.assign(backPath())
 }
 
 /** The round back arrow the app uses on every header. */

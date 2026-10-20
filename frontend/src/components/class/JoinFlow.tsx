@@ -8,6 +8,7 @@ import { Header, NavButton, Polaroid, ProgressBar, Sheet, Stepper, useClearOfPol
 import { STEP_UI, StepProgress, currentStep, etaText, failedLine, heroState, holdSteady, stepProgress, stepViews } from '../tb/pipeline';
 import { StylePicker, useRenderStyles, DEFAULT_STYLE } from '../tb/StylePicker';
 import { PinDigits, Qr } from './parts';
+import { useOverlayBack } from '../../routes';
 import '../tb/HeroScreen.css';
 import './class.css';
 
@@ -64,10 +65,16 @@ export function JoinFlow({ initialPin }: { initialPin: string }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The name screen owns a history entry over the code's: Back (Android's
+  // too) returns to the code, not out of the app. Joined, the entry goes, so
+  // the hero is the flow's first page.
+  const backToPin = () => { setStep('pin'); setPin(''); };
+  useOverlayBack(step === 'name' || step === 'full', backToPin);
+
   if (step === 'pin') return <PinStep pin={pin} setPin={setPin} error={error} onDone={lookUp} />;
   if (step === 'full') return <ClassFull pin={pin} title={title} onSeat={() => setStep('name')} />;
   if (step === 'name') {
-    return <NameStep title={title} onBack={() => { setStep('pin'); setPin(''); }} onJoin={async (name, age) => {
+    return <NameStep title={title} onBack={backToPin} onJoin={async (name, age) => {
       try {
         showMe(await studentApi.join(pin, name, age));
       } catch (e) {
