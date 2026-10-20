@@ -47,14 +47,36 @@
   background: var(--tb-white);
   box-shadow: var(--tb-shadow-card);
 }
-.tb-live-steps .tb-stepper { height: 48px; gap: 4px; }
-/* The current step's dot and its ring (36px) sit 6px inside the pill on
-   every side, never against its edge. */
+.tb-live-steps .tb-stepper { position: relative; height: 48px; gap: 4px; }
 .tb-live-steps .tb-step-dot { width: 26px; height: 26px; }
 .tb-live-steps .tb-step-dot svg { width: 15px; height: 15px; }
-.tb-live-steps .tb-step-dot--now { width: 30px; height: 30px; box-shadow: 0 0 0 3px var(--tb-track); }
-.tb-live-steps .tb-step-dot--now svg { width: 18px; height: 18px; }
-.tb-live-steps .tb-step-now .tb-step-dot--now { animation: none; }
+/* The timeline: one circle on the step on show, sliding from step to step
+   (HeroLive SLIDE_MS). It and its ring (36px) sit 6px inside the 48px pill
+   on every side, never against its edge. */
+.tb-live-steps-now {
+  position: absolute;
+  inset-block-start: 9px;
+  inset-inline-start: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--tb-grape);
+  color: var(--tb-white);
+  box-shadow: 0 0 0 3px var(--tb-track);
+  pointer-events: none;
+  transition: transform 300ms cubic-bezier(.2, .8, .2, 1);
+}
+.tb-live-steps-now svg { width: 18px; height: 18px; }
+/* Behind the circle is its purple trail; ahead, green (made, waiting). The
+   line ahead of the step on show fills purple while it plays. */
+.tb-live-steps .tb-step-dot--past { background: var(--tb-grape); color: var(--tb-white); }
+.tb-live-steps .tb-step-line { position: relative; overflow: hidden; background: var(--tb-track); }
+.tb-step-line-fill { position: absolute; inset: 0; background: var(--tb-grape); transform-origin: left; transform: scaleX(0); }
+.tb-step-line-fill--full { transform: none; }
+.tb-step-line-fill--filling { animation: tb-step-line-fill linear forwards; }
+@keyframes tb-step-line-fill { to { transform: none; } }
 
 /* ---------- The moves: one row, four at a time, swipe for the rest ---------- */
 
@@ -237,5 +259,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tb-live-pop, .tb-drawing-full { animation: none; }
+  .tb-live-steps-now { transition: none; }
   .tb-live-zoom--settle { transition: none; }
 }

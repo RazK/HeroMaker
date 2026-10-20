@@ -44,12 +44,15 @@ const PICTURE_MIN_MS = 500;
  *  on tall and T-posed heroes, at 360x640). */
 const INTRO_INSET = 64;
 /**
- * Browsing plays through the steps by itself as well, slower than the intro
- * (Raz: "make the transition automatic between the phases"): each step stays
+ * Browsing plays through the steps by itself as well, at the intro's pace
+ * (Raz: "make the transition automatic between the phases ... you're staying
+ * for too long on each one, you need to do it much faster"): each step stays
  * BROWSE_MS once it is on screen, or BROWSE_WAIT_MS if it never loads.
  */
-const BROWSE_MS = 2500;
-const BROWSE_WAIT_MS = 6000;
+const BROWSE_MS = 1000;
+const BROWSE_WAIT_MS = 2500;
+/** The strip's circle slides to the next step in this long (HeroLive.css). */
+const SLIDE_MS = 300;
 
 // The intro plays the first time a hero is opened on this device. Storage can
 // throw (private windows, blocked site data); then it simply plays every time.
@@ -157,7 +160,12 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
   const firstRequest = useRef(introRequest);
   useEffect(() => { if (introRequest !== firstRequest.current) startIntro(); }, [introRequest, startIntro]);
   // A step that cannot show (its 3D failed) leaves browsing for the hero.
-  useEffect(() => { if (browsing && phase === 'alive') leave(); }, [browsing, phase]);
+  // The strip's circle gets to Alive first, then the stage is the hero again.
+  useEffect(() => {
+    if (!browsing || phase !== 'alive') return;
+    const t = setTimeout(leave, reducedMotion() ? 0 : SLIDE_MS);
+    return () => clearTimeout(t);
+  }, [browsing, phase]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { pinch.reset(); }, [phase, browsing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -362,7 +370,7 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
           <Layer on={waiting && !failed}>
             <Loading image={file(`thumb_${painting}`)} progress={(waitUrl && progress[waitUrl]) || 0} className={paintingClass} />
           </Layer>
-          {steps && <StepStrip phases={phases} current={phase} browsing={browsing} onPick={browse} />}
+          {steps && <StepStrip phases={phases} current={phase} onPick={browse} fillMs={intro ? PHASE_MS : browsing && onScreen && !full && !zoomed ? BROWSE_MS : 0} />}
           {!steps && (
             <Polaroid
               key="drawing"
@@ -411,33 +419,66 @@ export function HeroLive({ creation, introRequest, notice, moves = MOVES.map((m)
 }
 
 /**
- * The steps strip over the top of the stage: in the intro it follows along
- * (done, now, next); while browsing every step is made and the one on show
- * is lit. Either way a tap on a step shows that step.
+ * The steps strip over the top of the stage, a timeline: one circle marks the
+ * step on show and slides to the next (SLIDE_MS); the line ahead of it fills
+ * while the step plays (`fillMs`, 0 while it waits), so the strip moves with
+ * the stage. Behind the circle is purple, its trail; ahead is green, steps
+ * made and waiting (Raz: "everything that is behind us is purple and ahead
+ * of us is green"), in the intro and while browsing alike. A tap on a step
+ * shows that step.
  */
-function StepStrip({ phases, current, browsing, onPick }: { phases: Phase[]; current: Phase; browsing: boolean; onPick: (p: Phase) => void }) {
+function StepStrip({ phases, current, onPick, fillMs }: { phases: Phase[]; current: Phase; onPick: (p: Phase) => void; fillMs: number }) {
   const at = phases.indexOf(current);
+  const dots = useRef<Array<HTMLButtonElement | null>>([]);
+  const [x, setX] = useState<number | null>(null);
+  // The circle lands in place the first time, and slides from then on.
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    const d = dots.current[at];
+    if (d) setX(d.offsetLeft + d.offsetWidth / 2);
+  }, [at, phases.length]);
+  useEffect(() => { if (x !== null) placed.current = true; }, [x]);
+  const key = at >= 0 ? (current as Exclude<Phase, 'live'>) : null;
   return (
     <div className="tb-live-steps">
       <div className="tb-stepper" role="toolbar" aria-label="How it was made">
         {phases.map((p, i) => {
-          const key = p as Exclude<Phase, 'live'>;
-          const state = i === at ? 'now' : browsing || i < at ? 'done' : 'next';
+          const k = p as Exclude<Phase, 'live'>;
+          const state = i < at ? 'past' : 'done';
+          const fill = i < at ? 'full' : i === at && fillMs > 0 ? 'filling' : 'empty';
           return (
             <div key={p} style={{ display: 'contents' }}>
               <button
+                ref={(el) => { dots.current[i] = el; }}
                 type="button"
                 className={`tb-step-dot tb-step-dot--${state}`}
-                aria-label={PHASE_LABEL[key]}
+                aria-label={PHASE_LABEL[k]}
                 aria-current={i === at ? 'step' : undefined}
                 onClick={(e) => { e.stopPropagation(); onPick(p); }}
               >
-                <Icon name={!browsing && state === 'done' ? 'check' : PHASE_ICON[key]} size={state === 'now' ? 24 : 18} />
+                <Icon name={PHASE_ICON[k]} size={18} />
               </button>
-              {i < phases.length - 1 && <div className={`tb-step-line${browsing || i < at ? ' tb-step-line--done' : ''}`} />}
+              {i < phases.length - 1 && (
+                <div className="tb-step-line">
+                  <span
+                    key={`${current}-${fill}`}
+                    className={`tb-step-line-fill tb-step-line-fill--${fill}`}
+                    style={fill === 'filling' ? { animationDuration: `${fillMs}ms` } : undefined}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
+        {key && x !== null && (
+          <span
+            className="tb-live-steps-now"
+            aria-hidden="true"
+            style={{ transform: `translateX(${x}px) translateX(-50%)`, transition: placed.current ? undefined : 'none' }}
+          >
+            <Icon name={PHASE_ICON[key]} size={18} />
+          </span>
+        )}
       </div>
     </div>
   );
