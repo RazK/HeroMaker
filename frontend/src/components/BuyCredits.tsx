@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, CreditPack } from '../api/client';
 import { Icon } from './tb/Icon';
+import { LegalPage, openLegal } from './tb/Legal';
 import { Sheet } from './tb/parts';
 import './BuyCredits.css';
 
@@ -47,6 +48,11 @@ export function BuyCredits({ isOpen, onClose }: BuyCreditsProps) {
     }
   };
 
+  const openPage = (page: LegalPage) => {
+    onClose();
+    openLegal(page);
+  };
+
   return (
     <Sheet title="Pick a pack" onClose={onClose} className="buy-credits-modal">
       <div className="tb-muted buy-credits-note"><Icon name="lock" size={16} />Secure checkout · 1 hero = 10 credits</div>
@@ -77,6 +83,13 @@ export function BuyCredits({ isOpen, onClose }: BuyCreditsProps) {
             </span>
           </button>
         ))}
+      </div>
+
+      {/* Who takes the money, and the two pages a buyer may want first. */}
+      <div className="buy-credits-legal">
+        <span className="tb-muted">Payments by Lemon Squeezy</span>
+        <button type="button" className="tb-chip buy-credits-legal-chip" onClick={() => openPage('refunds')}>Refunds</button>
+        <button type="button" className="tb-chip buy-credits-legal-chip" onClick={() => openPage('terms')}>Terms</button>
       </div>
     </Sheet>
   );
