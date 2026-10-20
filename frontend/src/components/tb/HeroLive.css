@@ -9,7 +9,8 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity 250ms ease;
+  /* Inside each phase's PHASE_MS (HeroLive.tsx): the phases cross-fade, quickly. */
+  transition: opacity 200ms ease;
   pointer-events: none;
 }
 .tb-layer--on { opacity: 1; }

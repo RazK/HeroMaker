@@ -9,6 +9,8 @@ const PATHS: Record<string, JSX.Element> = {
   more: <><circle cx="5" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="19" cy="12" r="1.6" fill="currentColor" /></>,
   back: <path d="M15 18l-6-6 6-6" />,
   close: <><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>,
+  // Enlarge: the polaroid opens the drawing full screen.
+  expand: <><path d="M14 4h6v6" /><path d="M20 4l-6 6" /><path d="M10 20H4v-6" /><path d="M4 20l6-6" /></>,
   plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
   minus: <path d="M5 12h14" />,
   // An eye struck through: taken out of sight (an admin removing a hero).
