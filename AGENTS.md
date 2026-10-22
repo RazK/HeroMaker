@@ -32,7 +32,5 @@ mkdir -p data/db data/files
 Verify the environment with:
 
 ```bash
-curl http://localhost:8000/health/detailed
-curl http://localhost:8001/health
-curl http://localhost:5173/
+bash scripts/check-system.sh local
 ```

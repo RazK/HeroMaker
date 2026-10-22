@@ -1,0 +1,38 @@
+name: System Readiness Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  local-system-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Blender
+        run: sudo apt-get update && sudo apt-get install -y blender
+
+      - name: Set up dependencies
+        run: bash scripts/setup-dev-env.sh
+
+      - name: Run local system readiness check
+        run: bash scripts/check-system.sh local

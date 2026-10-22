@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 
 # Test 1: Health check
 echo -e "${YELLOW}Test 1: Health Check${NC}"
-if curl -s "${BASE_URL}/health" | grep -q "ok"; then
+if curl -s "${BASE_URL}/health" | python3 -c "import sys, json; sys.exit(0 if json.load(sys.stdin).get('status') == 'healthy' else 1)"; then
     echo -e "${GREEN}✓ Backend is healthy${NC}"
 else
     echo -e "${RED}✗ Backend health check failed${NC}"
