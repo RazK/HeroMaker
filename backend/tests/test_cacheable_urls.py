@@ -9,6 +9,7 @@ signed at the start of the hour, so it is the same all hour, and the redirect
 says how long it may be reused.
 """
 import datetime
+import time
 import threading
 from urllib.parse import parse_qs, urlparse
 
@@ -95,6 +96,10 @@ def test_the_pinned_clock_belongs_to_one_thread(s3):
 def test_the_endpoint_returns_the_same_cacheable_redirect_twice(s3, monkeypatch):
     monkeypatch.setattr(files_api, "get_storage", lambda: s3)
     monkeypatch.setattr(s3, "file_exists", lambda *a: True)
+    # Mid-hour, fixed: two requests that straddled the top of the hour got two
+    # different URLs, as they should, and failed CI that ran at 12:59:59.
+    mid_hour = (int(time.time()) // 3600) * 3600 + 1800
+    monkeypatch.setattr(storage_mod.time, "time", lambda: mid_hour)
     app = FastAPI()
     app.include_router(files_api.router, prefix="/api/files")
     client = TestClient(app, follow_redirects=False)
