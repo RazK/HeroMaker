@@ -462,7 +462,7 @@ function MainApp() {
       setRenderStyle(DEFAULT_STYLE);
       setShowPostUploadActions(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to upload image');
+      setError(err instanceof ApiError ? err.message : "We couldn't save your picture right now. Please try again in a few minutes.");
       setUploadedFilePreview(null);
     } finally {
       uploadingRef.current = false;

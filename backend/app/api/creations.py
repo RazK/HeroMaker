@@ -388,7 +388,10 @@ def create_with_drawing(
         logger.error(f"Error uploading image for creation {new_creation.id}: {e}")
         db.delete(new_creation)
         db.commit()
-        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+        # The person sees one calm line; the storage error (keys, signature)
+        # is ours and stays in the log (brand book: errors that are ours never
+        # blame the user). A raw S3 SignatureDoesNotMatch reached the screen.
+        raise HTTPException(status_code=503, detail="We couldn't save your picture right now. Please try again in a few minutes.")
 
     db.refresh(new_creation)
     return new_creation
