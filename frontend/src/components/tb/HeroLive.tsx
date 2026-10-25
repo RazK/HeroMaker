@@ -1,4 +1,4 @@
-import { CSSProperties, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
 import { api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
@@ -176,14 +176,28 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
 
   // A move tapped before the hero was on stage plays as soon as it is.
   useEffect(() => {
-    if (shown && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
+    if (shown && !landing.current && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
   }, [shown]);
 
-  // A move acts on the hero: from another slide, the carousel goes to it first.
+  // A move acts on the hero: from another slide, the hero slides in forward
+  // (drawing -> hero, the way it was made) and the move starts as it lands.
+  const go = useRef<((i: number, dir: 1 | -1) => void) | null>(null);
+  const landing = useRef(0);
+  useEffect(() => () => window.clearTimeout(landing.current), []);
   const tap = (id: string) => {
     const i = slides.findIndex((s) => s.key === 'hero');
-    if (i >= 0 && i !== index) pick(i);
-    if (!stage.current?.play(id)) pendingMove.current = id;
+    pendingMove.current = id;
+    if (i >= 0 && i !== index) {
+      follow.current = false;
+      go.current?.(i, 1);
+      window.clearTimeout(landing.current);
+      landing.current = window.setTimeout(() => {
+        landing.current = 0;
+        if (pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
+      }, reducedMotion() ? 0 : LAND_MS);
+      return;
+    }
+    if (!landing.current && stage.current?.play(id)) pendingMove.current = null;
   };
 
   const paintingFile = painted ? PAINTING_FILE : 'original.jpg';
@@ -281,6 +295,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           slides={slides.map((s) => ({ key: s.key, ...view(s) }))}
           index={index}
           onPick={pick}
+          go={go}
           data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
         />
         {making?.info}
@@ -328,6 +343,9 @@ function Opener({ label, onOpen, children }: { label: string; onOpen: () => void
 // ---- The carousel ----
 
 const SNAP_SHARE = 0.18;
+/** A slide's move across the stage (HeroLive.css .tb-slide: 260ms), and a beat. */
+const LAND_MS = 300;
+const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const FLICK_PX_PER_MS = 0.35;
 const SLOP_PX = 8;
 
@@ -337,10 +355,12 @@ const SLOP_PX = 8;
  * next past a fifth of the stage or on a flick (HeroLive.css: under 300ms).
  * The arrow keys and the dots move it too. A drag never counts as a tap.
  */
-function Carousel({ slides, index, onPick, className, label, data }: {
+function Carousel({ slides, index, onPick, go, className, label, data }: {
   slides: Array<{ key: string; label: string; node: ReactNode }>;
   index: number;
   onPick: (i: number) => void;
+  /** Filled in with a way to slide straight to a slide from a given side. */
+  go?: MutableRefObject<((i: number, dir: 1 | -1) => void) | null>;
   className: string;
   label: string;
   data: Record<string, string>;
@@ -352,7 +372,13 @@ function Carousel({ slides, index, onPick, className, label, data }: {
   const [dx, setDx] = useState<number | null>(null);
   const drag = useRef<{ id: number; x: number; y: number; t: number; on: boolean } | null>(null);
   const dragged = useRef(false);
+  // Slides held where a straight slide needs them, until it has landed.
+  const [pin, setPin] = useState<Map<string, number> | null>(null);
+  const unpin = useRef(0);
+  useEffect(() => () => window.clearTimeout(unpin.current), []);
   const posOf = (i: number) => {
+    const held = pin?.get(slides[i]?.key);
+    if (held !== undefined) return held;
     if (n < 2) return 0;
     if (n === 2) return i === index ? 0 : side;
     const d = (((i - index) % n) + n) % n;
@@ -380,6 +406,27 @@ function Carousel({ slides, index, onPick, className, label, data }: {
     if (n === 2) stepRef.current(side);
     else stepRef.current(posOf(i) > 0 ? 1 : -1);
   };
+
+  // Straight to slide i, coming in from side dir, however far round it is:
+  // it waits just off that side, then it and the current slide move together.
+  const slideTo = (i: number, dir: 1 | -1) => {
+    if (i === index || !slides[i]) return;
+    if (n === 2) { stepRef.current(dir); return; }
+    const from = slides[index].key;
+    flushSync(() => setPin(new Map([[slides[i].key, dir]])));
+    el.current?.getBoundingClientRect();
+    setPin(new Map([[from, -dir]]));
+    onPick(i);
+    window.clearTimeout(unpin.current);
+    unpin.current = window.setTimeout(() => setPin(null), LAND_MS);
+  };
+  const slideToRef = useRef(slideTo);
+  slideToRef.current = slideTo;
+  useEffect(() => {
+    if (!go) return;
+    go.current = (i, dir) => slideToRef.current(i, dir);
+    return () => { go.current = null; };
+  }, [go]);
 
   // The arrow keys, anywhere on the page but in a field or over a sheet.
   useEffect(() => {
