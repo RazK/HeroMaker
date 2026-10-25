@@ -24,8 +24,8 @@ from sqlalchemy.orm import Session
 
 from app.api import v1
 from app.database import get_db
-from app.models import ApiHero, ApiKey
-from app.services import api_heroes, api_keys
+from app.services import api_heroes, api_keys, principal
+from app.services.principal import Principal
 from app.services.credits import get_balance
 from app.services.task_manager import get_task_manager
 from app.version import get_version
@@ -148,30 +148,28 @@ def _stage_done(hero: dict, stage: str) -> bool:
     return any(s["stage"] == stage and s["status"] == "completed" for s in hero["stages"])
 
 
-async def _call(name: str, args: dict, key: ApiKey, db: Session, base: str, task_manager) -> dict:
+async def _call(name: str, args: dict, who: Principal, db: Session, base: str, task_manager) -> dict:
     if name == "get_estimates":
         return _result(api_heroes.estimates_view())
     if name == "get_account":
-        balance = get_balance(key.user_id, db)
+        balance = get_balance(who.user_id, db)
         cost = api_heroes.hero_cost()
         return _result({"credits": balance, "hero_cost_credits": cost, "heroes_affordable": balance // cost},
                        f"{balance} credits: enough for {balance // cost} heroes.")
     if name == "create_hero":
         body = v1.CreateHero(**{k: args[k] for k in ("image_url", "image_base64", "name", "style", "client_ref", "public") if k in args})
         data, body = await v1.drawing_from(body)
-        hero = v1.start_api_hero(db, key, data, body, base, task_manager)
+        hero = v1.start_api_hero(db, who, data, body, base, task_manager)
         return _result(hero, _summary(hero) + " Call wait_for_hero with this id.")
     if name == "list_heroes":
         limit = max(1, min(50, int(args.get("limit") or 10)))
-        rows = (db.query(ApiHero).join(ApiKey, ApiHero.api_key_id == ApiKey.id)
-                .filter(ApiKey.user_id == key.user_id).order_by(ApiHero.created_at.desc()).limit(limit).all())
-        heroes = [api_heroes.view(r.creation, base, api_hero=r) for r in rows if r.creation]
+        heroes = v1.account_heroes(db, who, base, limit)
         return _result({"heroes": heroes}, "\n".join(_summary(h) for h in heroes) or "No heroes yet.")
     if name in ("get_hero", "wait_for_hero"):
         hero_id = args.get("hero_id")
         if not hero_id:
             raise ToolError("hero_id is required")
-        creation, api_hero = v1._own_hero(db, key, hero_id)
+        creation, api_hero = v1._own_hero(db, who, hero_id)
         hero = api_heroes.view(creation, base, api_hero=api_hero)
         if name == "wait_for_hero":
             until = args.get("until_stage")
@@ -225,13 +223,13 @@ async def mcp(request: Request, db: Session = Depends(get_db), task_manager=Depe
     # Tools need a key. Without one: HTTP 401, so clients can prompt for it.
     try:
         auth = request.headers.get("authorization")
-        key = api_keys.authenticate(db, api_keys._bearer(auth, request.headers.get("x-api-key")), request.headers.get("origin"))
+        who = principal.resolve(db, api_keys._bearer(auth, request.headers.get("x-api-key")), request.headers.get("origin"))
     except HTTPException as e:
         return _rpc_error(id_, -32001, str(e.detail), e.status_code)
 
     name, args = params.get("name"), params.get("arguments") or {}
     try:
-        result = await _call(name, args, key, db, api_heroes.base_url(request), task_manager)
+        result = await _call(name, args, who, db, api_heroes.base_url(request), task_manager)
     except HTTPException as e:
         detail = e.detail if isinstance(e.detail, str) else (e.detail or {}).get("message") or json.dumps(e.detail)
         result = {"content": [{"type": "text", "text": detail}], "isError": True}

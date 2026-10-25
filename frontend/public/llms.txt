@@ -51,7 +51,7 @@ Files are plain HTTPS URLs; a GET may redirect to storage. They load directly in
 ## Other endpoints
 
 - GET /api/v1/estimates: typical (median) and 90th-percentile seconds per stage and in total, measured on the most recent real heroes. No key needed.
-- GET /api/v1/heroes?limit=20&client_ref=...: this account's API heroes, newest first.
+- GET /api/v1/heroes?limit=20&client_ref=...: the account's heroes (made in the app or with any key), newest first.
 - DELETE /api/v1/heroes/{id}: stop and remove a hero (stages already run stay charged).
 - GET /api/v1/account: credits, cost of a hero, heroes affordable.
 

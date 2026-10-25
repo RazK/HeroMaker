@@ -284,3 +284,49 @@ def test_openapi_lists_the_public_api_only(client):
     body = spec["paths"]["/api/v1/heroes"]["post"]["requestBody"]["content"]
     assert "multipart/form-data" in body and "application/json" in body
     assert "CreateHero" in spec["components"]["schemas"]
+# --- One API for every client: the app's login works here too, with more access.
+
+def test_the_app_login_makes_and_lists_heroes_like_a_key(client, db, make_user):
+    user = make_user(credits=20)
+    h = _jwt(user)
+    r = client.post("/api/v1/heroes", headers=h, json={"image_base64": base64.b64encode(_png()).decode(), "name": "From the app"})
+    assert r.status_code == 202, r.text
+    hero_id = r.json()["id"]
+    assert _wait_done_jwt(client, h, hero_id)["status"] == "completed"
+    assert [x["id"] for x in client.get("/api/v1/heroes", headers=h).json()["data"]] == [hero_id]
+    assert db.query(ApiHero).filter_by(creation_id=hero_id).count() == 0  # no key involved
+    assert client.get("/api/v1/account", headers=h).json()["key"] is None
+
+
+def test_a_key_sees_the_accounts_app_heroes_too(client, make_user):
+    user = make_user(credits=20)
+    made = client.post("/api/v1/heroes", headers=_jwt(user), json={"image_base64": base64.b64encode(_png()).decode()}).json()
+    key = _key(client, user)["key"]
+    assert client.get(f"/api/v1/heroes/{made['id']}", headers=_bearer(key)).status_code == 200
+
+
+def test_a_key_cannot_manage_keys(client, make_user):
+    user = make_user()
+    key = _key(client, user)["key"]
+    assert client.get("/api/v1/keys", headers=_bearer(key)).status_code == 403
+    assert client.post("/api/v1/keys", headers=_bearer(key), json={"name": "x"}).status_code == 403
+
+
+def test_webhooks_need_a_key(client, make_user):
+    r = client.post("/api/v1/heroes", headers=_jwt(make_user(credits=20)), json={
+        "image_base64": base64.b64encode(_png()).decode(), "webhook_url": "https://example.com/hook"})
+    assert r.status_code == 400
+
+
+def test_a_bad_session_is_401(client):
+    assert client.get("/api/v1/account", headers={"Authorization": "Bearer not-a-token"}).status_code == 401
+
+
+def _wait_done_jwt(client, headers, hero_id, timeout=10):
+    end = time.time() + timeout
+    while time.time() < end:
+        v = client.get(f"/api/v1/heroes/{hero_id}", headers=headers).json()
+        if v["status"] in ("completed", "failed"):
+            return v
+        time.sleep(0.05)
+    raise AssertionError(v["status"])
