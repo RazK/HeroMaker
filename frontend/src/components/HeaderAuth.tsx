@@ -11,7 +11,7 @@ import './HeaderAuth.css';
 
 /**
  * Confirm deleting the whole account. The danger button only wakes up once the
- * username is typed, the same check the backend makes (DELETE /api/auth/me).
+ * username is typed, the same check the backend makes (DELETE /api/v1/me).
  */
 function DeleteAccountDialog({ username, onClose, onDeleted }: { username: string; onClose: () => void; onDeleted: () => void }) {
   const [typed, setTyped] = useState('');

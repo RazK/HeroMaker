@@ -344,7 +344,7 @@ async function robotToken() {
     const token = origin?.localStorage.find((e) => e.name === 'heromaker_jwt_token')?.value;
     if (token) return token;
   } catch { /* the page may be gone; fall through to the API */ }
-  const r = await fetch(`${BASE_URL}/api/auth/login`, {
+  const r = await fetch(`${BASE_URL}/api/v1/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: user.username, password: user.password }),
@@ -386,7 +386,7 @@ async function cleanup() {
       if (!r.ok) throw new Error(`hero ${c.id} could not be deleted (${r.status})`);  // a bug
       heroes++;
     }
-    const r = await fetch(`${BASE_URL}/api/auth/me`, {
+    const r = await fetch(`${BASE_URL}/api/v1/me`, {
       method: 'DELETE',
       headers: { ...auth, 'Content-Type': 'application/json' },
       body: JSON.stringify({ confirm: user.username }),
@@ -394,7 +394,7 @@ async function cleanup() {
     console.log(`cleanup: deleted account ${user.username} -> ${r.status}`);
     if (r.status !== 204) throw new Error(`account ${user.username} could not be deleted (${r.status})`);
     // The deleted account's token must stop working: that is the promise.
-    const after = await fetch(`${BASE_URL}/api/auth/me`, { headers: auth });
+    const after = await fetch(`${BASE_URL}/api/v1/me`, { headers: auth });
     if (after.ok) throw new Error(`account ${user.username} still answers /me after deletion`);
     done('passed', `deleted ${heroes} hero(es) and the account ${user.username}`);
   } catch (e) {
@@ -774,7 +774,7 @@ try {
     // touch the teacher's own balance.
     await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
     await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
-    const me = await robotApi('/api/auth/me');
+    const me = await robotApi('/api/v1/me');
     const balance = me.credits;
 
     // A group leader's home has two places, on a switch under the header:
@@ -893,7 +893,7 @@ try {
     // The API agrees, and the money bought seats, not credits.
     const cls = await robotApi(`/api/classes/${checkout.class_id}`);
     if (cls.seats !== seats || cls.title !== className) throw new Error(`the API has "${cls.title}" with ${cls.seats} seats, want "${className}" with ${seats}`);
-    const after = (await robotApi('/api/auth/me')).credits;
+    const after = (await robotApi('/api/v1/me')).credits;
     if (after !== balance) throw new Error(`the teacher's balance moved ${balance} -> ${after}: class seats must never land on it`);
 
     // Start the class: the code to copy off the board, and the QR to scan.
