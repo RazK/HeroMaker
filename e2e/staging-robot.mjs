@@ -616,12 +616,25 @@ try {
 
   await step(page, 'game', async () => {
     // The hero's page is a carousel of the drawing, the painting and the live
-    // hero (Raz: swipe only, nothing automatic). It opens on the hero.
+    // hero. A ready hero opens on how it was made (Raz, 2026-10-25): the
+    // drawing, then the painting once loaded, then the live hero once the 3D
+    // has; then it is swipe only. Recorded from the first frame of the page.
+    await page.evaluate(() => {
+      window.__intro = [];
+      new MutationObserver(() => {
+        const v = document.querySelector('.tb-live-stage')?.getAttribute('data-slide');
+        if (v && window.__intro.at(-1) !== v) window.__intro.push(v);
+      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-slide'] });
+    });
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
     const stage = page.locator('.tb-live-stage');
     await stage.waitFor({ timeout: 20000 });
     const slideNow = () => stage.getAttribute('data-slide');
-    if ((await slideNow()) !== 'hero') throw new Error(`the hero opened on the "${await slideNow()}" slide, not the hero`);
+    await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-slide') === 'hero', null, { timeout: 90000 })
+      .catch(async () => { throw new Error(`the opening never reached the hero: ${JSON.stringify(await page.evaluate(() => window.__intro))}`); });
+    const intro = (await page.evaluate(() => window.__intro)).join(' > ');
+    if (intro !== 'drawing > painting > hero') throw new Error(`the hero's page opened ${intro}, not drawing > painting > hero`);
+    if ((await page.locator('.tb-mini-drawing').count()) !== 1) throw new Error('no small drawing card beside the live hero');
     // The hero screen fits the phone, and the document itself cannot scroll:
     // a desktop browser has no collapsing URL bar, so "it fits here" is not
     // enough; the page must be locked (overflow hidden on html and body).
@@ -774,7 +787,7 @@ try {
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened on the live hero; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; 4 moves; punch from the drawing slid the hero in from the right and played as it landed (${jumpMs} ms), backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
+    return `"${title}" opened drawing > painting > hero, the drawing on its small card; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; 4 moves; punch from the drawing slid the hero in from the right and played as it landed (${jumpMs} ms), backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
   });
 
   await step(page, 'class', async () => {

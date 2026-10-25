@@ -104,7 +104,15 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   else if (painted && !making.idle) slides.push({ key: 'hero', state: coming });
   const frontier = slides.find((s) => s.state !== 'ready') ?? slides[slides.length - 1];
 
-  const [at, setAt] = useState<SlideKey>(() => frontier.key);
+  // A ready hero's page opens on the story of how it was made: the drawing,
+  // then the painting once it has loaded, then the live hero once the 3D has
+  // (Raz, 2026-10-25). Any touch (a swipe, a dot, a move, the drawing's card)
+  // ends it there and then. Not while a hero is being made: that carousel
+  // builds itself as the parts are born.
+  const [intro, setIntro] = useState(() => live && painted && !reducedMotion());
+  const [at, setAt] = useState<SlideKey>(() => (intro ? 'drawing' : frontier.key));
+  // Set while the intro itself moves the carousel, so its moves don't end it.
+  const driving = useRef(false);
   // Whether the viewer is where the carousel put them (or on the part being
   // made): only then does it move on when a part is born.
   const follow = useRef(true);
@@ -113,6 +121,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   const pick = (i: number) => {
     const s = slides[i];
     if (!s) return;
+    if (!driving.current) setIntro(false);
     follow.current = s.key === frontier.key && s.state === 'pending';
     setAt(s.key);
   };
@@ -202,6 +211,36 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
 
   const paintingFile = painted ? PAINTING_FILE : 'original.jpg';
   const framed = painted && paintingFramed(creation);
+
+  // The intro waits for each picture before it shows it: never a slide that
+  // is still blank. The 3D (shown, or failed: the painting stands in) is
+  // loading meanwhile, from the moment the page opened.
+  const [loaded, setLoaded] = useState({ drawing: false, painting: false });
+  useEffect(() => {
+    if (!intro) return;
+    for (const [key, url] of [['drawing', file('thumb_original.jpg')], ['painting', file(`thumb_${paintingFile}`)]] as const) {
+      const img = new Image();
+      img.onload = img.onerror = () => setLoaded((l) => ({ ...l, [key]: true }));
+      img.src = url;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!intro) return;
+    const forward = (key: SlideKey) => {
+      const i = slides.findIndex((s) => s.key === key);
+      if (i < 0) return;
+      driving.current = true;
+      go.current?.(i, 1);
+      driving.current = false;
+    };
+    let timer = 0;
+    if (at === 'drawing' && loaded.drawing && loaded.painting) {
+      timer = window.setTimeout(() => forward('painting'), INTRO_DWELL_MS);
+    } else if (at === 'painting' && (shown || failed3d)) {
+      timer = window.setTimeout(() => { forward('hero'); setIntro(false); }, INTRO_DWELL_MS);
+    }
+    return () => window.clearTimeout(timer);
+  }, [intro, at, loaded.drawing, loaded.painting, shown, failed3d]); // eslint-disable-line react-hooks/exhaustive-deps
   const partPct = (part: 'painting' | 'hero') => {
     let pct = 0;
     for (const [step, share] of PART_STEPS[part]) {
@@ -413,6 +452,8 @@ function Opener({ label, onOpen, children }: { label: string; onOpen: () => void
 // ---- The carousel ----
 
 const SNAP_SHARE = 0.18;
+/** How long the intro shows each picture before the next (Raz: about a second). */
+const INTRO_DWELL_MS = 1000;
 /** A slide's move across the stage (HeroLive.css .tb-slide: 260ms), and a beat. */
 const LAND_MS = 300;
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
