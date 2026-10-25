@@ -16,7 +16,7 @@ export function clearAuthToken(): void {
 }
 
 export type StepErrorCode =
-  | 'safety_blocked' | 'provider_busy' | 'bad_input' | 'out_of_credits_provider'
+  | 'safety_blocked' | 'provider_busy' | 'bad_input' | 'out_of_credits_provider' | 'provider_setup'
   | 'not_enough_credits' | 'cancelled' | 'interrupted' | 'unknown';
 
 export interface CreationStepResponse {

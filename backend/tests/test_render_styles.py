@@ -49,7 +49,10 @@ PRE_STYLES_PROMPT_SHA256 = "9f065032cc5652819dcef9146e6c97894ae3057a6f58a500e8c2
 # the framing and some are cropped, so they must miss. The look did not change:
 # the Pixar prompt above is still byte for byte the same, with the shared
 # FRAMING_PROMPT after it. Change this pin again only as deliberately.
-PIXAR_VERSION_SHA256 = "cee1068bef4297c16ea8d9d30fec94a760c2f1995a6a56d22e4791e5b42d955d"
+# And again on 2026-10-25, deliberately: OpenAI shut down gpt-image-1, and a
+# painting by gpt-image-2.5-sunburst is a different painting, so the cache
+# must not hand back gpt-image-1's. The prompt is unchanged.
+PIXAR_VERSION_SHA256 = "974a2b3a6681757811959b7669e8c32b8874b2940d054a1d712e68e32f9896d7"
 
 DRAWING = b"\xff\xd8\xff crayon kid drawing"
 

@@ -45,7 +45,7 @@ def test_render_asks_openai_for_a_transparent_png(tmp_path, monkeypatch):
     assert calls["background"] == "transparent"
     assert calls["output_format"] == "png"
     # Price is quoted for exactly this model, size and quality; keep them.
-    assert (calls["model"], calls["size"], calls["quality"]) == ("gpt-image-1", "1024x1024", "high")
+    assert (calls["model"], calls["size"], calls["quality"]) == ("gpt-image-2.5-sunburst", "1024x1024", "high")
     assert "Transparent background" in calls["prompt"]
     with Image.open(out) as saved:
         assert saved.mode == "RGBA"

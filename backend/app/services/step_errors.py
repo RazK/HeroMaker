@@ -34,13 +34,17 @@ SAFETY_BLOCKED = "safety_blocked"
 PROVIDER_BUSY = "provider_busy"
 BAD_INPUT = "bad_input"
 OUT_OF_CREDITS_PROVIDER = "out_of_credits_provider"  # OUR account at a provider, not the user's
+# Ours too: the provider refuses how WE call it (a model it has retired, a
+# revoked key). gpt-image-1 was shut down on 2026-10-23 and every painting
+# failed as "We couldn't read this picture", blaming the child's drawing.
+PROVIDER_SETUP = "provider_setup"
 NOT_ENOUGH_CREDITS = "not_enough_credits"  # the user's balance
 CANCELLED = "cancelled"
 INTERRUPTED = "interrupted"  # our server restarted mid-step (startup_reconcile)
 UNKNOWN = "unknown"
 
 CODES = (
-    SAFETY_BLOCKED, PROVIDER_BUSY, BAD_INPUT, OUT_OF_CREDITS_PROVIDER,
+    SAFETY_BLOCKED, PROVIDER_BUSY, BAD_INPUT, OUT_OF_CREDITS_PROVIDER, PROVIDER_SETUP,
     NOT_ENOUGH_CREDITS, CANCELLED, INTERRUPTED, UNKNOWN,
 )
 
@@ -64,6 +68,10 @@ _PROVIDER_EMPTY = (
     "our account is out of credits", "insufficient_quota", "no credits remaining",
     "exceeded your current quota", "nomorependingtasks", "payment required",
     "insufficient balance", "billing_hard_limit",
+)
+_SETUP = (
+    "model_not_found", "does not exist", "invalid_api_key", "incorrect api key",
+    "'param': 'model'", '"param": "model"', "has been deprecated", "was shut down",
 )
 _BUSY = (
     "rate limit", "rate_limit", "too many requests", "overloaded", "timed out",
@@ -113,6 +121,10 @@ def classify(error: Union[BaseException, str, None]) -> str:
             return OUT_OF_CREDITS_PROVIDER
         if low.startswith("insufficient credits. need"):
             return NOT_ENOUGH_CREDITS
+        # Before safety and bad input: a retired model is also an HTTP 400,
+        # and its "image_generation_user_error" is about us, not the picture.
+        if any(m in low for m in _SETUP):
+            return PROVIDER_SETUP
         # Before bad input: a moderation block is also an HTTP 400.
         if any(m in low for m in _SAFETY):
             return SAFETY_BLOCKED
@@ -166,7 +178,7 @@ def user_message(code: str, step_name: str, refunded: bool = False) -> str:
         return f"Our {worker} is busy right now. Try again in a minute."
     if code == BAD_INPUT:
         return f"We couldn't read this picture.{back} Try a clearer one."
-    if code == OUT_OF_CREDITS_PROVIDER:
+    if code in (OUT_OF_CREDITS_PROVIDER, PROVIDER_SETUP):
         # Our account at the provider is empty: a retry fails the same way
         # until we top it up, so never invite one ("When is later??" - a
         # parent in the persona review, whose child retried and failed).

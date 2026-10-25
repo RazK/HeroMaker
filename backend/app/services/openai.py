@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional
 from openai import OpenAI
 from openai import APIError, APIConnectionError, APITimeoutError, RateLimitError
-from app.config.settings import OPENAI_API_KEY
+from app.config.settings import OPENAI_API_KEY, OPENAI_IMAGE_MODEL
 from app.config import pricing
 from app.services import usage as usage_service
 from app.services.usage import UsageContext
@@ -352,11 +352,12 @@ def touched_edges(png_bytes: bytes) -> Optional[dict]:
 # plus these - so editing either one, or picking another style, makes the
 # cached render miss, as it should.
 #
-# The model/size/quality must stay in step with
-# pricing.OPENAI_IMAGE_USD_MICROS, which is quoted for exactly
-# gpt-image-1 @ 1024x1024 @ quality=high.
+# The model is settings.OPENAI_IMAGE_MODEL: OpenAI retires image models
+# (gpt-image-1 was shut down on 2026-10-23), and the next one should be a
+# variable away. The size/quality must stay in step with
+# pricing.OPENAI_IMAGE_USD_MICROS.
 RENDER_PARAMS = {
-    "model": "gpt-image-1",
+    "model": OPENAI_IMAGE_MODEL,
     "size": "1024x1024",
     "quality": "high",
     # A cut-out hero with an alpha channel: the app can place it on

@@ -263,7 +263,7 @@ export function HeroScreen(props: HeroScreenProps) {
     // retry fails the same way, so Back is the primary and Try again the
     // secondary. Everything else is worth trying again.
     const blocked = step?.error_code === 'safety_blocked';
-    const down = step?.error_code === 'out_of_credits_provider';
+    const down = step?.error_code === 'out_of_credits_provider' || step?.error_code === 'provider_setup';
     const buy = <button type="button" className={`tb-btn ${blocked ? 'tb-btn--secondary' : 'tb-btn--primary'} tb-btn--full`} onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>;
     const again = short ? buy : (
       <button type="button" className={`tb-btn ${blocked || down ? 'tb-btn--secondary' : 'tb-btn--primary'} tb-btn--full tb-btn--with-trail tb-try-again`} disabled={busy} onClick={tryAgain}>
