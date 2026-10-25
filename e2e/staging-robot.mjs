@@ -378,10 +378,10 @@ async function cleanup() {
     if (!token) return done('passed', `no account to delete: ${user.username} was never created`);
     const auth = { Authorization: `Bearer ${token}` };
     let heroes = 0;
-    const list = await (await fetch(`${BASE_URL}/api/creations/?mine_only=true`, { headers: auth })).json();
-    const mine = (Array.isArray(list) ? list : list.creations || []).filter((c) => c.username === user.username);
+    const list = await (await fetch(`${BASE_URL}/api/v1/gallery?view=mine`, { headers: auth })).json();
+    const mine = (list.data || []).filter((c) => c.mine && c.owner?.username === user.username);
     for (const c of mine) {
-      const r = await fetch(`${BASE_URL}/api/creations/${c.id}`, { method: 'DELETE', headers: auth });
+      const r = await fetch(`${BASE_URL}/api/v1/heroes/${c.id}`, { method: 'DELETE', headers: auth });
       console.log(`cleanup: deleted hero ${c.id} -> ${r.status}`);
       if (!r.ok) throw new Error(`hero ${c.id} could not be deleted (${r.status})`);  // a bug
       heroes++;
@@ -450,8 +450,8 @@ try {
     // Signed out the gallery is Editors' choice alone: no chips, and the
     // public listing holds only starred heroes (All heroes is admin-only).
     if (await page.locator('.tb-gallery-chips').count()) throw new Error('signed-out gallery shows filter chips');
-    const pub = await (await page.request.get(BASE_URL + '/api/creations/')).json();
-    const leaked = (Array.isArray(pub) ? pub : pub.creations || []).filter((c) => !c.featured);
+    const pub = await (await page.request.get(BASE_URL + '/api/v1/gallery')).json();
+    const leaked = (pub.data || []).filter((c) => !c.featured);
     if (leaked.length) throw new Error(`public listing shows ${leaked.length} hero(es) not in Editors' choice`);
     if (DEMO) {
       await page.mouse.move(640, 400);

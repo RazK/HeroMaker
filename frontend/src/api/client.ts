@@ -64,7 +64,7 @@ export interface CreationResponse {
   completed_at: string | null;
   steps: CreationStepResponse[];
   error_message: string | null;
-  /** The painting's style, a key of GET /api/styles. Older heroes read "pixar". */
+  /** The painting's style, a key of GET /api/v1/styles. Older heroes read "pixar". */
   style?: string;
   /** Starred by an admin: shown under Editors' choice. */
   featured?: boolean;
@@ -115,7 +115,7 @@ class ApiError extends Error {
 
 export async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const method = options?.method || 'GET';
-  const isPolling = url.includes('/api/creations/') && method === 'GET';
+  const isPolling = (url.includes('/api/v1/heroes/') || url.includes('/api/v1/gallery')) && method === 'GET';
   
   // Add JWT token to headers if available
   const token = getAuthToken();
@@ -162,6 +162,8 @@ export async function fetchJson<T>(url: string, options?: RequestInit): Promise<
           .join('. ') || errorMessage;
       } else if (typeof detail === 'string') {
         errorMessage = detail;
+      } else if (detail && typeof detail.message === 'string') {
+        errorMessage = detail.message;
       }
     } catch {
       // Not JSON: an HTML error page from a proxy (413, 502...). Never show
@@ -219,53 +221,126 @@ export interface ApiEstimates {
   cost_credits: number;
 }
 
+/** A hero as /api/v1 answers it (backend app/services/api_heroes.py view). */
+export interface V1Stage {
+  stage: string;
+  step?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  started_at: string | null;
+  completed_at: string | null;
+  finishes_at?: string | null;
+  typical_seconds: number;
+  progress: number;
+  provider_progress?: number | null;
+  charged_credits?: number | null;
+  file: string | null;
+  error?: { code: StepErrorCode; message: string | null; credits_refunded: boolean; refunded_credits?: number | null; detail?: string | null; request_id?: string | null } | null;
+}
+export interface V1Hero {
+  id: string;
+  status: 'draft' | 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  name: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  stages: V1Stage[];
+  files: Record<string, string | null>;
+  error: { stage: string; code: string; message: string; credits_refunded: boolean } | null;
+  artist: { name: string | null; age: number | null };
+  style?: string;
+  painting?: Painting | null;
+  featured?: boolean;
+  in_class?: boolean;
+  file_versions?: Record<string, string>;
+  owner_id: string;
+  mine: boolean;
+  owner?: { username: string | null; name: string | null };
+}
+
+const V1_STATUS: Record<V1Hero['status'], CreationResponse['status']> = {
+  draft: 'pending', queued: 'pending', processing: 'processing', completed: 'completed', failed: 'failed', cancelled: 'failed',
+};
+
+/**
+ * The app's screens read heroes as CreationResponse. Every hero now comes
+ * from /api/v1 (one API for every client), and this is the one place its
+ * shape is turned into theirs.
+ */
+export function fromV1(h: V1Hero): CreationResponse {
+  const steps: CreationStepResponse[] = h.stages.filter((s) => s.step).map((s) => ({
+    step_name: s.step as string,
+    status: s.status,
+    started_at: s.started_at,
+    completed_at: s.completed_at,
+    estimated_completion_time: s.finishes_at ?? null,
+    error_message: s.error ? (s.error.detail ?? s.error.message) : null,
+    error_code: s.error?.code ?? null,
+    error_user: s.error?.message ?? null,
+    credits_refunded: s.error?.credits_refunded ?? false,
+    refunded_credits: s.error?.refunded_credits ?? null,
+    charged_credits: s.charged_credits ?? null,
+    error_detail: s.error?.detail ?? null,
+    error_request_id: s.error?.request_id ?? null,
+    metadata_json: s.step === 'meshy_rig' && h.files.walking_animation ? { walking_glb_url: 'walking.glb' } : {},
+    progress: s.status === 'completed' ? 100 : s.provider_progress ?? null,
+    estimated_duration: s.typical_seconds || null,
+  }));
+  const failed = steps.find((s) => s.status === 'failed');
+  return {
+    id: h.id,
+    character_name: h.name,
+    name: h.artist?.name ?? null,
+    age: h.artist?.age ?? null,
+    status: V1_STATUS[h.status] ?? 'pending',
+    user_id: h.owner_id,
+    username: h.owner?.username ?? null,
+    owner_name: h.owner?.name ?? null,
+    created_at: h.created_at,
+    updated_at: h.updated_at,
+    completed_at: h.completed_at,
+    steps,
+    error_message: failed?.error_message ?? null,
+    style: h.style,
+    featured: h.featured,
+    in_class: h.in_class,
+    file_versions: h.file_versions,
+    painting: h.painting ?? null,
+  };
+}
+
+/** The stage a pipeline step is, on /api/v1. */
+const STAGE_OF: Record<string, string> = {
+  image_processing: 'cleanup', openai_render: 'painting', meshy_3d: 'model', meshy_rig: 'rig', convert_vrm: 'avatar',
+};
+
+const V1 = `${API_BASE_URL}/api/v1`;
+const json = (method: string, body?: unknown): RequestInit => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+});
+
 export const api = {
   /**
    * Create a new creation and upload the image file.
    * Pipeline must be started separately using runPipeline().
    */
   async createCreation(file: File, characterName?: string): Promise<CreationResponse> {
-    console.log('[API] createCreation:', {
-      filename: file.name,
-      size: `${(file.size / 1024).toFixed(1)}KB`,
-      type: file.type,
-      characterName,
-    });
+    // Uploaded only: "Make this hero?" starts it (runPipeline) with its style.
     const formData = new FormData();
     const upload = await shrinkPhoto(file);
-    formData.append('image_file', upload, upload.name);
-    if (characterName) {
-      formData.append('character_name', characterName);
-    }
-    
-    const result = await fetchJson<CreationResponse>(
-      `${API_BASE_URL}/api/creations/create`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
-    console.log('[API] createCreation result:', {
-      creationId: result.id,
-      status: result.status,
-      stepsCount: result.steps.length,
-    });
-    return result;
+    formData.append('drawing', upload, upload.name);
+    formData.append('start', 'false');
+    if (characterName) formData.append('name', characterName);
+    return fromV1(await fetchJson<V1Hero>(`${V1}/heroes`, { method: 'POST', body: formData }));
   },
 
   /**
    * Run a single step
    */
   async runStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
-    console.log('[API] runStep:', { creationId, stepName });
-    const result = await fetchJson<{ message: string; creation_id: string; step_name: string }>(
-      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/run`,
-      {
-        method: 'POST',
-      }
-    );
-    console.log('[API] runStep result:', result);
-    return result;
+    await fetchJson<V1Hero>(`${V1}/heroes/${creationId}/stages/${STAGE_OF[stepName] ?? stepName}/run`, { method: 'POST' });
+    return { message: 'Step started', creation_id: creationId, step_name: stepName };
   },
 
   /**
@@ -276,72 +351,36 @@ export const api = {
    *   keep the hero's own (Make it again, Try again).
    */
   async runPipeline(creationId: string, fromStep?: string, style?: string): Promise<{ message: string; creation_id: string; from_step: string }> {
-    const query = new URLSearchParams();
-    if (fromStep) query.set('from_step', fromStep);
-    if (style) query.set('style', style);
-    const params = query.toString() ? `?${query}` : '';
-    console.log('[API] runPipeline:', { creationId, fromStep, style });
-    const result = await fetchJson<{ message: string; creation_id: string; from_step: string }>(
-      `${API_BASE_URL}/api/creations/${creationId}/run-pipeline${params}`,
-      {
-        method: 'POST',
-      }
-    );
-    console.log('[API] runPipeline result:', result);
-    return result;
+    await fetchJson<V1Hero>(`${V1}/heroes/${creationId}/start`, json('POST', {
+      ...(fromStep ? { from_stage: STAGE_OF[fromStep] ?? fromStep } : {}),
+      ...(style ? { style } : {}),
+    }));
+    return { message: 'Pipeline started', creation_id: creationId, from_step: fromStep ?? 'image_processing' };
   },
 
   /**
    * Cancel a processing step
    */
   async cancelStep(creationId: string, stepName: string): Promise<{ message: string; creation_id: string; step_name: string }> {
-    console.log('[API] cancelStep:', { creationId, stepName });
-    const result = await fetchJson<{ message: string; creation_id: string; step_name: string }>(
-      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}/cancel`,
-      {
-        method: 'POST',
-      }
-    );
-    console.log('[API] cancelStep result:', result);
-    return result;
+    await fetchJson<V1Hero>(`${V1}/heroes/${creationId}/cancel`, { method: 'POST' });
+    return { message: `Step ${stepName} cancelled`, creation_id: creationId, step_name: stepName };
   },
 
   /**
    * Get creation status with all steps
    */
   async getCreation(creationId: string): Promise<CreationResponse> {
-    const result = await fetchJson<CreationResponse>(`${API_BASE_URL}/api/creations/${creationId}`);
-    // Log step statuses for debugging (only log when status changes or periodically)
-    const stepStatuses = result.steps.map(s => `${s.step_name}:${s.status}`).join(', ');
-    // Log every 10th call to reduce spam (polling happens every 2s)
-    if (Math.random() < 0.1) {
-      console.log(`[API] getCreation ${creationId}: status=${result.status}, steps=[${stepStatuses}]`);
-    }
-    return result;
+    return fromV1(await fetchJson<V1Hero>(`${V1}/heroes/${encodeURIComponent(creationId)}`));
   },
 
   /**
    * List all creations
    */
-  async listCreations(limit: number = 50, offset: number = 0, mineOnly: boolean = false, featuredOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
-    const params = new URLSearchParams();
-    params.append('limit', String(limit));
-    params.append('offset', String(offset));
-    if (mineOnly) {
-      params.append('mine_only', 'true');
-    }
-    if (featuredOnly) {
-      params.append('featured_only', 'true');
-    }
-    const result = await fetchJson<CreationResponse[]>(
-      `${API_BASE_URL}/api/creations/?${params.toString()}`
-    );
-    console.log('[API] listCreations result:', {
-      count: result.length,
-      total: result.length,
-      mineOnly,
-    });
-    return { creations: result, total: result.length };
+  async listCreations(_limit: number = 50, _offset: number = 0, mineOnly: boolean = false, featuredOnly: boolean = false): Promise<{ creations: CreationResponse[]; total: number }> {
+    const view = mineOnly ? 'mine' : featuredOnly ? 'featured' : 'all';
+    const result = await fetchJson<{ data: V1Hero[] }>(`${V1}/gallery?view=${view}`);
+    const creations = result.data.map(fromV1);
+    return { creations, total: creations.length };
   },
 
   /**
@@ -375,115 +414,34 @@ export const api = {
    */
   /** Rename a hero and say who drew it, in one save. */
   async updateHero(creationId: string, fields: { character_name?: string; name?: string; age?: number | null }): Promise<CreationResponse> {
-    return fetchJson<CreationResponse>(`${API_BASE_URL}/api/creations/${creationId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fields),
-    });
+    const body: Record<string, unknown> = {};
+    if (fields.character_name !== undefined) body.name = fields.character_name;
+    if (fields.name !== undefined) body.artist_name = fields.name.trim();
+    if (fields.age !== undefined) body.artist_age = fields.age;
+    return fromV1(await fetchJson<V1Hero>(`${V1}/heroes/${creationId}`, json('PATCH', body)));
   },
 
   async updateCharacterName(creationId: string, characterName: string): Promise<CreationResponse> {
-    console.log('[API] updateCharacterName:', { creationId, characterName });
-    const result = await fetchJson<CreationResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ character_name: characterName }),
-      }
-    );
-    console.log('[API] updateCharacterName result:', result);
-    return result;
+    return api.updateHero(creationId, { character_name: characterName });
   },
 
-  /**
-   * Update creation name and age
-   */
   async updateNameAndAge(creationId: string, name: string, age: number | null): Promise<CreationResponse> {
-    console.log('[API] updateNameAndAge:', { creationId, name, age });
-    const trimmedName = name.trim();
-    // Always send name (even if empty string) so backend knows to update it
-    // Send empty string instead of null so backend can distinguish between "not provided" and "clear value"
-    const body: Record<string, any> = {
-      name: trimmedName, // Send empty string if empty, not null
-      age: age !== null ? age : null, // Send null explicitly for age
-    };
-    console.log('[API] updateNameAndAge body:', body);
-    const result = await fetchJson<CreationResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
-    console.log('[API] updateNameAndAge result:', result);
-    return result;
+    return api.updateHero(creationId, { name, age });
   },
 
-  /**
-   * Update creation name only
-   */
   async updateName(creationId: string, name: string): Promise<CreationResponse> {
-    console.log('[API] updateName:', { creationId, name });
-    const trimmedName = name.trim();
-    const body: Record<string, any> = {
-      name: trimmedName, // Send empty string if empty, not null
-    };
-    console.log('[API] updateName body:', body);
-    const result = await fetchJson<CreationResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
-    console.log('[API] updateName result:', result);
-    return result;
+    return api.updateHero(creationId, { name });
   },
 
-  /**
-   * Update creation age only
-   */
   async updateAge(creationId: string, age: number | null): Promise<CreationResponse> {
-    console.log('[API] updateAge:', { creationId, age });
-    const body: Record<string, any> = {
-      age: age !== null ? age : null, // Send null explicitly for age
-    };
-    console.log('[API] updateAge body:', body);
-    const result = await fetchJson<CreationResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
-    console.log('[API] updateAge result:', result);
-    return result;
+    return api.updateHero(creationId, { age });
   },
 
   /**
    * Star or unstar a hero for Editors' choice (admins only).
    */
   async setFeatured(creationId: string, featured: boolean): Promise<CreationResponse> {
-    return fetchJson<CreationResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}/featured`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ featured }),
-      }
-    );
+    return fromV1(await fetchJson<V1Hero>(`${V1}/heroes/${creationId}/featured`, json('PUT', { featured })));
   },
 
   /**
@@ -491,15 +449,7 @@ export const api = {
    */
   /** `keepalive`: the request outlives the page (sent as the tab closes). */
   async deleteCreation(creationId: string, { keepalive = false } = {}): Promise<void> {
-    console.log('[API] deleteCreation:', { creationId });
-    await fetchJson<void>(
-      `${API_BASE_URL}/api/creations/${creationId}`,
-      {
-        method: 'DELETE',
-        keepalive,
-      }
-    );
-    console.log('[API] deleteCreation success');
+    await fetchJson<void>(`${V1}/heroes/${creationId}`, { method: 'DELETE', keepalive });
   },
 
   /**
@@ -711,7 +661,7 @@ export const api = {
    * The painting styles, in picker order. Public.
    */
   async getStyles(): Promise<RenderStyle[]> {
-    return fetchJson<RenderStyle[]>(`${API_BASE_URL}/api/styles`);
+    return (await fetchJson<{ data: RenderStyle[] }>(`${V1}/styles`)).data;
   },
 
   /**
@@ -731,33 +681,27 @@ export const api = {
    * Get the credit cost for running steps
    */
   async getCreationCost(steps?: string[]): Promise<{ cost: number }> {
-    const params = new URLSearchParams();
-    if (steps && steps.length > 0) {
-      params.append('steps', steps.join(','));
-    }
-    const url = `${API_BASE_URL}/api/creations/cost${params.toString() ? `?${params.toString()}` : ''}`;
-    const result = await fetchJson<{ cost: number }>(url);
-    console.log('[API] getCreationCost:', result);
-    return result;
+    const est = await fetchJson<{ stages: Array<{ step: string; cost_credits: number }>; cost_credits: number }>(`${V1}/estimates`);
+    if (!steps || steps.length === 0) return { cost: est.cost_credits };
+    return { cost: est.stages.filter((s) => steps.includes(s.step)).reduce((n, s) => n + s.cost_credits, 0) };
   },
 
   /**
    * Get step configuration from backend
    */
   async getStepsConfig(): Promise<StepConfig[]> {
-    const result = await fetchJson<{ steps: StepConfig[] }>(`${API_BASE_URL}/api/creations/steps/config`);
-    console.log('[API] getStepsConfig:', result);
-    return result.steps;
+    const est = await fetchJson<{ stages: Array<{ step: string; title: string; cost_credits: number; file: string }> }>(`${V1}/estimates`);
+    return est.stages.map((s) => ({ name: s.step, display_name: s.title, credit_cost: s.cost_credits, output_file: s.file }));
   },
 
   /**
    * Get individual step status (for polling during processing)
    */
   async getStepStatus(creationId: string, stepName: string): Promise<CreationStepResponse> {
-    const result = await fetchJson<CreationStepResponse>(
-      `${API_BASE_URL}/api/creations/${creationId}/steps/${stepName}`
-    );
-    return result;
+    const hero = await api.getCreation(creationId);
+    const step = hero.steps.find((s) => s.step_name === stepName);
+    if (!step) throw new ApiError(404, `Step ${stepName} not found`);
+    return step;
   },
 
   /**
