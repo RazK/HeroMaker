@@ -1,0 +1,64 @@
+name: Give staging its own files
+
+# Staging used to store its files in PRODUCTION's bucket, kept apart only by
+# its users' ids at the start of each key. This copies staging's users'
+# folders into staging's own bucket (backend/scripts/copy_staging_files.py),
+# so staging can point at it by reference and never touch production's
+# storage again. Production's bucket is only listed and read; nothing there
+# is written or deleted. Raz approved this copy on 2026-10-25.
+#
+# Credentials are read from Railway inside the job and masked: the backend's
+# rendered S3_* variables in each environment are its bucket's keys.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Count what would be copied; write nothing'
+        type: boolean
+        default: true
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  copy:
+    needs: config
+    runs-on: ubuntu-latest
+    env:
+      BACKEND: ${{ needs.config.outputs.backend }}
+      STAGING: ${{ needs.config.outputs.staging }}
+      PRODUCTION: ${{ needs.config.outputs.production }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install boto3 psycopg2-binary
+      - run: npm install -g @railway/cli
+      - name: Read both buckets' details from Railway (masked)
+        env:
+          PROD_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          STAGING_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+        run: |
+          set -euo pipefail
+          read_vars() { RAILWAY_TOKEN="$1" railway variables --service "$BACKEND" --environment "$2" --json; }
+          src=$(read_vars "$PROD_TOKEN" "$PRODUCTION")
+          dst=$(read_vars "$STAGING_TOKEN" "$STAGING")
+          db=$(RAILWAY_TOKEN="$STAGING_TOKEN" railway variables --service Postgres --environment "$STAGING" --json | jq -r '.DATABASE_PUBLIC_URL // empty')
+          [ -n "$db" ] || { echo "::error::No DATABASE_PUBLIC_URL on staging Postgres."; exit 1; }
+          emit() { local name=$1 value=$2; [ -n "$value" ] || { echo "::error::$name is empty"; exit 1; }; echo "::add-mask::$value"; echo "$name=$value" >> "$GITHUB_ENV"; }
+          for k in ACCESS_KEY_ID SECRET_ACCESS_KEY BUCKET ENDPOINT; do
+            emit "SRC_$k" "$(jq -r ".S3_$k // empty" <<<"$src")"
+            emit "DST_$k" "$(jq -r ".S3_$k // empty" <<<"$dst")"
+          done
+          echo "SRC_REGION=$(jq -r '.S3_REGION // "auto"' <<<"$src")" >> "$GITHUB_ENV"
+          echo "DST_REGION=$(jq -r '.S3_REGION // "auto"' <<<"$dst")" >> "$GITHUB_ENV"
+          emit STAGING_DB "$db"
+      - name: Copy
+        env:
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          args=(--database-url "$STAGING_DB")
+          [ "$DRY" = "true" ] && args+=(--dry-run)
+          python backend/scripts/copy_staging_files.py "${args[@]}"
