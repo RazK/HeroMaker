@@ -374,3 +374,20 @@ def test_admin_users_view_carries_no_step_errors(failed_hero, make_user):
     r = TestClient(app).get("/api/admin/users", headers=_auth(admin))
     assert r.status_code == 200
     _assert_safe(r.json())
+
+
+def test_a_retired_model_is_ours_not_the_picture():
+    """gpt-image-1 was shut down on 2026-10-23. OpenAI's 400 says
+    "image_generation_user_error", and every painting read "We couldn't
+    read this picture": the app blamed a child's drawing for our model."""
+    from app.services import step_errors as se
+
+    raw = ("OpenAI API bad request (400): Error code: 400 - {'error': {'message': \"The model "
+           "'gpt-image-1' does not exist.\", 'type': 'image_generation_user_error', 'param': 'model', "
+           "'code': 'invalid_value'}}")
+    assert se.classify(raw) == se.PROVIDER_SETUP
+    line = se.user_message(se.PROVIDER_SETUP, "openai_render", refunded=True)
+    assert line == "Our painter is down on our side. Credits returned. We're fixing it."
+    assert se.classify("Incorrect API key provided: sk-...") == se.PROVIDER_SETUP
+    # A real bad picture is still the picture.
+    assert se.classify("cannot identify image file") == se.BAD_INPUT

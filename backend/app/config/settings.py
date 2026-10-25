@@ -44,7 +44,9 @@ FILES_ROOT = os.getenv("FILES_ROOT", str(_default_files_root.absolute()))
 
 # OpenAI Image Model Configuration
 # Primary model for image editing (must support images.edit())
-OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+# gpt-image-1 was shut down on 2026-10-23; OpenAI names 2.5 Sunburst (the
+# editing one: drawing in, painting out) and Flare as its replacements.
+OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL") or "gpt-image-2.5-sunburst"
 # Fallback model to try if primary model fails (must support images.edit())
 # Note: gpt-image-1-mini does NOT support images.edit(), so it cannot be used as a fallback
 OPENAI_IMAGE_MODEL_FALLBACK = os.getenv("OPENAI_IMAGE_MODEL_FALLBACK", None)  # Set to a model name if available

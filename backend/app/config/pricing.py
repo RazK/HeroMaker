@@ -46,8 +46,12 @@ PROVIDERS = (PROVIDER_OPENAI, PROVIDER_MESHY, PROVIDER_INTERNAL)
 # OpenAI
 # --------------------------------------------------------------------------
 
-# gpt-image-1, size 1024x1024, quality "high", one image.
-# $0.167 per image. Source: product owner, checked 2026-09-16.
+# One painting, size 1024x1024, quality "high".
+# $0.167 per image: gpt-image-1's price (product owner, checked 2026-09-16).
+# gpt-image-1 was shut down on 2026-10-23; its replacement
+# (gpt-image-2.5-sunburst, settings.OPENAI_IMAGE_MODEL) is priced per token at
+# lower published rates. Kept at the old figure, which overstates our cost
+# (the safe direction for margins), until the first invoice says otherwise.
 # This is what app/services/openai.py::render_image asks for; if the size or
 # quality in that call changes, this number is wrong.
 OPENAI_IMAGE_USD_MICROS = 167_000
