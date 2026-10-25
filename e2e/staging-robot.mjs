@@ -619,16 +619,28 @@ try {
     // hero. A ready hero opens on how it was made (Raz, 2026-10-25): the
     // drawing, then the painting once loaded, then the live hero once the 3D
     // has; then it is swipe only. Recorded from the first frame of the page.
+    // Every change is recorded with the value it replaced, so slides that
+    // follow each other within one task are all seen (not just the last).
     await page.evaluate(() => {
       window.__intro = [];
-      new MutationObserver(() => {
-        const v = document.querySelector('.tb-live-stage')?.getAttribute('data-slide');
-        if (v && window.__intro.at(-1) !== v) window.__intro.push(v);
+      window.__states = [];
+      const push = (v) => { if (v && window.__intro.at(-1) !== v) window.__intro.push(v); };
+      new MutationObserver((records) => {
+        for (const r of records) {
+          if (r.type === 'attributes' && r.attributeName === 'data-slide' && r.target.classList.contains('tb-live-stage')) {
+            push(r.oldValue);
+            push(r.target.getAttribute('data-slide'));
+          } else if (r.type === 'childList') {
+            for (const n of r.addedNodes) {
+              const s = n.nodeType === 1 && (n.matches('.tb-live-stage') ? n : n.querySelector('.tb-live-stage'));
+              if (s) push(s.getAttribute('data-slide'));
+            }
+          }
+        }
         const st = document.querySelector('.tb-hero-screen')?.getAttribute('data-state');
-        const slides = document.querySelector('.tb-live-stage')?.getAttribute('data-slides');
-        const seen = `${st}|${slides}`;
-        if (st && (window.__states ||= []).at(-1)?.seen !== seen) window.__states.push({ seen, t: Math.round(performance.now()) });
-      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-slide', 'data-state', 'data-slides'] });
+        const seen = `${st}|${document.querySelector('.tb-live-stage')?.getAttribute('data-slides')}`;
+        if (st && window.__states.at(-1)?.seen !== seen) window.__states.push({ seen, t: Math.round(performance.now()) });
+      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-slide', 'data-state', 'data-slides'] });
     });
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
     const stage = page.locator('.tb-live-stage');
