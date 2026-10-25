@@ -32,7 +32,9 @@ logger = logging.getLogger(__name__)
 teacher_router = APIRouter()
 student_router = APIRouter()
 
-COOKIE_PATH = "/api/class"
+# All of /api: the student calls live at /api/v1/class now (one API for every
+# client), and a pass set by the old /api/class address must reach both.
+COOKIE_PATH = "/api"
 # A pass and a browser marker outlive any one session: a student who missed the
 # hero last week makes it with the same pass next week.
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365

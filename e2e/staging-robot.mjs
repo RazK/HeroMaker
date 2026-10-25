@@ -813,9 +813,9 @@ try {
     await linger(page, 1500);
 
     // The price the app quotes must be the one packs.py sets.
-    const listed = await robotApi('/api/classes');
+    const listed = await robotApi('/api/v1/classes');
     const price = listed.seat_price;
-    if (!price) throw new Error('GET /api/classes offers no seat_price: the class-seats variant is not configured');
+    if (!price) throw new Error('GET /api/v1/classes offers no seat_price: the class-seats variant is not configured');
     if (price.order_cents !== 50 || price.seat_cents !== 125) {
       throw new Error(`seat_price is ${JSON.stringify(price)}, want order_cents 50 and seat_cents 125 ($0.50 + $1.25 a seat)`);
     }
@@ -866,16 +866,16 @@ try {
     // The checkout the app opens, read as it passes: the page leaves for Lemon
     // Squeezy at once, and a response body is gone with the page.
     let buy = null;
-    await page.route('**/api/classes/buy', async (route) => {
+    await page.route('**/api/v1/classes/buy', async (route) => {
       const res = await route.fetch();
       buy = { status: res.status(), text: await res.text() };
       await route.fulfill({ response: res, body: buy.text });
     });
     await payMoney.click();
     await page.waitForURL(/lemonsqueezy\.com/, { timeout: 60000 }).catch(() => {});
-    await page.unroute('**/api/classes/buy');
+    await page.unroute('**/api/v1/classes/buy');
     if (!buy) throw new Error('tapping Pay never asked for a checkout');
-    if (buy.status !== 201) throw new Error(`POST /api/classes/buy answered ${buy.status}: ${buy.text}`);
+    if (buy.status !== 201) throw new Error(`POST /api/v1/classes/buy answered ${buy.status}: ${buy.text}`);
     const checkout = JSON.parse(buy.text);
     if (checkout.seats !== seats || checkout.price_display !== want) {
       throw new Error(`the checkout is for ${checkout.seats} seats at ${checkout.price_display}, want ${seats} at ${want}`);
@@ -900,7 +900,7 @@ try {
     await snap(page, 'class-seats-in');
 
     // The API agrees, and the money bought seats, not credits.
-    const cls = await robotApi(`/api/classes/${checkout.class_id}`);
+    const cls = await robotApi(`/api/v1/classes/${checkout.class_id}`);
     if (cls.seats !== seats || cls.title !== className) throw new Error(`the API has "${cls.title}" with ${cls.seats} seats, want "${className}" with ${seats}`);
     const after = (await robotApi('/api/v1/me')).credits;
     if (after !== balance) throw new Error(`the teacher's balance moved ${balance} -> ${after}: class seats must never land on it`);
@@ -914,7 +914,7 @@ try {
     if (!/^\d{6}$/.test(pin)) throw new Error(`the class code reads "${pin}", want 6 digits`);
     const qr = page.locator('.cls-join-card svg.cls-qr');
     if (!(await qr.isVisible())) throw new Error('no QR code on the live class');
-    const live = await robotApi(`/api/classes/${checkout.class_id}`);
+    const live = await robotApi(`/api/v1/classes/${checkout.class_id}`);
     if (live.live?.pin !== pin) throw new Error(`the screen shows code ${pin}, the API ${live.live?.pin}`);
     await linger(page, 3000);
     await snap(page, 'class-live');
@@ -1035,7 +1035,7 @@ try {
       await switchBar.waitFor({ state: 'detached', timeout: 15000 });
       await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
-    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
+    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
   });
 } catch {
   exitCode = 1;
