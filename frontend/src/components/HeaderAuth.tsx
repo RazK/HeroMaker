@@ -6,6 +6,7 @@ import { BuyCredits } from './BuyCredits';
 import { ProfileModal } from './ProfileModal';
 import { Icon } from './tb/Icon';
 import { Dialog, Sheet, SheetRow, SheetToggle } from './tb/parts';
+import { ApiKeysSheet } from './ApiKeysSheet';
 import './HeaderAuth.css';
 
 /**
@@ -118,6 +119,7 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [showApiKeys, setShowApiKeys] = useState(false);
   const [savingClasses, setSavingClasses] = useState(false);
 
   // Check auth status on mount
@@ -290,12 +292,15 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
           {/* Three groups, two lines: you, your tools, the session. */}
           <div className="tb-sheet-divider" />
           <SheetToggle icon="school" label="I run classes" on={!!user.is_teacher} busy={savingClasses} onChange={handleClassesMode} className="header-auth-classes" />
+          <SheetRow icon="key" label="API keys" onClick={() => { setShowUserMenu(false); setShowApiKeys(true); }} />
           {user.is_admin && <SheetRow icon="gear" label="Admin" onClick={handleOpenAdmin} />}
           <div className="tb-sheet-divider" />
           <SheetRow icon="logout" label="Sign out" onClick={handleLogout} />
           <SheetRow icon="trash" label="Delete account" danger onClick={handleOpenDeleteAccount} />
         </Sheet>
       )}
+
+      {showApiKeys && <ApiKeysSheet onClose={() => setShowApiKeys(false)} />}
 
       {showDeleteAccount && (
         <DeleteAccountDialog

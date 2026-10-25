@@ -1,0 +1,33 @@
+/* /developers: the API docs. A legal-style page (running text) with code. */
+.tb-legal code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; font-weight: 600;
+  background: var(--tb-white); border: 1px solid var(--tb-line); border-radius: 6px; padding: 1px 5px; overflow-wrap: anywhere; }
+/* Nothing on the page may be wider than the phone: a code block scrolls inside itself. */
+.tb-legal-screen .tb-legal { min-width: 0; width: 100%; box-sizing: border-box; }
+.tb-legal > * { min-width: 0; max-width: 100%; }
+/* Code blocks: monospace, the one place the page is not Nunito, so columns line up. */
+.dev-code { position: relative; margin: 4px 0 var(--tb-space); min-width: 0; max-width: 100%; }
+.dev-code pre {
+  margin: 0; padding: 16px; padding-block-start: 52px; overflow-x: auto;
+  background: var(--tb-ink); color: var(--tb-cream); border-radius: var(--tb-radius-input);
+  font-size: 13px; line-height: 1.5;
+}
+.dev-code pre code { background: none; border: 0; padding: 0; color: inherit; font-weight: 500; font-size: inherit; overflow-wrap: normal; }
+.dev-code-copy { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; height: 36px; gap: 6px; }
+.dev-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 var(--tb-space); }
+.dev-fact {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 8px;
+  background: var(--tb-plate-2); border-radius: var(--tb-radius-input); text-align: center;
+  font-size: 14px; font-weight: 700; color: var(--tb-ink-2);
+}
+.dev-fact-num { font-family: var(--tb-font-display); font-size: 26px; color: var(--tb-ink); }
+.dev-table { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 8px; }
+.dev-row {
+  display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--tb-white); border: 2px solid var(--tb-line); border-radius: var(--tb-radius-input);
+}
+.dev-stage { font-family: var(--tb-font-display); font-size: 18px; }
+.dev-what { font-size: 14px; line-height: 1.4; }
+.dev-time { font-weight: 800; color: var(--tb-grape-text); white-space: nowrap; }
+.dev-note { color: var(--tb-ink-2) !important; font-size: 14px !important; }
+.dev-links { justify-content: flex-start; }
+.dev-links .tb-chip { text-decoration: none; gap: 6px; }

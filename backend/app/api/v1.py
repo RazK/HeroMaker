@@ -42,6 +42,33 @@ def _error(status: int, message: str):
     return HTTPException(status_code=status, detail=message)
 
 
+def openapi_spec(app, base: str) -> dict:
+    """The public API alone, for /api/v1/openapi.json: no app or admin routes."""
+    import copy
+
+    public = ("/api/v1/heroes", "/api/v1/estimates", "/api/v1/account")
+    full = copy.deepcopy(app.openapi())
+    spec = {
+        "openapi": full.get("openapi", "3.1.0"),
+        "info": {"title": "HeroMaker API", "version": "1",
+                 "description": "A drawing in, a rigged VRM humanoid avatar out, with every stage on the way. "
+                                "Human docs: /developers. Agent docs: /llms.txt. MCP: /api/mcp."},
+        "servers": [{"url": base}],
+        "paths": {p: ops for p, ops in full.get("paths", {}).items() if p.startswith(public)},
+        "components": full.get("components", {}),
+    }
+    schemas = spec["components"].setdefault("schemas", {})
+    schemas.setdefault("CreateHero", CreateHero.model_json_schema())
+    spec["components"]["securitySchemes"] = {"apiKey": {"type": "http", "scheme": "bearer", "description": "hm_sk_... or hm_pk_..."}}
+    spec["security"] = [{"apiKey": []}]
+    return spec
+
+
+@router.get("/openapi.json", include_in_schema=False)
+def openapi_json(request: Request):
+    return openapi_spec(request.app, api_heroes.base_url(request))
+
+
 @router.get("")
 @router.get("/")
 def index(request: Request):
@@ -137,7 +164,24 @@ async def drawing_from(body: CreateHero) -> tuple:
     raise _error(400, "No drawing: send a 'drawing' file (multipart), image_url or image_base64.")
 
 
-@router.post("/heroes", status_code=202)
+_CREATE_BODY = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "application/json": {"schema": {"$ref": "#/components/schemas/CreateHero"}},
+            "multipart/form-data": {"schema": {
+                "type": "object",
+                "properties": {"drawing": {"type": "string", "format": "binary"},
+                               "name": {"type": "string"}, "style": {"type": "string"},
+                               "webhook_url": {"type": "string"}, "client_ref": {"type": "string"},
+                               "public": {"type": "boolean"}},
+                "required": ["drawing"]}},
+        },
+    },
+}
+
+
+@router.post("/heroes", status_code=202, openapi_extra=_CREATE_BODY)
 async def create_hero(
     request: Request,
     key: ApiKey = Depends(api_keys.require_api_key),

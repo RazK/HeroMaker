@@ -194,6 +194,31 @@ export async function fetchJson<T>(url: string, options?: RequestInit): Promise<
   return data;
 }
 
+export interface ApiKeyInfo {
+  id: string;
+  name: string;
+  kind: 'secret' | 'publishable';
+  prefix: string;
+  allowed_origins: string[];
+  daily_limit: number | null;
+  created_at: string;
+  last_used_at: string | null;
+  revoked: boolean;
+}
+
+export interface NewApiKey {
+  name: string;
+  kind: 'secret' | 'publishable';
+  allowed_origins?: string[];
+  daily_limit?: number | null;
+}
+
+export interface ApiEstimates {
+  total: { typical_seconds: number; p90_seconds: number };
+  stages: Array<{ stage: string; typical_seconds: number; p90_seconds: number; samples: number; source: string }>;
+  cost_credits: number;
+}
+
 export const api = {
   /**
    * Create a new creation and upload the image file.
@@ -631,6 +656,29 @@ export const api = {
     const result = await fetchJson<any>(`${API_BASE_URL}/api/auth/me`);
     console.log('[API] getMe success');
     return result;
+  },
+
+  /** The signed-in user's API keys (never the keys themselves). */
+  async listApiKeys(): Promise<{ data: ApiKeyInfo[] }> {
+    return fetchJson<{ data: ApiKeyInfo[] }>(`${API_BASE_URL}/api/v1/keys`);
+  },
+
+  /** A new key: the answer is the only time `key` and `webhook_secret` are shown. */
+  async createApiKey(body: NewApiKey): Promise<ApiKeyInfo & { key: string; webhook_secret: string }> {
+    return fetchJson(`${API_BASE_URL}/api/v1/keys`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  },
+
+  async revokeApiKey(id: string): Promise<void> {
+    await fetchJson(`${API_BASE_URL}/api/v1/keys/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  /** How long a hero takes now, measured (no sign-in needed). */
+  async getApiEstimates(): Promise<ApiEstimates> {
+    return fetchJson<ApiEstimates>(`${API_BASE_URL}/api/v1/estimates`);
   },
 
   /**
