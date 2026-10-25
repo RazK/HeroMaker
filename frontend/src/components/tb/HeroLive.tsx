@@ -218,11 +218,14 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   const [loaded, setLoaded] = useState({ drawing: false, painting: false });
   useEffect(() => {
     if (!intro) return;
-    for (const [key, url] of [['drawing', file('thumb_original.jpg')], ['painting', file(`thumb_${paintingFile}`)]] as const) {
+    const imgs = ([['drawing', file('thumb_original.jpg')], ['painting', file(`thumb_${paintingFile}`)]] as const).map(([key, url]) => {
       const img = new Image();
       img.onload = img.onerror = () => setLoaded((l) => ({ ...l, [key]: true }));
       img.src = url;
-    }
+      return img;
+    });
+    // Left before they loaded: nothing to tell.
+    return () => { for (const img of imgs) img.onload = img.onerror = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!intro) return;
