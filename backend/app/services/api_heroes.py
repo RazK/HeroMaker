@@ -64,12 +64,25 @@ def _seconds(a: Optional[datetime], b: Optional[datetime]) -> Optional[float]:
     return None
 
 
-def view(creation, base: str, *, api_hero=None, now: Optional[datetime] = None) -> dict:
-    """The hero as the API answers it: status, stages, progress, time left, files."""
+def view(creation, base: str, *, api_hero=None, now: Optional[datetime] = None,
+         viewer_id: Optional[str] = None, admin: bool = False, billing=None) -> dict:
+    """The hero as the API answers it: status, stages, progress, time left, files.
+
+    One object for every client. What a caller may see beyond the public
+    fields (the owner's login name, a failed stage's raw error) follows the
+    same rules as everywhere else (CreationResponse.from_creation): the
+    owner and admins only.
+    """
+    from app.schemas.creation import CreationResponse
+
     now = now or datetime.utcnow()
+    full = CreationResponse.from_creation(creation, admin=admin, viewer_id=viewer_id, billing=billing)
+    detail = {s.step_name: s for s in full.steps}
     figures = step_stats.estimates()
     steps = {s.step_name: s for s in (creation.steps or [])}
     status = STATUS.get(creation.status, creation.status)
+    if status == "queued" and creation.never_started:
+        status = "draft"  # uploaded, not started (POST /heroes with start: false)
     if creation.deleted_at is not None:
         status = "cancelled"
 
@@ -93,15 +106,27 @@ def view(creation, base: str, *, api_hero=None, now: Optional[datetime] = None) 
         total_weight += p50
         step = steps.get(step_name)
         st = step.status if step else "pending"
+        d = detail.get(step_name)
         entry = {
             "stage": key,
+            "step": step_name,
             "status": st if st in ("pending", "processing", "completed", "failed") else st,
             "started_at": step.started_at if step else None,
             "completed_at": step.completed_at if step else None,
+            "finishes_at": step.estimated_completion_time if step and st == "processing" else None,
             "typical_seconds": int(p50),
             "progress": 0,
+            # What the provider itself reports, 0-100, or null (it reports nothing).
+            "provider_progress": d.progress if d else None,
+            "charged_credits": d.charged_credits if d else None,
             "file": None,
+            "error": None,
         }
+        if d is not None and d.error_code:
+            entry["error"] = {"code": d.error_code, "message": d.error_user,
+                              "credits_refunded": d.credits_refunded, "refunded_credits": d.refunded_credits}
+            if admin:
+                entry["error"].update({"detail": d.error_detail, "request_id": d.error_request_id})
         if st == "completed":
             entry["progress"] = 100
             entry["file"] = file_url(base, creation, filename)
@@ -179,17 +204,35 @@ def view(creation, base: str, *, api_hero=None, now: Optional[datetime] = None) 
         "cost_credits": hero_cost(),
         "error": error,
         "public": bool(creation.is_public),
-        "web_url": None,
+        "web_url": f"{base}/hero/{creation.id}",
+        # The app's own fields: who drew it, how the painting stands, versions
+        # for cacheable file URLs, and whose it is.
+        "artist": {"name": full.name, "age": full.age},
+        "style": full.style,
+        "painting": full.painting,
+        "featured": full.featured,
+        "in_class": full.in_class,
+        "file_versions": full.file_versions,
+        "owner_id": creation.user_id,
+        "mine": viewer_id is not None and viewer_id == creation.user_id,
+        "updated_at": creation.updated_at,
     }
+    if full.username or full.owner_name:  # the owner and admins only
+        out["owner"] = {"username": full.username, "name": full.owner_name}
     return out
 
 
 def estimates_view() -> dict:
+    from app.config.steps import get_step_by_name
+
     figures = step_stats.estimates()
     by_stage = []
-    for key, step_name, _ in STAGES[1:]:
+    for key, step_name, filename in STAGES[1:]:
         f = figures.get(step_name) or {}
-        by_stage.append({"stage": key, "typical_seconds": f.get("p50"), "p90_seconds": f.get("p90"),
+        config = get_step_by_name(step_name) or {}
+        by_stage.append({"stage": key, "step": step_name, "title": config.get("display_name"),
+                         "file": filename, "cost_credits": config.get("credit_cost", 0),
+                         "typical_seconds": f.get("p50"), "p90_seconds": f.get("p90"),
                          "samples": f.get("samples"), "source": f.get("source")})
     total = step_stats.total()
     return {

@@ -178,12 +178,18 @@ def test_two_drawings_at_once_is_refused(client, make_user):
     assert r.status_code == 400
 
 
-def test_another_accounts_hero_is_not_found(client, make_user):
+def test_another_accounts_hero_can_be_read_not_changed(client, make_user):
     a, b = make_user(credits=100), make_user(credits=100)
     ka, kb = _key(client, a)["key"], _key(client, b)["key"]
-    hero = client.post("/api/v1/heroes", headers=_bearer(ka), json={"image_base64": base64.b64encode(_png()).decode()}).json()
-    assert client.get(f"/api/v1/heroes/{hero['id']}", headers=_bearer(kb)).status_code == 404
+    hero = client.post("/api/v1/heroes", headers=_bearer(ka), json={
+        "image_base64": base64.b64encode(_png()).decode(), "client_ref": "secret-ref"}).json()
+    # Anyone may read a hero by its id (its page opens from a shared link),
+    # without the owner's fields; only the owner may change it.
+    seen = client.get(f"/api/v1/heroes/{hero['id']}", headers=_bearer(kb)).json()
+    assert seen["mine"] is False and "owner" not in seen and seen["client_ref"] is None
+    assert client.get(f"/api/v1/heroes/{hero['id']}").status_code == 200
     assert client.delete(f"/api/v1/heroes/{hero['id']}", headers=_bearer(kb)).status_code == 404
+    assert client.patch(f"/api/v1/heroes/{hero['id']}", headers=_bearer(kb), json={"name": "Mine now"}).status_code == 404
 
 
 def test_publishable_key_only_from_its_sites_and_capped_per_day(client, make_user):
@@ -242,7 +248,7 @@ def test_list_and_delete(client, make_user):
     listed = client.get("/api/v1/heroes?client_ref=abc", headers=_bearer(key)).json()["data"]
     assert [h["id"] for h in listed] == [hero["id"]]
     assert client.delete(f"/api/v1/heroes/{hero['id']}", headers=_bearer(key)).json()["deleted"] is True
-    assert client.get(f"/api/v1/heroes/{hero['id']}", headers=_bearer(key)).json()["status"] == "cancelled"
+    assert client.get(f"/api/v1/heroes/{hero['id']}", headers=_bearer(key)).status_code == 404
 
 
 def test_webhook_events_and_signature():
