@@ -683,20 +683,29 @@ try {
     const moves = await page.locator('.tb-move').evaluateAll((els) => els.map((e) => e.getAttribute('data-move')).join(','));
     if (moves !== 'dance,bodyroll,backflip,punch') throw new Error(`the moves are ${moves}`);
     await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-shown') === 'hero', null, { timeout: 90000 });
+    // What the app sets on each slide (its inline transform and transition),
+    // recorded as it changes: independent of whether this browser fires
+    // transition events.
     await page.evaluate(() => {
-      window.__slid = [];
-      document.addEventListener('transitionstart', (e) => {
-        const el = e.target;
-        if (!el.classList?.contains('tb-slide')) return;
-        const a = el.getAnimations().find((x) => x.transitionProperty === 'transform');
-        const k = a?.effect?.getKeyframes() ?? [];
-        window.__slid.push(`${el.dataset.slide}:${k[0]?.transform}>${k[k.length - 1]?.transform}`);
-      }, { capture: true });
+      window.__slid = { hero: [], drawing: [] };
+      for (const key of ['hero', 'drawing']) {
+        const el = document.querySelector(`.tb-live-stage .tb-slide[data-slide="${key}"]`);
+        // Every state, not just the last: the app pins the hero off the
+        // right edge and lets it go in the same task, so a callback sees
+        // both changes at once (the old values carry the one in between).
+        const read = (css) => { const d = document.createElement('div'); d.style.cssText = css || ''; return { x: (d.style.transform.match(/calc\((-?\d+)%/) || [])[1], animated: d.style.transition !== 'none' }; };
+        new MutationObserver((records) => {
+          for (const r of records) window.__slid[key].push(read(r.oldValue));
+          window.__slid[key].push(read(el.getAttribute('style')));
+        }).observe(el, { attributes: true, attributeFilter: ['style'], attributeOldValue: true });
+      }
     });
     const jumpMs = await tapToMove('punch');
-    const slid = await page.evaluate(() => window.__slid.join(' '));
-    if (!slid.includes('hero:translateX(100%)>translateX(0%)') || !slid.includes('drawing:translateX(0%)>translateX(-100%)')) {
-      throw new Error(`from the drawing the hero did not slide in from the right: ${slid || 'nothing moved'}`);
+    const slid = await page.evaluate(() => window.__slid);
+    const heroIn = slid.hero.some((s) => s.x === '100') && slid.hero.some((s) => s.x === '0' && s.animated);
+    const drawingOut = slid.drawing.some((s) => s.x === '-100' && s.animated);
+    if (!heroIn || !drawingOut) {
+      throw new Error(`from the drawing the hero did not slide in from the right: ${JSON.stringify(slid)}`);
     }
     if (jumpMs < 200 || jumpMs > 1500) throw new Error(`punch started ${jumpMs} ms after the tap, not as the hero landed`);
     if ((await slideNow()) !== 'hero') throw new Error('a move tapped from the drawing did not bring the hero back');
