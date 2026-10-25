@@ -588,3 +588,51 @@ class AdminAction(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
 
     admin = relationship("User", foreign_keys=[admin_id])
+
+
+class ApiKey(Base):
+    """A key another app or an agent uses to make heroes (app/api/v1.py).
+
+    Heroes made with it are charged to its owner, like the owner's own. Only
+    a hash of the key is kept: the key is shown once, when it is made.
+
+    `kind` is "secret" (servers and agents; never in a web page) or
+    "publishable" (safe in a web page: it only works from `allowed_origins`,
+    and `daily_limit` caps how many heroes it can start a day, so a copied
+    key cannot drain the owner's credits).
+    """
+    __tablename__ = "api_keys"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(80), nullable=False)
+    kind = Column(String(16), nullable=False, default="secret")
+    # The first characters of the key, shown so the owner can tell keys apart.
+    prefix = Column(String(24), nullable=False)
+    key_hash = Column(String(64), nullable=False, unique=True, index=True)
+    # Signs this key's webhook calls (X-HeroMaker-Signature). Shown once.
+    webhook_secret = Column(String(64), nullable=False)
+    allowed_origins = Column(JSON, nullable=False, default=list)
+    daily_limit = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+
+
+class ApiHero(Base):
+    """A hero started through the API: which key, and where to report."""
+    __tablename__ = "api_heroes"
+
+    creation_id = Column(String, ForeignKey("creations.id"), primary_key=True)
+    api_key_id = Column(String, ForeignKey("api_keys.id"), nullable=False, index=True)
+    webhook_url = Column(String(2048), nullable=True)
+    # The caller's own id for this hero, echoed back (e.g. their player id).
+    client_ref = Column(String(200), nullable=True)
+    # The API's origin as the caller reached it: the webhook's file links use it.
+    api_base = Column(String(255), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    creation = relationship("Creation")
+    api_key = relationship("ApiKey")

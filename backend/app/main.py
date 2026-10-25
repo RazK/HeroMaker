@@ -87,6 +87,15 @@ async def lifespan(app: FastAPI):
     # (app/services/startup_reconcile.py).
     sweeper = asyncio.create_task(sweep_forever(task_manager))
 
+    # API heroes still being made keep posting to their webhooks.
+    try:
+        from app.services.api_heroes import resume_watchers
+        resumed = resume_watchers()
+        if resumed:
+            logger.info(f"Resumed {resumed} API webhook watchers")
+    except Exception as e:
+        logger.warning(f"Could not resume API webhook watchers: {e}")
+
     logger.info("TaskManager initialized")
     yield
     
@@ -125,7 +134,8 @@ except Exception as e:
 
 # Import routers after lifespan is defined (but before app creation)
 # This avoids circular imports since routers import get_task_manager from task_manager module
-from app.api import creations, files, auth, coupons, health, admin, payments, styles, classes
+from app.api import creations, files, auth, coupons, health, admin, payments, styles, classes, v1
+from app.utils.public_cors import PublicCORS
 
 app = FastAPI(title="HeroMaker API", lifespan=lifespan)
 
@@ -139,6 +149,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Added last, so it runs first: the public API answers any website.
+app.add_middleware(PublicCORS)
 
 # Routers
 app.include_router(creations.router, prefix="/api/creations", tags=["creations"])
@@ -151,6 +163,7 @@ app.include_router(health.router, tags=["health"])
 app.include_router(styles.router, tags=["styles"])
 app.include_router(classes.teacher_router, prefix="/api/classes", tags=["classes"])
 app.include_router(classes.student_router, prefix="/api/class", tags=["classes"])
+app.include_router(v1.router, prefix="/api/v1", tags=["public API v1"])
 
 @app.get("/")
 def root():
