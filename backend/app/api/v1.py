@@ -52,7 +52,7 @@ def index(request: Request):
         "docs": f"{base}/developers",
         "openapi": f"{base}/api/v1/openapi.json",
         "llms": f"{base}/llms.txt",
-        "mcp": f"{base}/mcp",
+        "mcp": f"{base}/api/mcp",
         "auth": "Authorization: Bearer <your API key> (make one on your HeroMaker account page)",
     }
 
@@ -109,6 +109,11 @@ async def _read_request(request: Request) -> tuple:
             body = CreateHero(**(await request.json()))
         except Exception as e:
             raise _error(400, f"Send JSON (image_url or image_base64) or multipart with a 'drawing' file. {e}")
+    return await drawing_from(body)
+
+
+async def drawing_from(body: CreateHero) -> tuple:
+    """(drawing bytes, body) from image_base64 or image_url."""
     if body.image_base64 and body.image_url:
         raise _error(400, "Send one drawing: image_url or image_base64, not both.")
     if body.image_base64:
@@ -144,9 +149,16 @@ async def create_hero(
     Then poll GET /heroes/{id} (every 3-5 s is plenty), or pass webhook_url.
     402 if the account can't pay for a whole hero; 429 past a key's daily limit.
     """
+    data, body = await _read_request(request)
+    return start_api_hero(db, key, data, body, api_heroes.base_url(request), task_manager)
+
+
+def start_api_hero(db: Session, key: ApiKey, data: bytes, body: CreateHero, base: str, task_manager) -> dict:
+    """Checks, then the hero: shared by POST /heroes and the MCP create_hero tool.
+
+    Must run on the event loop (start_pipeline creates an asyncio task)."""
     from app.api.creations import _checked_style, create_with_drawing, start_pipeline
 
-    data, body = await _read_request(request)
     if body.webhook_url:
         try:
             api_heroes.check_public_url(body.webhook_url)
@@ -167,7 +179,6 @@ async def create_hero(
         character_name=(body.name or "").strip()[:NAME_MAX] or None,
         name=owner.name, style=style, is_public=body.public,
     )
-    base = api_heroes.base_url(request)
     api_hero = ApiHero(creation_id=creation.id, api_key_id=key.id, webhook_url=body.webhook_url,
                        client_ref=body.client_ref, api_base=base)
     db.add(api_hero)
