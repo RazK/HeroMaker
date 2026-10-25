@@ -494,7 +494,7 @@ export const api = {
   async signup(username: string, email: string, password: string, name: string, dateOfBirth: string, isTeacher = false): Promise<{ access_token: string; user: any }> {
     console.log('[API] signup:', { username, email, name });
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
-      `${API_BASE_URL}/api/auth/signup`,
+      `${V1}/signup`,
       {
         method: 'POST',
         headers: {
@@ -512,7 +512,7 @@ export const api = {
   async login(username: string, password: string): Promise<{ access_token: string; user: any }> {
     console.log('[API] login:', { username });
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
-      `${API_BASE_URL}/api/auth/login`,
+      `${V1}/login`,
       {
         method: 'POST',
         headers: {
@@ -529,14 +529,14 @@ export const api = {
 
   /** Which sign-in features this deployment offers. Fetched once per page load. */
   getAuthConfig(): Promise<AuthConfig> {
-    authConfigPromise ??= fetchJson<AuthConfig>(`${API_BASE_URL}/api/auth/config`)
+    authConfigPromise ??= fetchJson<AuthConfig>(`${V1}/auth/config`)
       .catch(() => ({ password_reset: false, google_client_id: null }));
     return authConfigPromise;
   },
 
   /** Always resolves the same way whether or not the account exists. */
   async forgotPassword(email: string): Promise<void> {
-    await fetchJson(`${API_BASE_URL}/api/auth/forgot-password`, {
+    await fetchJson(`${V1}/password/forgot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -545,7 +545,7 @@ export const api = {
 
   /** Sets the new password and signs in, exactly like login. */
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    const result = await fetchJson<{ access_token: string }>(`${API_BASE_URL}/api/auth/reset-password`, {
+    const result = await fetchJson<{ access_token: string }>(`${V1}/password/reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, new_password: newPassword }),
@@ -557,7 +557,7 @@ export const api = {
   /** Sign in or up with a Google Identity Services ID token. */
   async loginWithGoogle(credential: string): Promise<{ access_token: string; user: any }> {
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
-      `${API_BASE_URL}/api/auth/google`,
+      `${V1}/login/google`,
       {
         method: 'POST',
         headers: {
@@ -575,7 +575,7 @@ export const api = {
   async logout(): Promise<void> {
     console.log('[API] logout');
     try {
-      await fetchJson(`${API_BASE_URL}/api/auth/logout`, {
+      await fetchJson(`${V1}/logout`, {
         method: 'POST',
       });
     } catch (err) {
@@ -592,7 +592,7 @@ export const api = {
    * On success the token is dropped and `auth:account-deleted` is announced.
    */
   async deleteAccount(confirm: string): Promise<void> {
-    await fetchJson<void>(`${API_BASE_URL}/api/auth/me`, {
+    await fetchJson<void>(`${V1}/me`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ confirm }),
@@ -603,7 +603,7 @@ export const api = {
   },
 
   async getMe(): Promise<any> {
-    const result = await fetchJson<any>(`${API_BASE_URL}/api/auth/me`);
+    const result = await fetchJson<any>(`${V1}/me`);
     console.log('[API] getMe success');
     return result;
   },
@@ -637,7 +637,7 @@ export const api = {
   async redeemCoupon(code: string): Promise<{ success: boolean; message: string; credits_added: number; new_balance: number }> {
     console.log('[API] redeemCoupon:', { code });
     const result = await fetchJson<{ success: boolean; message: string; credits_added: number; new_balance: number }>(
-      `${API_BASE_URL}/api/coupons/redeem`,
+      `${V1}/coupons/redeem`,
       {
         method: 'POST',
         headers: {
@@ -654,7 +654,7 @@ export const api = {
    * Credit packs on sale. Only packs with a working checkout are listed.
    */
   async getPacks(): Promise<CreditPack[]> {
-    return fetchJson<CreditPack[]>(`${API_BASE_URL}/api/payments/packs`);
+    return fetchJson<CreditPack[]>(`${V1}/packs`);
   },
 
   /**
@@ -670,7 +670,7 @@ export const api = {
    * webhook, never by anything the browser reports.
    */
   async createCheckout(pack: string, redirectUrl: string): Promise<{ checkout_url: string; test_mode: boolean }> {
-    return fetchJson<{ checkout_url: string; test_mode: boolean }>(`${API_BASE_URL}/api/payments/checkout`, {
+    return fetchJson<{ checkout_url: string; test_mode: boolean }>(`${V1}/checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pack, redirect_url: redirectUrl }),
@@ -718,7 +718,7 @@ export const api = {
   }): Promise<any> {
     console.log('[API] updateProfile:', { ...data, current_password: data.current_password ? '***' : undefined, new_password: data.new_password ? '***' : undefined });
     const result = await fetchJson<any>(
-      `${API_BASE_URL}/api/auth/me`,
+      `${V1}/me`,
       {
         method: 'PATCH',
         headers: {
