@@ -624,7 +624,11 @@ try {
       new MutationObserver(() => {
         const v = document.querySelector('.tb-live-stage')?.getAttribute('data-slide');
         if (v && window.__intro.at(-1) !== v) window.__intro.push(v);
-      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-slide'] });
+        const st = document.querySelector('.tb-hero-screen')?.getAttribute('data-state');
+        const slides = document.querySelector('.tb-live-stage')?.getAttribute('data-slides');
+        const seen = `${st}|${slides}`;
+        if (st && (window.__states ||= []).at(-1)?.seen !== seen) window.__states.push({ seen, t: Math.round(performance.now()) });
+      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-slide', 'data-state', 'data-slides'] });
     });
     await page.locator('.creation-gallery-item.creation-gallery-status-completed').first().click();
     const stage = page.locator('.tb-live-stage');
@@ -633,7 +637,7 @@ try {
     await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-slide') === 'hero', null, { timeout: 90000 })
       .catch(async () => { throw new Error(`the opening never reached the hero: ${JSON.stringify(await page.evaluate(() => window.__intro))}`); });
     const intro = (await page.evaluate(() => window.__intro)).join(' > ');
-    if (intro !== 'drawing > painting > hero') throw new Error(`the hero's page opened ${intro}, not drawing > painting > hero`);
+    if (intro !== 'drawing > painting > hero') throw new Error(`the hero's page opened ${intro}, not drawing > painting > hero; screen states ${JSON.stringify(await page.evaluate(() => window.__states))}`);
     if ((await page.locator('.tb-mini-drawing').count()) !== 1) throw new Error('no small drawing card beside the live hero');
     // The hero screen fits the phone, and the document itself cannot scroll:
     // a desktop browser has no collapsing URL bar, so "it fits here" is not
