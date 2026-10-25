@@ -253,7 +253,7 @@ The numbers and their proof live in `packs.py` (`check_class_seats`).
 |---|---|---|---|
 | **Paid seats** | `seats_used` moves only through one atomic `UPDATE … SET seats_used = seats_used + 1 WHERE seats_used < seats`. Tested with 10 threads racing for 3 seats. | Nothing. | **The money guarantee.** The worst case is the seats the teacher already paid for. |
 | **Time window** | A hero can start only while a session of that class is open. The PIN is dead after it. | Nothing. | A leaked PIN expires with the lesson. |
-| **One-hero pass** | Join gives the browser a random pass (an httpOnly cookie on `/api/class` and localStorage). We store only its SHA-256. One atomic `UPDATE … WHERE hero_started_at IS NULL` lets it start one hero. | Clearing site data or a private window, which looks like a new child. | No sign-up, no friction. Reloading, or coming back next week, finds *my* hero. |
+| **One-hero pass** | Join gives the browser a random pass (an httpOnly cookie on `/api` and localStorage). We store only its SHA-256. One atomic `UPDATE … WHERE hero_started_at IS NULL` lets it start one hero. | Clearing site data or a private window, which looks like a new child. | No sign-up, no friction. Reloading, or coming back next week, finds *my* hero. |
 | **Browser marker** | A second random httpOnly value marks the browser. The first child on it is approved at once. **Each further child on the same browser waits for the teacher's one-tap Approve** and is labelled "shared tablet" on the roster. | Clearing site data. | It handles a shared tablet with one tap per extra child, and a second attempt shows up on the projected roster. |
 | **Live roster** | Every join and every hero is projected. **Approve / Block** per child. The "Approve each student" switch makes everyone wait (older kids, or a leaked PIN). | Nothing. | The teacher is in the room, and the roster is social proof. |
 | **Throttles** | 8 wrong PINs per browser per 10 minutes, 120 per minute across browsers with no marker, and 60 joins per minute per session. | A determined bot. | They stop casual guessing without ever blocking a class. |
@@ -270,7 +270,7 @@ The numbers and their proof live in `packs.py` (`check_class_seats`).
   job: thirty identical school iPads look the same.
 
 Our two random values identify only *a browser that joined this class*. They are
-readable only under `/api/class`.
+readable only under `/api` (the student calls are `/api/v1/class/...`).
 
 **The honest trade-off.** A child who clears site data can join again under a
 name the whole class sees, if seats remain. The seats make that a cost the
@@ -323,7 +323,7 @@ The ratios to watch:
 
 ## 9. Feeds the class stage
 
-`GET /api/classes/{id}/stage` returns `[{name, age, heroName, vrmUrl,
+`GET /api/v1/classes/{id}/stage` returns `[{name, age, heroName, vrmUrl,
 renderUrl}]` for every finished hero. That is the manifest the class stage
 (branch `claude/proto-hero-class`) reads, so a class's heroes dance together.
 It is not duplicated here.

@@ -1,5 +1,9 @@
 # Multi-User Authentication & Token System
 
+> **Historical record.** The routes named below (`/api/auth`, `/api/creations`,
+> `/api/coupons`, ...) were removed in 2026-10; every client calls `/api/v1`.
+> Current endpoints: [docs/api/reference.md](api/reference.md).
+
 **GitHub Issue:** [#6](https://github.com/RazK/HeroMaker/issues/6)
 
 ## Overview

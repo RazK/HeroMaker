@@ -110,7 +110,7 @@ graph TB
 
 HeroMaker exposes three primary states in the frontend experience:
 
-1. **Create** – A guided workflow that starts by uploading an image (`POST /api/creations/upload`), which creates the creation and then streams progress as backend steps run.
+1. **Create** – A guided workflow that starts by uploading an image (`POST /api/v1/heroes`), which creates the creation and then streams progress as backend steps run.
 2. **Show** – Presents an individual character with its VRM file, thumbnails, and step history once the pipeline finishes.
 
 The frontend treats the backend as the single source of truth and polls for creation/step progress every ~2 seconds while a hero is being built.
@@ -144,10 +144,10 @@ The frontend treats the backend as the single source of truth and polls for crea
 ### Pipeline Flow
 
 1. **Creation Kickoff**  
-   `POST /api/creations/upload` accepts an image file upload, creates a row in `creations`, initializes all steps as "pending", and allocates a filesystem workspace (`/data/files/{user_id}/{creation_id}/`).
+   `POST /api/v1/heroes` accepts an image file upload, creates a row in `creations`, initializes all steps as "pending", and allocates a filesystem workspace (`/data/files/{user_id}/{creation_id}/`).
 
 2. **Pipeline Execution**  
-   User triggers pipeline via `POST /api/creations/{id}/run` or individual steps via `POST /api/creations/{id}/steps/{step_name}/run`. Steps execute sequentially, with dependencies validated automatically.
+   The upload starts the pipeline (or `POST /api/v1/heroes/{id}/start` does, for an upload made with `start: false`); one stage runs on its own via `POST /api/v1/heroes/{id}/stages/{stage}/run`. Steps execute sequentially, with dependencies validated automatically.
 
 3. **Automated Step Chain**  
    Each step definition (`steps.md`) specifies its dependency and expected output filename. Step status is tracked in the database with timestamps and progress percentages.
@@ -206,7 +206,7 @@ Files are stored using the pattern: `{FILES_ROOT}/{user_id}/{creation_id}/{filen
 
 - REST responses follow standard HTTP status codes. See [API Reference](../api/reference.md) for interactive docs.
 - Transient Meshy/OpenAI failures are automatically retried (3 attempts, exponential backoff). Persistent failures set step `status='failed'` and capture context in `creation_steps.error_message`.
-- Users can manually retry a step by calling `POST /api/creations/{id}/steps/{step_name}/run`, which resets the step and re-executes it.
+- Users can retry from a failed stage with `POST /api/v1/heroes/{id}/start` and `{"from_stage": "<stage>"}`, which resets that step and runs the pipeline on from it.
 - Step state is stored in database, allowing the system to resume from the last incomplete step after restarts.
 
 ## Deployment & Environment Strategy

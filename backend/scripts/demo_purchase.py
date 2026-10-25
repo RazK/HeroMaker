@@ -326,7 +326,7 @@ def happy_path():
     check("balance is 0", balance_of(user_id) == 0, f"balance={balance_of(user_id)}")
 
     step(2, "They look at what is for sale")
-    packs = client.get("/api/payments/packs").json()
+    packs = client.get("/api/v1/packs").json()
     for p in packs:
         print(f"    {p['name']:<9} {p['price_display']:>8}  {p['credits']:>3} credits  "
               f"{p['heroes']} heroes")
@@ -373,7 +373,7 @@ def happy_path():
           f"balance={balance_of(user_id)}")
 
     step(7, "The receipt the parent can see")
-    for r in client.get("/api/payments/receipts").json() if False else []:
+    for r in client.get("/api/v1/receipts").json() if False else []:
         pass  # needs a signed-in client; the ledger below is the same data
     print_ledger(user_id)
 
@@ -541,7 +541,7 @@ def unhappy_paths(existing_user_id):
     print(f"    config: {json.dumps(status)}")
     check("we can see it is not ready", status["ready_for_checkout"] is False)
     check("and no secret value is printed", "demo-api-key-not-real" not in json.dumps(status))
-    packs_now = client.get("/api/payments/packs").json()
+    packs_now = client.get("/api/v1/packs").json()
     print(f"    packs shown to customers: {len(packs_now)}")
     check("customers are shown no button that cannot work", len(packs_now) == 3,
           "variants still set; API key missing fails at checkout, not listing")

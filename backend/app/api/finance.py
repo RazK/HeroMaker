@@ -1,7 +1,7 @@
 """
 Admin finance API: the margin report, plus the ledger's audit views.
 
-Mounted under /api/admin/finance by app/api/admin.py. Every route here is
+Mounted under /api/v1/admin/finance by app/api/admin.py. Every route here is
 admin-only.
 
 AUTHENTICATION NOTE

@@ -4,7 +4,11 @@
 set -e
 
 BASE_URL="http://localhost:8000"
-API_BASE="${BASE_URL}/api"
+API_BASE="${BASE_URL}/api/v1"
+# Each stage's cost, from GET /api/v1/estimates: "<step>=<credits>" per line.
+stage_costs() {
+    curl -s "${API_BASE}/estimates" | python3 -c "import sys, json; [print(f\"{s['step']}={s['cost_credits']}\") for s in json.load(sys.stdin)['stages']]"
+}
 
 echo "=========================================="
 echo "Pipeline Refactor Test Suite"
@@ -29,7 +33,7 @@ echo ""
 
 # Test 2: Cost endpoint - full pipeline
 echo -e "${YELLOW}Test 2: Cost Calculation - Full Pipeline${NC}"
-COST=$(curl -s "${API_BASE}/creations/cost" | python3 -c "import sys, json; print(json.load(sys.stdin)['cost'])")
+COST=$(curl -s "${API_BASE}/estimates" | python3 -c "import sys, json; print(json.load(sys.stdin)['cost_credits'])")
 if [ "$COST" == "10" ]; then
     echo -e "${GREEN}✓ Full pipeline cost is 10 credits${NC}"
 else
@@ -39,7 +43,7 @@ echo ""
 
 # Test 3: Cost endpoint - specific steps
 echo -e "${YELLOW}Test 3: Cost Calculation - Specific Steps${NC}"
-COST=$(curl -s "${API_BASE}/creations/cost?steps=openai_render,meshy_3d" | python3 -c "import sys, json; print(json.load(sys.stdin)['cost'])")
+COST=$(stage_costs | grep -E '^(openai_render|meshy_3d)=' | awk -F= '{s += $2} END {print s}')
 if [ "$COST" == "7" ]; then
     echo -e "${GREEN}✓ openai_render + meshy_3d cost is 7 credits${NC}"
 else
@@ -49,7 +53,7 @@ echo ""
 
 # Test 4: Cost endpoint - single step
 echo -e "${YELLOW}Test 4: Cost Calculation - Single Step${NC}"
-COST=$(curl -s "${API_BASE}/creations/cost?steps=image_processing" | python3 -c "import sys, json; print(json.load(sys.stdin)['cost'])")
+COST=$(stage_costs | grep '^image_processing=' | cut -d= -f2)
 if [ "$COST" == "0" ]; then
     echo -e "${GREEN}✓ image_processing is free (0 credits)${NC}"
 else

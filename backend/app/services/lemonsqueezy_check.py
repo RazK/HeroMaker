@@ -6,7 +6,7 @@ webhook writes. If a webhook never arrives, or arrives and fails, the sale is
 real at Lemon Squeezy and invisible here. This module asks Lemon Squeezy
 directly and lines its orders up against our rows.
 
-Read by the admin console (GET /api/admin/money/lemonsqueezy).
+Read by the admin console (GET /api/v1/admin/money/lemonsqueezy).
 
     store    GET /v1/stores/{id}: total_sales, thirty_day_sales (counts) and
              total_revenue, thirty_day_revenue (USD cents, per the API docs).

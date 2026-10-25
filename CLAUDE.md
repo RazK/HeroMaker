@@ -316,10 +316,10 @@ If you are the agent building it, everything you need already exists and is
 verified against the live store:
 
 ```
-GET  /api/payments/packs      what is on sale (no margin data leaks to the customer)
-POST /api/payments/checkout   {"pack": "<slug>"} -> {"checkout_url": ...}; send the user there
+GET  /api/v1/packs            what is on sale (no margin data leaks to the customer)
+POST /api/v1/checkout         {"pack": "<slug>"} -> {"checkout_url": ...}; send the user there
 POST /api/payments/webhook    Lemon Squeezy only. Credits are granted HERE, nowhere else.
-GET  /api/payments/receipts   the signed-in user's own purchases
+GET  /api/v1/receipts         the signed-in user's own purchases
 ```
 
 Rules for that UI:

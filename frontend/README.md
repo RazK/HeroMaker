@@ -83,11 +83,13 @@ The pipeline consists of 6 steps:
 
 ## API Integration
 
-The frontend communicates with the backend API:
+The frontend is a client of the same API as everyone else, `/api/v1`
+(`src/api/client.ts`; backend `app/api/v1.py` and `v1_account.py`):
 
-- `POST /api/creations/upload` - Upload image and create creation
-- `POST /api/creations/{id}/run` - Start pipeline execution
-- `GET /api/creations/{id}` - Get creation status (polled every 2-3 seconds)
+- `POST /api/v1/heroes` - Upload a drawing (multipart `drawing`) and start the hero
+- `POST /api/v1/heroes/{id}/start` - Start it, or start again from a stage (`from_stage`)
+- `GET /api/v1/heroes/{id}` - Status, stages, progress, files (polled every few seconds)
+- `GET /api/v1/gallery?view=featured|mine|all` - The gallery
 - `GET /api/files/{path}` - Serve files for preview/download
 
 ## Technologies

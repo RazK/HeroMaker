@@ -189,7 +189,7 @@ async def lemonsqueezy_webhook(
         # decision an admin should make, not a webhook. Log loudly instead.
         logger.warning(
             "Order %s was refunded (user %s, pack %s). Credits were NOT reversed; "
-            "review at /api/admin/finance/ledger/%s",
+            "review at /api/v1/admin/finance/ledger/%s",
             event["order_id"], event["user_id"], event["pack_slug"], event["user_id"],
         )
         return {"status": "logged", "reason": "refund needs an admin decision"}

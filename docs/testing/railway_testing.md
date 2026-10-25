@@ -89,10 +89,10 @@ INFO: Using local filesystem storage backend
 
 ```bash
 # Example with curl (requires auth token)
-curl -X POST https://your-backend.railway.app/api/creations/upload \
+curl -X POST https://your-backend.railway.app/api/v1/heroes \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "file=@test-image.jpg" \
-  -F "character_name=Test Character"
+  -F "drawing=@test-image.jpg" \
+  -F "name=Test Character"
 ```
 
 **Expected Response:**
@@ -138,10 +138,11 @@ curl https://your-backend.railway.app/api/files/{user_id}/{creation_id}/original
 ### 4.1 Create a Creation (via API)
 
 ```bash
-curl -X POST https://your-backend.railway.app/api/creations/upload \
+curl -X POST https://your-backend.railway.app/api/v1/heroes \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "file=@test.jpg" \
-  -F "character_name=DB Test"
+  -F "drawing=@test.jpg" \
+  -F "name=DB Test" \
+  -F "start=false"
 ```
 
 ### 4.2 Verify in PostgreSQL
@@ -174,7 +175,7 @@ SELECT * FROM creation_steps WHERE creation_id = 'your-creation-id';
 ### 5.1 Start Pipeline
 
 ```bash
-curl -X POST https://your-backend.railway.app/api/creations/{creation_id}/run \
+curl -X POST https://your-backend.railway.app/api/v1/heroes/{creation_id}/start \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -182,7 +183,7 @@ curl -X POST https://your-backend.railway.app/api/creations/{creation_id}/run \
 
 ```bash
 # Check creation status
-curl https://your-backend.railway.app/api/creations/{creation_id} \
+curl https://your-backend.railway.app/api/v1/heroes/{creation_id} \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -219,7 +220,7 @@ Check Railway Storage Bucket for:
 
 ```bash
 # Check creations still exist
-curl https://your-backend.railway.app/api/creations \
+curl https://your-backend.railway.app/api/v1/heroes \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -261,7 +262,7 @@ curl https://your-backend.railway.app/api/files/invalid-user/invalid-creation/no
 
 ```bash
 time curl https://your-backend.railway.app/health
-time curl https://your-backend.railway.app/api/creations
+time curl https://your-backend.railway.app/api/v1/gallery?view=featured
 ```
 
 **✅ Pass Criteria:**

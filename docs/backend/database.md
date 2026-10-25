@@ -66,7 +66,7 @@ Each step produces a specific output file:
 - `convert_vrm` → `avatar.vrm` (input: `rigged.glb`)
 - `complete` → No output file (marks creation as complete)
 
-**Note:** The `original.jpg` file is saved when uploading via `POST /api/creations/upload`, before any steps run.
+**Note:** The `original.jpg` file is saved when uploading via `POST /api/v1/heroes`, before any steps run.
 
 ## File Structure
 

@@ -1,5 +1,9 @@
 # Pipeline Refactor - Testing Summary
 
+> **Historical record.** The routes named below (`/api/auth`, `/api/creations`,
+> `/api/coupons`, ...) were removed in 2026-10; every client calls `/api/v1`.
+> Current endpoints: [docs/api/reference.md](docs/api/reference.md).
+
 ## Completed Tests
 
 ### 1. Backend API Tests ✓

@@ -55,14 +55,13 @@ def completed_named_heroes():
     """
     Every finished hero on the live site that has a name.
 
-    The gallery answers with a bare list at small limits and a paginated
-    {"creations": [...], "total": n} envelope at larger ones, so accept both
-    rather than depending on which side of that threshold a limit falls.
+    The public gallery (GET /api/v1/gallery?view=featured) answers
+    {"data": [hero, ...]}; each hero names its owner as `owner_id`.
     """
-    body = json.loads(fetch(f"{SITE}/api/creations/?limit=500"))
-    rows = body["creations"] if isinstance(body, dict) else body
-    return [r for r in rows
-            if r.get("status") == "completed" and r.get("character_name")]
+    body = json.loads(fetch(f"{SITE}/api/v1/gallery?view=featured"))
+    return [{"id": r["id"], "user_id": r["owner_id"], "character_name": r["name"]}
+            for r in body.get("data", [])
+            if r.get("status") == "completed" and r.get("name")]
 
 
 def save(raw: bytes, dest: Path) -> int:

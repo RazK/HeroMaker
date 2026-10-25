@@ -1,7 +1,7 @@
 """
 Live balances and spend at the providers we pay: Meshy, OpenAI, Railway.
 
-Read by the admin console (GET /api/admin/money/providers). Each provider is
+Read by the admin console (GET /api/v1/admin/money/providers). Each provider is
 asked in parallel with its own short timeout, and each answer is cached for
 CACHE_SECONDS, so a slow or broken provider costs the page one empty card and
 never a spinner that does not end.
