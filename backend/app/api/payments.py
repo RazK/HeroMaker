@@ -1,12 +1,16 @@
 """
 Buying credits.
 
-Three endpoints, in the order money moves through them:
+In the order money moves through them:
 
-    GET  /api/payments/packs      what we sell, public, no prices invented here
-    POST /api/payments/checkout   signed-in user asks for a checkout URL
+    GET  /api/v1/packs            what we sell, public, no prices invented here
+    POST /api/v1/checkout         signed-in user asks for a checkout URL
     POST /api/payments/webhook    Lemon Squeezy tells us they paid -> credits
-    GET  /api/payments/receipts   signed-in user's own purchase history
+    GET  /api/v1/receipts         signed-in user's own purchase history
+
+The client calls are served by app/api/v1_account.py, which calls the
+functions here. Only the webhook is routed from this module: the store is
+configured with that address.
 
 THE WEBHOOK IS THE ONLY PLACE CREDITS ARE GRANTED FOR MONEY. The browser is
 never trusted to say "I paid" - it never touches this path. A user returning
@@ -30,7 +34,6 @@ from app.database import get_db
 from app.models import ClassRoom, Payment, User
 from app.services import classes as class_service
 from app.services import ledger, lemonsqueezy
-from app.services.auth import get_current_user_required
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +55,6 @@ class PackOut(BaseModel):
     highlight: bool
 
 
-@router.get("/packs", response_model=list[PackOut])
 def list_packs():
     """
     The packs a customer can actually buy right now.
@@ -78,7 +80,7 @@ def list_packs():
 # --------------------------------------------------------------------------
 
 class CheckoutRequest(BaseModel):
-    pack: str = Field(..., description="Pack slug, from GET /api/payments/packs")
+    pack: str = Field(..., description="Pack slug, from GET /api/v1/packs")
     redirect_url: Optional[str] = Field(
         None, description="Where Lemon Squeezy sends the buyer after paying"
     )
@@ -92,12 +94,7 @@ class CheckoutResponse(BaseModel):
     test_mode: bool
 
 
-@router.post("/checkout", response_model=CheckoutResponse)
-def create_checkout(
-    request: CheckoutRequest,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user_required),
-):
+def create_checkout(request: CheckoutRequest, db: Session, user: User):
     """
     Open a Lemon Squeezy checkout for this user and return its URL.
 
@@ -192,7 +189,7 @@ async def lemonsqueezy_webhook(
         # decision an admin should make, not a webhook. Log loudly instead.
         logger.warning(
             "Order %s was refunded (user %s, pack %s). Credits were NOT reversed; "
-            "review at /api/admin/finance/ledger/%s",
+            "review at /api/v1/admin/finance/ledger/%s",
             event["order_id"], event["user_id"], event["pack_slug"], event["user_id"],
         )
         return {"status": "logged", "reason": "refund needs an admin decision"}
@@ -378,11 +375,7 @@ class ReceiptOut(BaseModel):
     seats: Optional[int] = None
 
 
-@router.get("/receipts", response_model=list[ReceiptOut])
-def list_receipts(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user_required),
-):
+def list_receipts(db: Session, user: User):
     """This user's own purchases, newest first. Read straight off the ledger:
     their own balance's, and their classes' wallets' (seats they bought)."""
     from app.config import pricing

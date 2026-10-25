@@ -107,26 +107,31 @@ def real_lifespan():
             app.dependency_overrides[get_task_manager] = before
 
 
-@pytest.mark.parametrize("started_by", ["run-pipeline", "run-step"])
+def _upload(client, user):
+    """A drawing uploaded, not yet started (POST /api/v1/heroes, start: false)."""
+    r = client.post("/api/v1/heroes", files={"drawing": ("d.jpg", DRAWING, "image/jpeg")},
+                    data={"start": "false"}, headers=_auth(user))
+    assert r.status_code == 202, r.text
+    return r.json()["id"]
+
+
+@pytest.mark.parametrize("started_by", ["start", "run-stage"])
 def test_a_step_cut_off_by_shutdown_is_refunded_at_once(started_by, db, make_user, real_lifespan,
                                                          monkeypatch):
     user = make_user(credits=100)
-    hangs_at = "meshy_3d" if started_by == "run-pipeline" else "openai_render"
+    hangs_at = "meshy_3d" if started_by == "start" else "openai_render"
     _providers(monkeypatch, hangs_at)
     cost = get_step_by_name(hangs_at)["credit_cost"]
     paid_before = RENDER if hangs_at == "meshy_3d" else 0
 
     with TestClient(app) as client:
-        r = client.post("/api/creations/create", files={"image_file": ("d.jpg", DRAWING, "image/jpeg")},
-                        headers=_auth(user))
-        assert r.status_code == 201, r.text
-        creation_id = r.json()["id"]
-        if started_by == "run-pipeline":
-            r = client.post(f"/api/creations/{creation_id}/run-pipeline", headers=_auth(user))
+        creation_id = _upload(client, user)
+        if started_by == "start":
+            r = client.post(f"/api/v1/heroes/{creation_id}/start", headers=_auth(user))
         else:
             get_storage().upload_file(user.id, creation_id, "processed.jpg", b"processed")
-            r = client.post(f"/api/creations/{creation_id}/steps/{hangs_at}/run", headers=_auth(user))
-        assert r.status_code == 200, r.text
+            r = client.post(f"/api/v1/heroes/{creation_id}/stages/painting/run", headers=_auth(user))
+        assert r.status_code == 202, r.text
 
         # The provider call is out: the step is charged and "processing".
         _wait_for(lambda: _balance(db, user.id) == 100 - paid_before - cost, "the step's charge")
@@ -174,12 +179,10 @@ def test_a_step_refunded_but_not_marked_is_refunded_once(db, make_user, real_lif
         raise RuntimeError("killed before the mark")
 
     with TestClient(app) as client:
-        r = client.post("/api/creations/create", files={"image_file": ("d.jpg", DRAWING, "image/jpeg")},
-                        headers=_auth(user))
-        creation_id = r.json()["id"]
+        creation_id = _upload(client, user)
         get_storage().upload_file(user.id, creation_id, "processed.jpg", b"processed")
-        assert client.post(f"/api/creations/{creation_id}/steps/openai_render/run",
-                           headers=_auth(user)).status_code == 200
+        assert client.post(f"/api/v1/heroes/{creation_id}/stages/painting/run",
+                           headers=_auth(user)).status_code == 202
         _wait_for(lambda: _balance(db, user.id) == 100 - RENDER, "the step's charge")
         monkeypatch.setattr(step_errors, "mark_failed", mark_fails)
     monkeypatch.undo()

@@ -7,9 +7,9 @@ running; the admin's user list counted it as "making". A .txt file was
 accepted as a drawing, its first step "completed" and its painting was
 charged and failed.
 
-Everything here goes through the real endpoints: POST /create, the gallery's
-list, run-pipeline (start_pipeline, with a task manager that starts nothing),
-the admin's user list and user page. A class student's text file is in
+Everything here goes through the real endpoints: POST /api/v1/heroes (an
+upload, start: false), the gallery, POST /heroes/{id}/start (start_pipeline,
+with a task manager that starts nothing), the admin's user list and user page. A class student's text file is in
 test_classes.py.
 """
 import io
@@ -58,13 +58,20 @@ def _auth(user):
 
 
 def _upload(client, user, body, name="d.jpg", kind="image/jpeg"):
-    return client.post("/api/creations/create", headers=_auth(user), files={"image_file": (name, body, kind)})
+    """The picture picked, not yet made: what the app's upload sheet sends."""
+    return client.post("/api/v1/heroes", headers=_auth(user), files={"drawing": (name, body, kind)},
+                       data={"start": "false"})
+
+
+def _start(client, user, hero_id):
+    """ "Make my hero". """
+    return client.post(f"/api/v1/heroes/{hero_id}/start", headers=_auth(user))
 
 
 def _mine(client, user):
-    r = client.get("/api/creations/?mine_only=true", headers=_auth(user))
+    r = client.get("/api/v1/gallery?view=mine", headers=_auth(user))
     assert r.status_code == 200, r.text
-    return [c["id"] for c in r.json()]
+    return [c["id"] for c in r.json()["data"]]
 
 
 # ---- not a picture ---------------------------------------------------------
@@ -90,7 +97,8 @@ def test_a_picture_is_taken(db, make_user, client, fmt):
     out = io.BytesIO()
     Image.new("RGB", (64, 48), (20, 120, 200)).save(out, format=fmt)
     r = _upload(client, user, out.getvalue())
-    assert r.status_code == 201, r.text
+    assert r.status_code == 202, r.text
+    assert r.json()["status"] == "draft"
     assert db.query(Creation).count() == 1
 
 
@@ -104,18 +112,19 @@ def test_a_hero_never_started_is_in_no_list_until_it_is_made(db, make_user, clie
 
     # Neither is anyone's hero yet: not in My heroes, not in an admin's All heroes.
     assert _mine(client, user) == []
-    r = client.get("/api/creations/", headers=_auth(admin))
-    assert [c["id"] for c in r.json()] == []
+    r = client.get("/api/v1/gallery?view=all", headers=_auth(admin))
+    assert [c["id"] for c in r.json()["data"]] == []
+    assert client.get("/api/v1/heroes", headers=_auth(user)).json()["data"] == []
 
-    # "Make my hero": the real run-pipeline, which marks the first step running.
-    r = client.post(f"/api/creations/{made}/run-pipeline", headers=_auth(user))
-    assert r.status_code == 200, r.text
+    # "Make my hero": the real start, which marks the first step running.
+    r = _start(client, user, made)
+    assert r.status_code == 202, r.text
     assert _mine(client, user) == [made]
-    r = client.get("/api/creations/", headers=_auth(admin))
-    assert [c["id"] for c in r.json()] == [made]
+    r = client.get("/api/v1/gallery?view=all", headers=_auth(admin))
+    assert [c["id"] for c in r.json()["data"]] == [made]
 
     # Its own page still answers (a shared link, the app right after Make).
-    assert client.get(f"/api/creations/{left}").status_code == 200
+    assert client.get(f"/api/v1/heroes/{left}").status_code == 200
     # And the row is kept: nothing is deleted.
     assert db.query(Creation).filter_by(id=left).one().deleted_at is None
 
@@ -126,16 +135,16 @@ def test_admin_counts_leave_out_a_hero_never_started(db, make_user, client):
     made = _upload(client, user, _jpeg()).json()["id"]
     _upload(client, user, _jpeg())
     _upload(client, user, _jpeg())
-    assert client.post(f"/api/creations/{made}/run-pipeline", headers=_auth(user)).status_code == 200
+    assert _start(client, user, made).status_code == 202
 
     # The user list: one hero, being made, not three.
-    r = client.get("/api/admin/users?include_test=true", headers=_auth(admin))
+    r = client.get("/api/v1/admin/users?include_test=true", headers=_auth(admin))
     assert r.status_code == 200, r.text
     [row] = [u for u in r.json() if u["id"] == user.id]
     assert row["creation_stats"] == {"total": 1, "completed": 0, "failed": 0, "in_progress": 1}
 
     # The user's page: the same one hero, and no "Not started" tiles.
-    r = client.get(f"/api/admin/users/{user.id}", headers=_auth(admin))
+    r = client.get(f"/api/v1/admin/users/{user.id}", headers=_auth(admin))
     assert r.status_code == 200, r.text
     page = r.json()
     assert page["counts"]["heroes"] == page["counts"]["total"] == 1 and page["counts"]["in_progress"] == 1

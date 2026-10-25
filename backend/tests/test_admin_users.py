@@ -62,7 +62,7 @@ def _auth(user):
 
 def _ids(response):
     assert response.status_code == 200, response.text
-    return [c["id"] for c in response.json()]
+    return [c["id"] for c in response.json()["data"]]
 
 
 @pytest.fixture
@@ -79,15 +79,15 @@ def _remove(client, admin, creation_id, reason="inappropriate", note=None):
     body = {"reason": reason}
     if note is not None:
         body["note"] = note
-    return client.post(f"/api/admin/creations/{creation_id}/remove", json=body, headers=_auth(admin))
+    return client.post(f"/api/v1/admin/creations/{creation_id}/remove", json=body, headers=_auth(admin))
 
 
 def _restore(client, admin, creation_id):
-    return client.post(f"/api/admin/creations/{creation_id}/restore", headers=_auth(admin))
+    return client.post(f"/api/v1/admin/creations/{creation_id}/restore", headers=_auth(admin))
 
 
 def _detail(client, admin, user_id):
-    r = client.get(f"/api/admin/users/{user_id}", headers=_auth(admin))
+    r = client.get(f"/api/v1/admin/users/{user_id}", headers=_auth(admin))
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -121,10 +121,10 @@ def _class_with_hero(db, teacher, steps):
 # ---------------------------------------------------------------------------
 
 NEW_ROUTES = [
-    ("get", "/api/admin/users/{user}", None),
-    ("post", "/api/admin/creations/{hero}/remove", {"reason": "inappropriate"}),
-    ("post", "/api/admin/creations/{hero}/restore", None),
-    ("post", "/api/admin/users/{user}/credits", {"amount": 5, "note": "because"}),
+    ("get", "/api/v1/admin/users/{user}", None),
+    ("post", "/api/v1/admin/creations/{hero}/remove", {"reason": "inappropriate"}),
+    ("post", "/api/v1/admin/creations/{hero}/restore", None),
+    ("post", "/api/v1/admin/users/{user}/credits", {"amount": 5, "note": "because"}),
 ]
 
 
@@ -212,10 +212,10 @@ def test_a_removed_hero_vanishes_everywhere_and_comes_back_after_restore(client,
 
     def visible():
         return {
-            "featured": hero.id in _ids(client.get("/api/creations/?featured_only=true")),
-            "all (admin)": hero.id in _ids(client.get("/api/creations/", headers=_auth(admin))),
-            "my heroes": hero.id in _ids(client.get("/api/creations/?mine_only=true", headers=_auth(owner))),
-            "its page": client.get(f"/api/creations/{hero.id}").status_code == 200,
+            "featured": hero.id in _ids(client.get("/api/v1/gallery?view=featured")),
+            "all (admin)": hero.id in _ids(client.get("/api/v1/gallery?view=all", headers=_auth(admin))),
+            "my heroes": hero.id in _ids(client.get("/api/v1/gallery?view=mine", headers=_auth(owner))),
+            "its page": client.get(f"/api/v1/heroes/{hero.id}").status_code == 200,
         }
 
     assert all(visible().values())
@@ -225,9 +225,9 @@ def test_a_removed_hero_vanishes_everywhere_and_comes_back_after_restore(client,
     assert tasks.cancelled == [hero.id]
     assert not any(visible().values()), visible()
     # The rest of the gallery is untouched.
-    assert other.id in _ids(client.get("/api/creations/?featured_only=true"))
+    assert other.id in _ids(client.get("/api/v1/gallery?view=featured"))
     # The admin can still open its page from the user's page.
-    assert client.get(f"/api/creations/{hero.id}", headers=_auth(admin)).status_code == 200
+    assert client.get(f"/api/v1/heroes/{hero.id}", headers=_auth(admin)).status_code == 200
     # Removing twice is refused, not recorded twice.
     assert _remove(client, admin, hero.id).status_code == 409
 
@@ -246,8 +246,8 @@ def test_a_removed_class_hero_leaves_the_class_page_and_stage(client, db, admin,
     classroom, hero = _class_with_hero(db, teacher, completed_steps)
 
     def on_class_page():
-        view = client.get(f"/api/classes/{classroom.id}", headers=_auth(teacher)).json()
-        stage = client.get(f"/api/classes/{classroom.id}/stage", headers=_auth(teacher)).json()
+        view = client.get(f"/api/v1/classes/{classroom.id}", headers=_auth(teacher)).json()
+        stage = client.get(f"/api/v1/classes/{classroom.id}/stage", headers=_auth(teacher)).json()
         return {
             "roster": any(s["hero"] and s["hero"]["creation_id"] == hero.id for s in view["roster"]),
             "preview": any(p["creation_id"] == hero.id for p in view["preview"]),
@@ -280,14 +280,14 @@ def test_a_removed_heros_files_are_not_public_but_the_admin_still_sees_them(clie
     assert TestClient(app).get(url, headers=_auth(owner)).status_code == 404
 
     # The admin's user page hands their browser the file pass, scoped to /api/files.
-    seen = client.get(f"/api/admin/users/{owner.id}", headers=_auth(admin))
+    seen = client.get(f"/api/v1/admin/users/{owner.id}", headers=_auth(admin))
     cookie = seen.headers["set-cookie"]
     assert moderation.FILE_PASS_COOKIE in cookie and "Path=/api/files" in cookie and "HttpOnly" in cookie
     assert client.get(url).status_code == 200
 
     # A pass is not a sign-in: it never works as a Bearer token.
     pass_value = client.cookies.get(moderation.FILE_PASS_COOKIE)
-    assert visitor.get("/api/auth/me", headers={"Authorization": f"Bearer {pass_value}"}).status_code == 401
+    assert visitor.get("/api/v1/me", headers={"Authorization": f"Bearer {pass_value}"}).status_code == 401
     # Forged, or an admin's who is no longer one: refused.
     forged = pass_value.rsplit(".", 1)[0] + "." + "0" * 64
     assert TestClient(app, cookies={moderation.FILE_PASS_COOKIE: forged}).get(url).status_code == 404
@@ -302,7 +302,7 @@ def test_a_removed_heros_files_are_not_public_but_the_admin_still_sees_them(clie
 def test_a_reason_is_required_to_remove(client, db, admin, make_user, make_creation, completed_steps, tasks):
     hero = make_creation(make_user().id, completed_steps)
     for body in ({}, {"reason": ""}, {"reason": "ugly"}, {"reason": "other"}, {"reason": "other", "note": "   "}):
-        r = client.post(f"/api/admin/creations/{hero.id}/remove", json=body, headers=_auth(admin))
+        r = client.post(f"/api/v1/admin/creations/{hero.id}/remove", json=body, headers=_auth(admin))
         assert r.status_code == 422, (body, r.text)
     db.expire_all()
     assert db.get(Creation, hero.id).deleted_at is None
@@ -318,7 +318,7 @@ def test_a_hero_its_owner_deleted_cannot_be_restored(client, db, admin, make_use
     hero.deleted_at = datetime.utcnow()
     db.commit()
     assert _restore(client, admin, hero.id).status_code == 409
-    assert client.get(f"/api/creations/{hero.id}", headers=_auth(admin)).status_code == 404
+    assert client.get(f"/api/v1/heroes/{hero.id}", headers=_auth(admin)).status_code == 404
     db.expire_all()
     assert db.get(Creation, hero.id).deleted_at is not None
 
@@ -329,7 +329,7 @@ def test_a_hero_its_owner_deleted_cannot_be_restored(client, db, admin, make_use
 
 def test_giving_credits_moves_the_balance_and_writes_a_ledger_row_and_an_audit_row(client, db, admin, make_user):
     owner = make_user(credits=7)
-    r = client.post(f"/api/admin/users/{owner.id}/credits", json={"amount": 10, "note": "Sorry about the outage"},
+    r = client.post(f"/api/v1/admin/users/{owner.id}/credits", json={"amount": 10, "note": "Sorry about the outage"},
                     headers=_auth(admin))
     assert r.status_code == 200, r.text
     assert r.json()["credits"] == 17
@@ -348,7 +348,7 @@ def test_giving_credits_moves_the_balance_and_writes_a_ledger_row_and_an_audit_r
 
     # Not revenue: no payment, so the Money page's income stays at zero, and
     # the credits count among those still owed (the cost of serving them).
-    money = client.get("/api/admin/money/summary?period=all", headers=_auth(admin)).json()
+    money = client.get("/api/v1/admin/money/summary?period=all", headers=_auth(admin)).json()
     assert money["income"]["live"]["count"] == 0 and money["income"]["live"]["net_usd_micros"] == 0
     assert money["credits_held"]["credits"] == 17
 
@@ -360,7 +360,7 @@ def test_giving_credits_moves_the_balance_and_writes_a_ledger_row_and_an_audit_r
 
 def test_taking_back_credits_stops_at_zero(client, db, admin, make_user):
     owner = make_user(credits=5)
-    r = client.post(f"/api/admin/users/{owner.id}/credits", json={"amount": -6, "note": "Duplicate grant"},
+    r = client.post(f"/api/v1/admin/users/{owner.id}/credits", json={"amount": -6, "note": "Duplicate grant"},
                     headers=_auth(admin))
     assert r.status_code == 409, r.text
     assert "5" in r.json()["detail"]
@@ -368,7 +368,7 @@ def test_taking_back_credits_stops_at_zero(client, db, admin, make_user):
     assert ledger.get_balance(owner.id, db) == 5
     assert db.query(AdminAction).count() == 0
 
-    r = client.post(f"/api/admin/users/{owner.id}/credits", json={"amount": -5, "note": "Duplicate grant"},
+    r = client.post(f"/api/v1/admin/users/{owner.id}/credits", json={"amount": -5, "note": "Duplicate grant"},
                     headers=_auth(admin))
     assert r.status_code == 200, r.text
     assert r.json()["credits"] == 0
@@ -386,7 +386,7 @@ def test_taking_back_credits_stops_at_zero(client, db, admin, make_user):
 ])
 def test_a_credit_change_needs_a_note_and_a_sane_amount(client, db, admin, make_user, body):
     owner = make_user(credits=3)
-    r = client.post(f"/api/admin/users/{owner.id}/credits", json=body, headers=_auth(admin))
+    r = client.post(f"/api/v1/admin/users/{owner.id}/credits", json=body, headers=_auth(admin))
     assert r.status_code == 422, r.text
     db.expire_all()
     assert ledger.get_balance(owner.id, db) == 3
@@ -395,8 +395,8 @@ def test_a_credit_change_needs_a_note_and_a_sane_amount(client, db, admin, make_
 
 def test_the_older_set_credits_and_admin_toggle_are_audited_too(client, db, admin, make_user):
     owner = make_user(credits=4)
-    assert client.patch(f"/api/admin/users/{owner.id}", json={"credits": 9}, headers=_auth(admin)).status_code == 200
-    assert client.patch(f"/api/admin/users/{owner.id}", json={"is_admin": True}, headers=_auth(admin)).status_code == 200
+    assert client.patch(f"/api/v1/admin/users/{owner.id}", json={"credits": 9}, headers=_auth(admin)).status_code == 200
+    assert client.patch(f"/api/v1/admin/users/{owner.id}", json={"is_admin": True}, headers=_auth(admin)).status_code == 200
     actions = [(a["action"], a["amount"]) for a in _detail(client, admin, owner.id)["audit"]]
     assert actions == [("make_admin", None), ("set_credits", 5)]
 
@@ -406,7 +406,7 @@ def test_the_user_list_counts_only_live_heroes(client, db, admin, make_user, mak
     keep = make_creation(owner.id, completed_steps)
     gone = make_creation(owner.id, completed_steps)
     assert _remove(client, admin, gone.id).status_code == 200
-    row = next(u for u in client.get("/api/admin/users?include_test=true", headers=_auth(admin)).json()
+    row = next(u for u in client.get("/api/v1/admin/users?include_test=true", headers=_auth(admin)).json()
                if u["id"] == owner.id)
     assert row["creation_stats"]["completed"] == 1
     assert keep.id
@@ -427,7 +427,7 @@ def test_the_user_list_and_the_user_page_count_the_same_heroes(client, db, admin
     assert _remove(client, admin, gone.id).status_code == 200
     _class_with_hero(db, teacher, completed_steps)
 
-    row = next(u for u in client.get("/api/admin/users?include_test=true", headers=_auth(admin)).json()
+    row = next(u for u in client.get("/api/v1/admin/users?include_test=true", headers=_auth(admin)).json()
                if u["id"] == teacher.id)
     stats = row["creation_stats"]
     assert stats == {"total": 4, "completed": 2, "failed": 1, "in_progress": 1}

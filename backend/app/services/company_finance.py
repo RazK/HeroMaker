@@ -1,7 +1,7 @@
 """
 The company's money at a glance: income, costs, net, and what is still owed.
 
-Read by the admin console's Money section (GET /api/admin/money/summary). Every
+Read by the admin console's Money section (GET /api/v1/admin/money/summary). Every
 figure comes from a table we already write; nothing is estimated here that is
 not labelled as such in the response.
 

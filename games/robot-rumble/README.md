@@ -57,12 +57,12 @@ kids."* So:
 
 **Who is in the stands.** A class hero (made in a class session) is cheered
 by its classmates: the class's own finished heroes from
-`GET /api/classes/<id>/stage`, which only the class's teacher can read — and
+`GET /api/v1/classes/<id>/stage`, which only the class's teacher can read — and
 the teacher is who opens a class hero's game. The game learns the hero is a
 class hero from its public page (`in_class`), and finds which of the
 teacher's classes holds it (or takes `?class=<id>`). Every seat the class
 cannot fill, and every other player, gets Editors' choice
-(`GET /api/creations/?featured_only=true`). A class hero can never be starred
+(`GET /api/v1/gallery?view=featured`). A class hero can never be starred
 (the API refuses), so a class's children only ever meet their own classmates
 or Editors' choice — never another class's child. With no API (GitHub Pages)
 the stands use the sample heroes; with nothing at all they stay empty and the

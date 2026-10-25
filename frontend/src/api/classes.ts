@@ -86,7 +86,7 @@ export interface ClassView {
   /** Up to four finished heroes, for the class card. */
   preview: Array<{ creation_id: string; user_id: string; label: string; file_versions?: Record<string, string>; painting?: Painting | null }>;
   roster?: Student[];
-  /** Only on GET /api/classes/{id}. */
+  /** Only on GET /api/v1/classes/{id}. */
   seat_price?: SeatPrice | null;
 }
 

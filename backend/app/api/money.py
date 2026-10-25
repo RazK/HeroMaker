@@ -1,7 +1,7 @@
 """
 Admin console, Money section: is the company net positive?
 
-Mounted under /api/admin/money by app/api/admin.py. Admin-only, every route.
+Mounted under /api/v1/admin/money by app/api/admin.py. Admin-only, every route.
 
     GET    /summary?period=month|30d|all   income, costs, net, credits held
     GET    /providers[?refresh=1]          live Meshy / OpenAI / Railway figures

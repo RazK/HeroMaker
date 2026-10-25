@@ -15,7 +15,7 @@ Step definitions are in `backend/app/config/steps.py`. The pipeline consists of 
 5. `convert_vrm` → `avatar.vrm`
 6. `complete` → (no output file)
 
-**Note:** The `original.jpg` file is saved when uploading via `POST /api/creations/upload`, before any steps run.
+**Note:** The `original.jpg` file is saved when uploading via `POST /api/v1/heroes`, before any steps run.
 
 ## Step Execution Logic
 

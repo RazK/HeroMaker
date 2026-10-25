@@ -1,6 +1,15 @@
-"""Helper functions for HeroMaker API tests."""
+"""Helper functions for HeroMaker API tests (the API is /api/v1: app/api/v1.py)."""
 import time
 from typing import Optional, Dict, Any
+
+# Pipeline step -> the API's stage name (app/services/api_heroes.py STAGES).
+STAGE_OF_STEP = {
+    "image_processing": "cleanup",
+    "openai_render": "painting",
+    "meshy_3d": "model",
+    "meshy_rig": "rig",
+    "convert_vrm": "avatar",
+}
 
 
 def poll_until_complete(test_client, creation_id: str, api_base_url: str, timeout: int = 3600, poll_interval: int = 3) -> Dict[str, Any]:
@@ -24,7 +33,7 @@ def poll_until_complete(test_client, creation_id: str, api_base_url: str, timeou
     start_time = time.time()
     
     while True:
-        response = test_client.get(f"{api_base_url}/api/creations/{creation_id}")
+        response = test_client.get(f"{api_base_url}/api/v1/heroes/{creation_id}")
         assert response.status_code == 200, f"Failed to get creation status: {response.text}"
         creation = response.json()
         
@@ -33,7 +42,7 @@ def poll_until_complete(test_client, creation_id: str, api_base_url: str, timeou
         if status == "completed":
             return creation
         elif status == "failed":
-            error_msg = creation.get("error_message", "Unknown error")
+            error_msg = (creation.get("error") or {}).get("message", "Unknown error")
             raise AssertionError(f"Creation failed: {error_msg}")
         
         elapsed = time.time() - start_time
@@ -71,12 +80,12 @@ def wait_for_step_status(
     start_time = time.time()
     
     while True:
-        response = test_client.get(f"{api_base_url}/api/creations/{creation_id}")
+        response = test_client.get(f"{api_base_url}/api/v1/heroes/{creation_id}")
         assert response.status_code == 200, f"Failed to get creation status: {response.text}"
         creation = response.json()
         
         # Find the step
-        step = next((s for s in creation.get("steps", []) if s.get("step_name") == step_name), None)
+        step = next((s for s in creation.get("stages", []) if s.get("step") == step_name), None)
         if not step:
             raise ValueError(f"Step {step_name} not found in creation {creation_id}")
         
@@ -105,19 +114,19 @@ def get_creation_status(test_client, creation_id: str, api_base_url: str) -> Dic
     Returns:
         Creation status dict
     """
-    response = test_client.get(f"{api_base_url}/api/creations/{creation_id}")
+    response = test_client.get(f"{api_base_url}/api/v1/heroes/{creation_id}")
     assert response.status_code == 200, f"Failed to get creation status: {response.text}"
     return response.json()
 
 
-def run_pipeline(test_client, creation_id: str, restart: bool = False, api_base_url: str = None) -> Dict[str, Any]:
+def run_pipeline(test_client, creation_id: str, from_stage: Optional[str] = None, api_base_url: str = None) -> Dict[str, Any]:
     """
-    Trigger pipeline run and return response.
+    Start the hero (POST /api/v1/heroes/{id}/start) and return it.
     
     Args:
         test_client: Requests session
         creation_id: Creation ID
-        restart: Whether to restart from beginning
+        from_stage: Start again from this stage (a retry); None: from the beginning
         api_base_url: Base URL for API (uses test_client.base_url if not provided)
     
     Returns:
@@ -127,10 +136,10 @@ def run_pipeline(test_client, creation_id: str, restart: bool = False, api_base_
         api_base_url = getattr(test_client, "base_url", "http://localhost:8000")
     
     response = test_client.post(
-        f"{api_base_url}/api/creations/{creation_id}/run",
-        params={"restart": restart}
+        f"{api_base_url}/api/v1/heroes/{creation_id}/start",
+        json={"from_stage": from_stage} if from_stage else {},
     )
-    assert response.status_code == 200, f"Failed to run pipeline: {response.text}"
+    assert response.status_code == 202, f"Failed to run pipeline: {response.text}"
     return response.json()
 
 
@@ -151,8 +160,8 @@ def run_step(test_client, creation_id: str, step_name: str, api_base_url: str = 
         api_base_url = getattr(test_client, "base_url", "http://localhost:8000")
     
     response = test_client.post(
-        f"{api_base_url}/api/creations/{creation_id}/steps/{step_name}/run"
+        f"{api_base_url}/api/v1/heroes/{creation_id}/stages/{STAGE_OF_STEP[step_name]}/run"
     )
-    assert response.status_code == 200, f"Failed to run step: {response.text}"
+    assert response.status_code == 202, f"Failed to run step: {response.text}"
     return response.json()
 

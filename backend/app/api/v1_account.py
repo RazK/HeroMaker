@@ -5,10 +5,10 @@ does with their account, so they need the app's access (scope "app"): an API
 key can read its account's credits (GET /api/v1/account) but never sign in as
 it, change it, delete it or spend its money.
 
-They run the same code the old routes did (app/api/auth.py, payments.py,
-coupons.py); nothing is written twice. Lemon Squeezy's webhook stays at
-/api/payments/webhook: it is the store calling us, not a client, and the
-store is configured with that address.
+The work is done by app/api/auth.py and payments.py, called with the caller
+already resolved. Lemon Squeezy's webhook stays at /api/payments/webhook: it
+is the store calling us, not a client, and the store is configured with that
+address.
 
     POST   /signup  /login  /login/google  /logout
     GET    /auth/config
@@ -17,10 +17,10 @@ store is configured with that address.
     GET    /packs      POST /checkout      GET /receipts
     POST   /coupons/redeem
 """
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api import auth, coupons, payments
+from app.api import auth, payments
 from app.database import get_db
 from app.schemas.auth import (
     AuthConfigResponse,
@@ -37,6 +37,7 @@ from app.schemas.auth import (
 )
 from app.schemas.coupon import CouponRedeemRequest, CouponRedeemResponse
 from app.api.payments import CheckoutRequest, CheckoutResponse, PackOut, ReceiptOut
+from app.services.coupons import CouponError, redeem_coupon
 from app.services.principal import APP, Principal, require
 from app.services.task_manager import get_task_manager
 
@@ -118,4 +119,8 @@ def receipts(who: Principal = Depends(require(APP)), db: Session = Depends(get_d
 
 @router.post("/coupons/redeem", response_model=CouponRedeemResponse)
 def redeem(body: CouponRedeemRequest, who: Principal = Depends(require(APP)), db: Session = Depends(get_db)):
-    return coupons.redeem_coupon_endpoint(body, db=db, user=who.user)
+    """Redeem a coupon code for credits. Each coupon once per account."""
+    try:
+        return CouponRedeemResponse(**redeem_coupon(body.code, who.user.id, db))
+    except CouponError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

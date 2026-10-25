@@ -286,7 +286,7 @@ def test_openapi_lists_the_public_api_only(client):
     spec = client.get("/api/v1/openapi.json").json()
     paths = set(spec["paths"])
     assert {"/api/v1/heroes", "/api/v1/heroes/{hero_id}", "/api/v1/estimates", "/api/v1/account"} <= paths
-    assert not any(p.startswith(("/api/admin", "/api/auth", "/api/v1/keys")) for p in paths)
+    assert not any(p.startswith(("/api/v1/admin", "/api/v1/me", "/api/v1/signup", "/api/v1/keys")) for p in paths)
     body = spec["paths"]["/api/v1/heroes"]["post"]["requestBody"]["content"]
     assert "multipart/form-data" in body and "application/json" in body
     assert "CreateHero" in spec["components"]["schemas"]

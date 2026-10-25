@@ -23,7 +23,8 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -113,7 +114,7 @@ class CreateHero(BaseModel):
     image_url: Optional[str] = Field(None, description="https URL of the drawing (jpg, png, webp; max 15 MB)")
     image_base64: Optional[str] = Field(None, description="The drawing's bytes, base64 (a data: URL is fine too)")
     name: Optional[str] = Field(None, max_length=NAME_MAX, description="The hero's name. Omitted: HeroMaker names it.")
-    style: Optional[str] = Field(None, description="Painting style key (GET /api/styles). Omitted: the default.")
+    style: Optional[str] = Field(None, description="Painting style key (GET /api/v1/styles). Omitted: the default.")
     webhook_url: Optional[str] = Field(None, description="https URL to POST each finished stage to")
     client_ref: Optional[str] = Field(None, max_length=200, description="Your own id for this hero, echoed back")
     public: bool = Field(False, description="Show it in HeroMaker's public gallery")
@@ -390,7 +391,13 @@ def update_hero(hero_id: str, body: HeroUpdate, request: Request,
     mapped = {rename[k]: v for k, v in fields.items()}
     if not mapped:
         raise _error(400, "Nothing to change: send name, artist_name or artist_age.")
-    update_creation(hero_id, CreationRequest(**mapped), db=db, user=who.user)
+    try:
+        changes = CreationRequest(**mapped)
+    except ValidationError as e:
+        # The artist's name is bounded after its spaces are collapsed
+        # (CreationRequest): a 422 like any other bad field, not a 500.
+        raise RequestValidationError(e.errors(include_url=False, include_context=False))
+    update_creation(hero_id, changes, db=db, user=who.user)
     db.refresh(creation)
     return _view(who, creation, api_heroes.base_url(request), api_hero)
 
@@ -478,9 +485,10 @@ def feature_hero(hero_id: str, body: Featured, request: Request,
 @router.get("/styles")
 def styles():
     """The looks a painting can be made in. The first is the default."""
-    from app.api.styles import list_styles
+    from app.services import openai as openai_service
 
-    return {"object": "list", "data": [s if isinstance(s, dict) else s.model_dump() for s in list_styles()]}
+    # Prompts stay server-side: they are ours to tune, not part of the API.
+    return {"object": "list", "data": [{"key": s["key"], "label": s["label"]} for s in openai_service.list_styles()]}
 
 
 # --- Keys: managed by the signed-in user from the app, not with a key.

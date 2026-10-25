@@ -49,6 +49,11 @@ def _step(view, name):
     return next(s for s in view["steps"] if s["step_name"] == name)
 
 
+def _stage(hero, step_name):
+    """A stage of the API's hero object, by its pipeline step."""
+    return next(s for s in hero["stages"] if s.get("step") == step_name)
+
+
 def test_support_sees_a_failed_step_refunded(db, make_user, make_creation, storage_ok, monkeypatch, completed_steps):
     owner = make_user(credits=100)
     admin = make_user(username="support", is_admin=True)
@@ -56,15 +61,15 @@ def test_support_sees_a_failed_step_refunded(db, make_user, make_creation, stora
     _fail(monkeypatch, db, creation, owner)
     client = TestClient(app)
 
-    page = client.get(f"/api/admin/users/{owner.id}", headers=_auth(admin)).json()
+    page = client.get(f"/api/v1/admin/users/{owner.id}", headers=_auth(admin)).json()
     step = _step(next(h for h in page["heroes"] if h["id"] == creation.id), "meshy_3d")
     assert (step["charged_credits"], step["refunded_credits"], step["credits_refunded"]) == (MESHY_COST, MESHY_COST, True)
     # The hero's own page, opened by the admin, says the same.
-    step = _step(client.get(f"/api/creations/{creation.id}", headers=_auth(admin)).json(), "meshy_3d")
-    assert (step["charged_credits"], step["refunded_credits"]) == (MESHY_COST, MESHY_COST)
+    stage = _stage(client.get(f"/api/v1/heroes/{creation.id}", headers=_auth(admin)).json(), "meshy_3d")
+    assert (stage["charged_credits"], stage["error"]["refunded_credits"]) == (MESHY_COST, MESHY_COST)
     # Nobody else gets the ledger's view.
-    step = _step(client.get(f"/api/creations/{creation.id}", headers=_auth(owner)).json(), "meshy_3d")
-    assert step["charged_credits"] is None
+    stage = _stage(client.get(f"/api/v1/heroes/{creation.id}", headers=_auth(owner)).json(), "meshy_3d")
+    assert stage["charged_credits"] is None
 
 
 def test_a_refund_from_before_the_marker_still_reads_refunded(db, make_user, make_creation, storage_ok, monkeypatch):
@@ -78,7 +83,7 @@ def test_a_refund_from_before_the_marker_still_reads_refunded(db, make_user, mak
     flag_modified(row, "metadata_json")
     db.commit()
 
-    page = TestClient(app).get(f"/api/admin/users/{owner.id}", headers=_auth(admin)).json()
+    page = TestClient(app).get(f"/api/v1/admin/users/{owner.id}", headers=_auth(admin)).json()
     step = _step(page["heroes"][0], "meshy_3d")
     assert step["credits_refunded"] is True and step["refunded_credits"] == MESHY_COST
 
@@ -90,6 +95,6 @@ def test_a_step_that_never_got_its_charge_reads_nothing_charged(db, make_user, m
     with pytest.raises(ValueError):
         asyncio.get_event_loop().run_until_complete(pipeline.execute_step(creation.id, owner.id, "meshy_3d", db))
 
-    page = TestClient(app).get(f"/api/admin/users/{owner.id}", headers=_auth(admin)).json()
+    page = TestClient(app).get(f"/api/v1/admin/users/{owner.id}", headers=_auth(admin)).json()
     step = _step(page["heroes"][0], "meshy_3d")
     assert step["status"] == "failed" and step["charged_credits"] == 0 and step["credits_refunded"] is False

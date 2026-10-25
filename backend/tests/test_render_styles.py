@@ -287,12 +287,22 @@ def _auth(user):
     return {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
 
+def _upload(client, user, **fields):
+    """A drawing uploaded, not yet made (the app's sheet), with the style picked."""
+    return client.post("/api/v1/heroes", headers=_auth(user),
+                       files={"drawing": ("d.jpg", PICTURE, "image/jpeg")}, data={"start": "false", **fields})
+
+
+def _start(client, user, creation, **body):
+    return client.post(f"/api/v1/heroes/{creation.id}/start", json=body, headers=_auth(user))
+
+
 def test_get_styles_is_public_and_ordered(api):
     client, _ = api
-    r = client.get("/api/styles")
+    r = client.get("/api/v1/styles")
     assert r.status_code == 200
-    assert r.json() == [{"key": k, "label": l} for k, l in zip(KEYS, LABELS)]
-    assert [s["key"] for s in r.json()] == ["pixar", "lego", "minecraft", "anime"]   # exactly four
+    assert r.json()["data"] == [{"key": k, "label": l} for k, l in zip(KEYS, LABELS)]
+    assert [s["key"] for s in r.json()["data"]] == ["pixar", "lego", "minecraft", "anime"]   # exactly four
     assert RETIRED not in r.text
     assert "prompt" not in r.text
 
@@ -300,9 +310,8 @@ def test_get_styles_is_public_and_ordered(api):
 def test_create_stores_the_style_and_answers_it(db, make_user, api):
     client, _ = api
     user = make_user(credits=0)
-    r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")}, data={"style": "lego"})
-    assert r.status_code == 201, r.text
+    r = _upload(client, user, style="lego")
+    assert r.status_code == 202, r.text
     assert r.json()["style"] == "lego"
     assert db.query(Creation).filter_by(id=r.json()["id"]).one().style == "lego"
 
@@ -310,9 +319,8 @@ def test_create_stores_the_style_and_answers_it(db, make_user, api):
 def test_create_without_a_style_is_pixar(db, make_user, api):
     client, _ = api
     user = make_user(credits=0)
-    r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")})
-    assert r.status_code == 201, r.text
+    r = _upload(client, user)
+    assert r.status_code == 202, r.text
     assert r.json()["style"] == "pixar"
     assert db.query(Creation).filter_by(id=r.json()["id"]).one().style is None
 
@@ -320,8 +328,7 @@ def test_create_without_a_style_is_pixar(db, make_user, api):
 def test_create_with_an_unknown_style_is_400_and_makes_nothing(db, make_user, api):
     client, _ = api
     user = make_user(credits=0)
-    r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")}, data={"style": "cubism"})
+    r = _upload(client, user, style="cubism")
     assert r.status_code == 400
     assert "cubism" in r.json()["detail"]
     assert db.query(Creation).count() == 0
@@ -330,9 +337,8 @@ def test_create_with_an_unknown_style_is_400_and_makes_nothing(db, make_user, ap
 def test_create_with_the_retired_style_is_made_in_the_default(db, make_user, api):
     client, _ = api
     user = make_user(credits=0)
-    r = client.post("/api/creations/create", headers=_auth(user),
-                    files={"image_file": ("d.jpg", PICTURE, "image/jpeg")}, data={"style": RETIRED})
-    assert r.status_code == 201, r.text
+    r = _upload(client, user, style=RETIRED)
+    assert r.status_code == 202, r.text
     assert r.json()["style"] == "pixar"
     assert db.query(Creation).filter_by(id=r.json()["id"]).one().style is None
 
@@ -347,30 +353,29 @@ def test_an_original_hero_loads_everywhere(db, make_user, make_creation, complet
     creation.featured = True
     db.commit()
 
-    page = client.get(f"/api/creations/{creation.id}")
+    page = client.get(f"/api/v1/heroes/{creation.id}")
     assert page.status_code == 200, page.text
     assert page.json()["style"] == "pixar"
     admin = make_user(is_admin=True)
-    for url, headers in (("/api/creations/?mine_only=true", _auth(user)),
-                         ("/api/creations/?featured_only=true", {}),
-                         ("/api/creations/", _auth(admin))):
+    for url, headers in (("/api/v1/gallery?view=mine", _auth(user)),
+                         ("/api/v1/gallery?view=featured", {}),
+                         ("/api/v1/gallery?view=all", _auth(admin))):
         r = client.get(url, headers=headers)
         assert r.status_code == 200, (url, r.text)
-        listed = {c["id"]: c for c in r.json()}
+        listed = {c["id"]: c for c in r.json()["data"]}
         assert listed[creation.id]["style"] == "pixar", url
 
 
-@pytest.mark.parametrize("query", ["", "&style=original"])
+@pytest.mark.parametrize("extra", [{}, {"style": "original"}])
 def test_retrying_an_original_hero_is_accepted_and_paints_pixar(
-        db, make_user, make_creation, api, wire, query):
+        db, make_user, make_creation, api, wire, extra):
     """"Try again" on a failed step of an old Original hero, with or without
     its old id in the request (a tab opened before the style was retired)."""
     client, tasks = api
     user, creation = _hero(db, make_user, make_creation, style=RETIRED)
 
-    r = client.post(f"/api/creations/{creation.id}/run-pipeline?from_step=openai_render{query}",
-                    headers=_auth(user))
-    assert r.status_code == 200, r.text
+    r = _start(client, user, creation, from_stage="painting", **extra)
+    assert r.status_code == 202, r.text
     assert len(tasks.created) == 1
     db.refresh(creation)
     assert creation.style == RETIRED
@@ -383,7 +388,7 @@ def test_run_pipeline_with_an_unknown_style_is_400_and_starts_nothing(db, make_u
     client, tasks = api
     user = make_user(credits=100)
     creation = make_creation(user.id, {"openai_render": "pending"})
-    r = client.post(f"/api/creations/{creation.id}/run-pipeline?style=LEGO", headers=_auth(user))
+    r = _start(client, user, creation, style="LEGO")
     assert r.status_code == 400
     assert tasks.created == []
     db.refresh(creation)
@@ -396,17 +401,17 @@ def test_go_with_a_style_stores_it_and_make_it_again_keeps_it(
     user, creation = _hero(db, make_user, make_creation)
 
     # Go, with Minecraft picked in the sheet.
-    r = client.post(f"/api/creations/{creation.id}/run-pipeline?style=minecraft", headers=_auth(user))
-    assert r.status_code == 200, r.text
+    r = _start(client, user, creation, style="minecraft")
+    assert r.status_code == 202, r.text
     db.refresh(creation)
     assert creation.style == "minecraft"
-    assert client.get(f"/api/creations/{creation.id}", headers=_auth(user)).json()["style"] == "minecraft"
+    assert client.get(f"/api/v1/heroes/{creation.id}", headers=_auth(user)).json()["style"] == "minecraft"
 
     # "Make it again" / "Try again" send no style: the hero keeps its own.
-    r = client.post(f"/api/creations/{creation.id}/run-pipeline", headers=_auth(user))
-    assert r.status_code == 200, r.text
-    r = client.post(f"/api/creations/{creation.id}/run-pipeline?from_step=openai_render", headers=_auth(user))
-    assert r.status_code == 200, r.text
+    r = _start(client, user, creation)
+    assert r.status_code == 202, r.text
+    r = _start(client, user, creation, from_stage="painting")
+    assert r.status_code == 202, r.text
     db.refresh(creation)
     assert creation.style == "minecraft"
     assert len(tasks.created) == 3
@@ -416,12 +421,18 @@ def test_go_with_a_style_stores_it_and_make_it_again_keeps_it(
     assert wire[-1]["prompt"] == openai_service.render_prompt("minecraft")
 
 
-def test_every_style_costs_the_same(api):
+def test_every_style_costs_the_same(db, make_user, api):
     client, _ = api
-    # Price is per step, never per style: the cost endpoint takes no style.
-    r = client.get("/api/creations/cost")
+    # Price is per stage, never per style: the estimates name no style...
+    r = client.get("/api/v1/estimates")
     assert r.status_code == 200
     assert "style" not in r.text
+    assert r.json()["cost_credits"] == sum(s["cost_credits"] for s in r.json()["stages"])
+    # ...and a hero costs the same whatever it is painted in.
+    user = make_user(credits=0)
+    costs = {key: _upload(client, user, style=key).json()["cost_credits"] for key in KEYS}
+    assert len(set(costs.values())) == 1, costs
+    assert set(costs.values()) == {r.json()["cost_credits"]}
 
 
 # ---------------------------------------------------------------------------

@@ -45,6 +45,13 @@ def _auth(user):
     return {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
 
+def _stage(hero, step_name="openai_render"):
+    """A stage of the API's hero object (api_heroes.view), by its pipeline step.
+    Its `error` is {code, message (the user's line), credits_refunded,
+    refunded_credits}, plus {detail, request_id} for an admin only."""
+    return next(s for s in hero["stages"] if s.get("step") == step_name)
+
+
 def _assert_safe(payload):
     text = json.dumps(payload)
     for marker in RAW_MARKERS:
@@ -271,34 +278,33 @@ def test_no_non_admin_response_carries_the_raw_error(path, legacy, failed_hero, 
     cid = creation.id
 
     seen = [
-        client.get(f"/api/creations/{cid}"),                                   # anyone, signed out
-        client.get(f"/api/creations/{cid}", headers={"Authorization": "Bearer stale"}),
-        client.get(f"/api/creations/{cid}", headers=_auth(owner)),
-        client.get(f"/api/creations/{cid}", headers=_auth(stranger)),
-        client.get(f"/api/creations/{cid}/steps/openai_render"),
-        client.get(f"/api/creations/{cid}/steps/openai_render", headers=_auth(owner)),
-        client.get("/api/creations/?mine_only=true", headers=_auth(owner)),
-        client.patch(f"/api/creations/{cid}", json={"character_name": "Zed"}, headers=_auth(owner)),
+        client.get(f"/api/v1/heroes/{cid}"),                                   # anyone, signed out
+        client.get(f"/api/v1/heroes/{cid}", headers={"Authorization": "Bearer stale"}),
+        client.get(f"/api/v1/heroes/{cid}", headers=_auth(owner)),
+        client.get(f"/api/v1/heroes/{cid}", headers=_auth(stranger)),
+        client.get("/api/v1/heroes", headers=_auth(owner)),
+        client.get("/api/v1/gallery?view=mine", headers=_auth(owner)),
+        client.patch(f"/api/v1/heroes/{cid}", json={"name": "Zed"}, headers=_auth(owner)),
     ]
     for r in seen:
         assert r.status_code == 200, r.text
         _assert_safe(r.json())
 
     hero = seen[2].json()
-    step = next(s for s in hero["steps"] if s["step_name"] == "openai_render")
-    assert step["error_code"] in step_errors.CODES
-    assert step["error_user"] and step["error_message"] == step["error_user"]
-    assert step["error_detail"] is None and step["error_request_id"] is None
-    assert hero["error_message"] == step["error_user"]
+    error = _stage(hero)["error"]
+    assert error["code"] in step_errors.CODES
+    assert error["message"]
+    assert "detail" not in error and "request_id" not in error
+    assert hero["error"]["message"] == error["message"]
 
 
 def test_the_screenshot_hero_as_its_owner(failed_hero):
     owner, creation, _ = failed_hero("provider error (execute_step)")
-    r = TestClient(app).get(f"/api/creations/{creation.id}", headers=_auth(owner))
-    step = next(s for s in r.json()["steps"] if s["step_name"] == "openai_render")
-    assert step["error_code"] == "safety_blocked"
-    assert step["credits_refunded"] is True
-    assert step["error_user"] == "We couldn't paint this picture. Credits returned. Try another drawing or photo."
+    r = TestClient(app).get(f"/api/v1/heroes/{creation.id}", headers=_auth(owner))
+    error = _stage(r.json())["error"]
+    assert error["code"] == "safety_blocked"
+    assert error["credits_refunded"] is True
+    assert error["message"] == "We couldn't paint this picture. Credits returned. Try another drawing or photo."
 
 
 @pytest.mark.parametrize("path", list(PATHS))
@@ -306,29 +312,25 @@ def test_an_admin_also_gets_the_raw_error_and_request_id(path, failed_hero, make
     _, creation, raw = failed_hero(path)
     admin = make_user(is_admin=True)
     client = TestClient(app)
-    for r in (client.get(f"/api/creations/{creation.id}", headers=_auth(admin)),
-              client.get("/api/creations/", headers=_auth(admin))):
+    for r in (client.get(f"/api/v1/heroes/{creation.id}", headers=_auth(admin)),
+              client.get("/api/v1/gallery?view=all", headers=_auth(admin))):
         assert r.status_code == 200
-        heroes = r.json() if isinstance(r.json(), list) else [r.json()]
+        heroes = r.json()["data"] if "data" in r.json() else [r.json()]
         hero = next(h for h in heroes if h["id"] == creation.id)
-        step = next(s for s in hero["steps"] if s["step_name"] == "openai_render")
-        assert step["error_detail"] == raw
-        assert step["error_message"] == raw          # the admin step view reads it
-        assert step["error_user"]
-    single = client.get(f"/api/creations/{creation.id}/steps/openai_render", headers=_auth(admin)).json()
-    assert single["error_detail"] == raw
-    if raw == MODERATION:
-        assert single["error_request_id"] == "req_8f3c2a91b7d04e6fa1c2"
+        error = _stage(hero)["error"]
+        assert error["detail"] == raw                # the admin step view reads it
+        assert error["message"]
+        if raw == MODERATION:
+            assert error["request_id"] == "req_8f3c2a91b7d04e6fa1c2"
 
 
 def test_featuring_answers_an_admin_with_the_raw_error(failed_hero, make_user):
     _, creation, raw = failed_hero("provider error (execute_step)")
     admin = make_user(is_admin=True)
-    r = TestClient(app).put(f"/api/creations/{creation.id}/featured", json={"featured": False},
+    r = TestClient(app).put(f"/api/v1/heroes/{creation.id}/featured", json={"featured": False},
                             headers=_auth(admin))
     if r.status_code == 200:            # a failed hero may be refused; if answered, it is raw for an admin
-        step = next(s for s in r.json()["steps"] if s["step_name"] == "openai_render")
-        assert step["error_detail"] == raw
+        assert _stage(r.json())["error"]["detail"] == raw
 
 
 def test_a_class_heros_line_never_mentions_credits(db, failed_hero, make_user):
@@ -338,10 +340,11 @@ def test_a_class_heros_line_never_mentions_credits(db, failed_hero, make_user):
     db.commit()
     _, creation, _ = failed_hero("provider error (execute_step)", class_id=room.id)
 
-    r = TestClient(app).get(f"/api/creations/{creation.id}")    # the child's page: no account
-    step = next(s for s in r.json()["steps"] if s["step_name"] == "openai_render")
-    assert step["error_code"] == "safety_blocked"
-    assert "credit" not in step["error_user"].lower()
+    r = TestClient(app).get(f"/api/v1/heroes/{creation.id}")    # the child's page: no account
+    error = _stage(r.json())["error"]
+    assert error["code"] == "safety_blocked"
+    assert "credit" not in error["message"].lower()
+    assert "credit" not in r.json()["error"]["message"].lower()
     _assert_safe(r.json())
 
     # The roster, the stage and the claim link summarise the hero; none has room for the raw text.
@@ -371,7 +374,7 @@ def test_migration_adds_error_code_to_an_existing_database(tmp_path):
 def test_admin_users_view_carries_no_step_errors(failed_hero, make_user):
     failed_hero("provider error (execute_step)")
     admin = make_user(is_admin=True)
-    r = TestClient(app).get("/api/admin/users", headers=_auth(admin))
+    r = TestClient(app).get("/api/v1/admin/users", headers=_auth(admin))
     assert r.status_code == 200
     _assert_safe(r.json())
 

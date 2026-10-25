@@ -13,7 +13,7 @@ with no history:
 
 This module replaces the mutation with an append-only ledger. `users.credits`
 stays as a denormalised cache updated inside the same database transaction, so
-every existing read path (`GET /api/auth/me`, the admin user list, the pipeline's
+every existing read path (`GET /api/v1/me`, the admin user list, the pipeline's
 pre-flight check) keeps working untouched.
 
 THE TWO GUARANTEES, AND HOW THEY ARE ENFORCED

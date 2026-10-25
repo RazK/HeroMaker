@@ -1,4 +1,4 @@
-"""Deleting a whole account: DELETE /api/auth/me.
+"""Deleting a whole account: DELETE /api/v1/me.
 
 The privacy policy promises the account "is removed immediately [...] except
 purchase records, which we keep as required by law". These drive the real
@@ -174,7 +174,7 @@ def _account(db, client, make_user, make_creation, completed_steps, store, usern
 
 def _delete(client, user, confirm=None):
     return client.request(
-        "DELETE", "/api/auth/me",
+        "DELETE", "/api/v1/me",
         headers={"Authorization": f"Bearer {create_access_token(user.id)}"},
         json={"confirm": user.username if confirm is None else confirm},
     )
@@ -243,8 +243,8 @@ def test_delete_account_removes_everything_but_anonymised_purchases(
 
     # The old token is dead everywhere.
     auth = {"Authorization": f"Bearer {token}"}
-    assert client.get("/api/auth/me", headers=auth).status_code == 401
-    assert client.get("/api/payments/receipts", headers=auth).status_code == 401
+    assert client.get("/api/v1/me", headers=auth).status_code == 401
+    assert client.get("/api/v1/receipts", headers=auth).status_code == 401
     assert _delete(client, me).status_code == 401
 
     # Someone else's account is untouched.
@@ -256,8 +256,8 @@ def test_delete_account_removes_everything_but_anonymised_purchases(
     assert db.query(CreditTransaction).filter(
         CreditTransaction.creation_id == other_heroes[0]).count() == 1
     other_auth = {"Authorization": f"Bearer {create_access_token(other.id)}"}
-    assert client.get("/api/auth/me", headers=other_auth).json()["username"] == "noa"
-    assert len(client.get("/api/payments/receipts", headers=other_auth).json()) == 1
+    assert client.get("/api/v1/me", headers=other_auth).json()["username"] == "noa"
+    assert len(client.get("/api/v1/receipts", headers=other_auth).json()) == 1
 
 
 def test_wrong_confirmation_deletes_nothing(
@@ -268,7 +268,7 @@ def test_wrong_confirmation_deletes_nothing(
 
     for wrong in ("ITAI", "someone", ""):
         assert _delete(client, me, confirm=wrong).status_code == 400
-    missing = client.request("DELETE", "/api/auth/me",
+    missing = client.request("DELETE", "/api/v1/me",
                              headers={"Authorization": f"Bearer {create_access_token(me.id)}"})
     assert missing.status_code == 422
 
@@ -287,7 +287,7 @@ def test_signing_in_again_after_deletion_is_a_fresh_account(
     assert _delete(client, me).status_code == 204
 
     # The same email can sign up again, and starts empty.
-    signup = client.post("/api/auth/signup", json={
+    signup = client.post("/api/v1/signup", json={
         "username": "itai", "email": "user1@example.test", "password": "secret1",
         "name": "Itai", "date_of_birth": "2015-01-01",
     })
@@ -295,7 +295,7 @@ def test_signing_in_again_after_deletion_is_a_fresh_account(
     fresh = signup.json()["user"]
     assert fresh["id"] != old_id and fresh["credits"] == 0
     # The deleted account cannot be logged into by its old name.
-    assert client.post("/api/auth/login", json={"username": "itai", "password": "x"}).status_code == 401
+    assert client.post("/api/v1/login", json={"username": "itai", "password": "x"}).status_code == 401
 
 
 def test_storage_failure_changes_nothing(
@@ -311,7 +311,7 @@ def test_storage_failure_changes_nothing(
     db.expire_all()
     assert db.get(User, me.id).deleted_at is None
     assert db.query(Creation).filter(Creation.id.in_(my_heroes)).count() == 2
-    assert client.get("/api/auth/me",
+    assert client.get("/api/v1/me",
                       headers={"Authorization": f"Bearer {create_access_token(me.id)}"}).status_code == 200
 
 

@@ -98,7 +98,7 @@ const browser = await chromium.launch()
 const probe = await browser.newPage()
 const direct = await probe.evaluate(async (api) => {
   try {
-    const r = await fetch(`https://${api}/api/creations/?limit=1`, { mode: 'cors' })
+    const r = await fetch(`https://${api}/api/v1/gallery?view=featured`, { mode: 'cors' })
     return r.ok
   } catch { return false }
 }, API).catch(() => false)
@@ -107,7 +107,7 @@ await probe.close()
 // Can THIS process get out? If the browser cannot but Node can, Node relays.
 let nodeCan = false
 try {
-  const r = await fetch(`https://${API}/api/creations/?limit=1`)
+  const r = await fetch(`https://${API}/api/v1/gallery?view=featured`)
   nodeCan = r.ok
 } catch {}
 

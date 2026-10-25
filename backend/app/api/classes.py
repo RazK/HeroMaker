@@ -1,9 +1,9 @@
 """Classes: the teacher's endpoints, the student's and the parent's.
 
-    /api/classes/...        the teacher (signed in)
-    /api/class/join...      a student joining with a PIN (no account)
-    /api/class/me...        a student with a pass: their one hero
-    /api/class/claim/...    a parent keeping their child's hero
+    /api/v1/classes/...       the teacher (signed in)
+    /api/v1/class/join...     a student joining with a PIN (no account)
+    /api/v1/class/me...       a student with a pass: their one hero
+    /api/v1/class/claim/...   a parent keeping their child's hero
 
 The rules live in app/services/classes.py; the product in
 docs/product/class-sessions.md. A student's hero is made by the same two
@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 teacher_router = APIRouter()
 student_router = APIRouter()
 
-# All of /api: the student calls live at /api/v1/class now (one API for every
-# client), and a pass set by the old /api/class address must reach both.
+# All of /api, which covers the student calls at /api/v1/class. A pass set
+# with the older path /api/class no longer reaches them; the app also keeps the
+# pass in localStorage and sends it as a header, so the student keeps it.
 COOKIE_PATH = "/api"
 # A pass and a browser marker outlive any one session: a student who missed the
 # hero last week makes it with the same pass next week.
@@ -109,7 +110,7 @@ def seat_price() -> Optional[dict]:
     """The class price, for "Pay $X for N seats": a part per order plus a part
     per seat, in cents (app/config/packs.py has the numbers and their margin).
     None hides the option: no class-seats variant, or no store, configured,
-    exactly as GET /api/payments/packs omits a pack it cannot sell."""
+    exactly as GET /api/v1/packs omits a pack it cannot sell."""
     if not (lemonsqueezy.is_configured() and packs_config.class_seats_variant_id()):
         return None
     return {

@@ -1,5 +1,5 @@
 """
-GET /api/admin/money/lemonsqueezy: Lemon Squeezy's orders beside our payments.
+GET /api/v1/admin/money/lemonsqueezy: Lemon Squeezy's orders beside our payments.
 
 Driven through the real app and the real reconciliation. Only Lemon Squeezy's
 HTTP is faked, at the `requests` boundary inside
@@ -17,7 +17,7 @@ from app.models import Payment
 from app.services import lemonsqueezy, lemonsqueezy_check
 from app.services.auth import create_access_token
 
-URL = "/api/admin/money/lemonsqueezy"
+URL = "/api/v1/admin/money/lemonsqueezy"
 STORE_URL = f"{lemonsqueezy.API_ROOT}/stores/4242"
 ORDERS_URL = f"{lemonsqueezy.API_ROOT}/orders"
 KEY = "ls-secret-api-key"

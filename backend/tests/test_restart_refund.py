@@ -338,18 +338,18 @@ def test_a_class_hero_is_refunded_to_the_class_wallet(db, make_user, monkeypatch
     try:
         client = TestClient(app)
         teacher = make_user(credits=100)
-        r = client.post("/api/classes", json={"title": "Grade 2B", "seats": 2}, headers=_auth(teacher))
+        r = client.post("/api/v1/classes", json={"title": "Grade 2B", "seats": 2}, headers=_auth(teacher))
         assert r.status_code == 201, r.text
         class_id = r.json()["id"]
-        r = client.post(f"/api/classes/{class_id}/start", json={"minutes": 45, "approve_first": False},
+        r = client.post(f"/api/v1/classes/{class_id}/start", json={"minutes": 45, "approve_first": False},
                         headers=_auth(teacher))
         assert r.status_code == 200, r.text
         pin = r.json()["live"]["pin"]
 
         student = TestClient(app)
-        assert student.post("/api/class/join", json={"pin": pin, "first_name": "Maya", "age": 7}).status_code == 200
+        assert student.post("/api/v1/class/join", json={"pin": pin, "first_name": "Maya", "age": 7}).status_code == 200
         _steps(monkeypatch, dies_at="meshy_3d", deliver=_deliver)
-        r = student.post("/api/class/me/hero", files={"image_file": ("d.jpg", _jpeg(b" dragon"), "image/jpeg")})
+        r = student.post("/api/v1/class/me/hero", files={"image_file": ("d.jpg", _jpeg(b" dragon"), "image/jpeg")})
         assert r.status_code == 201, r.text
         [run] = tasks.pending
         _die(run)

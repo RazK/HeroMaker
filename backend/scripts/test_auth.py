@@ -32,7 +32,7 @@ def test_signup():
     """Test user signup."""
     print("🧪 Testing signup...")
     response = requests.post(
-        f"{API_BASE_URL}/api/auth/signup",
+        f"{API_BASE_URL}/api/v1/signup",
         json={
             "username": TEST_USERNAME,
             "email": TEST_EMAIL,
@@ -56,7 +56,7 @@ def test_login():
     """Test user login."""
     print("🧪 Testing login...")
     response = requests.post(
-        f"{API_BASE_URL}/api/auth/login",
+        f"{API_BASE_URL}/api/v1/login",
         json={
             "username": TEST_USERNAME,
             "password": TEST_PASSWORD
@@ -76,7 +76,7 @@ def test_get_me(token):
     """Test /me endpoint with JWT token."""
     print("🧪 Testing /me endpoint...")
     response = requests.get(
-        f"{API_BASE_URL}/api/auth/me",
+        f"{API_BASE_URL}/api/v1/me",
         headers={"Authorization": f"Bearer {token}"}
     )
     
@@ -91,15 +91,15 @@ def test_get_me(token):
 
 def test_protected_endpoint(token):
     """Test accessing a protected endpoint."""
-    print("🧪 Testing protected endpoint (list creations)...")
+    print("🧪 Testing protected endpoint (list heroes)...")
     response = requests.get(
-        f"{API_BASE_URL}/api/creations/",
+        f"{API_BASE_URL}/api/v1/heroes",
         headers={"Authorization": f"Bearer {token}"}
     )
     
     if response.status_code == 200:
         data = response.json()
-        print(f"✅ Protected endpoint accessible: {len(data.get('creations', []))} creations")
+        print(f"✅ Protected endpoint accessible: {len(data.get('data', []))} heroes")
         return True
     else:
         print(f"❌ Protected endpoint failed: {response.status_code} - {response.text}")
@@ -110,7 +110,7 @@ def test_invalid_token():
     """Test with invalid token."""
     print("🧪 Testing invalid token...")
     response = requests.get(
-        f"{API_BASE_URL}/api/auth/me",
+        f"{API_BASE_URL}/api/v1/me",
         headers={"Authorization": "Bearer invalid_token_12345"}
     )
     
@@ -123,14 +123,14 @@ def test_invalid_token():
 
 
 def test_no_token():
-    """Test without token (should fall back to debug user)."""
-    print("🧪 Testing no token (fallback to debug user)...")
+    """Test without token: the public gallery still answers."""
+    print("🧪 Testing no token (public gallery)...")
     response = requests.get(
-        f"{API_BASE_URL}/api/creations/"
+        f"{API_BASE_URL}/api/v1/gallery?view=featured"
     )
     
     if response.status_code == 200:
-        print("✅ No token request handled (fallback to debug user)")
+        print("✅ No token request handled (public gallery)")
         return True
     else:
         print(f"⚠️  No token request: {response.status_code} - {response.text}")

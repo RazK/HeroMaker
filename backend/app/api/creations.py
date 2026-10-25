@@ -1,40 +1,34 @@
-"""Creation and pipeline API endpoints."""
+"""A hero's life, as the API (app/api/v1.py) and classes (app/api/classes.py)
+act on it: made from a drawing, listed, renamed, starred, run, stopped and
+deleted. No routes of its own: the callers resolve who is asking and call
+these with that user.
+"""
 import asyncio
 import io
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
+from typing import Optional
+from fastapi import HTTPException
 from sqlalchemy.orm import Session, selectinload
 
-from app.database import get_db, SessionLocal
+from app.database import SessionLocal
 from app.models import User, Creation, CreationStep
-from app.schemas.creation import (
-    CreationRequest, CreationResponse, CreationStepResponse, FeaturedRequest,
-    MessageResponse, CostResponse, StepConfigResponse, StepActionResponse, PipelineActionResponse
-)
-from fastapi.security import HTTPAuthorizationCredentials
-from app.services.auth import (
-    get_current_user_required, get_current_user_optional, security as bearer, verify_access_token,
-)
+from app.schemas.creation import CreationRequest, CreationResponse, FeaturedRequest
 from app.services import step_errors
 from app.services import step_stats
 from app.services.credits import step_billing
 from app.services import classes as classes_service
-from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
+from app.config.steps import get_step_by_name, get_all_step_names
 from app.services.pipeline import (
     _initialize_creation_steps, _reset_step, execute_step, run_pipeline, steps_from, clear_stale_failures,
 )
-from app.services.task_manager import get_task_manager, PIPELINE_KEY
+from app.services.task_manager import PIPELINE_KEY
 from app.services import openai as openai_service
 from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
 
 
-# Note: RunPipelineRequest removed - sequential pipeline removed
-
 logger = logging.getLogger(__name__)
-router = APIRouter()
 
 
 def _checked_style(style: Optional[str]) -> Optional[str]:
@@ -58,23 +52,6 @@ def _is_admin(user: Optional[User]) -> bool:
     return bool(user is not None and user.is_admin)
 
 
-def _viewer_or_none(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
-        db: Session = Depends(get_db),
-) -> Optional[User]:
-    """The signed-in caller, or None. Never raises: a hero's page is public,
-    and a stale token must not turn it into a 401."""
-    user_id = verify_access_token(credentials.credentials) if credentials else None
-    if not user_id:
-        return None
-    return db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
-
-
-def _admin_or_none(viewer: Optional[User] = Depends(_viewer_or_none)) -> Optional[User]:
-    """The caller, if they are an admin; None for anyone else. Never raises."""
-    return viewer if _is_admin(viewer) else None
-
-
 def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
     """A creation the app may show or act on: one its owner has not deleted."""
     return (
@@ -84,90 +61,11 @@ def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
     )
 
 
-@router.get("/cost", response_model=CostResponse)
-def get_creation_cost(
-    steps: Optional[str] = Query(None, description="Comma-separated list of step names")
-):
-    """Get the credit cost for running steps.
-    
-    If steps provided, calculates cost for those steps.
-    Otherwise, returns cost for full creation pipeline (all steps).
-    """
-    if steps:
-        step_list = [s.strip() for s in steps.split(",")]
-    else:
-        step_list = get_all_step_names()
-    cost = calculate_steps_cost(step_list)
-    return {"cost": cost}
-
-
-@router.get("/steps/config", response_model=StepConfigResponse)
-def get_step_config_endpoint():
-    """Get step configuration for frontend (names, display names, costs, outputs)."""
-    return {"steps": get_steps_config()}
-
-
-@router.get("/estimates")
-def get_estimates(db: Session = Depends(get_db)):
-    """How long each step takes now: medians and 90th percentiles of the most
-    recent real runs (app/services/step_stats.py), and the whole pipeline."""
-    steps = step_stats.estimates(db)
-    return {"steps": steps, "total": step_stats.total(db), "unit": "seconds"}
-
-
-@router.get("/{creation_id}/steps/{step_name}", response_model=CreationStepResponse)
-def get_step_status(
-        creation_id: str,
-        step_name: str,
-        db: Session = Depends(get_db),
-        admin: Optional[User] = Depends(_admin_or_none),
-):
-    """Get status of a single step (for polling during processing)."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
-    
-    if not step:
-        raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
-    
-    return CreationStepResponse.from_step(step, admin=admin is not None)
-
-
-@router.get("/{creation_id}", response_model=CreationResponse)
-def get_creation(
-        creation_id: str,
-        db: Session = Depends(get_db),
-        viewer: Optional[User] = Depends(_viewer_or_none),
-):
-    admin = viewer if _is_admin(viewer) else None
-    creation = _live_creation(db, creation_id)
-    if not creation and admin is not None:
-        # An admin opening a hero they removed, from the user's page.
-        from app.services import moderation
-        removed = db.query(Creation).filter(Creation.id == creation_id).first()
-        if removed is not None and moderation.removal_of(db, removed) is not None:
-            creation = removed
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-
-    # An admin reads what a failed step cost and gave back, from the ledger.
-    billing = step_billing(db, [creation.id]) if admin is not None else None
-    return CreationResponse.from_creation(
-        creation, admin=admin is not None, viewer_id=viewer.id if viewer else None, billing=billing,
-    )
-
-
-@router.patch("/{creation_id}", response_model=CreationResponse)
 def update_creation(
         creation_id: str,
         update_data: CreationRequest,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
+        db: Session,
+        user: User,
 ):
     """Update a creation's metadata (character_name, name, age)."""
     creation = _live_creation(db, creation_id)
@@ -192,14 +90,13 @@ def update_creation(
     return CreationResponse.from_creation(creation, admin=_is_admin(user), viewer_id=user.id)
 
 
-@router.get("/", response_model=List[CreationResponse])
 def list_creations(
-        db: Session = Depends(get_db),
-        user: Optional[User] = Depends(get_current_user_optional),
+        db: Session,
+        user: Optional[User],
         mine_only: bool = False,
         featured_only: bool = False,
 ):
-    """List creations for the gallery. Public endpoint.
+    """The gallery's heroes (GET /api/v1/gallery). Public.
 
     - mine_only (signed in): the caller's own heroes, in any state but never
       started (Creation.never_started, left out of every list).
@@ -207,7 +104,7 @@ def list_creations(
       finished heroes an admin has starred.
     - neither: every hero ("All heroes") for an admin. "All heroes" is an
       admin view: anyone else gets Editors' choice, so an unstarred hero is
-      never listed to a visitor. A hero's own page (GET /{id}) is unaffected,
+      never listed to a visitor. A hero's own page (GET /api/v1/heroes/{id}) is unaffected,
       so a shared link keeps working.
     """
     # A class hero (made by a student, not yet claimed by a parent) is in no
@@ -240,12 +137,11 @@ def list_creations(
     return [CreationResponse.from_creation(c, admin=admin, viewer_id=viewer_id, billing=billing) for c in creations]
 
 
-@router.put("/{creation_id}/featured", response_model=CreationResponse)
 def set_featured(
         creation_id: str,
         body: FeaturedRequest,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
+        db: Session,
+        user: User,
 ):
     """Star or unstar a hero for Editors' choice. Admins only."""
     if not user.is_admin:
@@ -267,12 +163,11 @@ def set_featured(
     return CreationResponse.from_creation(creation, admin=_is_admin(user))
 
 
-@router.delete("/{creation_id}", response_model=MessageResponse)
 def delete_creation(
         creation_id: str,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
+        db: Session,
+        user: User,
+        task_manager
 ):
     """Delete a creation and its files. Cancels all running tasks."""
     creation = _live_creation(db, creation_id)
@@ -302,31 +197,6 @@ def delete_creation(
     return {"message": "Creation deleted"}
 
 
-
-
-@router.post("/create", response_model=CreationResponse, status_code=201)
-async def create_creation(
-        image_file: UploadFile = File(...),
-        character_name: Optional[str] = Form(None),
-        style: Optional[str] = Form(None),
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required)
-):
-    """
-    Create a new creation and upload the image file.
-
-    This endpoint creates the creation record and uploads the image.
-    The pipeline must be started separately using the /{creation_id}/run endpoint.
-    `style` (optional) is a key of GET /api/styles; it can also be given, or
-    changed, when the pipeline is started.
-    """
-    style = _checked_style(style)
-    contents = await image_file.read()
-    new_creation = create_with_drawing(
-        db, user.id, contents, character_name=character_name, name=user.name, style=style,
-    )
-    # Return creation response (no pipeline run - frontend will call /run separately)
-    return CreationResponse.from_creation(new_creation, admin=_is_admin(user), viewer_id=user.id)
 
 
 # What a drawing may be: the photo formats phones and browsers hand over.
@@ -365,7 +235,7 @@ def create_with_drawing(
 ) -> Creation:
     """A new hero with its steps and its drawing stored as original.jpg.
 
-    The one way a hero comes into being: POST /create and a class student's
+    The one way a hero comes into being: POST /api/v1/heroes and a class student's
     hero (app/api/classes.py) both go through here. `owner_id` is who
     pays for the pipeline and under whose prefix the files are stored.
     Anything that is not a picture is refused here (require_picture), so
@@ -406,16 +276,12 @@ def create_with_drawing(
     return new_creation
 
 
-# Note: run_creation endpoint removed - sequential pipeline removed
-# Users should run steps individually using run_step endpoint
-
-@router.post("/{creation_id}/steps/{step_name}/cancel", response_model=StepActionResponse)
 async def cancel_step(
         creation_id: str,
         step_name: str,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
+        db: Session,
+        user: User,
+        task_manager
 ):
     """Cancel a running step."""
     creation = _live_creation(db, creation_id)
@@ -479,13 +345,12 @@ def _refuse_if_busy(creation: Creation, task_manager, except_step: Optional[str]
         raise HTTPException(status_code=400, detail=f"Pipeline already running (step: {busy[0]})")
 
 
-@router.post("/{creation_id}/steps/{step_name}/run", response_model=StepActionResponse)
 async def run_step(
         creation_id: str,
         step_name: str,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
+        db: Session,
+        user: User,
+        task_manager
 ):
     """Run a single step independently. Handles retry automatically."""
     creation = _live_creation(db, creation_id)
@@ -600,55 +465,6 @@ async def run_step(
     }
 
 
-@router.post("/{creation_id}/run-pipeline", response_model=PipelineActionResponse)
-async def run_pipeline_endpoint(
-        creation_id: str,
-        from_step: Optional[str] = Query(None, description="Step name to start from (for retry)"),
-        mock_creation_id: Optional[str] = Query(None, description="Creation ID to copy outputs from (admin testing)"),
-        style: Optional[str] = Query(None, description="Painting style (GET /api/styles). Omitted: the hero keeps the one it has."),
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user_required),
-        task_manager = Depends(get_task_manager)
-):
-    """Run full pipeline (all steps sequentially) or from a specific step.
-
-    Steps are executed in order, credits deducted per-step.
-    If a step fails, pipeline stops there.
-
-    `style` is stored on the hero before the run starts. Without it the hero
-    keeps its style, which is how "Make it again" and "Try again" repeat it.
-    Every style costs the same.
-    """
-    style = _checked_style(style)
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to run this pipeline")
-    
-    # mock_creation_id is admin-only
-    if mock_creation_id and not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required for mock_creation_id")
-
-    # Validate from_step if provided
-    if from_step:
-        step_names = get_all_step_names()
-        if from_step not in step_names:
-            raise HTTPException(status_code=400, detail=f"Invalid step name: {from_step}")
-    
-    from_label = start_pipeline(
-        creation, db, task_manager,
-        from_step=from_step, mock_creation_id=mock_creation_id, style=style,
-    )
-    return {
-        "message": "Pipeline started",
-        "creation_id": creation_id,
-        "from_step": from_label,
-    }
-
-
 def start_pipeline(
         creation: Creation,
         db: Session,
@@ -660,7 +476,7 @@ def start_pipeline(
 ) -> str:
     """Start the pipeline for a hero in the background. Returns the first step.
 
-    Used by POST /{id}/run-pipeline and by a class student's hero
+    Used by POST /api/v1/heroes (and /start) and by a class student's hero
     (app/api/classes.py), so both run the same pipeline.run_pipeline:
     charged per step to creation.user_id, refunded by execute_step on failure.
     Callers have checked permissions; `style` is already validated.

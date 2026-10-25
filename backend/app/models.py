@@ -417,8 +417,8 @@ class PasswordResetToken(Base):
 
     Only the sha256 of the token is stored: the token itself exists in the
     email and nowhere else, so a leaked database cannot be turned into password
-    resets. Written by POST /api/auth/forgot-password, consumed by
-    POST /api/auth/reset-password (see app/services/password_reset.py).
+    resets. Written by POST /api/v1/password/forgot, consumed by
+    POST /api/v1/password/reset (see app/services/password_reset.py).
     """
     __tablename__ = "password_reset_tokens"
 
@@ -521,7 +521,7 @@ class ClassGuest(Base):
     token_hash = Column(String(64), nullable=False, unique=True)
     # sha256 of the browser marker that joined, to spot a second student on
     # the same browser (who then waits for the teacher). Not a fingerprint: a
-    # random value we issued, sent only to /api/class.
+    # random value we issued, sent only to /api/v1/class.
     device_hash = Column(String(64), nullable=True, index=True)
     shared_device = Column(Boolean, nullable=False, default=False)
     # approved | waiting | blocked | removed (taken off the board by the teacher)

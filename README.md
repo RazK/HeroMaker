@@ -13,7 +13,8 @@ AI-powered character creation pipeline that transforms 2D images into 3D VRM ava
 | **The product** | <https://heromaker.up.railway.app> |
 | API docs | <https://heromaker.up.railway.app/docs> |
 | Health | <https://heromaker.up.railway.app/health> |
-| Public gallery (JSON) | <https://heromaker.up.railway.app/api/creations/> |
+| Public gallery (JSON) | <https://heromaker.up.railway.app/api/v1/gallery?view=featured> |
+| API for apps and agents | <https://heromaker.up.railway.app/developers> · [`/llms.txt`](https://heromaker.up.railway.app/llms.txt) |
 | **Hero Moves** (webcam party game) | <https://razk.github.io/HeroMaker/hero-moves/> |
 | Hero Moves, camera-free prototype | <https://razk.github.io/HeroMaker/hero-moves/reel.html> |
 

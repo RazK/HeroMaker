@@ -86,16 +86,3 @@ def is_last_step(step_name: str) -> bool:
     """Check if a step is the last step in the pipeline."""
     last = get_last_step()
     return last is not None and last["name"] == step_name
-
-
-def get_steps_config():
-    """Get step configuration for frontend (name, display_name, credit_cost, output)."""
-    return [
-        {
-            "name": step["name"],
-            "display_name": step["display_name"],
-            "credit_cost": step["credit_cost"],
-            "output_file": step["output"],
-        }
-        for step in STEPS
-    ]

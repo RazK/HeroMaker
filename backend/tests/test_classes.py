@@ -24,7 +24,7 @@ from app.config.steps import STEPS, get_step_by_name
 from app.database import SessionLocal
 from app.main import app
 from app.migrations import m015_classes, m019_class_seat_returns
-from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreditTransaction, User
+from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreationStep, CreditTransaction, User
 from app.services import classes, demo_library, ledger, pipeline
 from app.services.account_deletion import delete_account
 from app.services.auth import create_access_token
@@ -145,13 +145,13 @@ def _balance(db, user_id):
 
 
 def _new_class(client, teacher, seats=3, title="Grade 2B"):
-    r = client.post("/api/classes", json={"title": title, "seats": seats}, headers=_auth(teacher))
+    r = client.post("/api/v1/classes", json={"title": title, "seats": seats}, headers=_auth(teacher))
     assert r.status_code == 201, r.text
     return r.json()
 
 
 def _start(client, teacher, class_id, minutes=45, approve_first=False):
-    r = client.post(f"/api/classes/{class_id}/start", json={"minutes": minutes, "approve_first": approve_first},
+    r = client.post(f"/api/v1/classes/{class_id}/start", json={"minutes": minutes, "approve_first": approve_first},
                     headers=_auth(teacher))
     assert r.status_code == 200, r.text
     return r.json()["live"]["pin"]
@@ -164,15 +164,15 @@ class Student:
         self.client = TestClient(app)
 
     def join(self, pin, name="Maya", age=7):
-        return self.client.post("/api/class/join", json={"pin": pin, "first_name": name, "age": age})
+        return self.client.post("/api/v1/class/join", json={"pin": pin, "first_name": name, "age": age})
 
     def make(self, drawing=DRAWING, style=None):
         data = {"style": style} if style else {}
-        return self.client.post("/api/class/me/hero", files={"image_file": ("d.jpg", drawing, "image/jpeg")},
+        return self.client.post("/api/v1/class/me/hero", files={"image_file": ("d.jpg", drawing, "image/jpeg")},
                                 data=data)
 
     def me(self):
-        return self.client.get("/api/class/me")
+        return self.client.get("/api/v1/class/me")
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ def test_a_class_is_paid_up_front_into_its_own_wallet(db, make_user, api):
 def test_not_enough_credits_buys_no_class(db, make_user, api):
     client, _ = api
     teacher = make_user(credits=100)
-    r = client.post("/api/classes", json={"title": "Grade 2B", "seats": 30}, headers=_auth(teacher))
+    r = client.post("/api/v1/classes", json={"title": "Grade 2B", "seats": 30}, headers=_auth(teacher))
     assert r.status_code == 402
     assert r.json()["detail"] == "You need 300 credits for 30 heroes. You have 100."
     assert db.query(ClassRoom).count() == 0
@@ -216,7 +216,7 @@ def test_adding_seats_pays_for_them(db, make_user, api):
     client, _ = api
     teacher = make_user(credits=100)
     c = _new_class(client, teacher, seats=5)
-    r = client.post(f"/api/classes/{c['id']}/seats", json={"seats": 3}, headers=_auth(teacher))
+    r = client.post(f"/api/v1/classes/{c['id']}/seats", json={"seats": 3}, headers=_auth(teacher))
     assert r.status_code == 200, r.text
     assert r.json()["seats"] == 8
     assert _balance(db, teacher.id) == 100 - 80
@@ -226,9 +226,9 @@ def test_only_the_teacher_sees_their_class(db, make_user, api):
     client, _ = api
     teacher, other = make_user(credits=100), make_user(credits=100)
     c = _new_class(client, teacher)
-    assert client.get(f"/api/classes/{c['id']}", headers=_auth(other)).status_code == 404
-    assert client.get("/api/classes", headers=_auth(other)).json()["classes"] == []
-    assert [x["id"] for x in client.get("/api/classes", headers=_auth(teacher)).json()["classes"]] == [c["id"]]
+    assert client.get(f"/api/v1/classes/{c['id']}", headers=_auth(other)).status_code == 404
+    assert client.get("/api/v1/classes", headers=_auth(other)).json()["classes"] == []
+    assert [x["id"] for x in client.get("/api/v1/classes", headers=_auth(teacher)).json()["classes"]] == [c["id"]]
 
 
 # ---------------------------------------------------------------------------
@@ -265,21 +265,21 @@ def test_student_makes_one_hero_paid_by_the_class(db, make_user, api, steps_succ
     assert maya.me().json()["hero"]["state"] == "ready"
 
     # A class hero is in no gallery: not the teacher's own, not Editors' choice.
-    mine = client.get("/api/creations/?mine_only=true", headers=_auth(teacher)).json()
+    mine = client.get("/api/v1/gallery?view=mine", headers=_auth(teacher)).json()["data"]
     assert creation.id not in {x["id"] for x in mine}
-    featured = client.get("/api/creations/?featured_only=true").json()
+    featured = client.get("/api/v1/gallery?view=featured").json()["data"]
     assert creation.id not in {x["id"] for x in featured}
     # An admin's "All heroes" lists it, marked, and it cannot be starred public.
     admin = make_user(is_admin=True)
-    everything = {x["id"]: x for x in client.get("/api/creations/", headers=_auth(admin)).json()}
+    everything = {x["id"]: x for x in client.get("/api/v1/gallery?view=all", headers=_auth(admin)).json()["data"]}
     assert everything[creation.id]["in_class"] is True
-    r = client.put(f"/api/creations/{creation.id}/featured", json={"featured": True}, headers=_auth(admin))
+    r = client.put(f"/api/v1/heroes/{creation.id}/featured", json={"featured": True}, headers=_auth(admin))
     assert r.status_code == 409
     # ...but it is on the class's roster.
-    roster = client.get(f"/api/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
+    roster = client.get(f"/api/v1/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
     assert [(s["label"], s["age"], s["hero"]["state"]) for s in roster] == [("Maya", 7, "ready")]
     # The class card shows it, with the versions its thumbnails cache by.
-    card = client.get("/api/classes", headers=_auth(teacher)).json()["classes"][0]
+    card = client.get("/api/v1/classes", headers=_auth(teacher)).json()["classes"][0]
     assert [(p["label"], p["creation_id"]) for p in card["preview"]] == [("Maya", creation.id)]
     assert card["preview"][0]["file_versions"] == roster[0]["hero"]["file_versions"]
 
@@ -298,7 +298,7 @@ def test_a_students_style_is_the_heros_and_the_retired_one_is_the_default(
     assert r.status_code == 201, r.text
     creation = db.query(Creation).filter_by(id=r.json()["hero"]["creation_id"]).one()
     assert creation.style == stored
-    assert client.get(f"/api/creations/{creation.id}").json()["style"] == (stored or "pixar")
+    assert client.get(f"/api/v1/heroes/{creation.id}").json()["style"] == (stored or "pixar")
 
 
 def test_a_second_hero_is_refused_kindly(db, make_user, api, steps_succeed):
@@ -348,17 +348,17 @@ def test_a_second_student_on_the_same_tablet_waits_for_the_teacher(db, make_user
     assert tablet.make().status_code == 201
 
     # "Next student": the app drops Maya's pass; the browser marker stays.
-    assert tablet.client.post("/api/class/leave").status_code == 200
+    assert tablet.client.post("/api/v1/class/leave").status_code == 200
     assert tablet.me().status_code == 403
     r = tablet.join(pin, "Noa", 8)
     assert r.status_code == 200
     assert r.json()["guest"]["status"] == "waiting" and r.json()["can_make"] is False
     assert tablet.make().status_code == 409
 
-    noa = next(s for s in client.get(f"/api/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
+    noa = next(s for s in client.get(f"/api/v1/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
                if s["first_name"] == "Noa")
     assert noa["shared_device"] is True
-    r = client.post(f"/api/classes/{c['id']}/students/{noa['id']}/approve", headers=_auth(teacher))
+    r = client.post(f"/api/v1/classes/{c['id']}/students/{noa['id']}/approve", headers=_auth(teacher))
     assert r.status_code == 200
     assert tablet.make().status_code == 201
 
@@ -469,7 +469,7 @@ def test_a_failed_hero_refunds_the_class_and_can_be_tried_again(db, make_user, a
     assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 0
 
     monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
-    r = maya.client.post("/api/class/me/hero/retry")
+    r = maya.client.post("/api/v1/class/me/hero/retry")
     assert r.status_code == 200, r.text
     db.expire_all()
     assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 1   # the seat taken again
@@ -494,7 +494,7 @@ def _room(db, class_id):
 
 
 def _roster(client, teacher, class_id):
-    r = client.get(f"/api/classes/{class_id}", headers=_auth(teacher))
+    r = client.get(f"/api/v1/classes/{class_id}", headers=_auth(teacher))
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -537,17 +537,17 @@ def test_a_failed_hero_gives_its_seat_back_once_for_the_next_child(db, make_user
     assert _room(db, c["id"]).seats_used == 1 and _balance(db, wallet) == 0
 
     # Now Shira's Try again needs a seat, on her tablet and on the board.
-    r = shira.client.post("/api/class/me/hero/retry")
+    r = shira.client.post("/api/v1/class/me/hero/retry")
     assert r.status_code == 409 and r.json()["detail"] == "This class is full. Ask your teacher for a seat."
     shira_id = view["roster"][0]["id"]
-    r = client.post(f"/api/classes/{c['id']}/students/{shira_id}/retry", headers=_auth(teacher))
+    r = client.post(f"/api/v1/classes/{c['id']}/students/{shira_id}/retry", headers=_auth(teacher))
     assert r.status_code == 409 and r.json()["detail"] == "No seats left. Add a seat to try again."
     assert _room(db, c["id"]).seats_used == 1
 
     # The teacher adds a seat and tries again from the board, after class too.
-    client.post(f"/api/classes/{c['id']}/end", headers=_auth(teacher))
-    assert client.post(f"/api/classes/{c['id']}/seats", json={"seats": 1}, headers=_auth(teacher)).status_code == 200
-    r = client.post(f"/api/classes/{c['id']}/students/{shira_id}/retry", headers=_auth(teacher))
+    client.post(f"/api/v1/classes/{c['id']}/end", headers=_auth(teacher))
+    assert client.post(f"/api/v1/classes/{c['id']}/seats", json={"seats": 1}, headers=_auth(teacher)).status_code == 200
+    r = client.post(f"/api/v1/classes/{c['id']}/students/{shira_id}/retry", headers=_auth(teacher))
     assert r.status_code == 200, r.text
     assert r.json()["roster"][0]["hero"]["state"] != "failed"
     tasks.run_all()
@@ -597,8 +597,9 @@ def test_a_cancelled_hero_keeps_its_seat(db, make_user, api):
     kid.join(pin)
     creation_id = kid.make().json()["hero"]["creation_id"]
     step = _current(db, creation_id)
-    r = client.post(f"/api/creations/{creation_id}/steps/{step}/cancel", headers=_auth(admin))
+    r = client.post(f"/api/v1/heroes/{creation_id}/cancel", headers=_auth(admin))
     assert r.status_code == 200, r.text
+    assert db.query(CreationStep).filter_by(creation_id=creation_id, step_name=step).one().status == "failed"
     tasks.pending.pop().close()
     view = _roster(client, teacher, c["id"])
     assert view["roster"][0]["hero"]["state"] == "failed"
@@ -616,7 +617,7 @@ def test_a_full_class_turns_new_students_away_before_the_board(db, make_user, ap
     tasks.run_all()
 
     late = Student()
-    found = late.client.get(f"/api/class/join/{pin}").json()
+    found = late.client.get(f"/api/v1/class/join/{pin}").json()
     assert found["seats_left"] == 0 and found["joined"] is False      # told before the name
     r = late.join(pin, "Itai")
     assert r.status_code == 409 and r.json()["detail"] == "This class is full. Ask your teacher for a seat."
@@ -624,8 +625,8 @@ def test_a_full_class_turns_new_students_away_before_the_board(db, make_user, ap
     assert [s["label"] for s in view["roster"]] == ["Maya"]           # no ghost "Drawing…" card
 
     # A seat added: the same child gets in.
-    client.post(f"/api/classes/{c['id']}/seats", json={"seats": 1}, headers=_auth(teacher))
-    assert late.client.get(f"/api/class/join/{pin}").json()["seats_left"] == 1
+    client.post(f"/api/v1/classes/{c['id']}/seats", json={"seats": 1}, headers=_auth(teacher))
+    assert late.client.get(f"/api/v1/class/join/{pin}").json()["seats_left"] == 1
     assert late.join(pin, "Itai").status_code == 200
 
 
@@ -677,25 +678,25 @@ def test_the_teacher_removes_any_student_from_the_board(db, make_user, api, step
 
     # An approved child still drawing, and a waiting duplicate: both off the board.
     for s in board[1:]:
-        r = client.post(f"/api/classes/{c['id']}/students/{s['id']}/remove", headers=_auth(teacher))
+        r = client.post(f"/api/v1/classes/{c['id']}/students/{s['id']}/remove", headers=_auth(teacher))
         assert r.status_code == 200, r.text
     view = _roster(client, teacher, c["id"])
     assert [s["label"] for s in view["roster"]] == ["Noam"]
     assert view["seats_used"] == 1
     # A removed pass cannot make a hero; that browser joins again as someone new.
     assert ghost.make().status_code == 403
-    assert ghost.client.get(f"/api/class/join/{pin}").json()["joined"] is False
+    assert ghost.client.get(f"/api/v1/class/join/{pin}").json()["joined"] is False
     again = ghost.join(pin, "Alexandra")
     assert again.status_code == 200 and again.json()["pass"]
     # Another teacher cannot remove anyone; nor can a removed card be removed twice.
     other = make_user(credits=0)
-    assert client.post(f"/api/classes/{c['id']}/students/{board[0]['id']}/remove",
+    assert client.post(f"/api/v1/classes/{c['id']}/students/{board[0]['id']}/remove",
                        headers=_auth(other)).status_code == 404
-    assert client.post(f"/api/classes/{c['id']}/students/{board[1]['id']}/remove",
+    assert client.post(f"/api/v1/classes/{c['id']}/students/{board[1]['id']}/remove",
                        headers=_auth(teacher)).status_code == 404
 
     # A made hero's card can go too: off the board, its seat stays used.
-    client.post(f"/api/classes/{c['id']}/students/{board[0]['id']}/remove", headers=_auth(teacher))
+    client.post(f"/api/v1/classes/{c['id']}/students/{board[0]['id']}/remove", headers=_auth(teacher))
     view = _roster(client, teacher, c["id"])
     assert [s["label"] for s in view["roster"]] == ["Alexandra"]
     assert view["seats_used"] == 1 and view["heroes_ready"] == 0
@@ -712,7 +713,7 @@ def test_removing_a_student_whose_hero_failed_gives_the_seat_back(db, make_user,
     kid.make()
     tasks.run_all()
     sid = _roster(client, teacher, c["id"])["roster"][0]["id"]
-    view = client.post(f"/api/classes/{c['id']}/students/{sid}/remove", headers=_auth(teacher)).json()
+    view = client.post(f"/api/v1/classes/{c['id']}/students/{sid}/remove", headers=_auth(teacher)).json()
     assert view["roster"] == [] and view["seats_left"] == 1
 
 
@@ -725,12 +726,12 @@ def test_a_kept_hero_that_fails_later_is_the_parents_not_the_class(db, make_user
     monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
     c, maya, me = _ready_hero(client, tasks, teacher, make_user)
     token = me["claim_path"].rsplit("/", 1)[1]
-    assert client.post(f"/api/class/claim/{token}", headers=_auth(parent)).status_code == 200
+    assert client.post(f"/api/v1/class/claim/{token}", headers=_auth(parent)).status_code == 200
     creation_id = me["hero"]["creation_id"]
 
     monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _meshy_down)
-    r = client.post(f"/api/creations/{creation_id}/run-pipeline?from_step=meshy_3d", headers=_auth(parent))
-    assert r.status_code == 200, r.text
+    r = client.post(f"/api/v1/heroes/{creation_id}/start", json={"from_stage": "model"}, headers=_auth(parent))
+    assert r.status_code == 202, r.text
     tasks.run_all()
     assert db.query(Creation).filter_by(id=creation_id).one().status == "failed"
     view = _roster(client, teacher, c["id"])
@@ -748,10 +749,10 @@ def test_no_hero_after_class_time_or_when_blocked(db, make_user, api):
     late.join(pin, "Late")
     r = blocked.join(pin, "Bob")
     bob_id = r.json()["guest"]["id"]
-    client.post(f"/api/classes/{c['id']}/students/{bob_id}/block", headers=_auth(teacher))
+    client.post(f"/api/v1/classes/{c['id']}/students/{bob_id}/block", headers=_auth(teacher))
     assert blocked.make().status_code == 403
 
-    client.post(f"/api/classes/{c['id']}/end", headers=_auth(teacher))
+    client.post(f"/api/v1/classes/{c['id']}/end", headers=_auth(teacher))
     r = late.make()
     assert r.status_code == 410 and r.json()["detail"] == "Class time is over"
     assert Student().join(pin, "Newbie").status_code == 404     # the PIN is dead
@@ -766,7 +767,7 @@ def test_a_pass_from_last_session_works_in_the_next(db, make_user, api, steps_su
     pin = _start(client, teacher, c["id"])
     maya = Student()
     maya.join(pin)
-    client.post(f"/api/classes/{c['id']}/end", headers=_auth(teacher))
+    client.post(f"/api/v1/classes/{c['id']}/end", headers=_auth(teacher))
     assert maya.make().status_code == 410
     _start(client, teacher, c["id"])
     assert maya.make().status_code == 201
@@ -775,9 +776,9 @@ def test_a_pass_from_last_session_works_in_the_next(db, make_user, api, steps_su
 def test_wrong_pins_are_throttled_per_browser(db, make_user, api):
     client, _ = api
     s = Student()
-    s.client.get("/api/class/join/000000")     # gets this browser its marker... or a 404
+    s.client.get("/api/v1/class/join/000000")     # gets this browser its marker... or a 404
     marker = s.client.cookies.get(classes.DEVICE_COOKIE)
-    codes = [s.client.get("/api/class/join/999999", headers={classes.DEVICE_HEADER: marker or "m"}).status_code
+    codes = [s.client.get("/api/v1/class/join/999999", headers={classes.DEVICE_HEADER: marker or "m"}).status_code
              for _ in range(10)]
     assert codes[:7] == [404] * 7 and codes[-1] == 429
 
@@ -817,14 +818,14 @@ def test_a_parent_keeps_the_hero_with_name_and_age(db, make_user, api, steps_suc
     creation_id = me["hero"]["creation_id"]
     charged_before = db.query(CreditTransaction).filter_by(creation_id=creation_id).count()
 
-    seen = client.get(f"/api/class/claim/{token}")
+    seen = client.get(f"/api/v1/class/claim/{token}")
     assert seen.status_code == 200
     assert seen.json()["first_name"] == "Maya" and seen.json()["age"] == 7
     assert seen.json()["class_title"] == "Grade 2B" and seen.json()["claimed"] is False
 
-    assert client.post(f"/api/class/claim/{token}").status_code == 401     # sign up first
+    assert client.post(f"/api/v1/class/claim/{token}").status_code == 401     # sign up first
     parent = make_user(credits=0)
-    r = client.post(f"/api/class/claim/{token}", headers=_auth(parent))
+    r = client.post(f"/api/v1/class/claim/{token}", headers=_auth(parent))
     assert r.status_code == 200, r.text
     assert r.json()["claimed"] is True
 
@@ -836,20 +837,20 @@ def test_a_parent_keeps_the_hero_with_name_and_age(db, make_user, api, steps_suc
     assert storage.file_exists(parent.id, creation_id, "avatar.vrm")
     assert storage.file_exists(parent.id, creation_id, "original.jpg")
     assert not storage.file_exists(room.wallet_user_id, creation_id, "avatar.vrm")
-    mine = client.get("/api/creations/?mine_only=true", headers=_auth(parent)).json()
+    mine = client.get("/api/v1/gallery?view=mine", headers=_auth(parent)).json()["data"]
     assert [x["id"] for x in mine] == [creation_id]
-    assert mine[0]["name"] == "Maya" and mine[0]["age"] == 7
+    assert mine[0]["artist"] == {"name": "Maya", "age": 7}
     # The class paid; its ledger rows stay its own.
     assert db.query(CreditTransaction).filter_by(creation_id=creation_id).count() == charged_before
     assert all(t.user_id == room.wallet_user_id
                for t in db.query(CreditTransaction).filter_by(creation_id=creation_id))
     # The teacher still sees it in the class gallery, as kept.
-    roster = client.get(f"/api/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
+    roster = client.get(f"/api/v1/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
     assert roster[0]["claimed"] is True and roster[0]["hero"]["user_id"] == parent.id
 
     # Twice by the same parent is fine; by someone else it is not.
-    assert client.post(f"/api/class/claim/{token}", headers=_auth(parent)).status_code == 200
-    assert client.post(f"/api/class/claim/{token}", headers=_auth(make_user())).status_code == 409
+    assert client.post(f"/api/v1/class/claim/{token}", headers=_auth(parent)).status_code == 200
+    assert client.post(f"/api/v1/class/claim/{token}", headers=_auth(make_user())).status_code == 409
 
 
 def test_the_claim_link_gives_the_live_hero_and_nothing_more(db, make_user, api, steps_succeed):
@@ -861,7 +862,7 @@ def test_the_claim_link_gives_the_live_hero_and_nothing_more(db, make_user, api,
     c, maya, me = _ready_hero(client, tasks, teacher, make_user)
     token = me["claim_path"].rsplit("/", 1)[1]
 
-    seen = client.get(f"/api/class/claim/{token}").json()
+    seen = client.get(f"/api/v1/class/claim/{token}").json()
     assert set(seen) == {"first_name", "age", "class_title", "hero", "claimed", "kept_by_you"}
     hero = seen["hero"]
     assert set(hero) == {"creation_id", "user_id", "character_name", "state", "step", "steps_done",
@@ -874,20 +875,20 @@ def test_the_claim_link_gives_the_live_hero_and_nothing_more(db, make_user, api,
         r = client.get(f"/api/files/{hero['user_id']}/{hero['creation_id']}/{name}")
         assert r.status_code == 200, name
     # No teacher, class id, roster or provider detail.
-    text = client.get(f"/api/class/claim/{token}").text
+    text = client.get(f"/api/v1/class/claim/{token}").text
     assert teacher.id not in text and teacher.email not in text and c["id"] not in text
     assert "task-1" not in text and "metadata" not in text
 
     # Kept: the same link knows its keeper, and only its keeper.
     parent = make_user(credits=0)
-    kept = client.post(f"/api/class/claim/{token}", headers=_auth(parent)).json()
+    kept = client.post(f"/api/v1/class/claim/{token}", headers=_auth(parent)).json()
     assert kept["claimed"] is True and kept["kept_by_you"] is True
     assert kept["hero"]["user_id"] == parent.id and "avatar.vrm" in kept["hero"]["file_versions"]
-    again = client.get(f"/api/class/claim/{token}", headers=_auth(parent)).json()
+    again = client.get(f"/api/v1/class/claim/{token}", headers=_auth(parent)).json()
     assert again["kept_by_you"] is True and again["first_name"] == "Maya" and again["hero"] is not None
     # Anyone else (a forwarded link): it has a home, and nothing about the child.
     for headers in ({}, _auth(make_user()), {"Authorization": "Bearer not-a-jwt"}):
-        r = client.get(f"/api/class/claim/{token}", headers=headers)
+        r = client.get(f"/api/v1/class/claim/{token}", headers=headers)
         assert r.status_code == 200
         assert r.json() == {"first_name": None, "age": None, "class_title": None, "hero": None,
                             "claimed": True, "kept_by_you": False}
@@ -899,7 +900,7 @@ def test_a_stale_token_never_hides_an_unkept_hero(db, make_user, api, steps_succ
     teacher = make_user(credits=100)
     c, maya, me = _ready_hero(client, tasks, teacher, make_user)
     token = me["claim_path"].rsplit("/", 1)[1]
-    stale = client.get(f"/api/class/claim/{token}", headers={"Authorization": "Bearer not-a-jwt"})
+    stale = client.get(f"/api/v1/class/claim/{token}", headers={"Authorization": "Bearer not-a-jwt"})
     assert stale.status_code == 200 and stale.json()["kept_by_you"] is False
     assert stale.json()["first_name"] == "Maya" and stale.json()["hero"]["state"] == "ready"
 
@@ -913,7 +914,7 @@ def test_a_hero_being_made_lists_only_the_files_it_has(db, make_user, api, steps
     maya.join(pin)
     maya.make()                        # pipeline not run yet
     token = maya.me().json()["claim_path"].rsplit("/", 1)[1]
-    hero = client.get(f"/api/class/claim/{token}").json()["hero"]
+    hero = client.get(f"/api/v1/class/claim/{token}").json()["hero"]
     assert hero["state"] == "making"
     assert set(hero["file_versions"]) == {"original.jpg"}
 
@@ -927,16 +928,16 @@ def test_a_hero_still_being_made_cannot_be_claimed(db, make_user, api, steps_suc
     maya.join(pin)
     maya.make()                        # pipeline not run yet
     token = maya.me().json()["claim_path"].rsplit("/", 1)[1]
-    r = client.post(f"/api/class/claim/{token}", headers=_auth(make_user()))
+    r = client.post(f"/api/v1/class/claim/{token}", headers=_auth(make_user()))
     assert r.status_code == 409
-    assert client.get("/api/class/claim/not-a-token").status_code == 404
+    assert client.get("/api/v1/class/claim/not-a-token").status_code == 404
 
 
 def test_stage_lists_the_finished_heroes(db, make_user, api, steps_succeed):
     client, tasks = api
     teacher = make_user(credits=100)
     c, _, me = _ready_hero(client, tasks, teacher, make_user)
-    r = client.get(f"/api/classes/{c['id']}/stage", headers=_auth(teacher))
+    r = client.get(f"/api/v1/classes/{c['id']}/stage", headers=_auth(teacher))
     hero = r.json()["heroes"][0]
     assert hero["name"] == "Maya" and hero["age"] == 7
     assert hero["vrmUrl"].endswith(f"/{me['hero']['creation_id']}/opt_avatar.vrm")
@@ -946,15 +947,15 @@ def test_stage_lists_the_finished_heroes(db, make_user, api, steps_succeed):
 # The teacher opens a student's hero: the gallery's hero page, read-only
 # ---------------------------------------------------------------------------
 #
-# The hero page reads a hero through GET /api/creations/{id}, its steps and
-# /api/files/<owner>/<id>/<file>. Those reads take a hero's id and nothing else
+# The hero page reads a hero through GET /api/v1/heroes/{id} (its stages too)
+# and /api/files/<owner>/<id>/<file>. Those reads take a hero's id and nothing else
 # (every hero's page is a link that can be shared, and an <img> cannot carry a
 # bearer token), so the class's teacher reaches a student's hero by the id their
 # roster gives them. What keeps another teacher out is that only the class's
 # own teacher is given the roster; and nobody but the hero's owner may change it.
 
 def _roster_hero(client, teacher, class_id):
-    roster = client.get(f"/api/classes/{class_id}", headers=_auth(teacher)).json()["roster"]
+    roster = client.get(f"/api/v1/classes/{class_id}", headers=_auth(teacher)).json()["roster"]
     assert len(roster) == 1
     return roster[0]["hero"]
 
@@ -962,24 +963,28 @@ def _roster_hero(client, teacher, class_id):
 def _reads_hero_page(client, user, hero, *, file="original.jpg", body=DRAWING):
     """Everything the hero page (tb/HeroScreen.tsx) loads, as `user`."""
     headers = _auth(user)
-    page = client.get(f"/api/creations/{hero['creation_id']}", headers=headers)
+    page = client.get(f"/api/v1/heroes/{hero['creation_id']}", headers=headers)
     assert page.status_code == 200, page.text
-    assert client.get(f"/api/creations/{hero['creation_id']}/steps/openai_render", headers=headers).status_code == 200
+    assert [s["stage"] for s in page.json()["stages"]] == ["drawing", "cleanup", "painting", "model", "rig", "avatar"]
     f = client.get(f"/api/files/{hero['user_id']}/{hero['creation_id']}/{file}", headers=headers)
     assert f.status_code == 200 and f.content == body
     return page.json()
 
 
 def _cannot_change_hero(client, user, creation_id):
-    """Rename, delete, run, retry, star, download: all refused to `user`."""
+    """Rename, delete, run, retry, star, cancel: all refused to `user`. Not
+    their hero, so not there for them to act on (404); starring is admins'."""
     headers = _auth(user)
-    assert client.patch(f"/api/creations/{creation_id}", json={"character_name": "Mine now"},
-                        headers=headers).status_code == 403
-    assert client.post(f"/api/creations/{creation_id}/steps/openai_render/run", headers=headers).status_code == 403
-    assert client.post(f"/api/creations/{creation_id}/run-pipeline", headers=headers).status_code == 403
-    assert client.put(f"/api/creations/{creation_id}/featured", json={"featured": True},
+    assert client.patch(f"/api/v1/heroes/{creation_id}", json={"name": "Mine now"},
+                        headers=headers).status_code == 404
+    assert client.post(f"/api/v1/heroes/{creation_id}/stages/painting/run", headers=headers).status_code == 404
+    assert client.post(f"/api/v1/heroes/{creation_id}/start", headers=headers).status_code == 404
+    assert client.post(f"/api/v1/heroes/{creation_id}/start", json={"from_stage": "painting"},
+                       headers=headers).status_code == 404
+    assert client.post(f"/api/v1/heroes/{creation_id}/cancel", headers=headers).status_code == 404
+    assert client.put(f"/api/v1/heroes/{creation_id}/featured", json={"featured": True},
                       headers=headers).status_code == 403
-    assert client.delete(f"/api/creations/{creation_id}", headers=headers).status_code == 403
+    assert client.delete(f"/api/v1/heroes/{creation_id}", headers=headers).status_code == 404
 
 
 def test_the_teacher_opens_a_students_hero_read_only(db, make_user, api, steps_succeed):
@@ -1010,10 +1015,12 @@ def test_the_teacher_opens_a_students_hero_read_only(db, make_user, api, steps_s
     # Read-only: the class pays for the hero, the teacher only looks.
     _cannot_change_hero(client, teacher, hero["creation_id"])
     # Another teacher is never given the roster, nor finds the hero in a list.
-    assert client.get(f"/api/classes/{c['id']}", headers=_auth(other_teacher)).status_code == 404
-    assert client.get(f"/api/classes/{c['id']}/stage", headers=_auth(other_teacher)).status_code == 404
-    for listing in ("/api/creations/?mine_only=true", "/api/creations/", "/api/creations/?featured_only=true"):
-        assert hero["creation_id"] not in {x["id"] for x in client.get(listing, headers=_auth(other_teacher)).json()}
+    assert client.get(f"/api/v1/classes/{c['id']}", headers=_auth(other_teacher)).status_code == 404
+    assert client.get(f"/api/v1/classes/{c['id']}/stage", headers=_auth(other_teacher)).status_code == 404
+    for listing in ("/api/v1/gallery?view=mine", "/api/v1/gallery?view=all", "/api/v1/gallery?view=featured",
+                    "/api/v1/heroes"):
+        listed = client.get(listing, headers=_auth(other_teacher)).json()["data"]
+        assert hero["creation_id"] not in {x["id"] for x in listed}
     _cannot_change_hero(client, other_teacher, hero["creation_id"])
 
     db.expire_all()
@@ -1026,24 +1033,24 @@ def test_the_teacher_still_opens_a_hero_a_parent_kept(db, make_user, api, steps_
     teacher, other_teacher = make_user(credits=100), make_user(credits=100)
     c, maya, me = _ready_hero(client, tasks, teacher, make_user)
     parent = make_user()
-    assert client.post(f"/api/class/claim/{me['claim_path'].rsplit('/', 1)[1]}",
+    assert client.post(f"/api/v1/class/claim/{me['claim_path'].rsplit('/', 1)[1]}",
                        headers=_auth(parent)).status_code == 200
 
     # The roster points at the parent's copy now, and the hero page reads it.
     hero = _roster_hero(client, teacher, c["id"])
     assert hero["user_id"] == parent.id and hero["state"] == "ready"
     page = _reads_hero_page(client, teacher, hero, file="avatar.vrm", body=b"out:convert_vrm")
-    assert page["user_id"] == parent.id and page["in_class"] is False
+    assert page["owner_id"] == parent.id and page["in_class"] is False
     assert hero["file_versions"] == page["file_versions"]
 
     # Still read-only for the teacher; still nothing for another teacher.
     _cannot_change_hero(client, teacher, hero["creation_id"])
-    assert client.get(f"/api/classes/{c['id']}", headers=_auth(other_teacher)).status_code == 404
+    assert client.get(f"/api/v1/classes/{c['id']}", headers=_auth(other_teacher)).status_code == 404
     _cannot_change_hero(client, other_teacher, hero["creation_id"])
     # The parent owns it: they may rename it.
-    r = client.patch(f"/api/creations/{hero['creation_id']}", json={"character_name": "Sky Dragon"},
+    r = client.patch(f"/api/v1/heroes/{hero['creation_id']}", json={"name": "Sky Dragon"},
                      headers=_auth(parent))
-    assert r.status_code == 200 and r.json()["character_name"] == "Sky Dragon"
+    assert r.status_code == 200 and r.json()["name"] == "Sky Dragon"
 
 
 # ---------------------------------------------------------------------------
@@ -1063,7 +1070,7 @@ def test_deleting_the_teacher_deletes_classes_but_not_claimed_heroes(db, make_us
     tasks.run_all()
     token = kept.me().json()["claim_path"].rsplit("/", 1)[1]
     parent = make_user()
-    client.post(f"/api/class/claim/{token}", headers=_auth(parent))
+    client.post(f"/api/v1/class/claim/{token}", headers=_auth(parent))
     kept_id = kept.me().json()["hero"]["creation_id"]
     left_id = left.me().json()["hero"]["creation_id"]
     wallet_id = db.query(ClassRoom).filter_by(id=c["id"]).one().wallet_user_id
@@ -1087,11 +1094,11 @@ def test_deleting_a_parent_lets_go_of_the_claimed_hero(db, make_user, api, steps
     teacher = make_user(credits=100)
     c, maya, me = _ready_hero(client, tasks, teacher, make_user)
     parent = make_user()
-    client.post(f"/api/class/claim/{me['claim_path'].rsplit('/', 1)[1]}", headers=_auth(parent))
+    client.post(f"/api/v1/class/claim/{me['claim_path'].rsplit('/', 1)[1]}", headers=_auth(parent))
     delete_account(db, db.query(User).filter_by(id=parent.id).one())
     db.expire_all()
     assert db.query(ClassGuest).one().creation_id is None
-    roster = client.get(f"/api/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
+    roster = client.get(f"/api/v1/classes/{c['id']}", headers=_auth(teacher)).json()["roster"]
     assert roster[0]["hero"] is None
 
 
@@ -1101,15 +1108,15 @@ def test_deleting_a_parent_lets_go_of_the_claimed_hero(db, make_user, api, steps
 
 def test_anyone_can_say_they_are_a_teacher(db, make_user, api):
     client, _ = api
-    r = client.post("/api/auth/signup", json={
+    r = client.post("/api/v1/signup", json={
         "username": "msLevi", "email": "levi@school.test", "password": "secret1",
         "name": "Dana Levi", "date_of_birth": "1985-03-01", "is_teacher": True})
     assert r.status_code == 201, r.text
     assert r.json()["user"]["is_teacher"] is True
     user = make_user()
-    r = client.patch("/api/auth/me", json={"is_teacher": True}, headers=_auth(user))
+    r = client.patch("/api/v1/me", json={"is_teacher": True}, headers=_auth(user))
     assert r.status_code == 200 and r.json()["is_teacher"] is True
-    assert client.get("/api/auth/me", headers=_auth(user)).json()["is_teacher"] is True
+    assert client.get("/api/v1/me", headers=_auth(user)).json()["is_teacher"] is True
 
 
 def test_demo_library_matches_only_the_identical_drawing(db, make_user, make_creation, monkeypatch):
@@ -1198,9 +1205,9 @@ def test_a_retry_runs_on_the_real_task_manager(db, make_user, live_client, monke
 
     monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: meshy_down)
     # This client is the student's browser too: one loop for every request.
-    r = client.post("/api/class/join", json={"pin": pin, "first_name": "Maya", "age": 7})
+    r = client.post("/api/v1/class/join", json={"pin": pin, "first_name": "Maya", "age": 7})
     assert r.status_code == 200, r.text
-    r = client.post("/api/class/me/hero", files={"image_file": ("d.jpg", DRAWING, "image/jpeg")})
+    r = client.post("/api/v1/class/me/hero", files={"image_file": ("d.jpg", DRAWING, "image/jpeg")})
     assert r.status_code == 201, r.text
     creation_id = r.json()["hero"]["creation_id"]
     assert _settled(db, creation_id).status == "failed"
@@ -1209,11 +1216,11 @@ def test_a_retry_runs_on_the_real_task_manager(db, make_user, live_client, monke
     assert _balance(db, wallet) == 2 * HERO
 
     monkeypatch.setattr(pipeline, "get_step_coroutine", lambda name: _fine)
-    r = client.post("/api/class/me/hero/retry")
+    r = client.post("/api/v1/class/me/hero/retry")
     assert r.status_code == 200, r.text
     assert r.json()["hero"]["state"] != "failed"           # shown running at once
     assert _settled(db, creation_id).status == "completed"
-    assert client.get("/api/class/me").json()["hero"]["state"] == "ready"
+    assert client.get("/api/v1/class/me").json()["hero"]["state"] == "ready"
     assert db.query(ClassRoom).filter_by(id=c["id"]).one().seats_used == 1
     assert _balance(db, wallet) == 2 * HERO - (HERO - get_step_by_name("openai_render")["credit_cost"])
     assert ledger.verify_user_balance(wallet, db).consistent

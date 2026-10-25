@@ -59,6 +59,21 @@ def test_bad_coupon(client, make_user):
     assert r.status_code in (400, 404)
 
 
+def test_a_coupon_credits_the_account_once(client, db, make_user):
+    from app.models import Coupon
+
+    db.add(Coupon(code="HERO-WELCOME", credit_amount=20))
+    db.commit()
+    user = make_user(credits=5)
+    r = client.post("/api/v1/coupons/redeem", headers=_jwt(user), json={"code": "HERO-WELCOME"})
+    assert r.status_code == 200, r.text
+    assert (r.json()["credits_added"], r.json()["new_balance"]) == (20, 25)
+    assert client.get("/api/v1/account", headers=_jwt(user)).json()["credits"] == 25
+    again = client.post("/api/v1/coupons/redeem", headers=_jwt(user), json={"code": "HERO-WELCOME"})
+    assert again.status_code == 400
+    assert client.get("/api/v1/account", headers=_jwt(user)).json()["credits"] == 25
+
+
 def test_delete_my_account(client, make_user):
     user = make_user()
     assert client.request("DELETE", "/api/v1/me", headers=_jwt(user), json={"confirm": user.username}).status_code == 204

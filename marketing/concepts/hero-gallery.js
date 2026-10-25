@@ -6,16 +6,16 @@
  * own gallery reads, and the pairs in it are real children's drawings and the
  * heroes they actually became.
  *
- *   GET https://heromaker.up.railway.app/api/creations/?limit=60
+ *   GET https://heromaker.up.railway.app/api/v1/gallery?view=featured
  *
  * Public, read-only, no key, and it answers `Access-Control-Allow-Origin: *`.
- * It returns a bare list at small limits and a `{creations, total}` envelope
- * at larger ones, so both are accepted — the same shape `marketing/fetch_pairs.py`
- * handles in Python.
+ * It answers `{object: "list", data: [hero, ...]}`, each hero as the API
+ * describes it (/llms.txt): `id`, `owner_id`, `name`, `status`, ... — the
+ * same shape `marketing/fetch_pairs.py` reads in Python.
  *
  * Files for one creation:
- *   /api/files/{user_id}/{id}/rendered.png    the hero
- *   /api/files/{user_id}/{id}/original.jpg    the drawing it came from
+ *   /api/files/{owner_id}/{id}/rendered.png    the hero
+ *   /api/files/{owner_id}/{id}/original.jpg    the drawing it came from
  * Prefixing the filename with `thumb_` gives the thumbnail, which is what a
  * row of tiles wants.
  *
@@ -27,19 +27,18 @@
  * or a bad shape all leave the committed pairs exactly where they are.
  */
 const API = 'https://heromaker.up.railway.app'
-const LIMIT = 60      // how many creations to ask about
 const TILES = 12      // how many make it into the row
 const NEEDED = 6      // fewer live pairs than the fallback is not an upgrade
 const TIMEOUT = 8000
 
-const file = (c, name) => `${API}/api/files/${c.user_id}/${c.id}/${name}`
+const file = (c, name) => `${API}/api/files/${c.owner_id}/${c.id}/${name}`
 
-/** Both shapes the endpoint answers with. */
+/** The heroes in the endpoint's answer; anything else is no list. */
 const listOf = (body) =>
-  Array.isArray(body) ? body : (body && Array.isArray(body.creations) ? body.creations : [])
+  (body && Array.isArray(body.data) ? body.data : [])
 
 const usable = (c) =>
-  c && c.status === 'completed' && c.character_name && c.id && c.user_id
+  c && c.status === 'completed' && c.name && c.id && c.owner_id
 
 /**
  * Resolve true only if the image really decoded, and always resolve.
@@ -66,17 +65,17 @@ function tile(c) {
 
   const drawing = new Image()
   drawing.src = file(c, 'thumb_original.jpg')
-  drawing.alt = `the drawing ${c.character_name} was made from`
+  drawing.alt = `the drawing ${c.name} was made from`
   drawing.decoding = 'async'
 
   const hero = new Image()
   hero.src = file(c, 'thumb_rendered.png')
-  hero.alt = `${c.character_name}, the 3D hero it became`
+  hero.alt = `${c.name}, the 3D hero it became`
   hero.decoding = 'async'
 
   pair.append(drawing, hero)
   const name = document.createElement('b')
-  name.textContent = c.character_name
+  name.textContent = c.name
   li.append(pair, name)
   return { li, ready: Promise.all([loads(drawing), loads(hero)]).then(r => r[0] && r[1]) }
 }
@@ -86,7 +85,7 @@ async function fill(row) {
   const timer = setTimeout(() => stop.abort(), TIMEOUT)
   let body
   try {
-    const res = await fetch(`${API}/api/creations/?limit=${LIMIT}`, {
+    const res = await fetch(`${API}/api/v1/gallery?view=featured`, {
       signal: stop.signal, mode: 'cors', credentials: 'omit',
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)

@@ -1,5 +1,5 @@
 """
-Sign in with Google: POST /api/auth/google and GET /api/auth/config.
+Sign in with Google: POST /api/v1/login/google and GET /api/v1/auth/config.
 
 These drive the real endpoint and the real account matching. Only Google's
 signature check is replaced - `id_token.verify_oauth2_token` as our service
@@ -53,7 +53,7 @@ def google(monkeypatch):
 
 
 def sign_in(client, credential):
-    return client.post("/api/auth/google", json={"credential": credential})
+    return client.post("/api/v1/login/google", json={"credential": credential})
 
 
 def user_id_of(response):
@@ -62,12 +62,12 @@ def user_id_of(response):
 
 def test_config_reports_client_id(client, monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", CLIENT_ID)
-    assert client.get("/api/auth/config").json()["google_client_id"] == CLIENT_ID
+    assert client.get("/api/v1/auth/config").json()["google_client_id"] == CLIENT_ID
 
 
 def test_config_reports_null_when_unset(client, monkeypatch):
     monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
-    assert client.get("/api/auth/config").json()["google_client_id"] is None
+    assert client.get("/api/v1/auth/config").json()["google_client_id"] is None
 
 
 def test_new_user_is_created(client, google, db):
@@ -90,7 +90,7 @@ def test_new_user_is_created(client, google, db):
 
 
 def test_existing_email_is_linked_not_duplicated(client, google, db):
-    signup = client.post("/api/auth/signup", json={
+    signup = client.post("/api/v1/signup", json={
         "username": "lovelace", "email": "ada@example.com", "password": "secret123",
         "name": "Ada", "date_of_birth": "1990-12-10",
     })
@@ -109,7 +109,7 @@ def test_existing_email_is_linked_not_duplicated(client, google, db):
     assert user.google_id == "g-1"
     # Linking does not take the password away.
     assert user.password_hash
-    login = client.post("/api/auth/login", json={"username": "lovelace", "password": "secret123"})
+    login = client.post("/api/v1/login", json={"username": "lovelace", "password": "secret123"})
     assert login.status_code == 200
 
 
