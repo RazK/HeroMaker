@@ -18,10 +18,10 @@ import { Pinboard } from './pinboard'
  *
  * Who is in it:
  * - a class hero (made in a class session) is cheered by its classmates: the
- *   class's own finished heroes from `GET /api/classes/<id>/stage`, which only
- *   the class's teacher can read. That is who opens a class hero's game.
+ *   class's own finished heroes from `GET /api/v1/classes/<id>/stage`, which
+ *   only the class's teacher can read. That is who opens a class hero's game.
  * - anyone else, and any seat the class cannot fill, gets Editors' choice
- *   (`GET /api/creations/?featured_only=true`). A class hero can never be
+ *   (`GET /api/v1/gallery?view=featured`). A class hero can never be
  *   featured (the API refuses), so no class ever sees another class's child
  *   unless an editor starred a hero that is no longer a class hero.
  * - no API at all (GitHub Pages): the sample heroes this build ships.
@@ -40,14 +40,16 @@ export interface CrowdSource {
   age?: number | null
 }
 
-interface CreationLite {
+/** The few fields of the API's hero object (GET /api/v1/heroes/{id}) read here. */
+interface HeroLite {
   id: string
-  user_id: string
-  character_name?: string | null
+  owner_id: string
+  status: string
+  /** The hero's own name. */
   name?: string | null
-  age?: number | null
+  /** Who drew it. */
+  artist?: { name?: string | null; age?: number | null }
   in_class?: boolean
-  steps?: { step_name: string; status: string }[]
 }
 interface StageHero { creationId: string; heroName?: string | null; name?: string; age?: number | null; vrmUrl: string }
 
@@ -77,14 +79,14 @@ function creationIdOf(path: string): string | null {
  * otherwise the signed-in teacher's classes, searched for this hero.
  */
 async function classHeroes(classParam: string | null, ownId: string | null): Promise<StageHero[] | null> {
-  const stage = async (id: string) => (await getJson<{ heroes?: StageHero[] }>(`/api/classes/${encodeURIComponent(id)}/stage`, true))?.heroes ?? null
+  const stage = async (id: string) => (await getJson<{ heroes?: StageHero[] }>(`/api/v1/classes/${encodeURIComponent(id)}/stage`, true))?.heroes ?? null
   if (classParam) {
     const heroes = await stage(classParam)
     if (heroes && (!ownId || heroes.some((h) => h.creationId === ownId))) return heroes
     return null
   }
   if (!ownId) return null
-  const mine = await getJson<{ classes?: { id: string }[] }>('/api/classes', true)
+  const mine = await getJson<{ classes?: { id: string }[] }>('/api/v1/classes', true)
   for (const c of (mine?.classes ?? []).slice(0, 8)) {
     const heroes = await stage(c.id)
     if (heroes?.some((h) => h.creationId === ownId)) return heroes
@@ -113,7 +115,7 @@ export async function crowdSources(own: string | null, samples: Record<string, s
 
   // A class hero? (Public: the hero's own page says so, never which class.)
   let inClass = !!classParam
-  if (!inClass && ownId) inClass = !!(await getJson<CreationLite>(`/api/creations/${encodeURIComponent(ownId)}`))?.in_class
+  if (!inClass && ownId) inClass = !!(await getJson<HeroLite>(`/api/v1/heroes/${encodeURIComponent(ownId)}`))?.in_class
   if (inClass) {
     const mates = await classHeroes(classParam, ownId)
     for (const h of shuffle((mates ?? []).filter((h) => h.creationId !== ownId))) {
@@ -122,16 +124,15 @@ export async function crowdSources(own: string | null, samples: Record<string, s
     }
   }
 
-  const body = await getJson<CreationLite[] | { creations?: CreationLite[] }>('/api/creations/?featured_only=true')
+  const body = await getJson<{ data?: HeroLite[] }>('/api/v1/gallery?view=featured')
   if (body) {
-    const list = Array.isArray(body) ? body : body.creations ?? []
-    const featured = list
+    const featured = (body.data ?? [])
       // Editors' choice is never a class hero (the API refuses to star one);
       // checked again here so a class's children can only ever meet their own.
-      .filter((c) => !c.in_class && c.steps?.some((s) => s.step_name === 'convert_vrm' && s.status === 'completed'))
+      .filter((c) => !c.in_class && c.status === 'completed')
       .map((c): CrowdSource => ({
-        url: `/api/files/${c.user_id}/${c.id}/opt_avatar.vrm`, name: (c.character_name || c.name || 'A hero').trim(), from: 'featured',
-        drawing: `/api/files/${c.user_id}/${c.id}/thumb_original.jpg`, artist: c.name, age: c.age,
+        url: `/api/files/${c.owner_id}/${c.id}/opt_avatar.vrm`, name: (c.name || c.artist?.name || 'A hero').trim(), from: 'featured',
+        drawing: `/api/files/${c.owner_id}/${c.id}/thumb_original.jpg`, artist: c.artist?.name, age: c.artist?.age,
       }))
     for (const s of shuffle(featured)) push(s)
   }

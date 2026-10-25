@@ -1,7 +1,7 @@
 /**
  * Serves heroes to a Robot Rumble page the way the app does, from local
  * files: the player's hero at /api/files/local/<file>, and a featured gallery
- * at /api/creations/?featured_only=true whose heroes are local .vrm files
+ * at /api/v1/gallery?view=featured whose heroes are local .vrm files
  * served at /api/files/local/<name>/opt_avatar.vrm. Shared by the harnesses.
  *
  * Each gallery hero also gets a drawing (`thumb_original.jpg`, which the
@@ -18,13 +18,15 @@ const KIDS = [['Maya', 6], ['Noam', 7], ['Lia', 5], ['Ari', 8], ['Yael', 6], ['T
 export async function routeHeroes(page, heroFile, rivalFiles = []) {
   const byStem = new Map(rivalFiles.map((f) => [path.basename(f).replace(/\.(opt\.)?vrm$/, ''), f]))
   const stems = [...byStem.keys()]
-  await page.route('**/api/creations/**', (route) => route.fulfill({
+  await page.route('**/api/v1/gallery**', (route) => route.fulfill({
     contentType: 'application/json',
-    body: JSON.stringify(stems.map((stem, i) => ({
-      id: stem, user_id: 'local', character_name: stem.replace(/_/g, ' '),
-      name: KIDS[i % KIDS.length][0], age: KIDS[i % KIDS.length][1],
-      steps: [{ step_name: 'convert_vrm', status: 'completed' }],
-    }))),
+    body: JSON.stringify({
+      object: 'list', view: 'featured',
+      data: stems.map((stem, i) => ({
+        id: stem, object: 'hero', owner_id: 'local', status: 'completed', in_class: false,
+        name: stem.replace(/_/g, ' '), artist: { name: KIDS[i % KIDS.length][0], age: KIDS[i % KIDS.length][1] },
+      })),
+    }),
   }))
   await page.route('**/api/files/local/**', (route) => {
     const parts = new URL(route.request().url()).pathname.split('/')

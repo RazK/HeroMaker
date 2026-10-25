@@ -36,7 +36,8 @@ const DRAWING = fs.readFileSync(new URL('../../../marketing/concepts/assets/pair
 const FILES = {
   OWN: 'Crayon_Kid', MATE1: 'Cloudy', MATE2: 'Skelly', OTHERCLASS: 'Gingerella', FEAT1: 'Superstar', FEAT2: 'Yummy_Bear', FEAT3: 'Gingerella',
 }
-const creation = (id, extra = {}) => ({ id, user_id: 'u', character_name: id, name: 'Maya', age: 6, steps: [{ step_name: 'convert_vrm', status: 'completed' }], ...extra })
+// A hero as GET /api/v1/heroes/{id} answers it (the fields the game reads).
+const hero = (id, extra = {}) => ({ id, object: 'hero', owner_id: 'u', status: 'completed', name: id, artist: { name: 'Maya', age: 6 }, in_class: false, ...extra })
 
 async function mockApp(page, { inClass, classes = true, featured = ['FEAT1', 'FEAT2', 'FEAT3'] }) {
   await page.route('**/api/**', (route) => {
@@ -50,10 +51,10 @@ async function mockApp(page, { inClass, classes = true, featured = ['FEAT1', 'FE
       const f = FILES[m[1]]
       return f ? route.fulfill({ body: vrm(f), contentType: 'application/octet-stream' }) : route.fulfill({ status: 404, body: '' })
     }
-    if (p === '/api/creations/' && u.searchParams.get('featured_only') === 'true') return json(featured.map((id) => creation(id)))
-    if ((m = /^\/api\/creations\/([^/]+)$/.exec(p))) return json(creation(m[1], { in_class: m[1] === 'OWN' && inClass }))
-    if (p === '/api/classes') return auth && classes ? json({ classes: [{ id: 'other' }, { id: 'mine' }] }) : json({ detail: 'no' }, 401)
-    if ((m = /^\/api\/classes\/([^/]+)\/stage$/.exec(p))) {
+    if (p === '/api/v1/gallery' && u.searchParams.get('view') === 'featured') return json({ object: 'list', view: 'featured', data: featured.map((id) => hero(id)) })
+    if ((m = /^\/api\/v1\/heroes\/([^/]+)$/.exec(p))) return json(hero(m[1], { in_class: m[1] === 'OWN' && inClass }))
+    if (p === '/api/v1/classes') return auth && classes ? json({ classes: [{ id: 'other' }, { id: 'mine' }] }) : json({ detail: 'no' }, 401)
+    if ((m = /^\/api\/v1\/classes\/([^/]+)\/stage$/.exec(p))) {
       if (!auth) return json({ detail: 'no' }, 401)
       const ids = m[1] === 'mine' ? ['OWN', 'MATE1', 'MATE2'] : ['OTHERCLASS']
       return json({ title: m[1], heroes: ids.map((id) => ({ creationId: id, heroName: id, name: 'kid', vrmUrl: `/api/files/u/${id}/opt_avatar.vrm` })) })
