@@ -36,6 +36,7 @@ from app.services import result_cache
 from app.services import hero_naming
 from app.services import input_kind
 from app.services import demo_library
+from app.services import step_stats
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
 from app.services import step_errors
@@ -61,7 +62,7 @@ def _initialize_creation_steps(creation_id: str, db: Session) -> None:
                 creation_id=creation_id,
                 step_name=step_config["name"],
                 status="pending",
-                estimated_duration=step_config.get("estimated_duration")  # Set from config
+                estimated_duration=step_stats.typical_seconds(step_config["name"], db)
             )
             db.add(step)
     
@@ -242,7 +243,7 @@ def _poll_meshy_task_with_progress(
             if progress > 0 and step.started_at:
                 elapsed = (datetime.utcnow() - step.started_at).total_seconds()
                 if elapsed > 0:
-                    configured = (get_step_by_name(step.step_name) or {}).get("estimated_duration")
+                    configured = step_stats.typical_seconds(step.step_name, db)
                     estimated_total_duration = estimate_total_seconds(elapsed, progress, configured)
                     step.estimated_completion_time = step.started_at + timedelta(seconds=estimated_total_duration)
                     remaining = estimated_total_duration - elapsed
@@ -759,12 +760,8 @@ async def execute_step(
         step.status = "processing"
         step_errors.clear(step)
         step.estimated_progress = None
-        if step_config.get("estimated_duration"):
-            step.estimated_completion_time = step.started_at + timedelta(
-                seconds=step_config["estimated_duration"]
-            )
-        else:
-            step.estimated_completion_time = None
+        typical = step_stats.typical_seconds(step_name, db)
+        step.estimated_completion_time = step.started_at + timedelta(seconds=typical) if typical else None
         db.commit()
     logger.info(f"[{creation_id}] Starting step: {step_name}")
     

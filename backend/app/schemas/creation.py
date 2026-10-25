@@ -5,6 +5,7 @@ from app.config.steps import STEPS, get_step_by_name
 from app.models import CreationStep
 from app.services.openai import DEFAULT_STYLE, resolve_style
 from app.services import step_errors
+from app.services import step_stats
 from app.utils.cutout import CUTOUT_VERSION
 
 # Who drew it: the polaroid's "by Lia, 6". Its owner sets it (the Rename
@@ -86,7 +87,8 @@ class CreationStepResponse(BaseModel):
     # screen estimates from elapsed time against `estimated_duration`.
     # A completed step reads 100.
     progress: Optional[int] = None
-    # The step's typical length in seconds, from the step config.
+    # The step's typical length in seconds: the median of recent real runs
+    # (app/services/step_stats.py), the config guess until there are enough.
     estimated_duration: Optional[int] = None
 
     @classmethod
@@ -96,7 +98,6 @@ class CreationStepResponse(BaseModel):
         progress = step.estimated_progress
         if progress is not None:
             progress = max(0, min(100, int(progress)))
-        config = get_step_by_name(step.step_name) or {}
         data = {
             "step_name": step.step_name,
             "status": step.status,
@@ -105,7 +106,7 @@ class CreationStepResponse(BaseModel):
             "estimated_completion_time": step.estimated_completion_time,
             "metadata_json": step.metadata_json or {},
             "progress": progress,
-            "estimated_duration": config.get("estimated_duration") or step.estimated_duration,
+            "estimated_duration": step_stats.typical_seconds(step.step_name) or step.estimated_duration,
         }
         if in_class is None:
             in_class = bool(getattr(getattr(step, "creation", None), "class_id", None))

@@ -18,6 +18,7 @@ from app.services.auth import (
     get_current_user_required, get_current_user_optional, security as bearer, verify_access_token,
 )
 from app.services import step_errors
+from app.services import step_stats
 from app.services.credits import step_billing
 from app.services import classes as classes_service
 from app.config.steps import STEPS, get_step_by_name, calculate_steps_cost, get_all_step_names, get_steps_config
@@ -104,6 +105,14 @@ def get_creation_cost(
 def get_step_config_endpoint():
     """Get step configuration for frontend (names, display names, costs, outputs)."""
     return {"steps": get_steps_config()}
+
+
+@router.get("/estimates")
+def get_estimates(db: Session = Depends(get_db)):
+    """How long each step takes now: medians and 90th percentiles of the most
+    recent real runs (app/services/step_stats.py), and the whole pipeline."""
+    steps = step_stats.estimates(db)
+    return {"steps": steps, "total": step_stats.total(db), "unit": "seconds"}
 
 
 @router.get("/{creation_id}/steps/{step_name}", response_model=CreationStepResponse)
@@ -573,12 +582,8 @@ async def run_step(
     step.status = "processing"
     step_errors.clear(step)
     step.estimated_progress = None
-    if step_config.get("estimated_duration"):
-        step.estimated_completion_time = step.started_at + timedelta(
-            seconds=step_config["estimated_duration"]
-        )
-    else:
-        step.estimated_completion_time = None
+    typical = step_stats.typical_seconds(step_name, db)
+    step.estimated_completion_time = step.started_at + timedelta(seconds=typical) if typical else None
     db.commit()
     
     # Create and track task (TaskManager handles timeout and cleanup)
@@ -690,7 +695,7 @@ def start_pipeline(
         _reset_step(first)
         first.status = "processing"
         first.started_at = datetime.utcnow()
-        duration = (get_step_by_name(first.step_name) or {}).get("estimated_duration")
+        duration = step_stats.typical_seconds(first.step_name, db)
         if duration:
             first.estimated_completion_time = first.started_at + timedelta(seconds=duration)
         db.commit()
