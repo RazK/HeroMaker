@@ -1,0 +1,77 @@
+# HeroMaker API
+
+> HeroMaker turns a drawing (a photo of a child's drawing, a sketch, any character picture) into a rigged, animatable 3D humanoid avatar in VRM format, with the intermediate results along the way: a painted character (PNG), a 3D model (GLB), a rigged model (GLB) and the VRM. A hero typically takes about 4 minutes; GET /api/v1/estimates gives the live figure.
+
+Base URL: https://heromaker.up.railway.app (staging, for testing: https://frontend-staging-7cb8.up.railway.app)
+Human docs: https://heromaker.up.railway.app/developers
+OpenAPI: https://heromaker.up.railway.app/api/v1/openapi.json
+MCP server (streamable HTTP): https://heromaker.up.railway.app/api/mcp
+
+## Authentication
+
+Every call except GET /api/v1/estimates needs an API key: `Authorization: Bearer hm_sk_...` (or the header `X-Api-Key`).
+A person makes keys in the HeroMaker app: account menu > API keys. Each hero is paid from that person's credits (10 credits per hero; a stage that fails is refunded).
+
+- `hm_sk_...` secret key: for servers and agents. Never put it in a web page.
+- `hm_pk_...` publishable key: for web pages. Works only from the websites listed on the key (its allowed origins) and starts at most its daily limit of heroes per 24 hours.
+
+## Make a hero
+
+POST /api/v1/heroes, one drawing, as any of:
+- JSON `{"image_url": "https://..."}` (https, public, jpg/png/webp, max 15 MB)
+- JSON `{"image_base64": "<base64 or data: URL>"}`
+- multipart/form-data with a file field `drawing`
+
+Optional fields: `name` (max 60 chars; omitted, HeroMaker names it), `style` (painting style key), `webhook_url` (https), `client_ref` (your own id, echoed back), `public` (bool, default false: shown in HeroMaker's gallery).
+
+Answers 202 at once with the hero object. Errors: 400 (not a picture, bad URL), 401 (key), 402 (not enough credits; nothing is made), 403 (publishable key from a site not on its list), 429 (publishable key's daily limit; see Retry-After).
+
+```
+curl -X POST https://heromaker.up.railway.app/api/v1/heroes \
+  -H "Authorization: Bearer $HEROMAKER_KEY" \
+  -F drawing=@drawing.jpg -F name="Captain Crayon"
+```
+
+## Follow it
+
+GET /api/v1/heroes/{id} every 3 to 5 seconds, until `status` is `completed` or `failed`. Or pass `webhook_url` and wait.
+
+The hero object:
+- `status`: queued | processing | completed | failed | cancelled
+- `stage`: the stage being made now: cleanup | painting | model | rig | avatar
+- `progress`: 0-100, weighted by how long each stage typically takes
+- `eta`: `seconds_left` (typical), `seconds_left_p90` (almost always under), `finishes_at`; null when done
+- `stages[]`: per stage `status`, `started_at`, `completed_at`, `typical_seconds`, `progress`, and `file` (URL) once done
+- `files`: `drawing`, `painting` (PNG), `model` (GLB, not rigged), `rigged` (GLB), `avatar` (VRM), plus when available `painting_cutout`, `thumbnail`, `walking_animation` (GLB), `model_optimized`, `avatar_optimized` (VRM about 5x smaller, visually identical: use this one for games and the web)
+- `error`: `{stage, code, message, credits_refunded}` when failed
+- `cost_credits`, `client_ref`, `name`, `public`
+
+Files are plain HTTPS URLs; a GET may redirect to storage. They load directly in three.js with @pixiv/three-vrm (VRM 0.x humanoid, 22 bones, no finger bones, no blendshapes).
+
+## Other endpoints
+
+- GET /api/v1/estimates: typical (median) and 90th-percentile seconds per stage and in total, measured on the most recent real heroes. No key needed.
+- GET /api/v1/heroes?limit=20&client_ref=...: this account's API heroes, newest first.
+- DELETE /api/v1/heroes/{id}: stop and remove a hero (stages already run stay charged).
+- GET /api/v1/account: credits, cost of a hero, heroes affordable.
+
+## Webhooks
+
+With `webhook_url`, HeroMaker POSTs JSON `{type, stage, hero, sent_at}` when each stage finishes (`type: "stage.completed"`) and at the end (`hero.completed` or `hero.failed`), retried 3 times.
+Verify: header `X-HeroMaker-Signature: sha256=<hex>` is HMAC-SHA256 of `<X-HeroMaker-Timestamp>.<raw body>` with the key's webhook secret (`whsec_...`, shown when the key was made). Polling stays the source of truth.
+
+## MCP
+
+Remote MCP server at https://heromaker.up.railway.app/api/mcp (streamable HTTP), header `Authorization: Bearer hm_sk_...`.
+Tools: `create_hero` (image_url or image_base64), `wait_for_hero` (waits up to 50 s; call again until done), `get_hero`, `list_heroes`, `get_estimates`, `get_account`.
+
+```json
+{"mcpServers": {"heromaker": {"type": "http", "url": "https://heromaker.up.railway.app/api/mcp",
+  "headers": {"Authorization": "Bearer hm_sk_..."}}}}
+```
+
+## Good to know
+
+- Any website may call the API from a browser (CORS is open; no cookies). Use a publishable key there.
+- One drawing, one character. Full-body, front-facing characters on plain paper come out best. Photos of people work too (with their permission).
+- The hero belongs to the person whose key made it. Drawings and heroes follow HeroMaker's terms: https://heromaker.up.railway.app/terms

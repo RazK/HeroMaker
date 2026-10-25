@@ -8,6 +8,7 @@ import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
 import { Privacy } from './components/tb/Privacy';
 import { Terms } from './components/tb/Terms';
 import { Refunds } from './components/tb/Refunds';
+import { Developers } from './components/tb/Developers';
 import { LEGAL_OPEN_EVENT, LEGAL_PATHS, LegalPage, legalPageAt, openLegal } from './components/tb/Legal';
 import { Gallery, Filter, Section, forgetGallery, galleryTabs, hadSwitch, rememberSection, rememberTab, rememberedSection, rememberedTab, resetGalleryScroll } from './components/tb/Gallery';
 import { Segmented } from './components/tb/Segmented';
@@ -605,6 +606,9 @@ function MainApp() {
         <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('terms')}>Terms</button>
         <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('refunds')}>Refunds</button>
       </div>
+      <div className="tb-chip-row tb-footer-row">
+        <button type="button" className="tb-chip tb-footer-chip" onClick={() => openLegal('developers')}>API for developers</button>
+      </div>
       <div className="tb-version">{__APP_VERSION__}</div>
     </footer>
   );
@@ -668,6 +672,8 @@ function MainApp() {
     screen = <Terms onBack={goHome} />;
   } else if (view === 'refunds') {
     screen = <Refunds onBack={goHome} />;
+  } else if (view === 'developers') {
+    screen = <Developers onBack={goHome} />;
   } else if (view === 'reset') {
     screen = <ResetPassword token={resetToken} onDone={goHome} onCancel={goHome} />;
   } else if (view === 'admin' && userInfo) {

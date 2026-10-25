@@ -33,6 +33,10 @@ const PATHS: Record<string, JSX.Element> = {
   cube: <><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><path d="M12 12l8-4.5" /><path d="M12 12v9" /><path d="M12 12L4 7.5" /></>,
   run: <><circle cx="14" cy="4.5" r="1.8" /><path d="M8 21l3-6 3 2v4" /><path d="M6 11l3-3 4 1 2 4 3 1" /></>,
   box: <><path d="M3.5 8L12 4l8.5 4v8L12 20l-8.5-4z" /><path d="M3.5 8L12 12l8.5-4" /><path d="M12 12v8" /></>,
+  // A key: the API keys row and sheet.
+  key: <><circle cx="8" cy="15" r="4" /><path d="M11 12l8.5-8.5" /><path d="M16 7l2.5 2.5" /><path d="M14 9l2 2" /></>,
+  // Angle brackets: for developers.
+  code: <><path d="M8.5 7L3.5 12l5 5" /><path d="M15.5 7l5 5-5 5" /></>,
   ticket: <><path d="M4 7h16v3a2 2 0 000 4v3H4v-3a2 2 0 000-4z" /><path d="M14 7v10" /></>,
   logout: <><path d="M15 4h4v16h-4" /><path d="M10 8l-4 4 4 4" /><path d="M6 12h10" /></>,
   star: <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />,

@@ -1,0 +1,24 @@
+/* API keys (account sheet > API keys). Toy Box: cards, chips, one grape action. */
+.apikeys-body { display: flex; flex-direction: column; gap: var(--tb-space); padding: 0 4px; }
+.apikeys-bar { padding-top: 8px; }
+.apikeys-why { text-align: center; }
+.apikeys-key {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 12px 12px 16px; min-height: 72px;
+  background: var(--tb-white); border: 2px solid var(--tb-line); border-radius: var(--tb-radius-input);
+}
+.apikeys-key--skeleton { background: var(--tb-track); border-color: var(--tb-track); }
+.apikeys-key-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.apikeys-key-name { font-family: var(--tb-font-display); font-size: 20px; overflow-wrap: anywhere; }
+.apikeys-key-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }
+/* Text people copy exactly: Nunito 800, never the display font (brand book). */
+.apikeys-prefix, .apikeys-value { font-family: var(--tb-font-body); font-weight: 800; color: var(--tb-ink); }
+.apikeys-copy { display: flex; align-items: center; gap: 8px; }
+.apikeys-value {
+  flex: 1 1 auto; min-width: 0; padding: 12px 14px; font-size: 15px; overflow-wrap: anywhere;
+  background: var(--tb-cream); border: 2px solid var(--tb-line); border-radius: var(--tb-radius-input);
+}
+.apikeys-copy-btn { flex-shrink: 0; height: var(--tb-btn-sm-h); padding-inline: 14px; gap: 6px; }
+.apikeys-origins { resize: vertical; min-height: 56px; font-family: var(--tb-font-body); }
+.apikeys-once { align-self: stretch; text-align: center; }
+.apikeys-sheet .tb-chip { gap: 6px; }

@@ -5,11 +5,15 @@ import './Legal.css';
 /** Where to write to us: refunds, questions, anything on a legal page. */
 export const CONTACT_EMAIL = 'raz@yosigal.com';
 
-/** The legal pages, each on its own URL so a reviewer can open it directly. */
+/**
+ * The pages of running text, each on its own URL so it can be opened
+ * directly: the legal pages, and the API docs (Developers.tsx).
+ */
 export const LEGAL_PATHS = {
   privacy: '/privacy',
   terms: '/terms',
   refunds: '/refunds',
+  developers: '/developers',
 } as const;
 export type LegalPage = keyof typeof LEGAL_PATHS;
 
