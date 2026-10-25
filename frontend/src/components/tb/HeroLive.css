@@ -316,3 +316,45 @@
   .tb-drawing-full { animation: none; }
   .tb-live-zoom--settle { transition: none; }
 }
+
+/* The drawing's small card, over the painting and the live hero: a tilted
+   polaroid in the stage's top-start corner (the dots are centred, so it never
+   meets them). The drawing flies into it as you leave the drawing and grows
+   back out of it as you return (HeroLive.tsx). A tap goes back to the drawing. */
+.tb-mini-anchor,
+.tb-mini-drawing {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  width: 64px;
+  aspect-ratio: 3 / 4;
+  box-sizing: border-box;
+}
+.tb-mini-anchor { visibility: hidden; pointer-events: none; }
+.tb-mini-drawing {
+  padding: 4px 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--tb-white);
+  box-shadow: 0 6px 14px rgba(35, 25, 66, 0.22);
+  transform: rotate(-6deg);
+  cursor: pointer;
+  /* A finger that starts a swipe on it still swipes the stage. */
+  touch-action: pan-y;
+}
+.tb-mini-drawing img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 4px; background: var(--tb-cream); }
+.tb-mini-drawing:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 6px 14px rgba(35, 25, 66, 0.22); }
+.tb-mini-ghost {
+  position: absolute;
+  z-index: 3;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--tb-white);
+  box-shadow: 0 6px 18px rgba(35, 25, 66, 0.16);
+  pointer-events: none;
+  transform-origin: center;
+}
+@media (min-width: 700px) {
+  .tb-mini-anchor, .tb-mini-drawing { width: 88px; inset-block-start: 16px; inset-inline-start: 16px; }
+}

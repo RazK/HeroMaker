@@ -217,6 +217,75 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} caption={credit} className="tb-slide-pic--drawing" />;
   const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} />;
 
+  // The drawing stays in view as a small card on the other slides, and flies
+  // into it as you leave the drawing (and out of it, back to full size, as
+  // you return): what was drawn is always beside what it became. Not over a
+  // painting still being made, which already shows the drawing under its ring.
+  const showMini = current.key !== 'drawing' && !(current.key === 'painting' && current.state !== 'ready');
+  const mini = useRef<HTMLButtonElement>(null);
+  const wasAt = useRef(at);
+  const wasMini = useRef(showMini);
+  useLayoutEffect(() => {
+    const from = wasAt.current;
+    const hadMini = wasMini.current;
+    wasAt.current = at;
+    wasMini.current = showMini;
+    if (from === at || reducedMotion()) return;
+    const stage = mini.current?.closest('.tb-live-stage') ?? document.querySelector('.tb-live-stage');
+    const card = stage?.querySelector<HTMLElement>('.tb-slide[data-slide="drawing"] .tb-slide-card, .tb-slide[data-slide="drawing"] .tb-slide-pic');
+    if (!stage || !card) return;
+    const ease = 'cubic-bezier(.2, .8, .2, 1)';
+    if (from === 'drawing' && showMini && mini.current) {
+      // Into the card: from where the drawing was (centred) to the corner.
+      const a = card.getBoundingClientRect();
+      const b = mini.current.getBoundingClientRect();
+      const dx = a.left + a.width / 2 - (b.left + b.width / 2);
+      const dy = a.top + a.height / 2 - (b.top + b.height / 2);
+      const k = a.width / b.width;
+      mini.current.animate(
+        [{ transform: `translate(${dx}px, ${dy}px) scale(${k}) rotate(0deg)` }, { transform: 'translate(0, 0) scale(1) rotate(-6deg)' }],
+        { duration: LAND_MS + 120, easing: ease },
+      );
+      card.animate([{ opacity: 0 }, { opacity: 0 }], { duration: LAND_MS + 120 });
+    } else if (at === 'drawing' && hadMini) {
+      // Out of the card: a copy grows from the corner to where the drawing lands.
+      const slide = card.closest<HTMLElement>('.tb-slide');
+      const corner = stage.querySelector<HTMLElement>('.tb-mini-anchor');
+      if (!slide || !corner) return;
+      const s0 = slide.getBoundingClientRect();
+      const st = stage.getBoundingClientRect();
+      const a = card.getBoundingClientRect();
+      const end = { left: a.left - (s0.left - st.left), top: a.top - (s0.top - st.top), width: a.width, height: a.height };
+      const b = corner.getBoundingClientRect();
+      const ghost = document.createElement('img');
+      ghost.src = file('thumb_original.jpg');
+      ghost.className = 'tb-mini-ghost';
+      Object.assign(ghost.style, { left: `${end.left - st.left}px`, top: `${end.top - st.top}px`, width: `${end.width}px`, height: `${end.height}px` });
+      stage.appendChild(ghost);
+      const dx = b.left + b.width / 2 - (end.left + end.width / 2);
+      const dy = b.top + b.height / 2 - (end.top + end.height / 2);
+      const k = b.width / end.width;
+      card.animate([{ opacity: 0 }, { opacity: 0 }], { duration: LAND_MS + 120 });
+      ghost.animate(
+        [{ transform: `translate(${dx}px, ${dy}px) scale(${k}) rotate(-6deg)` }, { transform: 'translate(0, 0) scale(1) rotate(0deg)' }],
+        { duration: LAND_MS + 120, easing: ease },
+      ).finished.finally(() => ghost.remove());
+    }
+  }, [at, showMini]); // eslint-disable-line react-hooks/exhaustive-deps
+  const drawingIndex = slides.findIndex((s) => s.key === 'drawing');
+  const miniCard = (
+    <>
+      {/* Where the card sits, also while it is hidden: the way back grows from here. */}
+      <span className="tb-mini-anchor" aria-hidden="true" />
+      {showMini && (
+        <button ref={mini} type="button" className="tb-mini-drawing" aria-label="Show the drawing"
+          onClick={() => go.current?.(drawingIndex, -1)}>
+          <img src={file('thumb_original.jpg')} alt="" draggable={false} />
+        </button>
+      )}
+    </>
+  );
+
   const view = (s: Slide): { label: string; node: ReactNode } => {
     if (s.key === 'drawing') {
       return {
@@ -296,6 +365,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           index={index}
           onPick={pick}
           go={go}
+          overlay={miniCard}
           data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
         />
         {making?.info}
@@ -355,12 +425,14 @@ const SLOP_PX = 8;
  * next past a fifth of the stage or on a flick (HeroLive.css: under 300ms).
  * The arrow keys and the dots move it too. A drag never counts as a tap.
  */
-function Carousel({ slides, index, onPick, go, className, label, data }: {
+function Carousel({ slides, index, onPick, go, className, label, data, overlay }: {
   slides: Array<{ key: string; label: string; node: ReactNode }>;
   index: number;
   onPick: (i: number) => void;
   /** Filled in with a way to slide straight to a slide from a given side. */
   go?: MutableRefObject<((i: number, dir: 1 | -1) => void) | null>;
+  /** Drawn over the slides, inside the stage (the drawing's small card). */
+  overlay?: ReactNode;
   className: string;
   label: string;
   data: Record<string, string>;
@@ -539,6 +611,7 @@ function Carousel({ slides, index, onPick, go, className, label, data }: {
           ))}
         </div>
       )}
+      {overlay}
     </div>
   );
 }
