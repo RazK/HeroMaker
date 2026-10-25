@@ -89,3 +89,28 @@ def require(scope: str):
 
     dependency.__name__ = f"require_{scope}"
     return dependency
+
+
+def optional():
+    """FastAPI dependency: the caller, or None for nobody.
+
+    For what anyone may read (a hero's page is public by its link). A stale
+    or broken session is treated as nobody, never a 401, so a shared link
+    keeps opening; a wrong API key is still refused, so a client finds out.
+    """
+
+    def dependency(
+        request: Request,
+        authorization: Optional[str] = Header(None),
+        x_api_key: Optional[str] = Header(None),
+        db: Session = Depends(get_db),
+    ) -> Optional[Principal]:
+        credential = api_keys._bearer(authorization, x_api_key)
+        if not credential:
+            return None
+        if credential.startswith((api_keys.SECRET_PREFIX, api_keys.PUBLISHABLE_PREFIX)):
+            return resolve(db, credential, request.headers.get("origin"))
+        return _session_principal(db, credential)
+
+    dependency.__name__ = "optional_principal"
+    return dependency
