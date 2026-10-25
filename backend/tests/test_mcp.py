@@ -4,7 +4,7 @@ Same real pipeline as tests/test_public_api.py, providers stood in for.
 """
 import base64
 
-from tests.test_public_api import HERO_COST, _bearer, _key, _png, client  # noqa: F401  (fixture)
+from test_public_api import HERO_COST, _bearer, _key, _png, client  # noqa: F401  (fixture)
 
 
 def rpc(client, method, params=None, key=None, id_=1):
