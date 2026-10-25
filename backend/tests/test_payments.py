@@ -249,23 +249,23 @@ def test_a_malformed_body_is_rejected(configured, client):
 
 def test_packs_endpoint_lists_configured_packs_only(configured, client, monkeypatch):
     monkeypatch.delenv("LEMONSQUEEZY_VARIANT_STUDIO", raising=False)
-    slugs = [p["slug"] for p in client.get("/api/payments/packs").json()]
+    slugs = [p["slug"] for p in client.get("/api/v1/packs").json()]
     assert slugs == ["starter", "maker"]
 
 
 def test_packs_endpoint_never_leaks_our_margins(configured, client):
-    body = client.get("/api/payments/packs").text
+    body = client.get("/api/v1/packs").text
     assert "margin" not in body
     assert "cost" not in body
 
 
 def test_packs_show_prices_the_way_a_customer_reads_them(configured, client):
     """Rendered as-is on the buy button, so "$5.00" and never "$5.0000"."""
-    packs = client.get("/api/payments/packs").json()
+    packs = client.get("/api/v1/packs").json()
     for pack in packs:
         assert pack["price_display"] == f"${pack['price_cents'] // 100}.{pack['price_cents'] % 100:02d}"
 
 
 def test_checkout_requires_a_signed_in_user(configured, client):
-    response = client.post("/api/payments/checkout", json={"pack": "maker"})
+    response = client.post("/api/v1/checkout", json={"pack": "maker"})
     assert response.status_code == 401

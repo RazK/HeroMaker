@@ -373,19 +373,23 @@ def test_try_again_shows_the_run_started_and_a_second_tap_is_refused(
     steps = {name: "failed" for name in get_all_step_names()}
     steps["image_processing"] = "completed"
     creation = make_creation(user.id, steps)
-    url = f"/api/creations/{creation.id}/run-pipeline?from_step=openai_render"
+    url = f"/api/v1/heroes/{creation.id}/start"
+    try_again = {"from_stage": "painting"}
 
-    first = client.post(url, headers=_auth(user))
-    assert first.status_code == 200, first.text
+    first = client.post(url, json=try_again, headers=_auth(user))
+    assert first.status_code == 202, first.text
+    # The answer itself already reads "making".
+    assert first.json()["status"] == "processing"
 
     # Read right after the answer, the hero is already "making" - not "failed",
     # which the app would stop polling and leave on screen.
-    shown = client.get(f"/api/creations/{creation.id}", headers=_auth(user)).json()
-    by_name = {s["step_name"]: s["status"] for s in shown["steps"]}
+    shown = client.get(f"/api/v1/heroes/{creation.id}", headers=_auth(user)).json()
+    assert shown["status"] == "processing" and shown["error"] is None
+    by_name = {s["step"]: s["status"] for s in shown["stages"] if s.get("step")}
     assert by_name["openai_render"] == "processing"
     assert [by_name[n] for n in ("meshy_3d", "meshy_rig", "convert_vrm")] == ["pending"] * 3
 
-    assert client.post(url, headers=_auth(user)).status_code == 400
-    one_step = client.post(f"/api/creations/{creation.id}/steps/meshy_3d/run", headers=_auth(user))
+    assert client.post(url, json=try_again, headers=_auth(user)).status_code == 400
+    one_step = client.post(f"/api/v1/heroes/{creation.id}/stages/model/run", headers=_auth(user))
     assert one_step.status_code == 400
     assert tasks.started == [(creation.id, "pipeline")]

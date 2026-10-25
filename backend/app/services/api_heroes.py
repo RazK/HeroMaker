@@ -149,7 +149,9 @@ def view(creation, base: str, *, api_hero=None, now: Optional[datetime] = None,
             left_p90 += max(p90 - elapsed, left)
         elif st == "failed":
             current = current or key
-            fields = step_errors.response_fields(step, admin=False)
+            # A class hero's line never mentions credits (the child paid none),
+            # as its stage's own line does not.
+            fields = step_errors.response_fields(step, admin=False, in_class=bool(creation.class_id))
             error = {
                 "stage": key,
                 "code": fields["error_code"] or "failed",

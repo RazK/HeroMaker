@@ -1,5 +1,5 @@
-"""Classes and the admin console on /api/v1: the same routers at one more
-address, still only for the app's login (teacher, admin) or a student pass."""
+"""Classes and the admin console on /api/v1, only for the app's login
+(teacher, admin) or a student pass."""
 from test_public_api import _bearer, _jwt, _key, client  # noqa: F401
 
 
@@ -29,4 +29,3 @@ def test_the_student_pass_cookie_covers_the_v1_address():
     from app.api import classes
 
     assert "/api/v1/class/join".startswith(classes.COOKIE_PATH)
-    assert "/api/class/join".startswith(classes.COOKIE_PATH)

@@ -60,7 +60,7 @@ def cleanup_test_creations(test_client, api_base_url):
             for creation_id in created_ids:
                 # Delete via API (removes DB record and files)
                 try:
-                    test_client.delete(f"{api_base_url}/api/creations/{creation_id}")
+                    test_client.delete(f"{api_base_url}/api/v1/heroes/{creation_id}")
                 except:
                     pass
                 
@@ -87,9 +87,10 @@ def created_creation(test_client, test_image_path, api_base_url, cleanup_test_cr
     """Fixture that creates a creation with uploaded image, yields creation_id, cleans up after."""
     # Upload image to create creation
     with open(test_image_path, "rb") as f:
-        files = {"file": ("original.jpg", f, "image/jpeg")}
-        response = test_client.post(f"{api_base_url}/api/creations/upload", files=files)
-        assert response.status_code == 200, f"Failed to create creation: {response.text}"
+        files = {"drawing": ("original.jpg", f, "image/jpeg")}
+        # Uploaded, not started: the test starts it (helpers.run_pipeline).
+        response = test_client.post(f"{api_base_url}/api/v1/heroes", files=files, data={"start": "false"})
+        assert response.status_code == 202, f"Failed to create creation: {response.text}"
         creation = response.json()
         creation_id = creation["id"]
     

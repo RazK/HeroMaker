@@ -40,14 +40,15 @@ def test_owner_can_delete_a_paid_hero(db, make_user, make_creation, completed_st
     client = TestClient(app)
     auth = {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
-    response = client.delete(f"/api/creations/{hero.id}", headers=auth)
+    response = client.delete(f"/api/v1/heroes/{hero.id}", headers=auth)
     assert response.status_code == 200, response.text
+    assert response.json()["deleted"] is True
 
     # Gone from everything the app shows...
-    assert client.get(f"/api/creations/{hero.id}", headers=auth).status_code == 404
-    listed = client.get("/api/creations/?mine_only=true", headers=auth).json()
-    ids = [c["id"] for c in (listed["creations"] if isinstance(listed, dict) else listed)]
-    assert hero.id not in ids
+    assert client.get(f"/api/v1/heroes/{hero.id}", headers=auth).status_code == 404
+    listed = client.get("/api/v1/gallery?view=mine", headers=auth).json()["data"]
+    assert hero.id not in [c["id"] for c in listed]
+    assert hero.id not in [c["id"] for c in client.get("/api/v1/heroes", headers=auth).json()["data"]]
 
     # ...but the money still knows which hero it was spent on.
     db.expire_all()
@@ -60,9 +61,10 @@ def test_someone_else_cannot_delete_it(db, make_user, make_creation, completed_s
     _owner, hero = _paid_hero(db, make_user, make_creation, completed_steps)
     stranger = make_user(username="stranger")
     client = TestClient(app)
-    response = client.delete(f"/api/creations/{hero.id}",
+    response = client.delete(f"/api/v1/heroes/{hero.id}",
                              headers={"Authorization": f"Bearer {create_access_token(stranger.id)}"})
-    assert response.status_code == 403
+    # Not theirs, so not there for them (404: a hero's id does not leak).
+    assert response.status_code == 404
     db.expire_all()
     assert db.get(Creation, hero.id).deleted_at is None
 
@@ -81,5 +83,5 @@ def test_deleting_a_hero_removes_its_files(db, make_user, make_creation, complet
     client = TestClient(app)
     auth = {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
-    assert client.delete(f"/api/creations/{hero.id}", headers=auth).status_code == 200
+    assert client.delete(f"/api/v1/heroes/{hero.id}", headers=auth).status_code == 200
     assert calls == [(user.id, hero.id)]

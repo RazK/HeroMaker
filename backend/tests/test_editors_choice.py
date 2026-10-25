@@ -1,7 +1,7 @@
 """Editors' choice: the gallery's default view, curated by admins.
 
-Drives the real endpoints: GET /api/creations/?featured_only=true lists the
-starred, finished, not-deleted heroes to anyone; PUT /api/creations/{id}/featured
+Drives the real endpoints: GET /api/v1/gallery?view=featured lists the
+starred, finished, not-deleted heroes to anyone; PUT /api/v1/heroes/{id}/featured
 stars or unstars one, and only an admin may. Also runs the real migration
 against a pre-feature schema, since "star all by default" lives there.
 """
@@ -24,7 +24,7 @@ def _auth(user):
 
 def _ids(response):
     assert response.status_code == 200, response.text
-    return [c["id"] for c in response.json()]
+    return [c["id"] for c in response.json()["data"]]
 
 
 def _star(db, *creations):
@@ -52,10 +52,10 @@ def test_editors_choice_lists_only_starred_finished_live_heroes(db, make_user, m
 
     client = TestClient(app)
     # Signed out: Editors' choice is the front page for visitors too.
-    assert _ids(client.get("/api/creations/?featured_only=true")) == [starred.id]
+    assert _ids(client.get("/api/v1/gallery?view=featured")) == [starred.id]
     # Even for an admin, Editors' choice is only the starred, finished heroes.
-    assert _ids(client.get("/api/creations/?featured_only=true", headers=_auth(admin))) == [starred.id]
-    assert unstarred.id in _ids(client.get("/api/creations/", headers=_auth(admin)))
+    assert _ids(client.get("/api/v1/gallery?view=featured", headers=_auth(admin))) == [starred.id]
+    assert unstarred.id in _ids(client.get("/api/v1/gallery?view=all", headers=_auth(admin)))
 
 
 def test_all_heroes_is_an_admin_view(db, make_user, make_creation, completed_steps):
@@ -71,16 +71,16 @@ def test_all_heroes_is_an_admin_view(db, make_user, make_creation, completed_ste
 
     client = TestClient(app)
     for headers in ({}, _auth(stranger), _auth(owner)):
-        assert _ids(client.get("/api/creations/", headers=headers)) == [starred.id]
-    assert set(_ids(client.get("/api/creations/", headers=_auth(admin)))) == {starred.id, unstarred.id, making.id}
+        assert _ids(client.get("/api/v1/gallery?view=all", headers=headers)) == [starred.id]
+    assert set(_ids(client.get("/api/v1/gallery?view=all", headers=_auth(admin)))) == {starred.id, unstarred.id, making.id}
 
     # The owner still sees their own heroes, starred or not, under My heroes...
-    mine = _ids(client.get("/api/creations/?mine_only=true", headers=_auth(owner)))
+    mine = _ids(client.get("/api/v1/gallery?view=mine", headers=_auth(owner)))
     assert set(mine) == {starred.id, unstarred.id, making.id}
     # ...signed out, mine_only means nothing and lists Editors' choice.
-    assert _ids(client.get("/api/creations/?mine_only=true")) == [starred.id]
+    assert _ids(client.get("/api/v1/gallery?view=mine")) == [starred.id]
     # And a hero's own page still opens by direct link, so sharing works.
-    assert client.get(f"/api/creations/{unstarred.id}").status_code == 200
+    assert client.get(f"/api/v1/heroes/{unstarred.id}").status_code == 200
 
 
 def test_editors_choice_keeps_the_all_views_order(db, make_user, make_creation, completed_steps):
@@ -95,18 +95,18 @@ def test_editors_choice_keeps_the_all_views_order(db, make_user, make_creation, 
 
     client = TestClient(app)
     newest_first = [h.id for h in reversed(heroes)]
-    assert _ids(client.get("/api/creations/?featured_only=true")) == newest_first
-    assert _ids(client.get("/api/creations/", headers=_auth(admin))) == newest_first
+    assert _ids(client.get("/api/v1/gallery?view=featured")) == newest_first
+    assert _ids(client.get("/api/v1/gallery?view=all", headers=_auth(admin))) == newest_first
 
 
 def test_responses_carry_featured(db, make_user, make_creation, completed_steps):
     owner = make_user()
     hero = make_creation(owner.id, completed_steps)
     client = TestClient(app)
-    assert client.get(f"/api/creations/{hero.id}").json()["featured"] is False
+    assert client.get(f"/api/v1/heroes/{hero.id}").json()["featured"] is False
     _star(db, hero)
-    assert client.get(f"/api/creations/{hero.id}").json()["featured"] is True
-    assert client.get("/api/creations/?featured_only=true").json()[0]["featured"] is True
+    assert client.get(f"/api/v1/heroes/{hero.id}").json()["featured"] is True
+    assert client.get("/api/v1/gallery?view=featured").json()["data"][0]["featured"] is True
 
 
 def test_a_new_hero_is_not_starred(db, make_user, make_creation):
@@ -125,15 +125,15 @@ def test_admin_stars_and_unstars(db, make_user, make_creation, completed_steps):
     hero = make_creation(make_user().id, completed_steps)
     client = TestClient(app)
 
-    r = client.put(f"/api/creations/{hero.id}/featured", json={"featured": True}, headers=_auth(admin))
+    r = client.put(f"/api/v1/heroes/{hero.id}/featured", json={"featured": True}, headers=_auth(admin))
     assert r.status_code == 200, r.text
     assert r.json()["featured"] is True
-    assert _ids(client.get("/api/creations/?featured_only=true")) == [hero.id]
+    assert _ids(client.get("/api/v1/gallery?view=featured")) == [hero.id]
 
-    r = client.put(f"/api/creations/{hero.id}/featured", json={"featured": False}, headers=_auth(admin))
+    r = client.put(f"/api/v1/heroes/{hero.id}/featured", json={"featured": False}, headers=_auth(admin))
     assert r.status_code == 200, r.text
     assert r.json()["featured"] is False
-    assert _ids(client.get("/api/creations/?featured_only=true")) == []
+    assert _ids(client.get("/api/v1/gallery?view=featured")) == []
 
 
 def test_starring_does_not_move_the_hero_to_the_top(db, make_user, make_creation, completed_steps):
@@ -143,7 +143,7 @@ def test_starring_does_not_move_the_hero_to_the_top(db, make_user, make_creation
     hero.updated_at = when
     db.commit()
 
-    r = TestClient(app).put(f"/api/creations/{hero.id}/featured", json={"featured": True}, headers=_auth(admin))
+    r = TestClient(app).put(f"/api/v1/heroes/{hero.id}/featured", json={"featured": True}, headers=_auth(admin))
     assert r.status_code == 200, r.text
     db.expire_all()
     assert db.get(Creation, hero.id).updated_at == when
@@ -152,7 +152,7 @@ def test_starring_does_not_move_the_hero_to_the_top(db, make_user, make_creation
 def test_owner_who_is_not_admin_cannot_star(db, make_user, make_creation, completed_steps):
     owner = make_user()
     hero = make_creation(owner.id, completed_steps)
-    r = TestClient(app).put(f"/api/creations/{hero.id}/featured", json={"featured": True}, headers=_auth(owner))
+    r = TestClient(app).put(f"/api/v1/heroes/{hero.id}/featured", json={"featured": True}, headers=_auth(owner))
     assert r.status_code == 403
     db.expire_all()
     assert db.get(Creation, hero.id).featured is False
@@ -160,7 +160,7 @@ def test_owner_who_is_not_admin_cannot_star(db, make_user, make_creation, comple
 
 def test_signed_out_cannot_star(db, make_user, make_creation, completed_steps):
     hero = make_creation(make_user().id, completed_steps)
-    r = TestClient(app).put(f"/api/creations/{hero.id}/featured", json={"featured": True})
+    r = TestClient(app).put(f"/api/v1/heroes/{hero.id}/featured", json={"featured": True})
     assert r.status_code in (401, 403)
     db.expire_all()
     assert db.get(Creation, hero.id).featured is False
@@ -173,7 +173,7 @@ def test_missing_or_deleted_hero_is_404(db, make_user, make_creation, completed_
     db.commit()
     client = TestClient(app)
     for cid in ("no-such-hero", gone.id):
-        r = client.put(f"/api/creations/{cid}/featured", json={"featured": True}, headers=_auth(admin))
+        r = client.put(f"/api/v1/heroes/{cid}/featured", json={"featured": True}, headers=_auth(admin))
         assert r.status_code == 404, cid
     db.expire_all()
     assert db.get(Creation, gone.id).featured is False

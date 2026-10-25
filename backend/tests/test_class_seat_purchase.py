@@ -110,7 +110,7 @@ class _Checkout:
 def _buy_new(client, teacher, seats=28, title="Grade 2B", status=201):
     fake = _Checkout(status)
     with patch("app.services.lemonsqueezy.requests.post", fake):
-        r = client.post("/api/classes/buy", json={"title": title, "seats": seats,
+        r = client.post("/api/v1/classes/buy", json={"title": title, "seats": seats,
                                                   "redirect_url": "https://app.test/?class_paid=1"},
                         headers=_auth(teacher))
     return r, fake
@@ -208,10 +208,10 @@ def test_the_guards_catch_a_price_that_rises_or_beats_packs(monkeypatch):
 
 def test_the_option_is_hidden_when_no_variant_is_configured(db, make_user, client, store, monkeypatch):
     teacher = make_user()
-    assert client.get("/api/classes", headers=_auth(teacher)).json()["seat_price"] == {
+    assert client.get("/api/v1/classes", headers=_auth(teacher)).json()["seat_price"] == {
         "order_cents": 50, "seat_cents": 125, "max_seats": 60}
     monkeypatch.delenv("LEMONSQUEEZY_VARIANT_CLASS_SEATS")
-    assert client.get("/api/classes", headers=_auth(teacher)).json()["seat_price"] is None
+    assert client.get("/api/v1/classes", headers=_auth(teacher)).json()["seat_price"] is None
     r, fake = _buy_new(client, teacher)
     assert r.status_code == 503
     assert fake.sent == [] and db.query(ClassRoom).count() == 0
@@ -254,10 +254,10 @@ def test_more_seats_for_a_class_only_its_teacher_can_buy(db, make_user, client, 
     class_id = _buy_new(client, teacher)[0].json()["class_id"]
     fake = _Checkout()
     with patch("app.services.lemonsqueezy.requests.post", fake):
-        assert client.post(f"/api/classes/{class_id}/buy", json={"seats": 2}, headers=_auth(other)).status_code == 404
-        r = client.post(f"/api/classes/{class_id}/buy", json={"seats": 2}, headers=_auth(teacher))
+        assert client.post(f"/api/v1/classes/{class_id}/buy", json={"seats": 2}, headers=_auth(other)).status_code == 404
+        r = client.post(f"/api/v1/classes/{class_id}/buy", json={"seats": 2}, headers=_auth(teacher))
         assert r.status_code == 200 and r.json()["price_display"] == "$3.00"
-        too_many = client.post(f"/api/classes/{class_id}/buy", json={"seats": 61}, headers=_auth(teacher))
+        too_many = client.post(f"/api/v1/classes/{class_id}/buy", json={"seats": 61}, headers=_auth(teacher))
         assert too_many.status_code == 400
     assert len(fake.sent) == 1
 
@@ -282,7 +282,7 @@ def test_paid_seats_go_to_the_class_and_never_to_the_teacher(db, make_user, clie
     pay = db.query(Payment).filter(Payment.provider_ref == "lemonsqueezy:order:ord-1").one()
     assert pay.gross_usd_micros == 35_500_000 and pay.metadata_json["class_id"] == class_id
 
-    receipts = client.get("/api/payments/receipts", headers=_auth(teacher)).json()
+    receipts = client.get("/api/v1/receipts", headers=_auth(teacher)).json()
     assert [(x["class_title"], x["seats"], x["paid_display"]) for x in receipts] == [("Grade 2B", 28, "$35.50")]
 
 
@@ -365,7 +365,7 @@ def test_bought_seats_are_used_by_a_live_class(db, make_user, client, store):
     teacher = make_user()
     class_id = _buy_new(client, teacher, seats=3)[0].json()["class_id"]
     deliver(client, order("ord-live", class_id, 3))
-    r = client.post(f"/api/classes/{class_id}/start", json={"minutes": 45}, headers=_auth(teacher))
+    r = client.post(f"/api/v1/classes/{class_id}/start", json={"minutes": 45}, headers=_auth(teacher))
     assert r.status_code == 200 and r.json()["seats_left"] == 3
 
 

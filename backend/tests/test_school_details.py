@@ -46,23 +46,23 @@ def _auth(user):
 
 def test_no_school_yet_then_name_and_type_are_enough(db, make_user, client):
     teacher = make_user()
-    assert client.get("/api/classes", headers=_auth(teacher)).json()["school"] is None
+    assert client.get("/api/v1/classes", headers=_auth(teacher)).json()["school"] is None
 
-    r = client.put("/api/classes/school", json={"name": "  Ha'Shalom   Kindergarten ", "type": "kindergarten"},
+    r = client.put("/api/v1/classes/school", json={"name": "  Ha'Shalom   Kindergarten ", "type": "kindergarten"},
                    headers=_auth(teacher))
     assert r.status_code == 200, r.text
     assert r.json()["school"] == {"name": "Ha'Shalom Kindergarten", "city": None, "country": None,
                                   "type": "kindergarten"}
-    assert client.get("/api/classes/school", headers=_auth(teacher)).json()["school"]["name"] == "Ha'Shalom Kindergarten"
+    assert client.get("/api/v1/classes/school", headers=_auth(teacher)).json()["school"]["name"] == "Ha'Shalom Kindergarten"
     db.expire_all()
     assert db.get(User, teacher.id).is_teacher is True
 
 
 def test_city_and_country_are_kept_and_editable(db, make_user, client):
     teacher = make_user()
-    client.put("/api/classes/school", json={"name": "Oak", "type": "primary", "city": "Haifa", "country": "Israel"},
+    client.put("/api/v1/classes/school", json={"name": "Oak", "type": "primary", "city": "Haifa", "country": "Israel"},
                headers=_auth(teacher))
-    r = client.put("/api/classes/school", json={"name": "Oak Primary", "type": "primary", "city": "", "country": "Israel"},
+    r = client.put("/api/v1/classes/school", json={"name": "Oak Primary", "type": "primary", "city": "", "country": "Israel"},
                    headers=_auth(teacher))
     assert r.json()["school"] == {"name": "Oak Primary", "city": None, "country": "Israel", "type": "primary"}
 
@@ -70,16 +70,16 @@ def test_city_and_country_are_kept_and_editable(db, make_user, client):
 @pytest.mark.parametrize("body", [{"type": "primary"}, {"name": "  ", "type": "primary"},
                                   {"name": "Oak"}, {"name": "Oak", "type": "university"}])
 def test_name_and_type_are_required(make_user, client, body):
-    assert client.put("/api/classes/school", json=body, headers=_auth(make_user())).status_code == 400
+    assert client.put("/api/v1/classes/school", json=body, headers=_auth(make_user())).status_code == 400
 
 
 def test_a_class_keeps_its_ages(db, make_user, client):
     teacher = make_user(credits=100)
-    r = client.post("/api/classes", json={"title": "Grade 2B", "seats": 2, "ages": "7-8"}, headers=_auth(teacher))
+    r = client.post("/api/v1/classes", json={"title": "Grade 2B", "seats": 2, "ages": "7-8"}, headers=_auth(teacher))
     assert r.status_code == 201 and r.json()["ages"] == "7-8"
-    r = client.post("/api/classes", json={"title": "Art club", "seats": 1}, headers=_auth(teacher))
+    r = client.post("/api/v1/classes", json={"title": "Art club", "seats": 1}, headers=_auth(teacher))
     assert r.status_code == 201 and r.json()["ages"] is None
-    bad = client.post("/api/classes", json={"title": "X", "seats": 1, "ages": "40-50"}, headers=_auth(teacher))
+    bad = client.post("/api/v1/classes", json={"title": "X", "seats": 1, "ages": "40-50"}, headers=_auth(teacher))
     assert bad.status_code == 400
     assert db.query(ClassRoom).count() == 2
 
@@ -87,9 +87,9 @@ def test_a_class_keeps_its_ages(db, make_user, client):
 def test_admin_schools_list(db, make_user, client):
     admin = make_user(is_admin=True)
     busy, quiet, parent = make_user(credits=100), make_user(), make_user()
-    client.put("/api/classes/school", json={"name": "Oak", "type": "primary", "city": "Haifa", "country": "Israel"},
+    client.put("/api/v1/classes/school", json={"name": "Oak", "type": "primary", "city": "Haifa", "country": "Israel"},
                headers=_auth(busy))
-    client.put("/api/classes/school", json={"name": "Art Barn", "type": "after_school"}, headers=_auth(quiet))
+    client.put("/api/v1/classes/school", json={"name": "Art Barn", "type": "after_school"}, headers=_auth(quiet))
     room = classes.create_class(db, db.get(User, busy.id), "Grade 2B", 3, "7-8")
     classes.create_class(db, db.get(User, busy.id), "Grade 3A", 2)
     # Two heroes made in Grade 2B: one finished, one failed.
@@ -106,8 +106,8 @@ def test_admin_schools_list(db, make_user, client):
                           creation_id=c.id))
         db.commit()
 
-    assert client.get("/api/admin/schools", headers=_auth(busy)).status_code == 403
-    rows = client.get("/api/admin/schools", headers=_auth(admin)).json()["teachers"]
+    assert client.get("/api/v1/admin/schools", headers=_auth(busy)).status_code == 403
+    rows = client.get("/api/v1/admin/schools", headers=_auth(admin)).json()["teachers"]
     assert [r["user_id"] for r in rows] == [busy.id, quiet.id]          # busiest first, no parents
     top = rows[0]
     assert top["school"] == {"name": "Oak", "city": "Haifa", "country": "Israel", "type": "primary"}
@@ -118,7 +118,7 @@ def test_admin_schools_list(db, make_user, client):
 
 def test_deleting_the_account_forgets_the_school(db, make_user, client):
     teacher = make_user()
-    client.put("/api/classes/school", json={"name": "Oak", "type": "primary", "city": "Haifa"}, headers=_auth(teacher))
+    client.put("/api/v1/classes/school", json={"name": "Oak", "type": "primary", "city": "Haifa"}, headers=_auth(teacher))
     delete_account(db, db.get(User, teacher.id))
     db.expire_all()
     u = db.get(User, teacher.id)

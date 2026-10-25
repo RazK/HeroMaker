@@ -1,10 +1,14 @@
+"""Accounts: signing up and in, the profile, password reset.
+
+The routes are app/api/v1_account.py (/api/v1/signup, /login, /me, ...),
+which call these functions with the caller already resolved.
+"""
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
+from fastapi import BackgroundTasks, HTTPException, Request, Response, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app.database import get_db
 from app.models import User
 from app.schemas.auth import (
     SignupRequest,
@@ -23,23 +27,18 @@ from app.services.auth import (
     hash_password,
     verify_password,
     create_access_token,
-    get_current_user
 )
 from app.services import google_auth
 from app.services.users import update_user
 from app.services import account_deletion, mailer, password_reset
-from app.services.task_manager import get_task_manager
 from app.config.settings import get_frontend_url
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
 
-
-@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def signup(
     signup_data: SignupRequest,
-    db: Session = Depends(get_db)
+    db: Session
 ):
     """Create a new user account."""
     # Check if username already exists
@@ -83,10 +82,9 @@ def signup(
     )
 
 
-@router.post("/login", response_model=TokenResponse)
 def login(
     login_data: LoginRequest,
-    db: Session = Depends(get_db)
+    db: Session
 ):
     """Login with username and password."""
     # Find user by username
@@ -121,10 +119,9 @@ def login(
     )
 
 
-@router.post("/google", response_model=TokenResponse)
 def login_with_google(
     google_data: GoogleLoginRequest,
-    db: Session = Depends(get_db)
+    db: Session
 ):
     """Sign in, or sign up, with a Google Identity Services ID token."""
     try:
@@ -165,10 +162,9 @@ def login_with_google(
     )
 
 
-@router.get("/me", response_model=UserResponse)
 def get_me(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    user: User,
+    db: Session
 ):
     """Get current user information."""
     # Refresh user from database to ensure we have the latest token balance
@@ -176,11 +172,10 @@ def get_me(
     return UserResponse.from_user(user)
 
 
-@router.patch("/me", response_model=UserResponse)
 def update_me(
     update_data: UpdateProfileRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    user: User,
+    db: Session
 ):
     """Update current user's profile."""
     # Check if trying to change password
@@ -236,12 +231,11 @@ def update_me(
     return UserResponse.from_user(user)
 
 
-@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 def delete_me(
     data: DeleteAccountRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    task_manager=Depends(get_task_manager),
+    user: User,
+    db: Session,
+    task_manager,
 ):
     """
     Delete the signed-in user's account, now.
@@ -267,7 +261,6 @@ def delete_me(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/logout", response_model=MessageResponse)
 def logout():
     """
     Logout endpoint (client-side token removal).
@@ -278,7 +271,6 @@ def logout():
 
 
 
-@router.get("/config", response_model=AuthConfigResponse)
 def auth_config():
     """Which sign-in features this deployment offers."""
     return AuthConfigResponse(
@@ -307,12 +299,11 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-@router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(
     data: ForgotPasswordRequest,
     request: Request,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session,
 ):
     """
     Email a single-use reset link.
@@ -336,8 +327,7 @@ def forgot_password(
     return reply
 
 
-@router.post("/reset-password", response_model=TokenResponse)
-def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(data: ResetPasswordRequest, db: Session):
     """Set a new password with a reset token, and sign the user in."""
     found = password_reset.find_valid(db, data.token)
     if found is None or not password_reset.consume(db, found[0]):

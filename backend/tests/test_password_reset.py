@@ -56,7 +56,7 @@ def account(db):
 
 
 def forgot(client, email):
-    return client.post("/api/auth/forgot-password", json={"email": email})
+    return client.post("/api/v1/password/forgot", json={"email": email})
 
 
 def token_from(link):
@@ -66,11 +66,11 @@ def token_from(link):
 
 
 def reset(client, token, password=NEW_PASSWORD):
-    return client.post("/api/auth/reset-password", json={"token": token, "new_password": password})
+    return client.post("/api/v1/password/reset", json={"token": token, "new_password": password})
 
 
 def login(client, password):
-    return client.post("/api/auth/login", json={"username": "kiddo", "password": password})
+    return client.post("/api/v1/login", json={"username": "kiddo", "password": password})
 
 
 def test_unknown_email_answers_200_and_sends_nothing(client, outbox, account):
@@ -103,7 +103,7 @@ def test_valid_token_resets_password_and_signs_in(client, outbox, account):
     body = response.json()
     assert body["access_token"]
     assert body["user"]["username"] == "kiddo"
-    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['access_token']}"})
+    me = client.get("/api/v1/me", headers={"Authorization": f"Bearer {body['access_token']}"})
     assert me.status_code == 200
     assert login(client, NEW_PASSWORD).status_code == 200
     assert login(client, OLD_PASSWORD).status_code == 401
@@ -182,9 +182,9 @@ def test_rate_limited_per_ip(client, outbox, account):
 
 def test_config_reports_password_reset(client, monkeypatch):
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
-    assert client.get("/api/auth/config").json()["password_reset"] is False
+    assert client.get("/api/v1/auth/config").json()["password_reset"] is False
     monkeypatch.setenv("RESEND_API_KEY", "re_test")
-    assert client.get("/api/auth/config").json()["password_reset"] is True
+    assert client.get("/api/v1/auth/config").json()["password_reset"] is True
 
 
 def test_mailer_without_key_sends_nothing_and_logs_link_outside_production(monkeypatch, caplog):

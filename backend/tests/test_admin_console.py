@@ -1,9 +1,9 @@
 """
 The admin console's endpoints, driven through the real app:
 
-  /api/admin/money/*      income, costs, net, provider balances, monthly bills
-  /api/admin/coupons      create with a generated code
-  /api/admin/users/{id}   delete, which now goes through account_deletion
+  /api/v1/admin/money/*      income, costs, net, provider balances, monthly bills
+  /api/v1/admin/coupons      create with a generated code
+  /api/v1/admin/users/{id}   delete, which now goes through account_deletion
 
 Provider HTTP is faked at the `requests` boundary inside
 app/services/provider_balances.py; everything else is the production code path.
@@ -22,13 +22,13 @@ from app.services.auth import create_access_token
 from app.services.task_manager import get_task_manager
 
 MONEY_ROUTES = [
-    ("get", "/api/admin/money/summary"),
-    ("get", "/api/admin/money/providers"),
-    ("get", "/api/admin/money/lemonsqueezy"),
-    ("get", "/api/admin/money/recurring"),
-    ("post", "/api/admin/money/recurring"),
-    ("patch", "/api/admin/money/recurring/x"),
-    ("delete", "/api/admin/money/recurring/x"),
+    ("get", "/api/v1/admin/money/summary"),
+    ("get", "/api/v1/admin/money/providers"),
+    ("get", "/api/v1/admin/money/lemonsqueezy"),
+    ("get", "/api/v1/admin/money/recurring"),
+    ("post", "/api/v1/admin/money/recurring"),
+    ("patch", "/api/v1/admin/money/recurring/x"),
+    ("delete", "/api/v1/admin/money/recurring/x"),
 ]
 
 
@@ -108,7 +108,7 @@ def test_summary_separates_test_orders_and_nets_out_costs(client, db, as_admin, 
     ))
     db.commit()
 
-    r = client.get("/api/admin/money/summary?period=all", headers=as_admin)
+    r = client.get("/api/v1/admin/money/summary?period=all", headers=as_admin)
     assert r.status_code == 200
     s = r.json()
 
@@ -142,24 +142,24 @@ def test_summary_period_excludes_older_money(client, db, as_admin, make_user):
     _cost(db, "meshy", 400_000, when=long_ago)
     _pay(db, buyer, "new", 5_000_000, 500_000)
 
-    s = client.get("/api/admin/money/summary?period=30d", headers=as_admin).json()
+    s = client.get("/api/v1/admin/money/summary?period=30d", headers=as_admin).json()
     assert s["income"]["live"]["count"] == 1
     assert s["income"]["live"]["gross_usd_micros"] == 5_000_000
     assert s["costs"]["providers"] == []
 
-    s = client.get("/api/admin/money/summary?period=all", headers=as_admin).json()
+    s = client.get("/api/v1/admin/money/summary?period=all", headers=as_admin).json()
     assert s["income"]["live"]["count"] == 2
 
 
 def test_summary_rejects_an_unknown_period(client, as_admin):
-    assert client.get("/api/admin/money/summary?period=forever", headers=as_admin).status_code == 422
+    assert client.get("/api/v1/admin/money/summary?period=forever", headers=as_admin).status_code == 422
 
 
 def test_deleted_accounts_hold_no_credits(client, db, as_admin, make_user):
     gone = make_user(credits=10, username="gone")
     gone.deleted_at = datetime.utcnow()
     db.commit()
-    s = client.get("/api/admin/money/summary", headers=as_admin).json()
+    s = client.get("/api/v1/admin/money/summary", headers=as_admin).json()
     assert s["credits_held"]["credits"] == 0
 
 
@@ -175,25 +175,25 @@ def test_monthly_charges_clamp_to_short_months():
 # ---------------------------------------------------------------------------
 
 def test_recurring_expense_lifecycle(client, as_admin):
-    r = client.post("/api/admin/money/recurring", headers=as_admin,
+    r = client.post("/api/v1/admin/money/recurring", headers=as_admin,
                     json={"name": "Domain", "amount_usd": 1.5, "started_on": "2026-01-10"})
     assert r.status_code == 201
     item = r.json()
     assert item["amount_usd_micros"] == 1_500_000
     assert item["is_active"] is True
 
-    r = client.patch(f"/api/admin/money/recurring/{item['id']}", headers=as_admin,
+    r = client.patch(f"/api/v1/admin/money/recurring/{item['id']}", headers=as_admin,
                      json={"amount_usd": 2, "is_active": False})
     assert r.status_code == 200
     assert r.json()["amount_usd_micros"] == 2_000_000
     assert r.json()["next_charge_on"] is None
 
-    listed = client.get("/api/admin/money/recurring", headers=as_admin).json()
+    listed = client.get("/api/v1/admin/money/recurring", headers=as_admin).json()
     assert [i["name"] for i in listed] == ["Domain"]
 
-    assert client.delete(f"/api/admin/money/recurring/{item['id']}", headers=as_admin).status_code == 204
-    assert client.get("/api/admin/money/recurring", headers=as_admin).json() == []
-    assert client.delete(f"/api/admin/money/recurring/{item['id']}", headers=as_admin).status_code == 404
+    assert client.delete(f"/api/v1/admin/money/recurring/{item['id']}", headers=as_admin).status_code == 204
+    assert client.get("/api/v1/admin/money/recurring", headers=as_admin).json() == []
+    assert client.delete(f"/api/v1/admin/money/recurring/{item['id']}", headers=as_admin).status_code == 404
 
 
 @pytest.mark.parametrize("body", [
@@ -203,7 +203,7 @@ def test_recurring_expense_lifecycle(client, as_admin):
     {"name": "Plan", "amount_usd": 10_000_000},
 ])
 def test_recurring_expense_validation(client, as_admin, body):
-    assert client.post("/api/admin/money/recurring", headers=as_admin, json=body).status_code == 422
+    assert client.post("/api/v1/admin/money/recurring", headers=as_admin, json=body).status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ class _Resp:
 
 
 def test_unconfigured_providers_say_what_to_connect(client, as_admin):
-    r = client.get("/api/admin/money/providers", headers=as_admin)
+    r = client.get("/api/v1/admin/money/providers", headers=as_admin)
     assert r.status_code == 200
     by = {p["provider"]: p for p in r.json()["providers"]}
     assert set(by) == {"meshy", "openai", "railway"}
@@ -268,7 +268,7 @@ def test_configured_providers_report_balances(client, as_admin, monkeypatch):
     monkeypatch.setattr(provider_balances.requests, "get", fake_get)
     monkeypatch.setattr(provider_balances.requests, "post", fake_post)
 
-    r = client.get("/api/admin/money/providers", headers=as_admin)
+    r = client.get("/api/v1/admin/money/providers", headers=as_admin)
     assert r.status_code == 200
     by = {p["provider"]: p for p in r.json()["providers"]}
     assert by["meshy"]["status"] == "ok"
@@ -282,11 +282,11 @@ def test_configured_providers_report_balances(client, as_admin, monkeypatch):
 
     # Cached: a reload does not ask again.
     n = len(calls)
-    again = client.get("/api/admin/money/providers", headers=as_admin).json()["providers"]
+    again = client.get("/api/v1/admin/money/providers", headers=as_admin).json()["providers"]
     assert len(calls) == n
     assert all(p["cached"] for p in again)
     # Unless asked to.
-    client.get("/api/admin/money/providers?refresh=true", headers=as_admin)
+    client.get("/api/v1/admin/money/providers?refresh=true", headers=as_admin)
     assert len(calls) == 2 * n
 
 
@@ -301,7 +301,7 @@ def test_meshy_below_one_3d_step_is_out_of_credit(client, as_admin, monkeypatch)
         raise AssertionError(url)
 
     monkeypatch.setattr(provider_balances.requests, "get", fake_get)
-    by = {p["provider"]: p for p in client.get("/api/admin/money/providers?refresh=true", headers=as_admin).json()["providers"]}
+    by = {p["provider"]: p for p in client.get("/api/v1/admin/money/providers?refresh=true", headers=as_admin).json()["providers"]}
     assert by["meshy"]["out_of_credit"] is True
     assert by["meshy"]["step_credits"] == cost
     assert by["meshy"]["out_of_credit_effect"] == "every 3D step fails"
@@ -310,7 +310,7 @@ def test_meshy_below_one_3d_step_is_out_of_credit(client, as_admin, monkeypatch)
         return _Resp(200, {"balance": cost})
 
     monkeypatch.setattr(provider_balances.requests, "get", enough)
-    by = {p["provider"]: p for p in client.get("/api/admin/money/providers?refresh=true", headers=as_admin).json()["providers"]}
+    by = {p["provider"]: p for p in client.get("/api/v1/admin/money/providers?refresh=true", headers=as_admin).json()["providers"]}
     assert by["meshy"]["out_of_credit"] is False
 
 
@@ -324,7 +324,7 @@ def test_a_failing_provider_is_one_error_card_with_no_secret(client, as_admin, m
         raise requests.Timeout("timed out talking with sk-admin-secret-openai")
 
     monkeypatch.setattr(provider_balances.requests, "get", fake_get)
-    r = client.get("/api/admin/money/providers", headers=as_admin)
+    r = client.get("/api/v1/admin/money/providers", headers=as_admin)
     assert r.status_code == 200
     by = {p["provider"]: p for p in r.json()["providers"]}
     assert by["meshy"]["status"] == "error"
@@ -341,7 +341,7 @@ def test_railway_graphql_errors_are_reported_not_raised(client, as_admin, monkey
     monkeypatch.setenv("RAILWAY_PROJECT_ID", "proj-1")
     monkeypatch.setattr(provider_balances.requests, "post",
                         lambda *a, **k: _Resp(200, {"errors": [{"message": "Not Authorized"}]}))
-    by = {p["provider"]: p for p in client.get("/api/admin/money/providers", headers=as_admin).json()["providers"]}
+    by = {p["provider"]: p for p in client.get("/api/v1/admin/money/providers", headers=as_admin).json()["providers"]}
     assert by["railway"]["status"] == "error"
 
 
@@ -350,7 +350,7 @@ def test_railway_graphql_errors_are_reported_not_raised(client, as_admin, monkey
 # ---------------------------------------------------------------------------
 
 def test_coupon_without_a_code_gets_one(client, as_admin, db):
-    r = client.post("/api/admin/coupons", headers=as_admin, json={"credit_amount": 25, "max_uses": 3})
+    r = client.post("/api/v1/admin/coupons", headers=as_admin, json={"credit_amount": 25, "max_uses": 3})
     assert r.status_code == 201
     code = r.json()["code"]
     assert code.startswith("HERO-") and len(code) == 11
@@ -359,7 +359,7 @@ def test_coupon_without_a_code_gets_one(client, as_admin, db):
 
 @pytest.mark.parametrize("body", [{"credit_amount": 0}, {"credit_amount": 5, "max_uses": 0}])
 def test_coupon_validation(client, as_admin, body):
-    assert client.post("/api/admin/coupons", headers=as_admin, json=body).status_code == 422
+    assert client.post("/api/v1/admin/coupons", headers=as_admin, json=body).status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -388,7 +388,7 @@ def test_admin_can_delete_a_paying_user(client, db, as_admin, make_user, make_cr
     make_creation(victim.id)
     _pay(db, victim, "order-1", 15_000_000, 1_000_000)
 
-    r = client.delete(f"/api/admin/users/{victim.id}", headers=as_admin)
+    r = client.delete(f"/api/v1/admin/users/{victim.id}", headers=as_admin)
     assert r.status_code == 200, r.text
 
     db.expire_all()
@@ -398,13 +398,13 @@ def test_admin_can_delete_a_paying_user(client, db, as_admin, make_user, make_cr
     assert row.credits == 0
     assert db.query(Payment).filter(Payment.user_id == victim.id).count() == 1
 
-    assert client.delete(f"/api/admin/users/{victim.id}", headers=as_admin).status_code == 404
-    listed = client.get("/api/admin/users", headers=as_admin).json()
+    assert client.delete(f"/api/v1/admin/users/{victim.id}", headers=as_admin).status_code == 404
+    listed = client.get("/api/v1/admin/users", headers=as_admin).json()
     assert victim.id not in [u["id"] for u in listed]
 
 
 def test_admin_cannot_delete_themselves(client, admin, as_admin, tasks):
-    assert client.delete(f"/api/admin/users/{admin.id}", headers=as_admin).status_code == 400
+    assert client.delete(f"/api/v1/admin/users/{admin.id}", headers=as_admin).status_code == 400
 
 
 # ---------------------------------------------------------------------------
@@ -437,30 +437,30 @@ def _names(r):
 
 
 def test_users_list_hides_test_accounts_by_default(client, admin, as_admin, mixed_users):
-    assert _names(client.get("/api/admin/users", headers=as_admin)) == {"theadmin", "maya", "robotXfan"}
+    assert _names(client.get("/api/v1/admin/users", headers=as_admin)) == {"theadmin", "maya", "robotXfan"}
 
 
 def test_users_list_shows_test_accounts_when_asked_and_marks_them(client, admin, as_admin, mixed_users):
-    r = client.get("/api/admin/users?include_test=true", headers=as_admin)
+    r = client.get("/api/v1/admin/users?include_test=true", headers=as_admin)
     assert _names(r) == {"theadmin", "maya", "robotXfan", "robot_mfz3k9", "robot_abc", "tester"}
     marked = {u["username"] for u in r.json() if u["is_test_account"]}
     assert marked == {"robot_mfz3k9", "robot_abc", "tester"}
 
 
 def test_users_list_never_shows_deleted_accounts(client, admin, as_admin, mixed_users):
-    for url in ("/api/admin/users", "/api/admin/users?include_test=true"):
+    for url in ("/api/v1/admin/users", "/api/v1/admin/users?include_test=true"):
         ids = {u["id"] for u in client.get(url, headers=as_admin).json()}
         assert mixed_users["deleted"].id not in ids
 
 
 def test_users_count_counts_live_accounts_only(client, admin, as_admin, mixed_users):
-    r = client.get("/api/admin/users/count", headers=as_admin)
+    r = client.get("/api/v1/admin/users/count", headers=as_admin)
     assert r.status_code == 200, r.text
     assert r.json() == {"users": 3, "test_accounts": 3}
 
 
 def test_users_count_is_admin_only(client, make_user):
-    assert client.get("/api/admin/users/count").status_code == 401
+    assert client.get("/api/v1/admin/users/count").status_code == 401
     token = create_access_token(make_user(username="plain").id)
-    r = client.get("/api/admin/users/count", headers={"Authorization": f"Bearer {token}"})
+    r = client.get("/api/v1/admin/users/count", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 403

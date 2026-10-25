@@ -85,12 +85,14 @@ def test_the_api_serves_them(db):
     u = _user(db)
     for s in [30, 30, 30, 30, 30]:
         _run(db, u, "meshy_rig", s)
-    r = client.get("/api/creations/estimates")
+    r = client.get("/api/v1/estimates")
     assert r.status_code == 200
     body = r.json()
-    assert body["steps"]["meshy_rig"]["p50"] == 30
-    assert body["unit"] == "seconds"
-    assert set(body["steps"]) == {"image_processing", "openai_render", "meshy_3d", "meshy_rig", "convert_vrm"}
+    by_step = {s["step"]: s for s in body["stages"]}
+    assert by_step["meshy_rig"]["typical_seconds"] == 30
+    assert by_step["meshy_rig"]["source"] == "measured"
+    assert set(by_step) == {"image_processing", "openai_render", "meshy_3d", "meshy_rig", "convert_vrm"}
+    assert body["total"]["typical_seconds"] == sum(s["typical_seconds"] for s in body["stages"])
 
 
 def test_a_step_response_quotes_the_measured_length(db):

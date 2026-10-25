@@ -42,10 +42,13 @@ def _run(coro):
 
 
 def _step_json(client, creation_id, step_name):
-    """The step as the hero screen sees it: from GET /api/creations/{id}."""
-    r = client.get(f"/api/creations/{creation_id}")
+    """The stage as the hero screen sees it: from GET /api/v1/heroes/{id}.
+
+    `provider_progress` is what the provider reported (0-100, or null);
+    `typical_seconds` the step's typical length, to estimate from."""
+    r = client.get(f"/api/v1/heroes/{creation_id}")
     assert r.status_code == 200, r.text
-    (step,) = [s for s in r.json()["steps"] if s["step_name"] == step_name]
+    (step,) = [s for s in r.json()["stages"] if s.get("step") == step_name]
     return step
 
 
@@ -70,7 +73,7 @@ def test_meshy_progress_reaches_the_hero_screen_while_the_task_runs(db, make_use
 
     def status_func(_task_id):
         # What the phone would have read at this moment, mid-task.
-        seen.append(_step_json(client, creation.id, "meshy_3d")["progress"])
+        seen.append(_step_json(client, creation.id, "meshy_3d")["provider_progress"])
         return next(readings)
 
     url = pipeline._poll_meshy_task_with_progress(
@@ -81,9 +84,9 @@ def test_meshy_progress_reaches_the_hero_screen_while_the_task_runs(db, make_use
     # Before Meshy first answers there is nothing to show; then every reading
     # lands, in order. A null from a queued task reads as 0, not a crash.
     assert seen == [None, 0, 12, 37, 82]
-    single = client.get(f"/api/creations/{creation.id}/steps/meshy_3d").json()
-    assert single["progress"] == 100
-    assert single["estimated_duration"] == get_step_by_name("meshy_3d")["estimated_duration"]
+    single = _step_json(client, creation.id, "meshy_3d")
+    assert single["provider_progress"] == 100
+    assert single["typical_seconds"] == get_step_by_name("meshy_3d")["estimated_duration"]
 
 
 def test_a_step_without_provider_progress_reports_none_and_when_it_started(
@@ -103,13 +106,13 @@ def test_a_step_without_provider_progress_reports_none_and_when_it_started(
     _run(pipeline.execute_step(creation.id, user.id, "openai_render", db))
 
     assert during["status"] == "processing"
-    assert during["progress"] is None
+    assert during["provider_progress"] is None
     assert during["started_at"] is not None
-    assert during["estimated_duration"] == get_step_by_name("openai_render")["estimated_duration"]
+    assert during["typical_seconds"] == get_step_by_name("openai_render")["estimated_duration"]
 
     after = _step_json(client, creation.id, "openai_render")
     assert after["status"] == "completed"
-    assert after["progress"] == 100
+    assert after["provider_progress"] == 100
 
 
 def test_a_retried_step_starts_again_from_nothing(db, make_user, make_creation, client, monkeypatch):
@@ -131,7 +134,7 @@ def test_a_retried_step_starts_again_from_nothing(db, make_user, make_creation, 
     _run(pipeline.execute_step(creation.id, user.id, "meshy_3d", db))
 
     assert during["status"] == "processing"
-    assert during["progress"] is None
+    assert during["provider_progress"] is None
     assert during["started_at"] > "2026-01-02"
 
 
@@ -140,5 +143,5 @@ def test_a_step_that_never_ran_reports_its_typical_duration(db, make_user, make_
     creation = make_creation(user.id)  # no step rows at all yet
     step = _step_json(client, creation.id, "convert_vrm")
     assert step["status"] == "pending"
-    assert step["progress"] is None
-    assert step["estimated_duration"] == get_step_by_name("convert_vrm")["estimated_duration"]
+    assert step["provider_progress"] is None
+    assert step["typical_seconds"] == get_step_by_name("convert_vrm")["estimated_duration"]

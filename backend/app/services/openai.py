@@ -133,7 +133,7 @@ RETIRED_STYLES = frozenset({"original"})
 
 
 def list_styles() -> list:
-    """[{key, label}] in picker order. What GET /api/styles answers."""
+    """[{key, label}] in picker order. What GET /api/v1/styles answers."""
     return [{"key": key, "label": s["label"]} for key, s in STYLES.items()]
 
 
