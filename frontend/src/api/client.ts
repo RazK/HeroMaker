@@ -740,20 +740,20 @@ export const api = {
     async listUsers(includeTest = false): Promise<AdminUserResponse[]> {
       console.log('[API] admin.listUsers', { includeTest });
       const result = await fetchJson<AdminUserResponse[]>(
-        `${API_BASE_URL}/api/admin/users${includeTest ? '?include_test=true' : ''}`,
+        `${API_BASE_URL}/api/v1/admin/users${includeTest ? '?include_test=true' : ''}`,
       );
       console.log('[API] admin.listUsers success:', { count: result.length });
       return result;
     },
 
     async countUsers(): Promise<AdminUserCounts> {
-      return fetchJson<AdminUserCounts>(`${API_BASE_URL}/api/admin/users/count`);
+      return fetchJson<AdminUserCounts>(`${API_BASE_URL}/api/v1/admin/users/count`);
     },
 
     async updateUser(userId: string, data: { credits?: number; is_admin?: boolean }): Promise<AdminUserResponse> {
       console.log('[API] admin.updateUser:', { userId, data });
       const result = await fetchJson<AdminUserResponse>(
-        `${API_BASE_URL}/api/admin/users/${userId}`,
+        `${API_BASE_URL}/api/v1/admin/users/${userId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -767,7 +767,7 @@ export const api = {
     async deleteUser(userId: string): Promise<void> {
       console.log('[API] admin.deleteUser:', { userId });
       await fetchJson<{ message: string }>(
-        `${API_BASE_URL}/api/admin/users/${userId}`,
+        `${API_BASE_URL}/api/v1/admin/users/${userId}`,
         { method: 'DELETE' }
       );
       console.log('[API] admin.deleteUser success');
@@ -776,16 +776,16 @@ export const api = {
     /** One account: who, their heroes (removed ones too) and the audit log.
      * Also gives this browser the pass to load removed heroes' files. */
     userDetail(userId: string): Promise<AdminUserDetail> {
-      return fetchJson<AdminUserDetail>(`${API_BASE_URL}/api/admin/users/${userId}`);
+      return fetchJson<AdminUserDetail>(`${API_BASE_URL}/api/v1/admin/users/${userId}`);
     },
 
     /** One user's credit ledger, newest first: purchases, step charges, refunds, grants. */
     userLedger(userId: string, limit = 200): Promise<UserLedger> {
-      return fetchJson<UserLedger>(`${API_BASE_URL}/api/admin/finance/ledger/${userId}?limit=${limit}`);
+      return fetchJson<UserLedger>(`${API_BASE_URL}/api/v1/admin/finance/ledger/${userId}?limit=${limit}`);
     },
 
     removeHero(creationId: string, reason: RemovalReason, note: string): Promise<AdminAction> {
-      return fetchJson<AdminAction>(`${API_BASE_URL}/api/admin/creations/${creationId}/remove`, {
+      return fetchJson<AdminAction>(`${API_BASE_URL}/api/v1/admin/creations/${creationId}/remove`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason, note }),
@@ -793,12 +793,12 @@ export const api = {
     },
 
     restoreHero(creationId: string): Promise<AdminAction> {
-      return fetchJson<AdminAction>(`${API_BASE_URL}/api/admin/creations/${creationId}/restore`, { method: 'POST' });
+      return fetchJson<AdminAction>(`${API_BASE_URL}/api/v1/admin/creations/${creationId}/restore`, { method: 'POST' });
     },
 
     /** Give (amount > 0) or take back (amount < 0) credits. The note is required. */
     changeCredits(userId: string, amount: number, note: string): Promise<{ credits: number; action: AdminAction }> {
-      return fetchJson<{ credits: number; action: AdminAction }>(`${API_BASE_URL}/api/admin/users/${userId}/credits`, {
+      return fetchJson<{ credits: number; action: AdminAction }>(`${API_BASE_URL}/api/v1/admin/users/${userId}/credits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount, note }),
@@ -808,7 +808,7 @@ export const api = {
     // Coupons
     async listCoupons(): Promise<AdminCouponResponse[]> {
       console.log('[API] admin.listCoupons');
-      const result = await fetchJson<AdminCouponResponse[]>(`${API_BASE_URL}/api/admin/coupons`);
+      const result = await fetchJson<AdminCouponResponse[]>(`${API_BASE_URL}/api/v1/admin/coupons`);
       console.log('[API] admin.listCoupons success:', { count: result.length });
       return result;
     },
@@ -822,7 +822,7 @@ export const api = {
     }): Promise<AdminCouponResponse> {
       console.log('[API] admin.createCoupon:', { code: data.code, credit_amount: data.credit_amount });
       const result = await fetchJson<AdminCouponResponse>(
-        `${API_BASE_URL}/api/admin/coupons`,
+        `${API_BASE_URL}/api/v1/admin/coupons`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -836,7 +836,7 @@ export const api = {
     async updateCoupon(couponId: string, data: { is_active?: boolean }): Promise<AdminCouponResponse> {
       console.log('[API] admin.updateCoupon:', { couponId, data });
       const result = await fetchJson<AdminCouponResponse>(
-        `${API_BASE_URL}/api/admin/coupons/${couponId}`,
+        `${API_BASE_URL}/api/v1/admin/coupons/${couponId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -850,7 +850,7 @@ export const api = {
     async deleteCoupon(couponId: string): Promise<void> {
       console.log('[API] admin.deleteCoupon:', { couponId });
       await fetchJson<{ message: string }>(
-        `${API_BASE_URL}/api/admin/coupons/${couponId}`,
+        `${API_BASE_URL}/api/v1/admin/coupons/${couponId}`,
         { method: 'DELETE' }
       );
       console.log('[API] admin.deleteCoupon success');
@@ -858,24 +858,24 @@ export const api = {
 
     // Money: income, costs, net, provider balances, monthly bills
     moneySummary(period: MoneyPeriod): Promise<MoneySummary> {
-      return fetchJson<MoneySummary>(`${API_BASE_URL}/api/admin/money/summary?period=${period}`);
+      return fetchJson<MoneySummary>(`${API_BASE_URL}/api/v1/admin/money/summary?period=${period}`);
     },
 
     async providerBalances(refresh = false): Promise<ProviderBalance[]> {
       const r = await fetchJson<{ providers: ProviderBalance[] }>(
-        `${API_BASE_URL}/api/admin/money/providers${refresh ? '?refresh=true' : ''}`
+        `${API_BASE_URL}/api/v1/admin/money/providers${refresh ? '?refresh=true' : ''}`
       );
       return r.providers;
     },
 
     lemonSqueezyCheck(refresh = false): Promise<LemonSqueezyCheck> {
       return fetchJson<LemonSqueezyCheck>(
-        `${API_BASE_URL}/api/admin/money/lemonsqueezy${refresh ? '?refresh=true' : ''}`
+        `${API_BASE_URL}/api/v1/admin/money/lemonsqueezy${refresh ? '?refresh=true' : ''}`
       );
     },
 
     createRecurring(data: { name: string; amount_usd: number; started_on?: string }): Promise<RecurringExpense> {
-      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/admin/money/recurring`, {
+      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/v1/admin/money/recurring`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -883,7 +883,7 @@ export const api = {
     },
 
     updateRecurring(id: string, data: { name?: string; amount_usd?: number; started_on?: string; is_active?: boolean }): Promise<RecurringExpense> {
-      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/admin/money/recurring/${id}`, {
+      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/v1/admin/money/recurring/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -891,7 +891,7 @@ export const api = {
     },
 
     deleteRecurring(id: string): Promise<void> {
-      return fetchJson<void>(`${API_BASE_URL}/api/admin/money/recurring/${id}`, { method: 'DELETE' });
+      return fetchJson<void>(`${API_BASE_URL}/api/v1/admin/money/recurring/${id}`, { method: 'DELETE' });
     },
   },
 };

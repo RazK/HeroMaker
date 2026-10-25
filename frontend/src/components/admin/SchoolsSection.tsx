@@ -36,7 +36,7 @@ export function SchoolsSection() {
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    fetchJson<{ teachers: TeacherRow[] }>(`${BASE}/api/admin/schools`)
+    fetchJson<{ teachers: TeacherRow[] }>(`${BASE}/api/v1/admin/schools`)
       .then((r) => setRows(r.teachers))
       .catch((e) => { setError(e instanceof ApiError ? e.message : 'Could not load schools.'); setRows([]); });
   }, []);

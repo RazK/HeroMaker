@@ -165,6 +165,12 @@ app.include_router(classes.teacher_router, prefix="/api/classes", tags=["classes
 app.include_router(classes.student_router, prefix="/api/class", tags=["classes"])
 app.include_router(v1.router, prefix="/api/v1", tags=["public API v1"])
 app.include_router(v1_account.router, prefix="/api/v1", tags=["account v1"])
+# Classes and the admin console on /api/v1: the same routers, one more
+# address. They answer only the app's own login (a teacher, an admin) or a
+# class's student pass: an API key is neither, and is refused.
+app.include_router(classes.teacher_router, prefix="/api/v1/classes", tags=["classes v1"])
+app.include_router(classes.student_router, prefix="/api/v1/class", tags=["classes v1"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin v1"])
 app.include_router(mcp.router, tags=["MCP"])
 
 @app.get("/")

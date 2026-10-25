@@ -3,7 +3,7 @@
  * Backend: backend/app/api/classes.py. Product: docs/product/class-sessions.md.
  *
  * A student has no account. Joining gives their browser a one-hero PASS and a
- * browser MARKER. The server also sets both as httpOnly cookies on /api/class;
+ * browser MARKER. The server also sets both as httpOnly cookies on /api (the student calls are /api/v1/class);
  * this copy in localStorage is sent as headers, so a pass survives wherever
  * one of the two does. Every student call answers 403, never 401, so a
  * teacher signed in on the same tablet is never signed out by it.
@@ -155,25 +155,25 @@ const json = (body: unknown): RequestInit => ({
 });
 
 export const teacherApi = {
-  list: () => fetchJson<{ classes: ClassView[]; hero_cost: number; school: School | null; seat_price: SeatPrice | null }>(`${BASE}/api/classes`),
+  list: () => fetchJson<{ classes: ClassView[]; hero_cost: number; school: School | null; seat_price: SeatPrice | null }>(`${BASE}/api/v1/classes`),
   saveSchool: (school: { name: string; type: SchoolType; city: string; country: string }) =>
-    fetchJson<{ school: School }>(`${BASE}/api/classes/school`, { ...json(school), method: 'PUT' }),
-  get: (id: string) => fetchJson<ClassView>(`${BASE}/api/classes/${id}`),
+    fetchJson<{ school: School }>(`${BASE}/api/v1/classes/school`, { ...json(school), method: 'PUT' }),
+  get: (id: string) => fetchJson<ClassView>(`${BASE}/api/v1/classes/${id}`),
   create: (title: string, seats: number, ages: string | null = null) =>
-    fetchJson<ClassView>(`${BASE}/api/classes`, json({ title, seats, ages })),
-  addSeats: (id: string, seats: number) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/seats`, json({ seats })),
+    fetchJson<ClassView>(`${BASE}/api/v1/classes`, json({ title, seats, ages })),
+  addSeats: (id: string, seats: number) => fetchJson<ClassView>(`${BASE}/api/v1/classes/${id}/seats`, json({ seats })),
   /** A checkout at the class price; the webhook adds the seats when paid. */
   buyNew: (title: string, seats: number, ages: string | null = null) =>
-    fetchJson<SeatsCheckout>(`${BASE}/api/classes/buy`, json({ title, seats, ages, redirect_url: seatsReturnUrl() })),
+    fetchJson<SeatsCheckout>(`${BASE}/api/v1/classes/buy`, json({ title, seats, ages, redirect_url: seatsReturnUrl() })),
   buySeats: (id: string, seats: number) =>
-    fetchJson<SeatsCheckout>(`${BASE}/api/classes/${id}/buy`, json({ seats, redirect_url: seatsReturnUrl() })),
+    fetchJson<SeatsCheckout>(`${BASE}/api/v1/classes/${id}/buy`, json({ seats, redirect_url: seatsReturnUrl() })),
   start: (id: string, minutes: number, approveFirst: boolean) =>
-    fetchJson<ClassView>(`${BASE}/api/classes/${id}/start`, json({ minutes, approve_first: approveFirst })),
-  extend: (id: string, minutes = 15) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/extend`, json({ minutes })),
-  end: (id: string) => fetchJson<ClassView>(`${BASE}/api/classes/${id}/end`, { method: 'POST' }),
+    fetchJson<ClassView>(`${BASE}/api/v1/classes/${id}/start`, json({ minutes, approve_first: approveFirst })),
+  extend: (id: string, minutes = 15) => fetchJson<ClassView>(`${BASE}/api/v1/classes/${id}/extend`, json({ minutes })),
+  end: (id: string) => fetchJson<ClassView>(`${BASE}/api/v1/classes/${id}/end`, { method: 'POST' }),
   /** remove: off the board, any card. retry: a failed hero again, from the class's seats. */
   student: (id: string, studentId: string, action: 'approve' | 'block' | 'remove' | 'retry') =>
-    fetchJson<ClassView>(`${BASE}/api/classes/${id}/students/${studentId}/${action}`, { method: 'POST' }),
+    fetchJson<ClassView>(`${BASE}/api/v1/classes/${id}/students/${studentId}/${action}`, { method: 'POST' }),
 };
 
 // ---- the student's browser ------------------------------------------------
@@ -210,38 +210,38 @@ export const studentApi = {
   hasPass: () => !!read(PASS_KEY),
   find: async (pin: string) => {
     const r = await studentFetch<{ title: string; seats_left: number; seconds_left: number; device_token: string; joined: boolean }>(
-      `${BASE}/api/class/join/${encodeURIComponent(pin)}`);
+      `${BASE}/api/v1/class/join/${encodeURIComponent(pin)}`);
     if (r.device_token) write(MARKER_KEY, r.device_token);
     return r;
   },
   join: async (pin: string, firstName: string, age: number | null) => {
     const r = await studentFetch<GuestView & { pass: string | null; device_token: string }>(
-      `${BASE}/api/class/join`, json({ pin, first_name: firstName, age }));
+      `${BASE}/api/v1/class/join`, json({ pin, first_name: firstName, age }));
     if (r.pass) write(PASS_KEY, r.pass);
     if (r.device_token) write(MARKER_KEY, r.device_token);
     return r;
   },
-  me: () => studentFetch<GuestView>(`${BASE}/api/class/me`),
+  me: () => studentFetch<GuestView>(`${BASE}/api/v1/class/me`),
   makeHero: async (file: File, style: string) => {
     const form = new FormData();
     const upload = await shrinkPhoto(file);
     form.append('image_file', upload, upload.name);
     form.append('style', style);
-    return studentFetch<GuestView>(`${BASE}/api/class/me/hero`, { method: 'POST', body: form });
+    return studentFetch<GuestView>(`${BASE}/api/v1/class/me/hero`, { method: 'POST', body: form });
   },
-  retry: () => studentFetch<GuestView>(`${BASE}/api/class/me/hero/retry`, { method: 'POST' }),
+  retry: () => studentFetch<GuestView>(`${BASE}/api/v1/class/me/hero/retry`, { method: 'POST' }),
   /** "Next student" on a shared tablet: this browser forgets the pass, keeps its marker. */
   leave: async () => {
     write(PASS_KEY, null);
-    await studentFetch<{ ok: boolean }>(`${BASE}/api/class/leave`, { method: 'POST' }).catch(() => undefined);
+    await studentFetch<{ ok: boolean }>(`${BASE}/api/v1/class/leave`, { method: 'POST' }).catch(() => undefined);
   },
 };
 
 // ---- the parent -------------------------------------------------------------
 
 export const claimApi = {
-  see: (token: string) => fetchJson<ClaimView>(`${BASE}/api/class/claim/${encodeURIComponent(token)}`),
-  keep: (token: string) => fetchJson<ClaimView>(`${BASE}/api/class/claim/${encodeURIComponent(token)}`, { method: 'POST' }),
+  see: (token: string) => fetchJson<ClaimView>(`${BASE}/api/v1/class/claim/${encodeURIComponent(token)}`),
+  keep: (token: string) => fetchJson<ClaimView>(`${BASE}/api/v1/class/claim/${encodeURIComponent(token)}`, { method: 'POST' }),
 };
 
 export const heroFile = (h: { user_id: string; creation_id: string }, f: string) =>
