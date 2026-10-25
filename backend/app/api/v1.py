@@ -1,17 +1,18 @@
-"""The public HeroMaker API: a drawing in, a rigged VRM avatar out.
+"""The HeroMaker API: a drawing in, a rigged VRM avatar out.
 
-Authenticated with an API key (app/services/api_keys.py). Every hero is
-charged to the key's owner like one made in the app, and refunded the same
-way when a stage fails. Human docs: /developers. Agent docs: /llms.txt.
+One API for every client: the app (its login), other apps and agents (an API
+key). What each may do is its scope (app/services/principal.py). Every hero
+is charged to the account, and refunded the same way when a stage fails.
+Human docs: /developers. Agent docs: /llms.txt.
 
     POST   /api/v1/heroes              start a hero from a drawing
     GET    /api/v1/heroes/{id}         status, stages, progress, time left, files
-    GET    /api/v1/heroes              this key's heroes, newest first
+    GET    /api/v1/heroes              the account's heroes, newest first
     DELETE /api/v1/heroes/{id}         stop it (charges for stages already run stay)
     GET    /api/v1/estimates           how long a hero takes now, measured
     GET    /api/v1/account             credits left, cost of a hero
 
-    POST/GET/DELETE /api/v1/keys       the signed-in user's keys (app login, not a key)
+    POST/GET/DELETE /api/v1/keys       the account's keys (the app only: scope app)
 """
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import ApiHero, ApiKey, Creation, User
 from app.services import api_heroes, api_keys
-from app.services.auth import get_current_user_required
+from app.services.principal import APP, HEROES, Principal, require
 from app.services.credits import get_balance
 from app.services.task_manager import get_task_manager
 
@@ -91,18 +92,19 @@ def estimates():
 
 
 @router.get("/account")
-def account(key: ApiKey = Depends(api_keys.require_api_key), db: Session = Depends(get_db)):
-    balance = get_balance(key.user_id, db)
+def account(who: Principal = Depends(require(HEROES)), db: Session = Depends(get_db)):
+    key = who.api_key
+    balance = get_balance(who.user_id, db)
     cost = api_heroes.hero_cost()
     out = {
         "object": "account",
         "credits": balance,
         "hero_cost_credits": cost,
         "heroes_affordable": balance // cost if cost else None,
-        "key": api_keys.public_view(key),
+        "key": api_keys.public_view(key) if key else None,
         "buy_credits": "https://heromaker.up.railway.app/?buy=1",
     }
-    if key.daily_limit is not None:
+    if key is not None and key.daily_limit is not None:
         out["heroes_started_last_24h"] = api_keys.started_today(db, key)
     return out
 
@@ -184,7 +186,7 @@ _CREATE_BODY = {
 @router.post("/heroes", status_code=202, openapi_extra=_CREATE_BODY)
 async def create_hero(
     request: Request,
-    key: ApiKey = Depends(api_keys.require_api_key),
+    who: Principal = Depends(require(HEROES)),
     db: Session = Depends(get_db),
     task_manager=Depends(get_task_manager),
 ):
@@ -194,60 +196,67 @@ async def create_hero(
     402 if the account can't pay for a whole hero; 429 past a key's daily limit.
     """
     data, body = await _read_request(request)
-    return start_api_hero(db, key, data, body, api_heroes.base_url(request), task_manager)
+    return start_api_hero(db, who, data, body, api_heroes.base_url(request), task_manager)
 
 
-def start_api_hero(db: Session, key: ApiKey, data: bytes, body: CreateHero, base: str, task_manager) -> dict:
+def start_api_hero(db: Session, who: Principal, data: bytes, body: CreateHero, base: str, task_manager) -> dict:
     """Checks, then the hero: shared by POST /heroes and the MCP create_hero tool.
 
     Must run on the event loop (start_pipeline creates an asyncio task)."""
     from app.api.creations import _checked_style, create_with_drawing, start_pipeline
 
+    key = who.api_key
     if body.webhook_url:
+        if key is None:
+            raise _error(400, "webhook_url needs an API key: the calls are signed with its webhook secret.")
         try:
             api_heroes.check_public_url(body.webhook_url)
         except api_heroes.UnsafeURL as e:
             raise _error(400, f"webhook_url: {e}")
     style = _checked_style(body.style)
-    api_keys.check_daily_limit(db, key)
+    if key is not None:
+        api_keys.check_daily_limit(db, key)
     cost = api_heroes.hero_cost()
-    balance = get_balance(key.user_id, db)
+    balance = get_balance(who.user_id, db)
     if balance < cost:
         raise HTTPException(status_code=402, detail={
             "message": f"A hero costs {cost} credits; this account has {balance}. Buy credits on HeroMaker.",
             "credits": balance, "hero_cost_credits": cost,
         })
-    owner = key.user
+    owner = who.user
     creation = create_with_drawing(
-        db, key.user_id, data,
+        db, who.user_id, data,
         character_name=(body.name or "").strip()[:NAME_MAX] or None,
         name=owner.name, style=style, is_public=body.public,
     )
-    api_hero = ApiHero(creation_id=creation.id, api_key_id=key.id, webhook_url=body.webhook_url,
-                       client_ref=body.client_ref, api_base=base)
-    db.add(api_hero)
-    db.commit()
+    # Made with a key: remember which (its daily limit, its webhook secret).
+    api_hero = None
+    if key is not None:
+        api_hero = ApiHero(creation_id=creation.id, api_key_id=key.id, webhook_url=body.webhook_url,
+                           client_ref=body.client_ref, api_base=base)
+        db.add(api_hero)
+        db.commit()
     start_pipeline(creation, db, task_manager, style=style)
     if body.webhook_url:
         api_heroes.watch(creation.id)
     db.refresh(creation)
-    logger.info(f"[{creation.id}] API hero started by key {key.prefix}…")
+    logger.info(f"[{creation.id}] API hero started by {'key ' + key.prefix + '…' if key else 'the app'}")
     return api_heroes.view(creation, base, api_hero=api_hero)
 
 
-def _own_hero(db: Session, key: ApiKey, hero_id: str) -> tuple:
-    """The hero, if this key's account owns it (404 otherwise: ids don't leak)."""
+def _own_hero(db: Session, who: Principal, hero_id: str) -> tuple:
+    """The hero, if the caller's account owns it (404 otherwise: ids don't leak)."""
     creation = db.query(Creation).filter(Creation.id == hero_id).first()
-    if creation is None or creation.user_id != key.user_id:
+    if creation is None or creation.user_id != who.user_id:
         raise _error(404, "No such hero on this account.")
     api_hero = db.query(ApiHero).filter(ApiHero.creation_id == hero_id).first()
     return creation, api_hero
 
 
 @router.get("/heroes/{hero_id}")
-def get_hero(hero_id: str, request: Request, key: ApiKey = Depends(api_keys.require_api_key), db: Session = Depends(get_db)):
+def get_hero(hero_id: str, request: Request, who: Principal = Depends(require(HEROES)), db: Session = Depends(get_db)):
     """The hero now: status, current stage, progress %, time left, and every file made so far."""
-    creation, api_hero = _own_hero(db, key, hero_id)
+    creation, api_hero = _own_hero(db, who, hero_id)
     return api_heroes.view(creation, api_heroes.base_url(request), api_hero=api_hero)
 
 
@@ -256,24 +265,28 @@ def list_heroes(
     request: Request,
     limit: int = Query(20, ge=1, le=100),
     client_ref: Optional[str] = Query(None),
-    key: ApiKey = Depends(api_keys.require_api_key),
+    who: Principal = Depends(require(HEROES)),
     db: Session = Depends(get_db),
 ):
-    """Heroes made through the API on this account, newest first."""
-    q = (db.query(ApiHero).join(ApiKey, ApiHero.api_key_id == ApiKey.id)
-         .filter(ApiKey.user_id == key.user_id))
+    """The account's heroes, newest first: made in the app or with any key."""
+    return {"object": "list", "data": account_heroes(db, who, api_heroes.base_url(request), limit, client_ref)}
+
+
+def account_heroes(db: Session, who: Principal, base: str, limit: int, client_ref: Optional[str] = None) -> list:
+    """The account's heroes as the API shows them (never-started uploads left out)."""
+    q = db.query(Creation).filter(Creation.user_id == who.user_id, Creation.deleted_at.is_(None))
     if client_ref:
-        q = q.filter(ApiHero.client_ref == client_ref)
-    rows = q.order_by(ApiHero.created_at.desc()).limit(limit).all()
-    base = api_heroes.base_url(request)
-    return {"object": "list", "data": [api_heroes.view(r.creation, base, api_hero=r) for r in rows if r.creation]}
+        q = q.join(ApiHero, ApiHero.creation_id == Creation.id).filter(ApiHero.client_ref == client_ref)
+    rows = [c for c in q.order_by(Creation.created_at.desc()).limit(limit * 2).all() if not c.never_started][:limit]
+    refs = {r.creation_id: r for r in db.query(ApiHero).filter(ApiHero.creation_id.in_([c.id for c in rows])).all()} if rows else {}
+    return [api_heroes.view(c, base, api_hero=refs.get(c.id)) for c in rows]
 
 
 @router.delete("/heroes/{hero_id}")
-def delete_hero(hero_id: str, request: Request, key: ApiKey = Depends(api_keys.require_api_key),
+def delete_hero(hero_id: str, request: Request, who: Principal = Depends(require(HEROES)),
                 db: Session = Depends(get_db), task_manager=Depends(get_task_manager)):
     """Stop a hero being made and remove it. Stages already run stay charged."""
-    creation, api_hero = _own_hero(db, key, hero_id)
+    creation, api_hero = _own_hero(db, who, hero_id)
     task_manager.cancel_all_tasks_for_creation(hero_id)
     if creation.deleted_at is None:
         creation.deleted_at = datetime.utcnow()
@@ -291,7 +304,8 @@ class NewKey(BaseModel):
 
 
 @router.post("/keys", status_code=201)
-def create_key(body: NewKey, user: User = Depends(get_current_user_required), db: Session = Depends(get_db)):
+def create_key(body: NewKey, who: Principal = Depends(require(APP)), db: Session = Depends(get_db)):
+    user = who.user
     """A new key. The key and its webhook secret are in this answer only: save them now."""
     row, key = api_keys.create_key(db, user, name=body.name, kind=body.kind,
                                    allowed_origins=body.allowed_origins, daily_limit=body.daily_limit)
@@ -299,14 +313,16 @@ def create_key(body: NewKey, user: User = Depends(get_current_user_required), db
 
 
 @router.get("/keys")
-def list_keys(user: User = Depends(get_current_user_required), db: Session = Depends(get_db)):
+def list_keys(who: Principal = Depends(require(APP)), db: Session = Depends(get_db)):
+    user = who.user
     rows = (db.query(ApiKey).filter(ApiKey.user_id == user.id, ApiKey.revoked_at.is_(None))
             .order_by(ApiKey.created_at.desc()).all())
     return {"object": "list", "data": [api_keys.public_view(r) for r in rows]}
 
 
 @router.delete("/keys/{key_id}")
-def revoke_key(key_id: str, user: User = Depends(get_current_user_required), db: Session = Depends(get_db)):
+def revoke_key(key_id: str, who: Principal = Depends(require(APP)), db: Session = Depends(get_db)):
+    user = who.user
     row = db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.user_id == user.id).first()
     if row is None:
         raise _error(404, "No such key.")
