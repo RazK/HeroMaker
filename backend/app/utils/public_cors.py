@@ -1,4 +1,4 @@
-"""CORS for the public API: any website may call /api/v1 and /mcp from a browser.
+"""CORS for the public API: any website may call /api/v1 and /api/mcp from a browser.
 
 The app's own CORSMiddleware allows only ALLOWED_ORIGINS, with cookies. The
 public API carries no cookies: it is authorised by an API key in a header, and
@@ -8,7 +8,7 @@ outside the app's CORSMiddleware, which never sees these paths' preflights.
 """
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-PUBLIC_PREFIXES = ("/api/v1", "/mcp")
+PUBLIC_PREFIXES = ("/api/v1", "/api/mcp")
 ALLOW_HEADERS = "Authorization, Content-Type, X-Api-Key, Mcp-Session-Id, Mcp-Protocol-Version"
 EXPOSE_HEADERS = "Mcp-Session-Id, Retry-After"
 

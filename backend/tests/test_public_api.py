@@ -46,8 +46,16 @@ def client(monkeypatch):
     monkeypatch.setattr(pipeline, "get_step_coroutine", provider)
     monkeypatch.setattr(pipeline, "get_storage", lambda: _AllFilesExist())
     step_stats.reset_cache()
-    with TestClient(app) as c:
-        yield c
+    # Other test modules install a stand-in task manager for good; these
+    # heroes need the real one, which runs the pipeline.
+    from app.services.task_manager import get_task_manager
+    saved = app.dependency_overrides.pop(get_task_manager, None)
+    try:
+        with TestClient(app) as c:
+            yield c
+    finally:
+        if saved is not None:
+            app.dependency_overrides[get_task_manager] = saved
 
 
 def _png() -> bytes:
