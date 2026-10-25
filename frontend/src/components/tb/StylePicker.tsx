@@ -4,7 +4,7 @@ import './StylePicker.css';
 
 /**
  * The painting styles, as the server lists them. Shown at once from this copy
- * (same keys, same order as GET /api/styles), then replaced by the server's
+ * (same keys, same order as GET /api/v1/styles), then replaced by the server's
  * answer, so the row never waits on the network.
  */
 export const DEFAULT_STYLES: RenderStyle[] = [

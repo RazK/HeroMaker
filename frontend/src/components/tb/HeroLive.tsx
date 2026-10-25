@@ -21,7 +21,7 @@ export const MOVES: Array<{ id: string; label: string; icon: IconName }> = [
 
 /**
  * What the live stage needs of a hero: whose it is and which of its files
- * exist (file_versions, as GET /api/creations/{id} and the class claim link
+ * exist (file_versions, as GET /api/v1/heroes/{id} and the class claim link
  * both return it). Older responses without file_versions fall back to steps.
  */
 export type LiveHero = Pick<CreationResponse, 'id' | 'user_id' | 'name' | 'age' | 'file_versions' | 'painting'> & {
