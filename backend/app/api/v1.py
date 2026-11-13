@@ -466,6 +466,45 @@ async def run_stage(hero_id: str, stage: str, request: Request, who: Principal =
     return _view(who, creation, api_heroes.base_url(request), api_hero)
 
 
+class PrintSplit(BaseModel):
+    mode: str = "auto"
+    prompt: Optional[str] = None
+    connectors: bool = False
+
+
+def _live_hero(db: Session, hero_id: str) -> Creation:
+    creation = db.query(Creation).filter(Creation.id == hero_id, Creation.deleted_at.is_(None)).first()
+    if creation is None:
+        raise _error(404, "No such hero.")
+    return creation
+
+
+# Cutting a hero into printable parts (app/services/print_split.py). Admins
+# only: each split costs our Meshy account 10 credits. Kept out of the public
+# API's docs.
+@router.post("/heroes/{hero_id}/print-split", status_code=202, include_in_schema=False)
+def start_print_split(hero_id: str, body: PrintSplit, request: Request,
+                      who: Principal = Depends(require(ADMIN)), db: Session = Depends(get_db)):
+    from app.services import print_split
+
+    creation = _live_hero(db, hero_id)
+    try:
+        state = print_split.start(db, creation, by_user_id=who.user_id, mode=body.mode,
+                                  prompt=body.prompt, connectors=body.connectors)
+    except print_split.SplitError as e:
+        raise HTTPException(status_code=e.status, detail={"code": e.code, "message": e.message})
+    return print_split.view(creation, api_heroes.base_url(request), state)
+
+
+@router.get("/heroes/{hero_id}/print-split", include_in_schema=False)
+def get_print_split(hero_id: str, request: Request,
+                    who: Principal = Depends(require(ADMIN)), db: Session = Depends(get_db)):
+    from app.services import print_split
+
+    creation = _live_hero(db, hero_id)
+    return print_split.view(creation, api_heroes.base_url(request), print_split.refresh(creation))
+
+
 class Featured(BaseModel):
     featured: bool
 

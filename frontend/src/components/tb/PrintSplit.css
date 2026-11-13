@@ -1,0 +1,17 @@
+/* Split for printing (PrintSplit.tsx): an admin sheet over the hero's page. */
+.tb-split { gap: var(--tb-space); }
+.tb-split-wait { display: flex; flex-direction: column; align-items: center; gap: 12px; padding-block: var(--tb-space); }
+.tb-split-line { text-align: center; font-family: var(--tb-font-display); font-size: 19px; }
+.tb-split-stage {
+  height: min(52vh, 420px);
+  border-radius: var(--tb-radius-card);
+  background: var(--tb-plate-1);
+  overflow: hidden;
+  touch-action: none;
+}
+.tb-split-stage canvas { display: block; }
+.tb-split-slider { display: flex; align-items: center; gap: 12px; font-weight: 800; }
+.tb-split-slider input { flex: 1; min-width: 0; accent-color: var(--tb-grape); height: 44px; }
+.tb-split-chips { justify-content: center; }
+.tb-split-go { display: inline-flex; align-items: center; gap: 8px; }
+.tb-split .tb-btn { text-decoration: none; }

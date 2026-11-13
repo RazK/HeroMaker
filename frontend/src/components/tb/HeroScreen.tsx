@@ -1,4 +1,4 @@
-import { KeyboardEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
@@ -8,6 +8,9 @@ import { Icon } from './Icon';
 import { Dialog, Header, NavButton, ProgressBar, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
 import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, refundWords, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
+
+// Admin only, and it carries three.js: loaded when opened.
+const PrintSplitSheet = lazy(() => import('./PrintSplit').then((m) => ({ default: m.PrintSplitSheet })));
 
 interface HeroScreenProps {
   creation: CreationResponse;
@@ -45,7 +48,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const supporting = isLoggedIn && isAdmin && creation.user_id !== currentUserId;
   const backLabel = props.fromClass ? 'Back to class' : props.fromAdmin ? 'Back to user' : 'Back to heroes';
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'artist' | 'delete' | 'again' | 'games' | 'details' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'artist' | 'delete' | 'again' | 'games' | 'details' | 'split' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
@@ -170,6 +173,8 @@ export function HeroScreen(props: HeroScreenProps) {
       ready && <SheetRow key="vrm" icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />,
       // The per-step admin view is a debugging tool, not designed for users.
       isAdmin && <SheetRow key="steps" icon="grid" label="Admin: every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />,
+      // Meshy's Auto Split, cut into printable parts: a preview, admins only (it spends Meshy credits).
+      isAdmin && ready && <SheetRow key="split" icon="cube" label="Admin: split for printing" onClick={() => setSheet('split')} />,
       isAdmin && ready && !creation.in_class && (
         <SheetRow
           key="featured"
@@ -348,6 +353,7 @@ export function HeroScreen(props: HeroScreenProps) {
         </Sheet>
       )}
       {sheet === 'details' && step && <ErrorDetailsSheet step={step} onClose={() => setSheet(null)} />}
+      {sheet === 'split' && <Suspense fallback={null}><PrintSplitSheet creation={creation} onClose={() => setSheet(null)} /></Suspense>}
       {(sheet === 'rename' || sheet === 'artist') && <RenameSheet creation={creation} focus={sheet === 'artist' ? 'artist' : 'hero'} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}
       {sheet === 'again' && (
         // Money confirms first (brand book); primary last.

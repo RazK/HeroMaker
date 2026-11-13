@@ -236,6 +236,21 @@ export interface V1Stage {
   file: string | null;
   error?: { code: StepErrorCode; message: string | null; credits_refunded: boolean; refunded_credits?: number | null; detail?: string | null; request_id?: string | null } | null;
 }
+/** GET/POST /api/v1/heroes/{id}/print-split: Meshy's Auto Split of the hero's 3D model. */
+export interface PrintSplit {
+  object: 'print_split';
+  hero_id: string;
+  status: 'none' | 'pending' | 'in_progress' | 'succeeded' | 'failed' | 'canceled';
+  progress?: number;
+  mode?: 'auto' | 'by_parts';
+  prompt?: string | null;
+  connectors?: boolean;
+  part_count?: number | null;
+  error?: string | null;
+  cost_meshy_credits?: number;
+  files?: { parts: string | null; parts_3mf: string | null; preview: string | null };
+}
+
 export interface V1Hero {
   id: string;
   status: 'draft' | 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
@@ -442,6 +457,15 @@ export const api = {
    */
   async setFeatured(creationId: string, featured: boolean): Promise<CreationResponse> {
     return fromV1(await fetchJson<V1Hero>(`${V1}/heroes/${creationId}/featured`, json('PUT', { featured })));
+  },
+
+  /** The hero cut into printable parts (admins: backend/app/services/print_split.py). */
+  async getPrintSplit(creationId: string): Promise<PrintSplit> {
+    return fetchJson<PrintSplit>(`${V1}/heroes/${creationId}/print-split`);
+  },
+
+  async startPrintSplit(creationId: string, body: { mode: 'auto' | 'by_parts'; prompt?: string; connectors: boolean }): Promise<PrintSplit> {
+    return fetchJson<PrintSplit>(`${V1}/heroes/${creationId}/print-split`, json('POST', body));
   },
 
   /**
