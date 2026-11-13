@@ -58,6 +58,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 5. **No dead whitespace.** The hero or stage flexes to fill what is left.
 6. **Scrolling.** "Only scroll if there is significant new information to reveal." Phone screens fit 360 x 640 and up; the hero screen is `100dvh`. Lists (the gallery) are the exception.
 7. **Phone-first.** Desktop adapts the same layout (more gallery columns, a bigger stage). The hero has four moves, Dance, Wave, Flip, Punch, one row on every screen. It never invents screens.
+8. **Wider than tall, the hero takes the screen.** A phone on its side, a laptop, a desktop: a ready hero's stage is the whole width (1100px at most, centred) and all the height the header leaves. Nothing stands beside it. The bar moves into the stage's foot, one row 16px inside it: the secondary at the start, the slide's own controls centred (the moves, the drawing's name card), Play at the end, both bar buttons one width so the row is symmetric. Never a column of buttons beside the stage. (A hero being made or failed keeps its stage on one side and the steps on the other on a phone on its side; see Known debt for the desktop.)
 
 **Hero tiles.** One tile for every hero shown as a card (`components/tb/HeroTile.tsx`): the gallery, the class page's students, the My classes shelf. Same plate, polaroid and size, in one grid: 2 columns on a phone, 3 from 680px of room, 4 from 1060px. The caption is always two lines, a sibling of "Speckle Sally / by Raz, 11": a hero being made says "Sculpting · 45%" on the second line, a child still drawing "Drawing…". No progress bar inside the caption. A tile with no caption (the shelf) centres its art on the plate.
 
@@ -81,7 +82,11 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - Never crop: `object-fit: contain`, always.
 - Heroes are transparent and stand on a plate or a sun.
 - An old painting with an opaque studio backdrop is shown from its cut-out (`cut_rendered.png`, `thumb_rendered.png`). One with no confident cut (`painting: "framed"`) is a polaroid, the drawing's tilted white card, never a beige box.
-- The hero's stage is one swipe carousel, in a loop: the drawing, the painting, the live hero (the still 3D model is never shown). A ready hero's page opens on how it was made: the drawing, then the painting once it has loaded, then the live hero once the 3D has, about a second on each (Raz, 2026-10-25); any touch ends it there, and from then on it is swipe only. Three quiet pager dots over the top of the stage (16px from the top) are the only chrome; each picture fills the rest of the stage, 16px clear of its edges, contained, never cropped. The drawing and its artist are one card: the picture, with the artist's first name and age on a white 40px strip under it (display font, 18px, centred). A tap on the drawing or the painting opens it full screen; Close or Back return to the same slide. On the painting and the live hero, the drawing stays in view as a small tilted polaroid in the stage's top-start corner (64px, 88px on a desktop): leaving the drawing, it visibly shrinks into that card; tapping the card (or swiping back) grows it out again (Raz, 2026-10-25: "the drawing goes into the small card smoothly when swiped"). Not over a painting still being made, which already shows the drawing under its ring. The moves stay under every slide (hiding them would make the page jump, greying them out would ask "why not?"); a move tapped on the drawing or the painting slides the hero in forward, from the right, and the move starts as it lands: the drawing visibly comes alive, never a cut. Being made, the carousel builds: each part shows its progress where it will appear, and the carousel moves on when it is ready, unless you swiped back to look. Tapping the hero's name in the header renames it (its owner only).
+- The hero's stage is one swipe carousel, in a loop: the drawing, the painting, the live hero (the still 3D model is never shown). A ready hero's page opens on how it was made: the drawing, then the painting once it has loaded, then the live hero once the 3D has, about a second on each (Raz, 2026-10-25); any touch ends it there, and from then on it is swipe only. Three quiet pager dots over the top of the stage (16px from the top) are the only chrome. The stage's foot is the **dock**, one button tall and 16px inside the stage; each picture fills the room above it, 16px clear of the edges, contained, never cropped, and each slide puts its own thing in the dock: the drawing its name card, the live hero its moves, the painting nothing.
+- **The drawing is always the gallery's polaroid: white frame, slight tilt, name card under it** (Raz: the hero page's flat card "loses this nice white frame with the slight tilt, and the name is shown differently"). One rule (`.tb-pol` in `HeroTile.css`) and one name card (`TileCaption`: the hero's name, "by Maya, 6") serve the gallery tile, the drawing slide, its small card and its full-screen view, so they never drift apart. The frame hugs the whole picture: no bars inside it, nothing cropped. A tap on the drawing or the painting opens it full screen; Close or Back return to the same slide.
+- On the painting and the live hero, the drawing stays in view as that small polaroid in the stage's bottom-start corner, just above the dock, about a third of the stage across (112px on a phone, up to 150px on a desktop; Raz: the old 64px card in the top corner was too small). Leaving the drawing, it visibly shrinks into that card; tapping the card (or swiping back) grows it out again (Raz, 2026-10-25: "the drawing goes into the small card smoothly when swiped"). One object makes the trip: a copy of the big polaroid, scaled, so it never jumps or shows a band. Not over a painting still being made, which already shows the drawing under its ring.
+- **The moves are the live hero's own controls** (Raz: "put the buttons inside it, not below it, so that when we preview the painting or the drawing, we don't see them, because we can't make the drawing do a flip or dance. These controls are part of the 3D animation preview."): one centred row of white pills in the hero's slide, along the dock, sliding with it; never on the drawing or the painting. A tap plays at once. The stage grew into the room the row used to take under it.
+- Being made, the carousel builds: each part shows its progress where it will appear, and the carousel moves on when it is ready, unless you swiped back to look. Tapping the hero's name in the header renames it (its owner only).
 - Thumbnail first, full size swapped in when loaded.
 - Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
 
@@ -134,6 +139,9 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 | Transparent hero on a plate or sun | An opaque painting covering the sun |
 | Paired things equal and side by side | A small drawing in a corner beside a huge hero, as a static thumbnail (the stage's small drawing card is the exception: the drawing itself flies into it, so it reads as the same picture) |
 | Moves in one centred bar | A panel stuck in a corner |
+| Wider than tall: the stage across the screen, its controls in one row at its foot | A column of buttons beside the stage, mostly empty |
+| The hero's moves inside its own slide | Moves under every slide, on a drawing that cannot dance |
+| The drawing as the gallery's tilted polaroid with its name card | A flat drawing card with its own name strip |
 | A labelled pill: "How it was made" | An unlabelled icon for anything but back/close/more/play |
 | The painting dimmed under a % ring | An empty card while 3D loads |
 | Tap a move, it plays | Queue moves, then press play |
@@ -161,6 +169,9 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Underlined text links.** "No underlined links." Every action is a button, a row, a chip or a toggle; `.tb-link` is gone.
 - **Names under the step dots.** Tried; Raz: "Remove the labels, but make the transition automatic between the phases." The steps now play by themselves.
 - **My classes as a chip.** The fourth chip on a phone, cut off at the edge: "I could miss it. It needs a higher level in the hierarchy." Now the switch.
+- **Two columns on a wide screen.** A phone on its side and the desktop put the stage in one half and the four moves and two buttons in the other, mostly empty: "This is an awful desktop layout. You need to have most of the area showing the character and then have these controls under it or over, like overlay, but don't use half the screen just for a few buttons where most of the space is empty." Now the stage takes the width and its controls sit in one row at its foot.
+- **Moves under every slide.** Kept under the drawing and the painting so the page would not jump: "we can't make the drawing do a flip or dance. These controls are part of the 3D animation preview." Now they live in the hero's slide.
+- **A flat drawing card with a name strip** on the hero's page: it "loses this nice white frame with the slight tilt, and the name is shown differently". Now the gallery's polaroid and name card, the same rule as the tile.
 - **The school as a text link.** Grape, underlined: "looks like a link in a document. Doesn't give me a good feeling about my school." Now a header card.
 
 Mock-ups of each are in the artifact's "Rejected" card.
@@ -172,14 +183,14 @@ Mock-ups of each are in the artifact's "Rejected" card.
 3. Send a short message: the one ask at the top, on its own line, with a working staging link. Then what you tested.
 4. Never ask for approval without a link.
 
-| 360 x 640 | 390 x 844 | 844 x 390 (fails today) | 1280 x 800 |
+| 360 x 640 | 390 x 844 | 844 x 390 | 1280 x 800 |
 |---|---|---|---|
 | ![](img/hero-360x640.webp) | ![](img/hero-390x844.webp) | ![](img/hero-844x390.webp) | ![](img/hero-1280x800.webp) |
 
 ## Known debt (do not copy)
 
 - Primary above secondary in the New hero sheet and Delete dialog. Rule: primary last.
-- Hero screen being made or failed, at 1280 x 800: it stays a 560px column. (On a phone on its side every state is fixed: the stage on one side full height; the moves, or the steps and the status, on the other above the bar, whose two buttons share one row there, primary at the end. A ready hero is a 720px column with one row of 8 moves on a desktop.)
+- Hero screen being made or failed, at 1280 x 800: it stays a 560px column. (On a phone on its side the stage is on one side full height, the steps and the status on the other above the bar, whose buttons share one row there, primary at the end. A ready hero on any wider-than-tall screen follows Layout rule 8.)
 - Signed-out gallery has a 25-word paragraph under the headline.
 - The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.
 - `--tb-line` borders on inputs and chips are 1.3:1, under the 3:1 a control border needs.

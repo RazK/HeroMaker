@@ -140,8 +140,23 @@ button.tb-tile:active { transform: scale(0.98); }
   justify-content: center;
 }
 .tb-tile-drawing { opacity: 0; }
-/* The drawing as a small polaroid on the plate, like on the hero page:
-   a white frame hugging the picture (never cropped), soft shadow, slight tilt. */
+/* THE polaroid: the drawing (and a framed painting) on the plate, a white
+   frame hugging the picture, so it fills the frame edge to edge with no bars
+   and is never cropped; soft shadow, slight tilt. One rule for the gallery
+   tile and the hero page's drawing, its small card and its full-screen view
+   (.tb-pol, HeroLive), so they can never drift apart (Raz: the drawing is
+   always the gallery's polaroid). A bigger picture sets a thicker frame
+   through --tb-pol-pad and --tb-pol-radius. */
+.tb-tile-drawing img,
+.tb-tile-framed img,
+.tb-pol {
+  padding: var(--tb-pol-pad, 5px);
+  object-fit: contain;
+  background: var(--tb-white);
+  border-radius: var(--tb-pol-radius, 10px);
+  box-shadow: 0 6px 14px rgba(35, 25, 66, 0.18);
+  transform: rotate(-4deg);
+}
 .tb-tile-drawing img,
 .tb-tile-framed img {
   display: block;
@@ -150,12 +165,6 @@ button.tb-tile:active { transform: scale(0.98); }
   width: auto;
   height: auto;
   box-sizing: border-box;
-  padding: 5px;
-  object-fit: contain;
-  background: var(--tb-white);
-  border-radius: 10px;
-  box-shadow: 0 6px 14px rgba(35, 25, 66, 0.18);
-  transform: rotate(-4deg);
 }
 .tb-tile-fade--drawn .tb-tile-drawing { opacity: 1; }
 /* The drawing alone (nothing painted yet, or it stopped): always shown. */

@@ -308,7 +308,7 @@ export function HeroScreen(props: HeroScreenProps) {
   }
 
   return (
-    <div className="tb-screen tb-screen--fit tb-hero-screen" data-state={state}>
+    <div className="tb-screen tb-screen--fit tb-hero-screen tb-hero-main" data-state={state}>
       {header}
       {/* One element in every state, so the carousel built while the hero is
           made is the one it lives on when ready. */}

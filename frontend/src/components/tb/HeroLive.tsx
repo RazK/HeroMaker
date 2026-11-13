@@ -4,6 +4,7 @@ import { api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
 import { Header, NavButton } from './parts';
+import { TileCaption, byLine } from './HeroTile';
 import { HeroStageInstance, StageModule, loadStage } from './stage';
 import { usePinchZoom } from './usePinchZoom';
 import './HeroLive.css';
@@ -66,7 +67,7 @@ const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
  * "the original drawing, then the amazing rendering, then the fabulous 3D
  * model"): the drawing, the painting, and the hero itself, live and dancing.
  * It is cyclic, moves only when swiped (or by the arrow keys, or its dots),
- * and a ready hero opens on the hero, which is what the moves under it act on.
+ * and a ready hero opens on the hero, whose moves sit on its own slide.
  * A tap on the drawing or the painting opens it full screen.
  *
  * While the hero is being made (`making`), the carousel builds up: the drawing
@@ -75,8 +76,9 @@ const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
  * the one movement it makes alone, and only when its viewer was watching for
  * it (on the progress slide, or never swiped away from where it put them).
  *
- * Renders the screen body and the move row as siblings so the screen grid can
- * put the moves beside the stage on a phone held sideways.
+ * Each slide keeps the stage's foot (the dock) for what belongs to it: the
+ * drawing its name card, the live hero its moves; the painting leaves it to
+ * the plate. Nothing of one slide shows on another.
  */
 export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id) }: {
   creation: LiveHero;
@@ -185,28 +187,15 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
 
   // A move tapped before the hero was on stage plays as soon as it is.
   useEffect(() => {
-    if (shown && !landing.current && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
+    if (shown && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
   }, [shown]);
 
-  // A move acts on the hero: from another slide, the hero slides in forward
-  // (drawing -> hero, the way it was made) and the move starts as it lands.
+  // The moves are the live hero's own controls: they live on its slide, and
+  // a tap plays at once (Raz: "we can't make the drawing do a flip").
   const go = useRef<((i: number, dir: 1 | -1) => void) | null>(null);
-  const landing = useRef(0);
-  useEffect(() => () => window.clearTimeout(landing.current), []);
   const tap = (id: string) => {
-    const i = slides.findIndex((s) => s.key === 'hero');
     pendingMove.current = id;
-    if (i >= 0 && i !== index) {
-      follow.current = false;
-      go.current?.(i, 1);
-      window.clearTimeout(landing.current);
-      landing.current = window.setTimeout(() => {
-        landing.current = 0;
-        if (pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
-      }, reducedMotion() ? 0 : LAND_MS);
-      return;
-    }
-    if (!landing.current && stage.current?.play(id)) pendingMove.current = null;
+    if (stage.current?.play(id)) pendingMove.current = null;
   };
 
   const paintingFile = painted ? PAINTING_FILE : 'original.jpg';
@@ -254,15 +243,18 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   };
   const comingLabel = (key: SlideKey) => (key === 'painting' ? 'Painting' : making?.step === 'meshy_3d' ? 'Sculpting in 3D' : 'Bringing to life');
 
-  const artist = creation.name?.trim().split(/\s+/)[0] || '';
-  const credit = artist ? `${artist}${creation.age ? `, ${creation.age}` : ''}` : undefined;
-  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} caption={credit} className="tb-slide-pic--drawing" />;
+  // The drawing is always the gallery's polaroid (Raz): the tile's white
+  // frame and tilt, and under it the tile's name card ("by Maya, 6").
+  const nameCard = <TileCaption className="tb-live-name" title={creation.character_name?.trim() || 'Your hero'} line={byLine(creation.name, creation.age)} />;
+  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} polaroid />;
   const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} />;
 
-  // The drawing stays in view as a small card on the other slides, and flies
-  // into it as you leave the drawing (and out of it, back to full size, as
-  // you return): what was drawn is always beside what it became. Not over a
-  // painting still being made, which already shows the drawing under its ring.
+  // The drawing stays in view as a small polaroid on the other slides, and
+  // flies into it as you leave the drawing (and out of it, back to full size,
+  // as you return): what was drawn is always beside what it became. Not over
+  // a painting still being made, which already shows the drawing under its
+  // ring. The card is always there (hidden on the drawing), so the way back
+  // knows where it grows from.
   const showMini = current.key !== 'drawing' && !(current.key === 'painting' && current.state !== 'ready');
   const mini = useRef<HTMLButtonElement>(null);
   const wasAt = useRef(at);
@@ -273,59 +265,74 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     wasAt.current = at;
     wasMini.current = showMini;
     if (from === at || reducedMotion()) return;
-    const stage = mini.current?.closest('.tb-live-stage') ?? document.querySelector('.tb-live-stage');
-    const card = stage?.querySelector<HTMLElement>('.tb-slide[data-slide="drawing"] .tb-slide-card, .tb-slide[data-slide="drawing"] .tb-slide-pic');
-    if (!stage || !card) return;
-    const ease = 'cubic-bezier(.2, .8, .2, 1)';
-    if (from === 'drawing' && showMini && mini.current) {
-      // Into the card: from where the drawing was (centred) to the corner.
-      const a = card.getBoundingClientRect();
-      const b = mini.current.getBoundingClientRect();
-      const dx = a.left + a.width / 2 - (b.left + b.width / 2);
-      const dy = a.top + a.height / 2 - (b.top + b.height / 2);
-      const k = a.width / b.width;
-      mini.current.animate(
-        [{ transform: `translate(${dx}px, ${dy}px) scale(${k}) rotate(0deg)` }, { transform: 'translate(0, 0) scale(1) rotate(-6deg)' }],
-        { duration: LAND_MS + 120, easing: ease },
-      );
-      card.animate([{ opacity: 0 }, { opacity: 0 }], { duration: LAND_MS + 120 });
-    } else if (at === 'drawing' && hadMini) {
-      // Out of the card: a copy grows from the corner to where the drawing lands.
-      const slide = card.closest<HTMLElement>('.tb-slide');
-      const corner = stage.querySelector<HTMLElement>('.tb-mini-anchor');
-      if (!slide || !corner) return;
-      const s0 = slide.getBoundingClientRect();
-      const st = stage.getBoundingClientRect();
-      const a = card.getBoundingClientRect();
-      const end = { left: a.left - (s0.left - st.left), top: a.top - (s0.top - st.top), width: a.width, height: a.height };
-      const b = corner.getBoundingClientRect();
-      const ghost = document.createElement('img');
-      ghost.src = file('thumb_original.jpg');
-      ghost.className = 'tb-mini-ghost';
-      Object.assign(ghost.style, { left: `${end.left - st.left}px`, top: `${end.top - st.top}px`, width: `${end.width}px`, height: `${end.height}px` });
-      stage.appendChild(ghost);
-      const dx = b.left + b.width / 2 - (end.left + end.width / 2);
-      const dy = b.top + b.height / 2 - (end.top + end.height / 2);
-      const k = b.width / end.width;
-      card.animate([{ opacity: 0 }, { opacity: 0 }], { duration: LAND_MS + 120 });
-      ghost.animate(
-        [{ transform: `translate(${dx}px, ${dy}px) scale(${k}) rotate(-6deg)` }, { transform: 'translate(0, 0) scale(1) rotate(0deg)' }],
-        { duration: LAND_MS + 120, easing: ease },
-      ).finished.finally(() => ghost.remove());
+    const small = mini.current?.querySelector<HTMLElement>('.tb-pol');
+    const stage = mini.current?.closest<HTMLElement>('.tb-live-stage');
+    const big = stage?.querySelector<HTMLElement>('.tb-slide[data-slide="drawing"] .tb-pol');
+    const slide = big?.closest<HTMLElement>('.tb-slide');
+    if (!small || !stage || !big || !slide || !big.offsetWidth || !small.offsetWidth) return;
+    const shrinking = from === 'drawing' && showMini;
+    const growing = at === 'drawing' && hadMini;
+    if (!shrinking && !growing) return;
+    // One object between the two places: a copy of the big polaroid (the same
+    // frame, tilt and picture as the small one, just bigger), scaled between
+    // them. Both are tilted alike, so their boxes' centres and widths are all
+    // the move needs.
+    const st = stage.getBoundingClientRect();
+    const centre = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top + r.height / 2 - st.top }; };
+    const b = centre(big);
+    if (growing) {
+      // The drawing is still sliding in: where it will land, not where it is.
+      const sr = slide.getBoundingClientRect();
+      b.x -= sr.left - st.left;
+      b.y -= sr.top - st.top;
     }
+    const s = centre(small);
+    const k = small.offsetWidth / big.offsetWidth;
+    const ghost = big.cloneNode(true) as HTMLElement;
+    ghost.removeAttribute('style');
+    ghost.classList.add('tb-mini-ghost');
+    Object.assign(ghost.style, { left: `${b.x - big.offsetWidth / 2}px`, top: `${b.y - big.offsetHeight / 2}px`, width: `${big.offsetWidth}px`, height: `${big.offsetHeight}px` });
+    stage.appendChild(ghost);
+    const atSmall = `translate(${s.x - b.x}px, ${s.y - b.y}px) scale(${k}) rotate(-4deg)`;
+    const atBig = 'translate(0, 0) scale(1) rotate(-4deg)';
+    const ms = LAND_MS + 120;
+    const ease = 'cubic-bezier(.2, .8, .2, 1)';
+    ghost.animate(shrinking ? [{ transform: atBig }, { transform: atSmall }] : [{ transform: atSmall }, { transform: atBig }], { duration: ms, easing: ease, fill: 'forwards' })
+      .finished.finally(() => ghost.remove());
+    // The real ones wait under the copy until it has landed on them.
+    big.animate([{ opacity: 0 }, { opacity: 0 }], { duration: ms });
+    if (shrinking) small.animate([{ opacity: 0 }, { opacity: 0 }], { duration: ms });
   }, [at, showMini]); // eslint-disable-line react-hooks/exhaustive-deps
   const drawingIndex = slides.findIndex((s) => s.key === 'drawing');
   const miniCard = (
-    <>
-      {/* Where the card sits, also while it is hidden: the way back grows from here. */}
-      <span className="tb-mini-anchor" aria-hidden="true" />
-      {showMini && (
-        <button ref={mini} type="button" className="tb-mini-drawing" aria-label="Show the drawing"
-          onClick={() => go.current?.(drawingIndex, -1)}>
-          <img src={file('thumb_original.jpg')} alt="" draggable={false} />
-        </button>
-      )}
-    </>
+    <button ref={mini} type="button" className={`tb-mini-drawing${showMini ? '' : ' tb-mini-drawing--away'}`} aria-label="Show the drawing"
+      aria-hidden={showMini ? undefined : true} tabIndex={showMini ? undefined : -1}
+      onClick={() => go.current?.(drawingIndex, -1)}>
+      <img className="tb-pol" src={file('thumb_original.jpg')} alt="" draggable={false} />
+    </button>
+  );
+
+  // The live hero's own controls, on its slide only (Raz: "these controls are
+  // part of the 3D animation preview"): along the bottom of the stage.
+  const movesRow = offered.length > 0 && (
+    <div className="tb-hero-moves">
+      <div className={`tb-moves${offered.length < 4 ? ' tb-moves--few' : ''}`} role="toolbar" aria-label="Moves">
+        {offered.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            className="tb-btn tb-btn--secondary tb-move"
+            data-move={m.id}
+            aria-pressed={playing === m.id}
+            disabled={!movesReady}
+            onClick={() => tap(m.id)}
+          >
+            <Icon name={m.icon} size={26} />
+            <span>{m.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
   const view = (s: Slide): { label: string; node: ReactNode } => {
@@ -334,7 +341,8 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
         label: 'The drawing',
         node: (
           <>
-            <Opener label="Show the drawing full screen" onOpen={() => setFull('drawing')}>{drawingPic}</Opener>
+            <Opener label="Show the drawing full screen" onOpen={() => setFull('drawing')}><div className="tb-live-room">{drawingPic}</div></Opener>
+            {nameCard}
           </>
         ),
       };
@@ -373,10 +381,12 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       return {
         label: 'Painted',
         node: (
-          <>
-            <div className="tb-stage-sun" />
-            <Opener label="Show the painting full screen" onOpen={() => setFull('painting')}>{paintingPic}</Opener>
-          </>
+          <Opener label="Show the painting full screen" onOpen={() => setFull('painting')}>
+            <div className="tb-live-room">
+              <div className="tb-stage-sun" />
+              {paintingPic}
+            </div>
+          </Opener>
         ),
       };
     }
@@ -384,13 +394,16 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       label: `${heroName}, live`,
       node: (
         <>
-          <div className="tb-stage-sun" />
-          {/* The 3D can't load: the painting stands in for it. */}
-          {failed3d && paintingPic}
-          <div ref={host} className={`tb-live-canvas${shown ? ' tb-layer--on' : ''}`} />
-          <div className={`tb-layer${!shown && !failed3d ? ' tb-layer--on' : ''}`} aria-hidden={shown || failed3d ? true : undefined}>
-            <Loading progress={progress}>{paintingPic}</Loading>
+          <div className="tb-live-room">
+            <div className="tb-stage-sun" />
+            {/* The 3D can't load: the painting stands in for it. */}
+            {failed3d && paintingPic}
+            <div ref={host} className={`tb-live-canvas${shown ? ' tb-layer--on' : ''}`} />
+            <div className={`tb-layer${!shown && !failed3d ? ' tb-layer--on' : ''}`} aria-hidden={shown || failed3d ? true : undefined}>
+              <Loading progress={progress}>{paintingPic}</Loading>
+            </div>
           </div>
+          {movesRow}
         </>
       ),
     };
@@ -417,28 +430,10 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           title={full === 'drawing' ? 'The drawing' : 'Painted'}
           src={file(full === 'drawing' ? 'original.jpg' : PAINTING_FILE)}
           card={full === 'drawing' || framed}
-          caption={full === 'drawing' ? <Caption artist={creation.name} age={creation.age} /> : null}
+          caption={full === 'drawing' ? nameCard : null}
           onClose={() => setFull(null)}
         />
       )}
-      {offered.length > 0 && <div className="tb-hero-moves">
-        <div className={`tb-moves${offered.length < 4 ? ' tb-moves--few' : ''}`} role="toolbar" aria-label="Moves">
-          {offered.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className="tb-btn tb-btn--secondary tb-move"
-              data-move={m.id}
-              aria-pressed={playing === m.id}
-              disabled={!movesReady}
-              onClick={() => tap(m.id)}
-            >
-              <Icon name={m.icon} size={26} />
-              <span>{m.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>}
     </>
   );
 }
@@ -680,10 +675,16 @@ function FullPicture({ title, src, card, caption, onClose }: { title: string; sr
       <div className="tb-drawing-full-body" {...pinch.handlers}>
         <div className="tb-drawing-full-fit">
           <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: pinch.transform }}>
-            <div className={card ? `tb-live-card${caption ? '' : ' tb-live-card--bare'}` : 'tb-live-plain'}>
-              <img className="tb-live-card-img" src={src} alt={title} draggable={false} />
-              {caption}
-            </div>
+            {caption ? (
+              <div className="tb-live-polaroid">
+                <img className="tb-pol tb-live-polaroid-img" src={src} alt={title} draggable={false} />
+                {caption}
+              </div>
+            ) : (
+              <div className={card ? 'tb-live-card tb-live-card--bare' : 'tb-live-plain'}>
+                <img className="tb-live-card-img" src={src} alt={title} draggable={false} />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -715,16 +716,6 @@ function useFullBack(onClose: () => void): () => void {
   return useCallback(() => { if (onFullEntry()) window.history.back(); else cb.current(); }, []);
 }
 
-/** The full drawing's caption: the artist's first name and age. */
-function Caption({ artist, age }: { artist?: string | null; age?: number | null }) {
-  const first = artist?.trim().split(/\s+/)[0] || '';
-  return (
-    <span className="tb-live-card-caption" dir="auto">
-      {first ? `${first}${age ? `, ${age}` : ''}` : 'The drawing'}
-    </span>
-  );
-}
-
 /** The painting, dimmed, with a ring filling up as the 3D file arrives. */
 function Loading({ progress, children }: { progress: number; children: ReactNode }) {
   const pct = Math.round(progress * 100);
@@ -747,10 +738,7 @@ function Loading({ progress, children }: { progress: number; children: ReactNode
 /** The top of the stage the pager dots take: 16px off the top, 16px tall, 8px clear. */
 const DOTS_CLEAR = 40;
 
-/** The caption strip under a drawing (HeroLive.css .tb-slide-card-caption). */
-const CAPTION_H = 40;
-
-function SlidePicture({ thumb, full, framed = false, caption, className = '' }: { thumb: string; full: string; framed?: boolean; caption?: string; className?: string }) {
+function SlidePicture({ thumb, full, framed = false, polaroid = false }: { thumb: string; full: string; framed?: boolean; polaroid?: boolean }) {
   const [src, setSrc] = useState(thumb);
   const [ar, setAr] = useState(0);
   useEffect(() => {
@@ -763,23 +751,16 @@ function SlidePicture({ thumb, full, framed = false, caption, className = '' }: 
     const r = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
     if (r > 0 && Math.abs(r - ar) > 0.005) setAr(r);
   };
-  const pad = framed ? 8 : 0;
-  const capH = caption ? CAPTION_H : 0;
+  // The frame is outside the picture (content-box). A polaroid's frame is the
+  // gallery's (--tb-pol-pad), and its tilt needs a little room of its own.
+  const pad = polaroid ? 'var(--tb-pol-pad)' : `${framed ? 8 : 0}px`;
+  const tilt = polaroid ? 0.92 : 1;
   const style: CSSProperties | undefined = ar
-    ? { width: `min(calc(100cqw - ${2 * pad}px), calc((100cqh - ${2 * pad + capH}px) * ${ar}))`, aspectRatio: `${ar}` }
+    ? { width: `min(calc((100cqw - 2 * ${pad}) * ${tilt}), calc((100cqh - 2 * ${pad}) * ${tilt} * ${ar}))`, aspectRatio: `${ar}` }
     : undefined;
-  const img = <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''} ${caption ? '' : className}`.trim()} src={src} alt="" style={style} draggable={false} onLoad={shown} />;
   return (
     <div className={`tb-slide-fit${framed ? ' tb-slide-fit--framed' : ''}`}>
-      {/* A drawing with its artist: one card, the name on a strip under the
-          picture (the gallery tile's card, the polaroid's caption), so the
-          name is part of the drawing, not a line of its own. */}
-      {caption ? (
-        <div className={`tb-slide-card ${className}`.trim()} style={ar ? undefined : { width: '100%', height: '100%' }}>
-          {img}
-          <span className="tb-slide-card-caption" dir="auto">{caption}</span>
-        </div>
-      ) : img}
+      <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''}${polaroid ? ' tb-pol' : ''}`} src={src} alt="" style={style} draggable={false} onLoad={shown} />
     </div>
   );
 }

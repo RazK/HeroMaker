@@ -94,14 +94,7 @@ export function HeroTile({
   const body = (
     <>
       {picture}
-      {captioned && (
-        <span className="tb-tile-card">
-          <span className="tb-tile-name" dir="auto">{title}</span>
-          {line !== undefined && line !== '' && (
-            <span className={`tb-tile-line tb-tile-line--${tone}${tone === 'by' ? ' tb-tile-by' : ' tb-tile-status'}${tone === 'failed' ? ' tb-tile-status--failed' : ''}`} dir="auto">{line}</span>
-          )}
-        </span>
-      )}
+      {captioned && <TileCaption title={title} line={line} tone={tone} />}
     </>
   );
 
@@ -110,6 +103,28 @@ export function HeroTile({
   ) : (
     <span className={cls} data-state={state}>{body}</span>
   );
+}
+
+/**
+ * The tile's name card: the hero's name, then one short line under it. The
+ * hero's page puts the same card under its drawing (HeroLive), so the drawing
+ * reads the same in the gallery and on the stage (Raz).
+ */
+export function TileCaption({ title, line, tone = 'by', className = '' }: { title: ReactNode; line?: ReactNode; tone?: TileTone; className?: string }) {
+  return (
+    <span className={`tb-tile-card ${className}`.trim()}>
+      <span className="tb-tile-name" dir="auto">{title}</span>
+      {line !== undefined && line !== '' && (
+        <span className={`tb-tile-line tb-tile-line--${tone}${tone === 'by' ? ' tb-tile-by' : ' tb-tile-status'}${tone === 'failed' ? ' tb-tile-status--failed' : ''}`} dir="auto">{line}</span>
+      )}
+    </span>
+  );
+}
+
+/** "by Raz, 11": who drew it, as every name card says it. Empty with no artist. */
+export function byLine(name?: string | null, age?: number | null): string {
+  const n = name?.trim();
+  return n ? `by ${n}${age ? `, ${age}` : ''}` : '';
 }
 
 /**
