@@ -76,9 +76,9 @@ const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
  * the one movement it makes alone, and only when its viewer was watching for
  * it (on the progress slide, or never swiped away from where it put them).
  *
- * Each slide keeps the stage's foot (the dock) for what belongs to it: the
- * drawing its name card, the live hero its moves; the painting leaves it to
- * the plate. Nothing of one slide shows on another.
+ * Each slide keeps the stage's foot (the dock, one box) for what belongs to
+ * it: the drawing and the painting their name card, the live hero its moves,
+ * in exactly the same box. Nothing of one slide shows on another.
  */
 export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id) }: {
   creation: LiveHero;
@@ -171,13 +171,20 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     if (!mod || !host.current) return;
     const s = new mod.HeroStage(host.current, { onPlaying: setPlaying });
     stage.current = s;
-    // The pager dots sit over the top of the stage: keep the hero clear of them.
-    s.setInsetTop(DOTS_CLEAR);
+    // The pager dots sit over the top of the stage: keep the hero clear of
+    // them, by as much as the layout asks (HeroLive.css --tb-hero-inset: 40px
+    // under a phone's dots, a sliver where the hero fills a wide screen).
+    const el = host.current;
+    const inset = () => s.setInsetTop(heroInset(el));
+    inset();
+    const ro = new ResizeObserver(inset);
+    ro.observe(el);
     let alive = true;
     s.movesReady(vrm).then(() => { if (alive) setMovesReady(true); }, () => {});
     s.showHero(vrm).then(() => { if (alive) setShown(true); }, () => { if (alive) setFailed3d(true); });
     return () => {
       alive = false;
+      ro.disconnect();
       s.dispose();
       stage.current = null;
       setShown(false);
@@ -381,12 +388,16 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       return {
         label: 'Painted',
         node: (
-          <Opener label="Show the painting full screen" onOpen={() => setFull('painting')}>
-            <div className="tb-live-room">
-              <div className="tb-stage-sun" />
-              {paintingPic}
-            </div>
-          </Opener>
+          <>
+            <Opener label="Show the painting full screen" onOpen={() => setFull('painting')}>
+              <div className="tb-live-room">
+                {SUN ? <div className="tb-stage-sun" /> : <div className="tb-contact" aria-hidden="true" />}
+                {paintingPic}
+              </div>
+            </Opener>
+            {/* The same name card as under the drawing: an empty dock looked odd (Raz). */}
+            {nameCard}
+          </>
         ),
       };
     }
@@ -395,7 +406,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       node: (
         <>
           <div className="tb-live-room">
-            <div className="tb-stage-sun" />
+            {SUN && <div className="tb-stage-sun" />}
             {/* The 3D can't load: the painting stands in for it. */}
             {failed3d && paintingPic}
             <div ref={host} className={`tb-live-canvas${shown ? ' tb-layer--on' : ''}`} />
@@ -737,6 +748,22 @@ function Loading({ progress, children }: { progress: number; children: ReactNode
  */
 /** The top of the stage the pager dots take: 16px off the top, 16px tall, 8px clear. */
 const DOTS_CLEAR = 40;
+
+/**
+ * The sun behind the painting and the live hero. Off (Raz, 2026-11: "do we
+ * need the disc at all?"): the figure stands on the plate, grounded by a soft
+ * contact shadow (the 3D draws its own; the painting gets .tb-contact). Set
+ * true to bring the sun back, behind the upper body (HeroLive.css).
+ */
+const SUN = false;
+
+/** The band the 3D keeps clear at the top (and bottom): --tb-hero-inset, in px or % of the stage's height. */
+function heroInset(el: HTMLElement): number {
+  const v = getComputedStyle(el).getPropertyValue('--tb-hero-inset').trim();
+  const n = parseFloat(v);
+  if (!Number.isFinite(n)) return DOTS_CLEAR;
+  return v.endsWith('%') ? (n / 100) * el.clientHeight : n;
+}
 
 function SlidePicture({ thumb, full, framed = false, polaroid = false }: { thumb: string; full: string; framed?: boolean; polaroid?: boolean }) {
   const [src, setSrc] = useState(thumb);
