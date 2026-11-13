@@ -589,7 +589,7 @@ function MainApp() {
   const appHeader = (
     <Header
       left={(
-        <button type="button" className="tb-logo app-header-center" onClick={goHome} aria-label="HeroMaker home">
+        <button type="button" className="tb-logo tb-logo-mark app-header-center" onClick={goHome} aria-label="HeroMaker home">
           <img src="/app-icon.png" alt="" />
           <span>HeroMaker</span>
         </button>
