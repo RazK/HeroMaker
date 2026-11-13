@@ -64,7 +64,7 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
       {running && (
         <div className="tb-split-wait" role="status">
           <div className="tb-ring" style={{ ['--p' as string]: `${split.progress ?? 0}%` }}><span>{split.progress ?? 0}%</span></div>
-          <div className="tb-split-line">{split.stage === 'remesh' ? 'Handing Meshy the model' : `Cutting ${creation.character_name || 'the hero'} into parts`}</div>
+          <div className="tb-split-line">Cutting {creation.character_name || 'the hero'} into parts</div>
         </div>
       )}
 
