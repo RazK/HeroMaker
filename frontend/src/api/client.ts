@@ -248,7 +248,7 @@ export interface PrintSplit {
   part_count?: number | null;
   error?: string | null;
   cost_meshy_credits?: number;
-  files?: { parts: string | null; parts_3mf: string | null; preview: string | null };
+  files?: { parts: string | null; parts_3mf: string | null; preview: string | null; parts_view?: string | null };
 }
 
 export interface V1Hero {

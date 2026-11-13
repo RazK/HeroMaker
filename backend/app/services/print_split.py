@@ -235,5 +235,8 @@ def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict
             "parts": url(PARTS_GLB),
             "parts_3mf": url(PARTS_3MF),
             "preview": url(PREVIEW),
+            # The same parts for the on-screen viewer: the backend's opt_ copy
+            # (WebP texture, packed indices) is about a fifth of Meshy's file.
+            "parts_view": (file_url(base, creation, "opt_" + PARTS_GLB) + stamp) if PARTS_GLB in files else None,
         },
     }

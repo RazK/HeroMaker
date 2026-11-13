@@ -81,6 +81,7 @@ def test_split_runs_from_the_heros_own_3d_task(client, make_user, hero, meshy):
     assert done["status"] == "succeeded" and done["part_count"] == 5
     for name, file in (("parts", "split.glb"), ("parts_3mf", "split.3mf"), ("preview", "split_preview.png")):
         assert f"/{hero.id}/{file}?v=split-1" in done["files"][name]
+    assert f"/{hero.id}/opt_split.glb?v=split-1" in done["files"]["parts_view"]
     got = client.get(done["files"]["parts"].split("/api/files", 1)[1].join(["/api/files", ""]).split("?")[0])
     assert got.status_code == 200 and got.content == b"bytes of https://m/parts.glb"
 
