@@ -6,6 +6,13 @@ big for a home printer's bed, or one printed a colour at a time. It only takes
 a Meshy task id, never a file, so the input is the image-to-3D task the hero's
 model came from (the meshy_3d step keeps it, cached heroes included).
 
+Meshy deletes every task 3 days after it ends (docs.meshy.ai/api/asset-retention)
+and then answers 404 "Task not found". Most heroes are older than that, and
+every staging hero made from the result cache points at a task long gone. So
+when Meshy no longer has the task, the split goes in two steps: hand Meshy our
+own copy of model.glb as a remesh (it takes a model_url), then split that
+remesh, which is a fresh task of ours.
+
 An admin preview for now (POST/GET /api/v1/heroes/{id}/print-split): a split
 costs our Meshy account 10 credits and is not part of a hero.
 
@@ -17,6 +24,7 @@ nothing.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import time
@@ -39,6 +47,7 @@ STATE_FILE = "print_split.json"
 PARTS_GLB = "split.glb"
 PARTS_3MF = "split.3mf"
 PREVIEW = "split_preview.png"
+SOURCE_MODEL = "model.glb"
 
 MODES = ("auto", "by_parts")
 PROMPT_MAX = 600
@@ -46,6 +55,10 @@ RUNNING = ("PENDING", "IN_PROGRESS")
 ENDED = ("SUCCEEDED", "FAILED", "CANCELED")
 # How often a GET may ask Meshy how it is going.
 POLL_SECONDS = 3.0
+
+
+# How much of the bar the remesh fills, when a split needs one first.
+REMESH_SHARE = 30
 
 
 class SplitError(Exception):
@@ -100,23 +113,16 @@ def start(db: Session, creation: Creation, *, by_user_id: str, mode: str = "auto
     if state and state.get("status") in RUNNING:
         return state
     source = source_task_id(db, creation)
-    if not source:
+    storage = get_storage()
+    if not source and not storage.file_exists(creation.user_id, creation.id, SOURCE_MODEL):
         raise SplitError(409, "no_source", "This hero has no finished 3D model to split.")
 
     client = client or MeshyClient()
-    try:
-        task_id = client.create_print_split_task(
-            source, mode=mode, prompt=prompt if mode == "by_parts" else None, connectors=connectors,
-            usage=UsageContext(user_id=by_user_id, creation_id=creation.id, step_name="print_split"),
-        )
-    except MeshyOutOfCredits as e:
-        raise SplitError(402, "meshy_plan", f"Meshy refused: our account needs a paid plan with credits ({e}).")
-    except MeshyAPIError as e:
-        raise SplitError(502, "meshy_refused", f"Meshy refused the split: {e}")
-
     state = {
-        "task_id": task_id,
+        "task_id": None,
         "source_task_id": source,
+        "remesh_task_id": None,
+        "stage": "split",
         "status": "PENDING",
         "progress": 0,
         "mode": mode,
@@ -130,9 +136,58 @@ def start(db: Session, creation: Creation, *, by_user_id: str, mode: str = "auto
         "finished_at": None,
         "checked": 0,
     }
+    try:
+        try:
+            if not source:
+                raise _Gone()
+            state["task_id"] = _create_split(client, creation, state, source)
+            logger.info("[%s] Meshy print split %s started from %s", creation.id, state["task_id"], source)
+        except _Gone:
+            state["stage"] = "remesh"
+            state["remesh_task_id"] = client.create_remesh_from_model(
+                _model_url(creation), usage=_usage(creation, by_user_id),
+            )
+            logger.info("[%s] Meshy no longer has task %s: remeshing our model.glb as %s, then splitting",
+                        creation.id, source, state["remesh_task_id"])
+    except MeshyOutOfCredits as e:
+        raise SplitError(402, "meshy_plan", f"Meshy refused: our account needs a paid plan with credits ({e}).")
+    except MeshyAPIError as e:
+        raise SplitError(502, "meshy_refused", f"Meshy refused the split: {e}")
     _write_state(creation, state)
-    logger.info("[%s] Meshy print split %s started from %s", creation.id, task_id, source)
     return state
+
+
+class _Gone(Exception):
+    """Meshy has deleted the task (or the hero never kept its id)."""
+
+
+def _usage(creation: Creation, by_user_id: str) -> UsageContext:
+    return UsageContext(user_id=by_user_id, creation_id=creation.id, step_name="print_split")
+
+
+def _create_split(client: MeshyClient, creation: Creation, state: Dict[str, Any], input_task_id: str) -> str:
+    """Start Meshy's split of `input_task_id`; _Gone when Meshy no longer has that task."""
+    try:
+        return client.create_print_split_task(
+            input_task_id, mode=state["mode"], prompt=state.get("prompt"), connectors=bool(state.get("connectors")),
+            usage=_usage(creation, state["by"]),
+        )
+    except MeshyOutOfCredits:
+        raise
+    except MeshyAPIError as e:
+        if getattr(e, "status_code", None) == 404 or "not found" in str(e).lower():
+            raise _Gone() from e
+        raise
+
+
+def _model_url(creation: Creation) -> str:
+    """Where Meshy can fetch the hero's model.glb: a presigned link, or the bytes inline."""
+    storage = get_storage()
+    url = storage.get_file_url(creation.user_id, creation.id, SOURCE_MODEL, expires_in=3600)
+    if url.startswith("https://") or url.startswith("http://"):
+        return url
+    data = storage.download_file(creation.user_id, creation.id, SOURCE_MODEL)
+    return "data:model/gltf-binary;base64," + base64.b64encode(data).decode()
 
 
 def _download(url: str) -> bytes:
@@ -152,6 +207,8 @@ def refresh(creation: Creation, client: Optional[MeshyClient] = None,
         return state
 
     client = client or MeshyClient()
+    if state.get("stage") == "remesh":
+        return _refresh_remesh(creation, state, client, now)
     try:
         task = client.get_print_split_status(state["task_id"])
     except MeshyAPIError as e:
@@ -161,7 +218,10 @@ def refresh(creation: Creation, client: Optional[MeshyClient] = None,
         return state
 
     status = task.get("status") or state["status"]
-    state["progress"] = int(task.get("progress") or 0)
+    progress = int(task.get("progress") or 0)
+    if state.get("remesh_task_id"):
+        progress = REMESH_SHARE + progress * (100 - REMESH_SHARE) // 100
+    state["progress"] = progress
     state["checked"] = now
     if status == "SUCCEEDED":
         storage = get_storage()
@@ -193,6 +253,40 @@ def refresh(creation: Creation, client: Optional[MeshyClient] = None,
     return state
 
 
+def _refresh_remesh(creation: Creation, state: Dict[str, Any], client: MeshyClient, now: float) -> Dict[str, Any]:
+    """The first of two steps: Meshy taking in our model. Once it has, start the split."""
+    state["checked"] = now
+    try:
+        task = client.get_remesh_status(state["remesh_task_id"])
+    except MeshyAPIError as e:
+        logger.warning("[%s] Meshy remesh %s: status check failed: %s", creation.id, state["remesh_task_id"], e)
+        _write_state(creation, state)
+        return state
+
+    status = task.get("status")
+    state["progress"] = int(task.get("progress") or 0) * REMESH_SHARE // 100
+    ended = datetime.utcnow().isoformat() + "Z"
+    if status == "SUCCEEDED":
+        usage_service.finalize_usage_by_provider_ref(pricing.PROVIDER_MESHY, state["remesh_task_id"], "succeeded")
+        try:
+            state["task_id"] = _create_split(client, creation, state, state["remesh_task_id"])
+            state.update(stage="split", status="PENDING", progress=REMESH_SHARE)
+            logger.info("[%s] Meshy print split %s started from remesh %s",
+                        creation.id, state["task_id"], state["remesh_task_id"])
+        except (MeshyAPIError, _Gone) as e:
+            state.update(status="FAILED", error=f"Meshy refused the split: {e or 'task not found'}", finished_at=ended)
+    elif status in ("FAILED", "CANCELED"):
+        err = task.get("task_error") or {}
+        message = (err.get("message") if isinstance(err, dict) else str(err)) or status.lower()
+        state.update(status=status, error=f"Meshy could not take the model: {message}", finished_at=ended)
+        usage_service.finalize_usage_by_provider_ref(pricing.PROVIDER_MESHY, state["remesh_task_id"], "failed",
+                                                     metadata={"task_error": err})
+    elif status in RUNNING:
+        state["status"] = status
+    _write_state(creation, state)
+    return state
+
+
 def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """What the app reads: the split's state and, once done, its files."""
     from app.services.api_heroes import file_url
@@ -202,7 +296,7 @@ def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict
     files = set(state.get("files") or [])
     # Each split overwrites the same names: the task id in the URL keeps a
     # browser from showing the previous split's file.
-    stamp = f"?v={state['task_id'][:12]}"
+    stamp = f"?v={(state.get('task_id') or '')[:12]}"
 
     def url(name: str) -> Optional[str]:
         return file_url(base, creation, name) + stamp if name in files else None
@@ -219,6 +313,7 @@ def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict
         "error": state.get("error"),
         "started_at": state.get("started_at"),
         "finished_at": state.get("finished_at"),
+        "stage": state.get("stage") or "split",
         "cost_meshy_credits": pricing.MESHY_PRINT_SPLIT_CREDITS,
         "files": {
             "parts": url(PARTS_GLB),
