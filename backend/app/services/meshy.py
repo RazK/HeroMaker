@@ -290,6 +290,65 @@ class MeshyClient:
     def get_remesh_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of remesh task."""
         return self._request("GET", f"/openapi/v1/remesh/{task_id}")
+
+    # Auto Split (3D printing)
+
+    def create_print_split_task(
+        self,
+        input_task_id: str,
+        mode: str = "auto",
+        prompt: Optional[str] = None,
+        target_formats: Optional[List[str]] = None,
+        layout: str = "assembled",
+        keep_texture: bool = True,
+        connectors: bool = False,
+        usage: Optional[UsageContext] = None,
+    ) -> str:
+        """
+        Cut a finished model into printable parts (docs.meshy.ai/api/auto-split).
+
+        Args:
+            input_task_id: a SUCCEEDED image-to-3D task (meshy-6 or later)
+            mode: "auto", or "by_parts" with a prompt naming 1 to 10 parts
+            prompt: the parts to cut along (by_parts only)
+            target_formats: on top of glb, which is always made ("3mf" keeps
+                the parts separate in a slicer)
+            layout: "assembled" (parts where they were) or "on_plate"
+            keep_texture: keep the hero's texture on every part
+            connectors: pegs and sockets at each cut, to glue the parts
+
+        Returns:
+            Task ID
+        """
+        data: Dict[str, Any] = {
+            "input_task_id": input_task_id,
+            "mode": mode,
+            "target_formats": target_formats or ["glb", "3mf"],
+            "layout": layout,
+            "keep_texture": keep_texture,
+            "connectors": connectors,
+        }
+        if prompt:
+            data["prompt"] = prompt
+
+        # Charged when Meshy accepts the task; refunded by Meshy if it fails,
+        # which the poller records via finalize_usage_by_provider_ref().
+        with usage_service.track(
+            usage,
+            pricing.PROVIDER_MESHY,
+            pricing.OP_MESHY_PRINT_SPLIT,
+            quantity=1,
+            metadata={"mode": mode, "layout": layout, "keep_texture": keep_texture, "connectors": connectors},
+            finalize_on_success=False,
+        ) as call:
+            response = self._request("POST", "/openapi/v1/print/split", json=data)
+            task_id = response.get("result")
+            call.provider_ref = task_id
+        return task_id
+
+    def get_print_split_status(self, task_id: str) -> Dict[str, Any]:
+        """Get status of an Auto Split task."""
+        return self._request("GET", f"/openapi/v1/print/split/{task_id}")
     
     # Retexture Methods
     

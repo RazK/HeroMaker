@@ -98,6 +98,11 @@ MESHY_IMAGE_TO_3D_CREDITS = 20
 # call volume is measurable and the day it stops being free is one number here.
 MESHY_RIG_CREDITS = 0
 
+# Auto Split for 3D printing (docs.meshy.ai/api/auto-split): 10 credits per
+# accepted task, refunded by Meshy when it fails. Not part of a hero: run by an
+# admin on a finished hero (app/services/print_split.py).
+MESHY_PRINT_SPLIT_CREDITS = 10
+
 
 def meshy_credits_to_usd_micros(credits: int) -> int:
     """Convert Meshy credits to USD micros. Integer maths only."""
@@ -148,6 +153,7 @@ OP_MESHY_RIGGING = "rigging"
 OP_MESHY_REMESH = "remesh"
 OP_MESHY_RETEXTURE = "retexture"
 OP_MESHY_ANIMATION = "animation"
+OP_MESHY_PRINT_SPLIT = "print-split"
 OP_VRM_CONVERT = "convert_vrm"
 # A paid step answered from the staging result cache (app/services/result_cache.py)
 # instead of the provider. Booked under PROVIDER_INTERNAL at zero: nothing was
@@ -167,6 +173,7 @@ MESHY_OPERATION_CREDITS = {
     OP_MESHY_REMESH: 0,
     OP_MESHY_RETEXTURE: 0,
     OP_MESHY_ANIMATION: 0,
+    OP_MESHY_PRINT_SPLIT: MESHY_PRINT_SPLIT_CREDITS,
 }
 
 
