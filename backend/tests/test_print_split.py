@@ -10,6 +10,8 @@ import pytest
 from app.config import pricing
 from app.models import CreationStep, UsageEvent
 from app.services import print_split
+from app.services.meshy import MeshyAPIError
+from app.utils.storage import get_storage
 from test_public_api import _bearer, _jwt, _key, client  # noqa: F401
 
 
@@ -17,10 +19,24 @@ class FakeMeshy:
     def __init__(self):
         self.created = []
         self.task = {"status": "IN_PROGRESS", "progress": 40}
+        self.gone = set()  # task ids Meshy has deleted (3 days after they ended)
+        self.remeshes = []
+        self.remesh = {"status": "IN_PROGRESS", "progress": 50}
 
     def create_print_split_task(self, input_task_id, **kw):
+        if input_task_id in self.gone:
+            err = MeshyAPIError("Task not found")
+            err.status_code = 404
+            raise err
         self.created.append({"input_task_id": input_task_id, **kw})
         return f"split-{len(self.created)}"
+
+    def create_remesh_from_model(self, model_url, usage=None):
+        self.remeshes.append(model_url)
+        return f"remesh-{len(self.remeshes)}"
+
+    def get_remesh_status(self, task_id):
+        return dict(self.remesh, id=task_id)
 
     def get_print_split_status(self, task_id):
         return dict(self.task, id=task_id)
@@ -141,3 +157,64 @@ def test_the_client_books_the_split_at_ten_credits(db, monkeypatch, make_user, h
     event = db.query(UsageEvent).filter_by(provider_ref="split-9").one()
     assert event.operation == pricing.OP_MESHY_PRINT_SPLIT and event.units == 10  # Meshy credits
     assert event.cost_usd_micros == 10 * 20000  # MESHY_USD_MICROS_PER_CREDIT in conftest
+
+
+def test_a_hero_meshy_has_forgotten_is_split_from_our_own_model(client, make_user, hero, meshy):
+    """Meshy deletes a task 3 days after it ends; then our stored model.glb goes in instead."""
+    get_storage().upload_file(hero.user_id, hero.id, "model.glb", b"glTF our model", content_type="model/gltf-binary")
+    meshy.gone.add("img3d-42")
+    admin = _jwt(make_user(is_admin=True))
+    url = f"/api/v1/heroes/{hero.id}/print-split"
+
+    r = client.post(url, json={"mode": "by_parts", "prompt": "head, body"}, headers=admin)
+    assert r.status_code == 202, r.text
+    assert r.json()["stage"] == "remesh"
+    assert len(meshy.remeshes) == 1 and meshy.created == []
+    sent = meshy.remeshes[0]
+    assert sent.startswith("data:model/gltf-binary;base64,") or sent.startswith("http")
+
+    assert client.get(url, headers=admin).json()["progress"] == 15  # half of the remesh's share
+
+    meshy.remesh = {"status": "SUCCEEDED", "progress": 100}
+    body = client.get(url, headers=admin).json()
+    assert body["stage"] == "split" and body["status"] == "pending"
+    assert meshy.created[0]["input_task_id"] == "remesh-1"
+    assert meshy.created[0]["prompt"] == "head, body"
+
+    meshy.task = {"status": "IN_PROGRESS", "progress": 50}
+    assert client.get(url, headers=admin).json()["progress"] == 65
+
+    meshy.task = {"status": "SUCCEEDED", "progress": 100, "part_count": 3, "model_urls": {"glb": "https://m/p.glb"}}
+    done = client.get(url, headers=admin).json()
+    assert done["status"] == "succeeded" and done["part_count"] == 3 and done["files"]["parts"]
+
+
+def test_a_failed_handover_says_why(client, make_user, hero, meshy):
+    get_storage().upload_file(hero.user_id, hero.id, "model.glb", b"glTF", content_type="model/gltf-binary")
+    meshy.gone.add("img3d-42")
+    admin = _jwt(make_user(is_admin=True))
+    url = f"/api/v1/heroes/{hero.id}/print-split"
+    client.post(url, json={}, headers=admin)
+    meshy.remesh = {"status": "FAILED", "task_error": {"message": "Unreadable model"}}
+    body = client.get(url, headers=admin).json()
+    assert body["status"] == "failed" and "Unreadable model" in body["error"]
+    assert meshy.created == []
+
+
+def test_the_remesh_is_booked_at_its_credits(db, monkeypatch, make_user, hero):
+    from app.services import meshy as meshy_module
+    from app.services.usage import UsageContext
+
+    sent = {}
+
+    def fake_request(method, url, headers=None, json=None, **kw):
+        sent.update(url=url, json=json)
+        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"result": "remesh-9"})
+
+    monkeypatch.setattr(meshy_module.requests, "request", fake_request)
+    task = meshy_module.MeshyClient(api_key="test").create_remesh_from_model(
+        "https://s3/model.glb", usage=UsageContext(user_id=make_user().id, creation_id=hero.id, step_name="print_split"))
+    assert task == "remesh-9" and sent["url"].endswith("/openapi/v1/remesh")
+    assert sent["json"] == {"model_url": "https://s3/model.glb", "target_formats": ["glb"]}
+    event = db.query(UsageEvent).filter_by(provider_ref="remesh-9").one()
+    assert event.operation == pricing.OP_MESHY_PRINT_REMESH and event.units == 5

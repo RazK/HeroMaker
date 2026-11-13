@@ -102,6 +102,10 @@ MESHY_RIG_CREDITS = 0
 # accepted task, refunded by Meshy when it fails. Not part of a hero: run by an
 # admin on a finished hero (app/services/print_split.py).
 MESHY_PRINT_SPLIT_CREDITS = 10
+# Meshy deletes a task 3 days after it ends, so a split of an older hero first
+# hands Meshy our stored model.glb as a remesh (model_url) and splits that:
+# 5 more credits (Meshy's list price for a remesh).
+MESHY_PRINT_REMESH_CREDITS = 5
 
 
 def meshy_credits_to_usd_micros(credits: int) -> int:
@@ -154,6 +158,7 @@ OP_MESHY_REMESH = "remesh"
 OP_MESHY_RETEXTURE = "retexture"
 OP_MESHY_ANIMATION = "animation"
 OP_MESHY_PRINT_SPLIT = "print-split"
+OP_MESHY_PRINT_REMESH = "print-remesh"
 OP_VRM_CONVERT = "convert_vrm"
 # A paid step answered from the staging result cache (app/services/result_cache.py)
 # instead of the provider. Booked under PROVIDER_INTERNAL at zero: nothing was
@@ -174,6 +179,7 @@ MESHY_OPERATION_CREDITS = {
     OP_MESHY_RETEXTURE: 0,
     OP_MESHY_ANIMATION: 0,
     OP_MESHY_PRINT_SPLIT: MESHY_PRINT_SPLIT_CREDITS,
+    OP_MESHY_PRINT_REMESH: MESHY_PRINT_REMESH_CREDITS,
 }
 
 
