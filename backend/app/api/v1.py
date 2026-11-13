@@ -467,9 +467,12 @@ async def run_stage(hero_id: str, stage: str, request: Request, who: Principal =
 
 
 class PrintSplit(BaseModel):
+    provider: str = "meshy"  # or "hi3d": jointed parts that still move once printed
     mode: str = "auto"
     prompt: Optional[str] = None
     connectors: bool = False
+    part: str = "a"  # hi3d: its character template, a = 6 parts ... f = 2
+    joint: str = "ball"  # hi3d: ball | pin | dovetail | none
 
 
 def _live_hero(db: Session, hero_id: str) -> Creation:
@@ -490,7 +493,8 @@ def start_print_split(hero_id: str, body: PrintSplit, request: Request,
     creation = _live_hero(db, hero_id)
     try:
         state = print_split.start(db, creation, by_user_id=who.user_id, mode=body.mode,
-                                  prompt=body.prompt, connectors=body.connectors)
+                                  prompt=body.prompt, connectors=body.connectors,
+                                  provider=body.provider, part=body.part, joint=body.joint)
     except print_split.SplitError as e:
         raise HTTPException(status_code=e.status, detail={"code": e.code, "message": e.message})
     return print_split.view(creation, api_heroes.base_url(request), state)

@@ -39,8 +39,10 @@ LAST_CHECKED = "2026-09-16"
 PROVIDER_OPENAI = "openai"
 PROVIDER_MESHY = "meshy"
 PROVIDER_INTERNAL = "internal"
+# Hi3D (hi3d.ai): splits a character into printable parts with ball joints.
+PROVIDER_HI3D = "hi3d"
 
-PROVIDERS = (PROVIDER_OPENAI, PROVIDER_MESHY, PROVIDER_INTERNAL)
+PROVIDERS = (PROVIDER_OPENAI, PROVIDER_MESHY, PROVIDER_INTERNAL, PROVIDER_HI3D)
 
 # --------------------------------------------------------------------------
 # OpenAI
@@ -102,6 +104,9 @@ MESHY_RIG_CREDITS = 0
 # accepted task, refunded by Meshy when it fails. Not part of a hero: run by an
 # admin on a finished hero (app/services/print_split.py).
 MESHY_PRINT_SPLIT_CREDITS = 10
+# Hi3D character split (docs.hi3d.ai/en/api/getting-started/pricing): 20 Hi3D
+# credits at $0.02 = $0.40, refunded by Hi3D when the task fails.
+HI3D_SPLIT_USD_MICROS = 400_000
 
 
 def meshy_credits_to_usd_micros(credits: int) -> int:
@@ -154,6 +159,7 @@ OP_MESHY_REMESH = "remesh"
 OP_MESHY_RETEXTURE = "retexture"
 OP_MESHY_ANIMATION = "animation"
 OP_MESHY_PRINT_SPLIT = "print-split"
+OP_HI3D_SPLIT = "split-character"
 OP_VRM_CONVERT = "convert_vrm"
 # A paid step answered from the staging result cache (app/services/result_cache.py)
 # instead of the provider. Booked under PROVIDER_INTERNAL at zero: nothing was
@@ -196,6 +202,8 @@ def unit_cost_usd_micros(provider: str, operation: str) -> int:
         return meshy_credits_to_usd_micros(MESHY_OPERATION_CREDITS.get(operation, 0))
     if provider == PROVIDER_INTERNAL:
         return VRM_CONVERSION_USD_MICROS if operation == OP_VRM_CONVERT else 0
+    if provider == PROVIDER_HI3D:
+        return HI3D_SPLIT_USD_MICROS if operation == OP_HI3D_SPLIT else 0
     return 0
 
 

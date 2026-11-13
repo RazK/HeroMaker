@@ -14,6 +14,11 @@ version; pass the generation task id instead". Staging heroes made from the
 result cache point at long-gone tasks too. An older hero gets 409
 source_expired; a product version of this would split within 3 days of making.
 
+provider "hi3d" (app/services/hi3d.py) is the other way: Hi3D takes our own
+model.glb at any age and cuts a character along the body with ball joints, so
+the print still moves like an action figure. It answers one format per paid
+task, so it returns GLB and split.3mf is made here (app/utils/glb_to_3mf.py).
+
 An admin preview for now (POST/GET /api/v1/heroes/{id}/print-split): a split
 costs our Meshy account 10 credits and is not part of a hero.
 
@@ -49,6 +54,11 @@ PARTS_3MF = "split.3mf"
 PREVIEW = "split_preview.png"
 
 MODES = ("auto", "by_parts")
+PROVIDERS = ("meshy", "hi3d")
+SOURCE_MODEL = "model.glb"
+# Hi3D's states, mapped onto Meshy's, which the rest of this module speaks.
+HI3D_STATES = {"created": "PENDING", "queueing": "PENDING", "processing": "IN_PROGRESS",
+               "success": "SUCCEEDED", "failed": "FAILED"}
 PROMPT_MAX = 600
 RUNNING = ("PENDING", "IN_PROGRESS")
 ENDED = ("SUCCEEDED", "FAILED", "CANCELED")
@@ -94,8 +104,13 @@ def _write_state(creation: Creation, state: Dict[str, Any]) -> None:
 
 def start(db: Session, creation: Creation, *, by_user_id: str, mode: str = "auto",
           prompt: Optional[str] = None, connectors: bool = False,
-          client: Optional[MeshyClient] = None) -> Dict[str, Any]:
-    """Ask Meshy to split the hero. A split already running is returned, not started twice."""
+          client: Optional[MeshyClient] = None, provider: str = "meshy",
+          part: str = "a", joint: str = "ball", hi3d_client=None) -> Dict[str, Any]:
+    """Ask Meshy (or Hi3D) to split the hero. A split already running is returned, not started twice."""
+    if provider not in PROVIDERS:
+        raise SplitError(400, "bad_provider", f"provider must be one of: {', '.join(PROVIDERS)}")
+    if provider == "hi3d":
+        return _start_hi3d(creation, by_user_id=by_user_id, part=part, joint=joint, client=hi3d_client)
     if mode not in MODES:
         raise SplitError(400, "bad_mode", f"mode must be one of: {', '.join(MODES)}")
     prompt = (prompt or "").strip() or None
@@ -126,6 +141,7 @@ def start(db: Session, creation: Creation, *, by_user_id: str, mode: str = "auto
         raise SplitError(502, "meshy_refused", f"Meshy refused the split: {e}")
 
     state = {
+        "provider": "meshy",
         "task_id": task_id,
         "source_task_id": source,
         "status": "PENDING",
@@ -146,6 +162,98 @@ def start(db: Session, creation: Creation, *, by_user_id: str, mode: str = "auto
     return state
 
 
+def _new_state(provider: str, task_id: str, by_user_id: str, **extra) -> Dict[str, Any]:
+    return {
+        "provider": provider, "task_id": task_id, "status": "PENDING", "progress": 0,
+        "mode": None, "prompt": None, "connectors": False, "part_count": None, "error": None,
+        "files": [], "by": by_user_id, "started_at": datetime.utcnow().isoformat() + "Z",
+        "finished_at": None, "checked": 0, **extra,
+    }
+
+
+def _model_source(creation: Creation) -> Dict[str, Any]:
+    """The hero's model.glb for a provider: a link it can fetch, or the bytes to upload."""
+    storage = get_storage()
+    url = storage.get_file_url(creation.user_id, creation.id, SOURCE_MODEL, expires_in=3600)
+    if url.startswith("https://") or url.startswith("http://"):
+        return {"mesh_url": url}
+    return {"mesh": storage.download_file(creation.user_id, creation.id, SOURCE_MODEL)}
+
+
+def _start_hi3d(creation: Creation, *, by_user_id: str, part: str, joint: str, client=None) -> Dict[str, Any]:
+    from app.services import hi3d
+
+    if part not in hi3d.CHARACTER_PARTS:
+        raise SplitError(400, "bad_part", f"part must be one of: {', '.join(sorted(hi3d.CHARACTER_PARTS))}")
+    if joint not in hi3d.JOINTS:
+        raise SplitError(400, "bad_joint", f"joint must be one of: {', '.join(hi3d.JOINTS)}")
+    state = read_state(creation)
+    if state and state.get("status") in RUNNING:
+        return state
+    if not get_storage().file_exists(creation.user_id, creation.id, SOURCE_MODEL):
+        raise SplitError(409, "no_source", "This hero has no finished 3D model to split.")
+    try:
+        client = client or hi3d.Hi3dClient()
+        task_id = client.create_character_split(
+            part=part, joint=joint, merge=True, usage=_usage(creation, by_user_id), **_model_source(creation),
+        )
+    except hi3d.Hi3dNotConfigured:
+        raise SplitError(503, "hi3d_not_configured", "Hi3D is not set up here: HI3D_CLIENT_ID / HI3D_CLIENT_SECRET.")
+    except hi3d.Hi3dError as e:
+        raise SplitError(502, "hi3d_refused", f"Hi3D refused the split: {e}")
+    state = _new_state("hi3d", task_id, by_user_id, part=part, joint=joint,
+                       part_count=hi3d.CHARACTER_PARTS[part])
+    _write_state(creation, state)
+    logger.info("[%s] Hi3D character split %s started (part=%s joint=%s)", creation.id, task_id, part, joint)
+    return state
+
+
+def _usage(creation: Creation, by_user_id: str) -> UsageContext:
+    return UsageContext(user_id=by_user_id, creation_id=creation.id, step_name="print_split")
+
+
+def _refresh_hi3d(creation: Creation, state: Dict[str, Any], client, now: float) -> Dict[str, Any]:
+    from app.services import hi3d
+    from app.utils.glb_to_3mf import glb_to_3mf
+
+    state["checked"] = now
+    try:
+        client = client or hi3d.Hi3dClient()
+        task = client.get_split(state["task_id"])
+    except hi3d.Hi3dError as e:
+        logger.warning("[%s] Hi3D split %s: status check failed: %s", creation.id, state["task_id"], e)
+        _write_state(creation, state)
+        return state
+    status = HI3D_STATES.get(str(task.get("state") or "").lower(), state["status"])
+    ended = datetime.utcnow().isoformat() + "Z"
+    if status == "SUCCEEDED":
+        storage = get_storage()
+        glb = _download(task["url"])  # valid for one hour
+        storage.upload_file(creation.user_id, creation.id, PARTS_GLB, glb, content_type="model/gltf-binary")
+        files = [PARTS_GLB]
+        try:
+            storage.upload_file(creation.user_id, creation.id, PARTS_3MF, glb_to_3mf(glb), content_type="model/3mf")
+            files.append(PARTS_3MF)
+        except Exception:  # the parts are still worth showing without a 3MF
+            logger.exception("[%s] Hi3D split %s: could not make the 3MF", creation.id, state["task_id"])
+        if task.get("cover_url"):
+            storage.upload_file(creation.user_id, creation.id, PREVIEW, _download(task["cover_url"]),
+                                content_type="image/png")
+            files.append(PREVIEW)
+        state.update(status="SUCCEEDED", progress=100, files=files, finished_at=ended)
+        usage_service.finalize_usage_by_provider_ref(pricing.PROVIDER_HI3D, state["task_id"], "succeeded")
+    elif status == "FAILED":
+        state.update(status="FAILED", error=str(task.get("msg") or task.get("error") or "Hi3D could not split it"),
+                     finished_at=ended)
+        usage_service.finalize_usage_by_provider_ref(pricing.PROVIDER_HI3D, state["task_id"], "failed",
+                                                     metadata={"task": task})
+    else:
+        state["status"] = status
+        state["progress"] = 50 if status == "IN_PROGRESS" else 0
+    _write_state(creation, state)
+    return state
+
+
 def _download(url: str) -> bytes:
     response = requests.get(url, timeout=120)
     response.raise_for_status()
@@ -153,7 +261,7 @@ def _download(url: str) -> bytes:
 
 
 def refresh(creation: Creation, client: Optional[MeshyClient] = None,
-            now: Optional[float] = None) -> Optional[Dict[str, Any]]:
+            now: Optional[float] = None, hi3d_client=None) -> Optional[Dict[str, Any]]:
     """The split as it stands, after asking Meshy if it is still running."""
     state = read_state(creation)
     if not state or state.get("status") in ENDED:
@@ -162,6 +270,8 @@ def refresh(creation: Creation, client: Optional[MeshyClient] = None,
     if now - float(state.get("checked") or 0) < POLL_SECONDS:
         return state
 
+    if state.get("provider") == "hi3d":
+        return _refresh_hi3d(creation, state, hi3d_client, now)
     client = client or MeshyClient()
     try:
         task = client.get_print_split_status(state["task_id"])
@@ -231,6 +341,9 @@ def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict
         "started_at": state.get("started_at"),
         "finished_at": state.get("finished_at"),
         "cost_meshy_credits": pricing.MESHY_PRINT_SPLIT_CREDITS,
+        "provider": state.get("provider") or "meshy",
+        "part": state.get("part"),
+        "joint": state.get("joint"),
         "files": {
             "parts": url(PARTS_GLB),
             "parts_3mf": url(PARTS_3MF),
