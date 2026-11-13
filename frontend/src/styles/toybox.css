@@ -218,7 +218,7 @@ h1, h2, h3, h4 {
   cursor: pointer;
   text-decoration: none;
 }
-.tb-nav svg { width: 20px; height: 20px; }
+.tb-nav svg { width: calc(var(--tb-header-ctl) / 2); height: calc(var(--tb-header-ctl) / 2); }
 .tb-nav:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
 
 .tb-chip {
@@ -237,28 +237,35 @@ h1, h2, h3, h4 {
 }
 .tb-chip--on { background: var(--tb-ink); border-color: var(--tb-ink); color: var(--tb-white); }
 
-/* Header credits pill: the nav button's height and depth (see .tb-nav). */
+/* Header credits pill: the nav button's height, outline and depth (see
+   .tb-nav), in sun. The outline matters: the account circle's ink ring runs
+   into its ink depth and reads as one 44px shape, so a pill without one read
+   shorter beside it (Raz: "the circle the same height as the pill"). */
 .tb-credits {
   position: relative;
   height: var(--tb-header-ctl);
   flex-shrink: 0;
-  padding: 0 12px;
+  padding: 0 calc(var(--tb-header-ctl) / 4);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--tb-header-ctl) * 0.15);
   border-radius: 999px;
-  border: none;
+  border: 2px solid var(--tb-sun-deep);
   background: var(--tb-sun);
   color: var(--tb-ink);
   box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-sun-deep);
   font-family: var(--tb-font-body);
   font-weight: 800;
-  font-size: 15px;
+  font-size: calc(var(--tb-header-ctl) * 0.375);
   white-space: nowrap;
   cursor: pointer;
 }
-.tb-credits svg { width: 18px; height: 18px; }
-.tb-header .tb-btn--sm { height: var(--tb-header-ctl); font-size: 16px; padding: 0 14px; }
+.tb-credits svg { width: calc(var(--tb-header-ctl) * 0.45); height: calc(var(--tb-header-ctl) * 0.45); flex-shrink: 0; }
+.tb-header .tb-btn--sm { height: var(--tb-header-ctl); font-size: calc(var(--tb-header-ctl) * 0.4); padding: 0 calc(var(--tb-header-ctl) * 0.35); }
+/* Sign in: the same 2px outline and depth as the round button beside it. */
+.tb-header .tb-btn--secondary { border-width: 2px; }
+.tb-header .tb-btn--secondary:not(:focus-visible) { box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink); }
+.tb-header .tb-btn--secondary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
 .tb-credits:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-sun-deep); }
 
 /* No text links (Raz: "no underlined links"). An action is a button, a row,
@@ -278,6 +285,11 @@ h1, h2, h3, h4 {
   padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth-sm));
   background: var(--tb-cream);
   box-shadow: 0 2px 0 var(--tb-line);
+  /* Everything in the header is sized from --tb-header-ctl: 40px from a
+     390px-wide screen up, and below that the whole row scales down together
+     (360px: 36.6px), so the logo, the credits (even 4 digits) and the account
+     circle stay on one line, uncropped, all one height. */
+  --tb-header-ctl: clamp(32px, calc((100vw - 2 * var(--tb-gutter)) * 40 / 350), 40px);
 }
 .tb-header-side { display: flex; align-items: center; gap: 8px; min-width: 48px; }
 .tb-header-side--end { justify-content: flex-end; }
@@ -321,10 +333,35 @@ h1, h2, h3, h4 {
   color: var(--tb-ink);
 }
 .tb-logo img { width: 36px; height: 36px; object-fit: contain; }
+/* The wordmark logo: the girl and "HeroMaker" are as tall as the credits pill
+   and the account circle (Raz). The icon has a transparent band over her
+   head (80 of its 586px rows), so the picture is drawn 586/506 of the row's
+   height and lifted by that band: her visible top and bottom meet the pill's.
+   The band still lies in the box, so nothing is cropped. */
+.tb-logo-mark {
+  gap: calc(var(--tb-header-ctl) * 0.15);
+  flex-shrink: 0;
+}
+.tb-logo-mark img {
+  width: calc(var(--tb-header-ctl) * 586 / 506);
+  height: calc(var(--tb-header-ctl) * 586 / 506);
+  margin-block-start: calc(var(--tb-header-ctl) * -80 / 506);
+  flex-shrink: 0;
+}
 /* Chips that belong together (Refunds · Terms): one line, never split, on a
    line of their own under any text about them (brand book: chips row). */
 .tb-chip-row { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: nowrap; }
 .tb-logo span { font-family: var(--tb-font-display); font-weight: 400; font-size: 28px; }
+/* As big as the row allows, its line box the pill's height: 32px on a 390px
+   screen, growing with the room beyond that (412px: 36px) up to 40px from
+   430px. Each size leaves 16px before a 4-digit credits pill. Letters the
+   pill's full height would need a 53px face, 243px wide: no phone holds that
+   beside the credits. */
+.tb-logo-mark span {
+  font-size: min(calc(var(--tb-header-ctl) * 0.8 + max(0px, 100vw - 390px) * 0.2), var(--tb-header-ctl));
+  line-height: var(--tb-header-ctl);
+  white-space: nowrap;
+}
 /* Not production (apply-env-look.sh sets data-env): a STAGING tag on the
    logo, over the foot of its icon, so it never moves the header. */
 html[data-env] .tb-logo { position: relative; }

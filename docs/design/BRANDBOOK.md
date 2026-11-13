@@ -37,7 +37,8 @@ One theme. No dark mode.
 | `--tb-gutter` | `20px` | Side margins |
 | `--tb-stack` | `18px` | Between stacked buttons |
 | `--tb-depth` / `--tb-depth-sm` | `6px` / `4px` | Primary / secondary button depth |
-| `--tb-btn-h` / `--tb-btn-sm-h` | `58px` / `48px` | Button heights; 48 is also the nav button and the credits pill — everything in a header is 48 tall with `--tb-depth-sm` depth |
+| `--tb-btn-h` / `--tb-btn-sm-h` | `58px` / `48px` | Button heights |
+| `--tb-header-ctl` | `40px` | Everything in a header: the nav button, the credits pill, the account circle, Sign in, and the logo's girl. 40px from a 390px-wide screen up; below that the whole header row scales with the width (360px: 36.6px) so it stays one line. Each has a 2px outline and `--tb-depth-sm` depth in one colour, so all read 44px tall; the tap area stays 48px |
 | `--tb-radius-card` / `--tb-radius-input` | `28px` / `18px` | Cards, tiles, sheets / inputs, notices |
 
 Code on the developer docs (/developers) is the one exception: in code blocks, monospace, white on ink, each with a Copy chip, so columns line up. API keys themselves are still Nunito 800.
@@ -51,7 +52,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 ## Layout
 
 1. **Same positions on every screen.** Header, a body, bottom bar. One grid. ("COHERENCY AND CONSISTENCY IN ELEMENT POSITIONS")
-2. **One header.** `Header` + `NavButton`: a round 48px button on each edge, title centred. One nav-button style. Back is always top-start.
+2. **One header.** `Header` + `NavButton`: a round `--tb-header-ctl` button on each edge, title centred. One nav-button style. Back is always top-start. The gallery's header is the logo at the start (the girl as tall as the pill, "HeroMaker" with the pill's line height, 32px at 390px wide, up to 40px from 430px) and the credits pill and account circle at the end, all one height, on one line at 360px even with a 4-digit balance.
 3. **Bottom bar.** Top to bottom: helper line, secondary, primary LAST. The primary is the bottom-most element, in the same place on every screen. The bar always ends with a button. One grape action per screen; secondaries are outlined.
 4. **Symmetry.** Paired things (drawing and hero, two game cards) are the same size, side by side. Control bars centred; never a panel in a corner.
 5. **No dead whitespace.** The hero or stage flexes to fill what is left.
