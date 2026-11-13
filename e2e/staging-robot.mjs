@@ -687,7 +687,25 @@ try {
     await page.locator('.tb-drawing-full').waitFor({ state: 'detached', timeout: 5000 });
     if ((await slideNow()) !== 'drawing') throw new Error(`Back from the full drawing landed on "${await slideNow()}"`);
     if (DEMO) await page.waitForTimeout(2000);
+    // The moves are the live hero's own controls, inside its slide (Raz: "we
+    // can't make the drawing do a flip or dance"): none in view on the
+    // drawing or the painting, all four on the hero.
+    const movesInView = () => page.evaluate(() => {
+      const st = document.querySelector('.tb-live-stage').getBoundingClientRect();
+      return [...document.querySelectorAll('.tb-move')].filter((m) => {
+        const b = m.getBoundingClientRect();
+        return !m.closest('[inert]') && b.width > 0 && b.left >= st.left - 1 && b.right <= st.right + 1 && b.top >= st.top - 1 && b.bottom <= st.bottom + 1;
+      }).length;
+    });
+    const movesSeen = { drawing: await movesInView() };
+    if (movesSeen.drawing !== 0) throw new Error(`${movesSeen.drawing} moves show on the drawing`);
+    if ((await swipe()) !== 'painting') throw new Error(`a swipe from the drawing landed on "${await slideNow()}"`);
+    movesSeen.painting = await movesInView();
+    if (movesSeen.painting !== 0) throw new Error(`${movesSeen.painting} moves show on the painting`);
+    if ((await swipe()) !== 'hero') throw new Error(`a swipe from the painting landed on "${await slideNow()}"`);
     await page.locator('.tb-move:not([disabled])').first().waitFor({ timeout: 90000 });
+    movesSeen.hero = await movesInView();
+    if (movesSeen.hero !== 4) throw new Error(`${movesSeen.hero} of 4 moves inside the live hero's stage`);
     mark('game_ready');
 
     // A real tap on a move: it plays at once, no queue. Measured in the page,
@@ -706,38 +724,14 @@ try {
       return page.evaluate(() => Math.round(window.__tap.playing - window.__tap.at));
     };
     mark('play');
-    // Four moves, no more (Raz: only Dance, Wave, Flip and Punch). A move
-    // tapped from the drawing slides the hero in forward (from the right, the
-    // drawing leaving to the left) and starts as the hero lands, not before.
+    // Four moves, no more (Raz: only Dance, Wave, Flip and Punch), and a tap
+    // on one plays it at once, on the hero's own slide.
     const moves = await page.locator('.tb-move').evaluateAll((els) => els.map((e) => e.getAttribute('data-move')).join(','));
     if (moves !== 'dance,bodyroll,backflip,punch') throw new Error(`the moves are ${moves}`);
     await page.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-shown') === 'hero', null, { timeout: 90000 });
-    // What the app sets on each slide (its inline transform and transition),
-    // recorded as it changes: independent of whether this browser fires
-    // transition events.
-    await page.evaluate(() => {
-      window.__slid = { hero: [], drawing: [] };
-      for (const key of ['hero', 'drawing']) {
-        const el = document.querySelector(`.tb-live-stage .tb-slide[data-slide="${key}"]`);
-        // Every state, not just the last: the app pins the hero off the
-        // right edge and lets it go in the same task, so a callback sees
-        // both changes at once (the old values carry the one in between).
-        const read = (css) => { const d = document.createElement('div'); d.style.cssText = css || ''; return { x: (d.style.transform.match(/calc\((-?\d+)%/) || [])[1], animated: d.style.transition !== 'none' }; };
-        new MutationObserver((records) => {
-          for (const r of records) window.__slid[key].push(read(r.oldValue));
-          window.__slid[key].push(read(el.getAttribute('style')));
-        }).observe(el, { attributes: true, attributeFilter: ['style'], attributeOldValue: true });
-      }
-    });
-    const jumpMs = await tapToMove('punch');
-    const slid = await page.evaluate(() => window.__slid);
-    const heroIn = slid.hero.some((s) => s.x === '100') && slid.hero.some((s) => s.x === '0' && s.animated);
-    const drawingOut = slid.drawing.some((s) => s.x === '-100' && s.animated);
-    if (!heroIn || !drawingOut) {
-      throw new Error(`from the drawing the hero did not slide in from the right: ${JSON.stringify(slid)}`);
-    }
-    if (jumpMs < 200 || jumpMs > 1500) throw new Error(`punch started ${jumpMs} ms after the tap, not as the hero landed`);
-    if ((await slideNow()) !== 'hero') throw new Error('a move tapped from the drawing did not bring the hero back');
+    const punchMs = await tapToMove('punch');
+    if (punchMs > 800) throw new Error(`punch started ${punchMs} ms after the tap, not at once`);
+    if ((await slideNow()) !== 'hero') throw new Error(`a move left the hero's slide for "${await slideNow()}"`);
     await page.waitForTimeout(DEMO ? 300 : 500);
     const flipMs = await tapToMove('backflip');
     await page.waitForTimeout(700);
@@ -803,7 +797,7 @@ try {
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened drawing > painting > hero, the drawing on its small card; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; 4 moves; punch from the drawing slid the hero in from the right and played as it landed (${jumpMs} ms), backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
+    return `"${title}" opened drawing > painting > hero, the drawing on its small card; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; no moves on the drawing or the painting, all 4 inside the hero's stage; punch ${punchMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
   });
 
   await step(page, 'class', async () => {

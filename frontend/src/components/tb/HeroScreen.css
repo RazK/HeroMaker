@@ -109,6 +109,73 @@
   .tb-hero-screen:not([data-state='ready']) > .tb-bar { grid-area: bar; }
 }
 
+/* ---------- A ready hero on any screen wider than tall ----------
+   A phone on its side, a laptop, a desktop: the hero takes the screen. The
+   stage is the whole width (1100px at most, centred) and all the height the
+   header leaves; nothing stands beside it. Its foot is one row, the dock,
+   16px inside the stage: the bar's secondary at the start, the slide's own
+   controls centred (the hero's four moves, the drawing's name card), the
+   primary, Play, at the end, so it stays the last and bottom-most thing on
+   the page. Both bar buttons are one width (--side), so the row is
+   symmetric about the moves. Raz, on the two columns this replaces: "don't
+   use half the screen just for a few buttons where most of the space is
+   empty". The bar under the stage instead would cost a phone on its side a
+   third of its height; in the dock it costs the hero nothing it was using. */
+@media (orientation: landscape) {
+  .tb-hero-screen.tb-hero-main[data-state='ready'] {
+    --tb-dock-h: var(--tb-btn-h);
+    --side: clamp(150px, 18vw, 220px);
+    max-width: 1140px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: 'head' 'body';
+  }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header { grid-area: head; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-screen-body {
+    grid-area: body;
+    padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + env(safe-area-inset-bottom, 0px));
+  }
+  /* The bar, laid over the stage's foot: the faces of its buttons line up
+     with the moves' (16px and the depth above the stage's bottom edge). */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar {
+    grid-area: body;
+    align-self: end;
+    position: relative;
+    z-index: 4;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 0 calc(var(--tb-gutter) + 16px) calc(var(--tb-space) + 16px + var(--tb-depth-sm) + env(safe-area-inset-bottom, 0px));
+    background: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn {
+    flex: 0 0 var(--side);
+    width: var(--side);
+    min-width: 0;
+    height: var(--tb-dock-h);
+    padding: 0 12px;
+    font-size: 17px;
+    pointer-events: auto;
+  }
+  /* The slide's controls keep clear of the two buttons, 12px from each. */
+  .tb-hero-main[data-state='ready'] .tb-moves { padding-inline: calc(var(--side) + 28px); }
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-live-name { width: min(340px, calc(100% - 2 * (var(--side) + 28px))); }
+  /* Room for each move's word beside its icon: one line of pills. */
+  .tb-hero-main[data-state='ready'] .tb-move { flex-direction: row; gap: 8px; padding: 0 12px; max-width: min(160px, calc((100% - 3 * var(--gap)) / 4)); font-size: 17px; }
+  .tb-hero-main[data-state='ready'] .tb-move svg { width: 22px; height: 22px; flex-shrink: 0; }
+}
+@media (orientation: landscape) and (max-height: 559px) {
+  /* Height is what a phone on its side lacks: the hero's feet come to 8px
+     over the dock rather than 12. */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] { --tb-dock-h: var(--tb-btn-sm-h); --tb-dock-clear: calc(var(--tb-dock-h) + 28px); }
+  /* A phone's dock is tight: the bar's words stay, its icons give way. */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn svg { display: none; }
+}
+
 /* Pick a game: two equal cards side by side (brand book: paired things are
    the same size). Each card wears its game's colour (toybox.css --tb-rumble,
    --tb-dance) on its poster and its footer, so the two tell apart at a glance

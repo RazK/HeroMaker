@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, CreationResponse, paintingFramed } from '../../api/client';
-import { HeroTile, SkeletonTile, TileGrid, makingLine, makingPct } from './HeroTile';
+import { HeroTile, SkeletonTile, TileGrid, byLine, makingLine, makingPct } from './HeroTile';
 import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState, stepProgress } from './pipeline';
 import './Gallery.css';
@@ -345,7 +345,7 @@ function Tile({ creation, index, eager, onClick }: { creation: CreationResponse;
   const done = creation.steps.filter((s) => s.status === 'completed').length;
   const progress = stepProgress(step);
   const painted = creation.steps.find((s) => s.step_name === 'openai_render')?.status === 'completed';
-  const by = creation.name ? `by ${creation.name}${creation.age ? `, ${creation.age}` : ''}` : '';
+  const by = byLine(creation.name, creation.age);
   const drawing = file('thumb_original.jpg');
   // Ready, or painted and still being made: the drawing cross-fades to the
   // hero. Otherwise the drawing alone, greyed if it stopped.
