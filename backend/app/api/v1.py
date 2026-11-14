@@ -505,8 +505,39 @@ def get_print_split(hero_id: str, request: Request,
                     who: Principal = Depends(require(ADMIN)), db: Session = Depends(get_db)):
     from app.services import print_split
 
+    from app.services import action_figure
+
     creation = _live_hero(db, hero_id)
-    return print_split.view(creation, api_heroes.base_url(request), print_split.refresh(creation))
+    # An owner's paid split ending badly is refunded whoever reads it first.
+    state = action_figure.settle(db, creation, print_split.refresh(creation))
+    return print_split.view(creation, api_heroes.base_url(request), state)
+
+
+# The hero as an action figure: the owner pays credits for a jointed print
+# split (app/services/action_figure.py).
+@router.post("/heroes/{hero_id}/action-figure", status_code=202, include_in_schema=False)
+def start_action_figure(hero_id: str, request: Request, who: Principal = Depends(require(APP)),
+                        db: Session = Depends(get_db)):
+    """Make the hero an action figure: printable parts with ball joints. Costs credits; refunded if it fails."""
+    from app.services import action_figure
+    from app.services.print_split import SplitError
+
+    creation, _ = _own_hero(db, who, hero_id)
+    try:
+        state = action_figure.start(db, creation, who.user_id)
+    except SplitError as e:
+        raise HTTPException(status_code=e.status, detail={"code": e.code, "message": e.message})
+    return action_figure.view(creation, api_heroes.base_url(request), state)
+
+
+@router.get("/heroes/{hero_id}/action-figure", include_in_schema=False)
+def get_action_figure(hero_id: str, request: Request, who: Principal = Depends(require(APP)),
+                      db: Session = Depends(get_db)):
+    """The action figure: its price, how far along it is, and its parts once made."""
+    from app.services import action_figure
+
+    creation, _ = _own_hero(db, who, hero_id)
+    return action_figure.view(creation, api_heroes.base_url(request), action_figure.refresh(db, creation))
 
 
 class Featured(BaseModel):

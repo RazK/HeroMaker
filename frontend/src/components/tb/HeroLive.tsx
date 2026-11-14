@@ -1,3 +1,4 @@
+import { ActionFigureSlide } from './ActionFigure';
 import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
 import { api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
@@ -48,7 +49,7 @@ export interface Making {
 
 const STEP_FILE: Record<string, string> = { openai_render: 'rendered.png', meshy_3d: 'model.glb' };
 
-type SlideKey = 'drawing' | 'painting' | 'hero';
+type SlideKey = 'drawing' | 'painting' | 'hero' | 'figure';
 type SlideState = 'ready' | 'pending' | 'failed';
 interface Slide { key: SlideKey; state: SlideState }
 
@@ -80,10 +81,13 @@ const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
  * it: the drawing and the painting their name card, the live hero its moves,
  * in exactly the same box. Nothing of one slide shows on another.
  */
-export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id) }: {
+export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id), figure }: {
   creation: LiveHero;
   making?: Making;
   notice?: ReactNode;
+  /** The owner's own hero: a fourth slide, the hero as an action figure
+   *  (ActionFigure.tsx), bought with credits. `credits` is their balance. */
+  figure?: { credits?: number };
   /** Which moves the row offers (ids of MOVES); none hides the row. */
   moves?: string[];
 }) {
@@ -104,6 +108,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   else if (making && !making.idle) slides.push({ key: 'painting', state: coming });
   if (live) slides.push({ key: 'hero', state: 'ready' });
   else if (painted && !making.idle) slides.push({ key: 'hero', state: coming });
+  if (live && figure) slides.push({ key: 'figure', state: 'ready' });
   const frontier = slides.find((s) => s.state !== 'ready') ?? slides[slides.length - 1];
 
   // A ready hero's page opens on the story of how it was made: the drawing,
@@ -371,7 +376,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           ),
         };
       }
-      const pct = Math.floor(partPct(s.key));
+      const pct = Math.floor(partPct(s.key === 'painting' ? 'painting' : 'hero'));
       return {
         label,
         node: (
@@ -382,6 +387,12 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
             <span className="tb-slide-status">{comingLabel(s.key)}</span>
           </div>
         ),
+      };
+    }
+    if (s.key === 'figure') {
+      return {
+        label: `${heroName}, the action figure`,
+        node: <ActionFigureSlide heroId={creation.id} heroName={heroName} credits={figure?.credits} picture={paintingPic} />,
       };
     }
     if (s.key === 'painting') {

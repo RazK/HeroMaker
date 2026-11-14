@@ -13,7 +13,8 @@
    place). --tb-dock-clear is the dock, its depth and 12px. */
 .tb-hero-screen { --tb-dock-h: 56px; --tb-dock-clear: calc(var(--tb-dock-h) + 32px); }
 .tb-live-stage .tb-live-name,
-.tb-live-stage .tb-hero-moves {
+.tb-live-stage .tb-hero-moves,
+.tb-live-stage .tb-figure-dock {
   position: absolute;
   inset-inline: 0;
   inset-block-end: calc(16px + var(--tb-depth-sm));
@@ -413,3 +414,49 @@
   pointer-events: none;
   transform-origin: center;
 }
+
+/* ---------- The action figure: the fourth slide (ActionFigure.tsx) ---------- */
+
+/* Its controls take the dock's box like every slide's (above): the buy
+   button, a name card while it is made, or the pull-apart slider and the
+   3MF once made. The button's own depth sits inside the box. */
+.tb-live-stage .tb-figure-buy { z-index: 2; padding: 0 20px; box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
+.tb-figure-buy-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tb-figure-dock--made {
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 0 16px;
+  box-sizing: border-box;
+  border-radius: 20px;
+  background: var(--tb-white);
+}
+.tb-figure-slider { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; font-weight: 800; font-size: 15px; }
+.tb-figure-slider input { flex: 1; min-width: 0; height: 44px; accent-color: var(--tb-grape); touch-action: none; }
+.tb-figure-get { flex: none; gap: 4px; }
+.tb-figure-move { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; }
+.tb-figure-dock--made { padding-inline-start: 8px; gap: 8px; }
+.tb-figure-slider { gap: 6px; color: var(--tb-ink); }
+/* The parts turn by themselves (a drag on the stage is a swipe). */
+.tb-figure-room canvas { display: block; }
+.tb-figure-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+/* Locked: the painting, as on its own slide, and a tag over its top. */
+.tb-figure-teaser { position: absolute; inset: 0; }
+.tb-figure-tag {
+  position: absolute;
+  inset-block-start: 40px;
+  inset-inline: 0;
+  width: max-content;
+  margin-inline: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--tb-white);
+  font-weight: 800;
+  font-size: 14px;
+  pointer-events: none;
+}
+.tb-figure-note { position: absolute; inset-inline: 16px; inset-block-end: 8px; }

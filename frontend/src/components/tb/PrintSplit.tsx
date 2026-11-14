@@ -1,18 +1,11 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useLoader } from '@react-three/fiber';
-import { Html, OrbitControls } from '@react-three/drei';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import * as THREE from 'three';
+import { useEffect, useState } from 'react';
 import { api, CreationResponse, PrintSplit } from '../../api/client';
 import { Icon } from './Icon';
 import { Sheet } from './parts';
+import { PartsStage } from './PartsViewer';
 import './PrintSplit.css';
 
-/** Colours to tell the parts apart: the plates, then the sun and grape. */
-const PART_TINTS = ['#e9e3ff', '#ffe9a8', '#cff5ea', '#ffdcc7', '#d6ecff', '#ffd6e7', '#ffc233', '#5b3df5'];
 const POLL_MS = 3000;
-/** How far a part travels when fully pulled apart, as a share of its distance from the middle. */
-const OUT = 0.6;
 
 /**
  * Admin preview of Meshy's Auto Split: the hero cut into parts that print on
@@ -33,6 +26,7 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
   const [apart, setApart] = useState(0.35);
   const [tinted, setTinted] = useState(false);
   const [again, setAgain] = useState(false);
+  const [moving, setMoving] = useState(false);
 
   const running = split?.status === 'pending' || split?.status === 'in_progress';
   useEffect(() => {
@@ -78,15 +72,8 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
       {done && !again && (
         <>
           <div className="tb-split-stage">
-            <Canvas camera={{ position: [0, 0, 2.6], fov: 40 }} dpr={[1, 2]}>
-              <hemisphereLight args={['#ffffff', '#b9aee0', 2.2]} />
-              <directionalLight position={[2, 3, 4]} intensity={2.4} />
-              <directionalLight position={[-3, 1, -2]} intensity={1} />
-              <Suspense fallback={<Html center><div className="tb-ring tb-split-loading" style={{ ['--p' as string]: '25%' }}><span>…</span></div></Html>}>
-                <Parts url={split.files!.parts_view || split.files!.parts!} apart={apart} tinted={tinted} />
-              </Suspense>
-              <OrbitControls enablePan={false} minDistance={1.2} maxDistance={6} />
-            </Canvas>
+            <PartsStage url={split.files!.parts_view || split.files!.parts!} apart={apart} tinted={tinted}
+              jointed={split.provider === 'hi3d' && !!split.joint && split.joint !== 'none'} moving={moving} />
           </div>
           <div className="tb-split-line">
             {split.part_count ?? '?'} parts{split.provider === 'hi3d' && split.joint && split.joint !== 'none' ? ` · ${split.joint} joints` : ''} · drag to turn
@@ -97,6 +84,9 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
           </label>
           <div className="tb-chip-row tb-split-chips">
             <button type="button" className={`tb-chip${tinted ? ' tb-chip--on' : ''}`} onClick={() => setTinted(!tinted)}>Colour each part</button>
+            {split.provider === 'hi3d' && split.joint && split.joint !== 'none' && (
+              <button type="button" className={`tb-chip${moving ? ' tb-chip--on' : ''}`} aria-pressed={moving} onClick={() => setMoving(!moving)}>Move it</button>
+            )}
             <button type="button" className="tb-chip" onClick={() => setAgain(true)}>Split again</button>
           </div>
           <div className="tb-stack">
@@ -160,52 +150,4 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
       {!split && error && <div className="tb-notice tb-notice--error" role="alert">{error}</div>}
     </Sheet>
   );
-}
-
-/** The split model, centred and sized, each part pushed out from the middle by `apart`. */
-function Parts({ url, apart, tinted }: { url: string; apart: number; tinted: boolean }) {
-  const gltf = useLoader(GLTFLoader, url);
-  const { root, parts } = useMemo(() => {
-    const root = gltf.scene.clone(true);
-    const box = new THREE.Box3().setFromObject(root);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    // Sized for the parts fully pulled apart (each moves out by up to OUT of
-    // its distance from the middle), so the slider never pushes one off screen.
-    const scale = 1.5 / (Math.max(size.x, size.y, size.z || 1) * (1 + OUT));
-    root.position.copy(center.clone().multiplyScalar(-scale));
-    root.scale.setScalar(scale);
-    const meshes: { mesh: THREE.Mesh; home: THREE.Vector3; out: THREE.Vector3; material: THREE.Material | THREE.Material[] }[] = [];
-    root.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      // Meshy's split parts come without normals, and unlit-from-every-side
-      // is what three.js draws then: a dark silhouette.
-      if (!mesh.geometry.getAttribute('normal')) mesh.geometry.computeVertexNormals();
-      const c = new THREE.Box3().setFromObject(mesh).getCenter(new THREE.Vector3());
-      const out = c.sub(center);
-      if (out.lengthSq() < 1e-9) out.set(0, 1, 0);
-      meshes.push({ mesh, home: mesh.position.clone(), out: out.multiplyScalar(OUT), material: mesh.material });
-    });
-    return { root, parts: meshes };
-  }, [gltf]);
-
-  const tints = useRef<THREE.Material[]>([]);
-  useEffect(() => {
-    tints.current = parts.map((_, i) => new THREE.MeshStandardMaterial({ color: PART_TINTS[i % PART_TINTS.length], roughness: 0.7 }));
-    return () => tints.current.forEach((m) => m.dispose());
-  }, [parts]);
-
-  useEffect(() => {
-    parts.forEach((p, i) => {
-      // `out` is in the model's own units: undo the parent's scale so the push is in the part's frame.
-      const parent = p.mesh.parent;
-      const local = p.out.clone();
-      if (parent) local.divide(parent.getWorldScale(new THREE.Vector3()).divideScalar(root.scale.x || 1));
-      p.mesh.position.copy(p.home).addScaledVector(local, apart);
-      p.mesh.material = tinted ? tints.current[i] : p.material;
-    });
-  }, [parts, apart, tinted, root]);
-
-  return <primitive object={root} />;
 }

@@ -53,6 +53,12 @@ class Hi3dNotConfigured(Hi3dError):
     pass
 
 
+def is_out_of_balance(error: Exception) -> bool:
+    """Hi3D says our API balance is empty. It answers in Chinese: 余额不足, "insufficient balance"."""
+    text = str(error).lower()
+    return "余额不足" in text or "insufficient balance" in text or "balance" in text and "not enough" in text
+
+
 _token_lock = threading.Lock()
 _token: Dict[str, Any] = {"value": None, "at": 0.0}
 
