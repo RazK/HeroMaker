@@ -27,8 +27,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 20px 20px 0;
 }
 
 .profile-modal-header h2 {
@@ -110,9 +109,7 @@
 }
 
 .profile-modal-password-section {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color);
+  margin-top: 28px;
 }
 
 .profile-modal-password-toggle { margin-bottom: var(--tb-depth); }
@@ -126,8 +123,7 @@
   display: flex;
   justify-content: center;
   gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--border-color);
+  padding: 0 20px 20px;
 }
 
 .profile-modal-cancel,
