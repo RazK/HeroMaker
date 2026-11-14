@@ -24,7 +24,7 @@ One theme. No dark mode.
 | `--tb-ink-2` | `#5C5578` | Secondary text |
 | `--tb-cream` | `#FFF6E9` | The page, header and bar |
 | `--tb-white` | `#FFFFFF` | Cards, sheets, inputs |
-| `--tb-line` | `#EADFCB` | 2px hairlines, input and chip borders |
+| `--tb-line` | `#EADFCB` | input and chip borders, quiet pill depth (never a divider) |
 | `--tb-track` | `#EDE3D2` | Not reached yet: stepper, progress background |
 | `--tb-green` | `#15997A` | Done |
 | `--tb-red` | `#C62828` | Danger, failure |
@@ -71,11 +71,13 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - The bottom bar's primary follows the place: Make a hero under Gallery, New class under My classes.
 - The place and the chip are remembered apart: back on Gallery finds the chip that was on.
 
-**Account sheet.** Three groups, two dividers, no headings: you (Buy credits, Redeem a coupon, Edit profile); tools (I run classes, a toggle row; Admin for admins); the session (Sign out, Delete account). It holds settings, never navigation.
+**Account sheet.** Three groups, a space between them (no lines), no headings: you (Buy credits, Redeem a coupon, Edit profile); tools (I run classes, a toggle row; Admin for admins); the session (Sign out, Delete account). It holds settings, never navigation.
 
 **Header card.** The top of a place may carry one card naming what the place belongs to (My classes: the school). A pastel `--tb-plate-*` card, `--tb-radius-card`, `--tb-shadow-card`: a round white badge with the icon at the start, the name in the display font, one body line under it with only the parts that are filled in, a quiet white count pill, and the round pencil (`.tb-nav`) at the end, which opens the editor. The whole card is the same tap. Nothing in it is underlined. With nothing to name yet, the card invites: "Add your school". Text wraps; it never clips at 360px.
 
-**Spacing.** `--tb-space` is the visible gap above and below the header buttons, header to content, between blocks, content to bar, below the last button, in sheets. Padding under a 3D button adds its depth back. 2px `--tb-line` hairline between header/bar and scrolling content. The bar adds `env(safe-area-inset-bottom)`.
+**Spacing.** `--tb-space` is the visible gap above and below the header buttons, header to content, between blocks, content to bar, below the last button, in sheets. Padding under a 3D button adds its depth back. The bar adds `env(safe-area-inset-bottom)`.
+
+**No divider lines; space separates.** No horizontal rule anywhere: not under the header, not over the bar, not between groups in a sheet, not beside an "or". The header, the switch and the bar are cream on cream, set apart by `--tb-space` alone; content that scrolls under a sticky one fades into the cream over `--tb-space` (`.tb-header::after`, `.tb-switchbar::after`, `.tb-bar::before`). A pause between groups of sheet rows is `.tb-sheet-divider`, 12px of space. Lines that belong to a thing (a card's outline, a button's depth, an input's border, an admin table's rows) stay.
 
 ## Images
 
@@ -152,6 +154,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 | A button, row, chip or toggle for every action (OK in a notice is a small secondary button) | An underlined text link |
 | A place on the switch under the header | A place as the fourth chip, cropped off the edge |
 | The school on a plate card with a pencil | An underlined link for a name people care about |
+| Space between header, content and bar; a soft fade where content scrolls under | A horizontal line splitting the screen, a sheet or an "or" |
 
 ## Rejected, and why
 
@@ -176,6 +179,7 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **An empty band under the painting.** The drawing had its name card and the hero its moves; the painting had nothing there: it "looks weird". Now the painting carries the same name card, in the same box the moves take on the hero.
 - **Moves under every slide.** Kept under the drawing and the painting so the page would not jump: "we can't make the drawing do a flip or dance. These controls are part of the 3D animation preview." Now they live in the hero's slide.
 - **A flat drawing card with a name strip** on the hero's page: it "loses this nice white frame with the slight tilt, and the name is shown differently". Now the gallery's polaroid and name card, the same rule as the tile.
+- **Divider lines.** A 2px hairline under the header, over the bar, between groups in the ⋯ menu and beside "or": "Continuing the effort to simplify and beautify the layout, I don't think we need the horizontal line splits, so remove them and fix the spacing afterwards in all screens everywhere." Now space separates, and a soft fade marks where content scrolls under.
 - **The school as a text link.** Grape, underlined: "looks like a link in a document. Doesn't give me a good feeling about my school." Now a header card.
 
 Mock-ups of each are in the artifact's "Rejected" card.

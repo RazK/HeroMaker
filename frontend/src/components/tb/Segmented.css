@@ -37,14 +37,23 @@
 
 @media (prefers-reduced-motion: reduce) { .tb-seg-btn { transition: none; } }
 
-/* Under the header, part of it: the header's hairline moves below the switch. */
+/* Under the header, part of it: the header's fade moves below the switch. No
+   line under either; space separates (BRANDBOOK, "No divider lines"). */
 .tb-switchbar {
   position: relative;
   z-index: 99;
   flex-shrink: 0;
   padding: 0 var(--tb-gutter) var(--tb-space);
   background: var(--tb-cream);
-  box-shadow: 0 2px 0 var(--tb-line);
+}
+.tb-switchbar::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: var(--tb-space);
+  pointer-events: none;
+  background: linear-gradient(var(--tb-cream), rgba(255, 246, 233, 0));
 }
 .tb-switchbar .tb-seg { max-width: 560px; margin-inline: auto; }
-.tb-header:has(+ .tb-switchbar) { box-shadow: none; }
+.tb-header:has(+ .tb-switchbar)::after { display: none; }

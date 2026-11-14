@@ -103,7 +103,6 @@
   display: flex;
   gap: 12px;
   padding: 20px 24px;
-  border-top: 1px solid var(--border-color);
   justify-content: center;
   align-items: center;
   background: var(--bg-primary);

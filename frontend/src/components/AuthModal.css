@@ -19,6 +19,6 @@
   text-transform: lowercase;
 }
 .auth-or::before,
-.auth-or::after { content: ''; flex: 1; border-top: 2px solid var(--tb-line); }
+.auth-or::after { content: ''; flex: 1; } /* the word alone: no divider lines */
 .auth-modal-forgot { align-self: flex-end; }
 .auth-modal-sent { text-align: center; overflow-wrap: anywhere; }

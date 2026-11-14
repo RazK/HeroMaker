@@ -284,7 +284,8 @@ h1, h2, h3, h4 {
   gap: 8px;
   padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth-sm));
   background: var(--tb-cream);
-  box-shadow: 0 2px 0 var(--tb-line);
+  /* No line under the header (Raz: "I don't think we need the horizontal line
+     splits"): space separates, and content scrolling under it fades out. */
   /* Everything in the header is sized from --tb-header-ctl: 40px from a
      390px-wide screen up, and below that the whole row scales down together
      (360px: 36.6px), so the logo, the credits (even 4 digits) and the account
@@ -440,8 +441,19 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   gap: var(--tb-stack);
   padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
   background: var(--tb-cream);
-  box-shadow: 0 -2px 0 var(--tb-line);
 }
+/* Space separates, not a line. What scrolls under a sticky header or bar fades
+   into the cream over --tb-space, so the edge reads without a rule. */
+.tb-header::after,
+.tb-bar::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  height: var(--tb-space);
+  pointer-events: none;
+}
+.tb-header::after { top: 100%; background: linear-gradient(var(--tb-cream), rgba(255, 246, 233, 0)); }
+.tb-bar::before { bottom: 100%; background: linear-gradient(rgba(255, 246, 233, 0), var(--tb-cream)); }
 .tb-bar-row { display: flex; gap: 12px; }
 .tb-bar-row > * { flex: 1 1 0; min-width: 0; }
 .tb-bar-note { text-align: center; font-size: 15px; color: var(--tb-ink-2); }
@@ -549,7 +561,8 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 .tb-sheet-toggle:focus-visible > .tb-toggle { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
 @media (prefers-reduced-motion: reduce) { .tb-toggle, .tb-toggle::after { transition: none; } }
 .tb-sheet-row--danger { color: var(--tb-red); }
-.tb-sheet-divider { border-top: 2px solid #f6eee1; margin: 4px 0; }
+/* A pause between groups of rows: space, not a line (no divider lines). */
+.tb-sheet-divider { height: 12px; flex-shrink: 0; }
 .tb-stack { display: flex; flex-direction: column; gap: var(--tb-stack); }
 
 /* ---------- Hero display ---------- */
