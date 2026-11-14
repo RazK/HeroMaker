@@ -699,6 +699,46 @@ try {
     await page.locator('.tb-drawing-full').waitFor({ state: 'detached', timeout: 5000 });
     if ((await slideNow()) !== 'drawing') throw new Error(`Back from the full drawing landed on "${await slideNow()}"`);
     if (DEMO) await page.waitForTimeout(2000);
+    // ONE drawing (Raz: "It needs to be exactly like the same element... Don't
+    // duplicate"): held part-way through a slow swipe, either way, and while
+    // it lands, exactly one picture of the drawing is in view.
+    const drawingsInView = () => page.evaluate(() => {
+      const st = document.querySelector('.tb-live-stage').getBoundingClientRect();
+      return [...document.querySelectorAll('.tb-live-stage img')].filter((im) => {
+        if (!/original\.jpg/.test(im.currentSrc || im.src)) return false;
+        let o = 1;
+        for (let e = im; e && e !== document.body; e = e.parentElement) {
+          const c = getComputedStyle(e);
+          if (c.visibility === 'hidden' || c.display === 'none') return false;
+          o *= +c.opacity;
+        }
+        const r = im.getBoundingClientRect();
+        return o >= 0.05 && r.width > 4 && r.right > st.left + 2 && r.left < st.right - 2;
+      }).length;
+    });
+    const held = async (fromShare, share) => {
+      const box = await stage.boundingBox();
+      const y = box.y + box.height * 0.45;
+      const x0 = box.x + box.width * fromShare;
+      await page.mouse.move(x0, y);
+      await page.mouse.down();
+      for (let i = 1; i <= 10; i++) await page.mouse.move(x0 + box.width * share * i / 10, y);
+      await page.waitForTimeout(120);
+      const n = await drawingsInView();
+      await page.mouse.up();
+      const landing = [];
+      for (let i = 0; i < 4; i++) { await page.waitForTimeout(70); landing.push(await drawingsInView()); }
+      await page.waitForTimeout(300);
+      return [n, ...landing];
+    };
+    // From the drawing: a short one that snaps back, then a quarter and three
+    // quarters each way, ending on the drawing.
+    for (const [fromShare, share, way] of [[0.9, -0.12, 'that snaps back'], [0.9, -0.25, 'to the painting'], [0.1, 0.5, 'back to the drawing'],
+      [0.9, -0.75, 'to the painting'], [0.1, 0.75, 'back to the drawing']]) {
+      const seen = await held(fromShare, share);
+      if (seen.some((n) => n !== 1)) throw new Error(`a slow swipe ${way} showed ${seen.join('/')} drawings, not one`);
+    }
+    if ((await slideNow()) !== 'drawing') throw new Error(`the slow swipes ended on "${await slideNow()}", not the drawing`);
     // The moves are the live hero's own controls, inside its slide (Raz: "we
     // can't make the drawing do a flip or dance"): none in view on the
     // drawing or the painting, all four on the hero.

@@ -198,7 +198,7 @@
   .tb-hero-main[data-state='ready'] .tb-live-stage .tb-live-name {
     inset-inline: var(--tb-gutter) auto;
     inset-block-end: var(--tb-space);
-    width: min(240px, 26vw);
+    max-width: min(240px, 26vw);
     margin: 0;
   }
   /* The action figure's dock: bottom-centre, between the small drawing card

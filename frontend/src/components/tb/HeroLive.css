@@ -22,6 +22,20 @@
   height: var(--tb-dock-h);
   margin-inline: auto;
 }
+/* The name card in the dock is the gallery tile's caption at the tile's own
+   size: as wide as its words (at least a tile's card), centred under the
+   picture, its two lines centred (Raz: "too much white space... centered and
+   the same size as it was in the gallery"). Centring also lines a Hebrew name
+   up with its "by" line. The moves (and the action figure's dock) keep the
+   dock's full width. */
+.tb-live-stage .tb-live-name:not(.tb-figure-dock) {
+  width: max-content;
+  min-width: 156px;
+  max-width: min(calc(100% - 32px), 340px);
+  align-items: center;
+  text-align: center;
+}
+.tb-live-stage .tb-live-name:not(.tb-figure-dock) > * { max-width: 100%; }
 /* What a slide shows, above the dock: the same room on every slide, so the
    drawing, the painting and the hero stand in one place. Its foot reaches
    into the dock's clearance by the band the 3D stage keeps at the bottom as
@@ -401,19 +415,28 @@
   box-shadow: 0 6px 14px rgba(35, 25, 66, 0.22);
   -webkit-user-drag: none;
 }
-.tb-mini-drawing:focus-visible { outline: none; }
-.tb-mini-drawing:focus-visible img { box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25), 0 6px 14px rgba(35, 25, 66, 0.22); }
-/* The copy that flies between the two (its frame is the big one's). */
-.tb-live-stage .tb-pol.tb-mini-ghost {
+/* ONE drawing (HeroLive.tsx OneDrawing). The drawing slide's polaroid and
+   the corner card's are only stand-ins: laid out here, never seen. The one
+   polaroid over the stage is placed between them by the swipe, so a slow
+   swipe back never shows two drawings (Raz: "It needs to be exactly like the
+   same element... Don't duplicate."). Its frame is the big one's, scaled. */
+.tb-slide[data-slide='drawing'] .tb-slide-pic.tb-pol,
+.tb-mini-drawing img { visibility: hidden; }
+.tb-live-stage .tb-pol.tb-one-drawing {
   position: absolute;
   z-index: 3;
   margin: 0;
   box-sizing: border-box;
   max-width: none;
   max-height: none;
+  object-fit: contain;
   pointer-events: none;
   transform-origin: center;
+  will-change: transform;
+  opacity: 0;
 }
+/* The corner card keeps its focus ring on the stand-in's box. */
+.tb-mini-drawing:focus-visible { outline: 4px solid rgba(91, 61, 245, 0.35); outline-offset: 2px; border-radius: 10px; }
 
 /* ---------- The action figure: the fourth slide (ActionFigure.tsx) ---------- */
 
