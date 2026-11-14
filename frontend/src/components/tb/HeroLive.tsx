@@ -303,7 +303,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           // only as far as the hero, the action figure or a part being made
           // come in. --o-draw: the drawing's share alone (a wide screen shows
           // it on the drawing only; the painting's corner is the small card's).
-          { key: 'name', o: 1 - cardOut, vars: { '--o-draw': String(Math.round(near('drawing') * 1000) / 1000) }, node: nameCard },
+          { key: 'name', o: 1 - cardOut, vars: { '--o-draw': String(Math.round(Math.max(0, 2 * near('drawing') - 1) * 1000) / 1000) }, node: nameCard },
           ...(movesRow ? [{ key: 'moves', o: hero, node: movesRow }] : []),
           ...(live && figure ? [{ key: 'figure', o: fig, node: null, ref: setFigureDock }] : []),
         ]} />
@@ -673,9 +673,12 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
  * stays where it is while the slides pass under it (Raz: "Why 2 label
  * elements if it's same label? Keep it there"). Each layer covers the stage
  * (so its contents sit in the dock's box as they did on a slide) and fades by
- * `o`, how much of its slides is in the middle, which a swipe drives: a slow
- * swipe crossfades the name card into the moves in place, and a snap-back
- * fades it back. A layer more out than in is inert (no taps, no focus).
+ * `o`, how much of its slides is in the middle, which a swipe drives. The
+ * swap is sequential, never one over the other (text over buttons looked
+ * messy): the outgoing layer is gone by half way, the incoming one appears
+ * only after it (opacity max(0, 2o - 1)); at half way the dock is empty. A
+ * card that stays (drawing to painting) stays at 1. A snap-back runs it back.
+ * A layer more out than in is inert (no taps, no focus).
  */
 function Dock({ dragging, layers }: {
   dragging: boolean;
@@ -685,13 +688,14 @@ function Dock({ dragging, layers }: {
     <>
       {layers.map((l) => {
         const on = l.o >= 0.5;
+        const shown = Math.max(0, 2 * l.o - 1);
         return (
           <div
             key={l.key}
             ref={l.ref}
             className={`tb-dock-layer tb-dock-layer--${l.key}${dragging ? ' tb-dock-layer--dragging' : ''}`}
             data-dock={l.key}
-            style={{ ['--o' as string]: String(Math.round(l.o * 1000) / 1000), ...l.vars } as CSSProperties}
+            style={{ ['--o' as string]: String(Math.round(shown * 1000) / 1000), ...l.vars } as CSSProperties}
             aria-hidden={on ? undefined : true}
             {...(on ? {} : { inert: '' })}
           >

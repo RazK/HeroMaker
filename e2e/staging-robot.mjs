@@ -781,6 +781,42 @@ try {
     if ((await swipe()) !== 'painting') throw new Error(`a swipe from the drawing landed on "${await slideNow()}"`);
     movesSeen.painting = await movesInView();
     if (movesSeen.painting !== 0) throw new Error(`${movesSeen.painting} moves show on the painting`);
+    // The dock swaps the name card for the moves one after the other, never
+    // one over the other (text over buttons looked messy): held part-way
+    // between the painting and the hero, either way, they are never both in
+    // view, and half way the dock is empty.
+    const dockAt = async (fromShare, share) => {
+      const box = await stage.boundingBox();
+      const y = box.y + box.height * 0.45;
+      const x0 = box.x + box.width * fromShare;
+      await page.mouse.move(x0, y);
+      await page.mouse.down();
+      for (let i = 1; i <= 10; i++) await page.mouse.move(x0 + box.width * share * i / 10, y);
+      await page.waitForTimeout(120);
+      const o = await page.evaluate(() => {
+        const eff = (sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return 0;
+          let v = 1;
+          for (let e = el; e && e !== document.body; e = e.parentElement) v *= +getComputedStyle(e).opacity;
+          return v;
+        };
+        return { card: eff('.tb-live-stage [data-dock="name"] .tb-live-name'), moves: eff('.tb-live-stage [data-dock="moves"] .tb-hero-moves') };
+      });
+      await page.mouse.up();
+      await page.waitForTimeout(450);
+      return o;
+    };
+    // Each held swipe (past the snap point) lands: to the hero, then back to
+    // the painting, so every pair starts and ends on the painting.
+    for (const share of [0.25, 0.5, 0.75]) {
+      for (const [fromShare, signed, from, way] of [[0.9, -share, 'painting', 'to the hero'], [0.1, share, 'hero', 'back to the painting']]) {
+        if ((await slideNow()) !== from) throw new Error(`before a held swipe ${way} the stage was on "${await slideNow()}"`);
+        const o = await dockAt(fromShare, signed);
+        if (o.card > 0.02 && o.moves > 0.02) throw new Error(`held ${share * 100}% ${way}, the name card (${o.card.toFixed(2)}) and the moves (${o.moves.toFixed(2)}) show at once`);
+        if (share === 0.5 && (o.card > 0.05 || o.moves > 0.05)) throw new Error(`held half way ${way}, the dock is not empty (card ${o.card.toFixed(2)}, moves ${o.moves.toFixed(2)})`);
+      }
+    }
     if ((await swipe()) !== 'hero') throw new Error(`a swipe from the painting landed on "${await slideNow()}"`);
     await page.locator('.tb-move:not([disabled])').first().waitFor({ timeout: 90000 });
     movesSeen.hero = await movesInView();
