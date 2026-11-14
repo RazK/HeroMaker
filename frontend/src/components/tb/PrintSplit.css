@@ -16,3 +16,5 @@
 .tb-split-go { display: inline-flex; align-items: center; gap: 8px; }
 .tb-split .tb-btn { text-decoration: none; }
 .tb-parts-loading { width: 72px; height: 72px; }
+
+.tb-split-stage { position: relative; }

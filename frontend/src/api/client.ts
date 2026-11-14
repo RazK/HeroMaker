@@ -238,7 +238,23 @@ export interface V1Stage {
 }
 /** GET/POST /api/v1/heroes/{id}/print-split: Meshy's Auto Split of the hero's 3D model. */
 /** The hero as an action figure: a Hi3D split with ball joints, bought with credits. */
-export type ActionFigure = Omit<PrintSplit, 'object'> & { object: 'action_figure'; price_credits: number };
+/** The hero as an action figure (backend action_figure.public_view): anyone who can
+ *  open the hero reads it; only who may make one sees it coming, and a price only
+ *  while figures are for sale. */
+export interface ActionFigure {
+  object: 'action_figure';
+  hero_id: string;
+  status: PrintSplit['status'];
+  progress?: number;
+  part_count?: number | null;
+  provider?: 'meshy' | 'hi3d' | null;
+  joint?: string | null;
+  files?: PrintSplit['files'];
+  /** An admin (or the owner, while for sale): may start it. */
+  can_make: boolean;
+  price_credits?: number;
+  error?: string | null;
+}
 
 export interface PrintSplit {
   object: 'print_split';
@@ -475,7 +491,7 @@ export const api = {
     return fetchJson<ActionFigure>(`${V1}/heroes/${creationId}/action-figure`);
   },
 
-  /** Buy it: credits are taken now, and given back if it fails. 402: not enough credits. */
+  /** Make it: an admin, free; or the owner while figures are for sale (credits, refunded if it fails; 402: too few). */
   async startActionFigure(creationId: string): Promise<ActionFigure> {
     return fetchJson<ActionFigure>(`${V1}/heroes/${creationId}/action-figure`, json('POST', {}));
   },

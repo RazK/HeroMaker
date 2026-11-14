@@ -61,6 +61,9 @@ function Turntable({ on, children }: { on: boolean; children: ReactNode }) {
 type Limb = 'arm-r' | 'arm-l' | 'leg-r' | 'leg-l' | null;
 interface Part {
   mesh: THREE.Mesh;
+  /** Joint pieces (a ball or a socket) that belong to this part and move with it. */
+  pieces: THREE.Mesh[];
+  pieceMaterials: (THREE.Material | THREE.Material[])[];
   /** Holds the part at its joint centre (parent space): rotating it turns the part about the joint. */
   pivot: THREE.Group;
   home: THREE.Vector3;
@@ -120,11 +123,16 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
     root.position.copy(center.clone().multiplyScalar(-scale));
     root.scale.setScalar(scale);
     root.updateMatrixWorld(true);
-    const meshes: THREE.Mesh[] = [];
-    root.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
+    const all: THREE.Mesh[] = [];
+    root.traverse((o) => { if ((o as THREE.Mesh).isMesh) all.push(o as THREE.Mesh); });
     // Split parts can come without normals, and unlit-from-every-side is
     // what three.js draws then: a dark silhouette.
-    meshes.forEach((m) => { if (!m.geometry.getAttribute('normal')) m.geometry.computeVertexNormals(); });
+    all.forEach((m) => { if (!m.geometry.getAttribute('normal')) m.geometry.computeVertexNormals(); });
+    // Hi3D sends each joint's ball and socket as meshes of their own
+    // (connector_###_ball_male / _female). They are not parts: each goes with
+    // the body part it sits in, or it floats off on its own when pulled apart.
+    const meshes = all.filter((m) => !isPiece(m));
+    const pieces = all.filter(isPiece);
     const boxes = meshes.map((m) => new THREE.Box3().setFromObject(m));
     const roles = classify(boxes);
     const middle = boxes.reduce((b, x) => b.union(x), new THREE.Box3()).getCenter(new THREE.Vector3());
@@ -143,7 +151,14 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
       const from = boxes[i].getCenter(new THREE.Vector3());
       const to = from.clone().addScaledVector(push, OUT);
       const out = parent.worldToLocal(to).sub(parent.worldToLocal(from));
-      return { mesh, pivot, home: joint.clone(), out, limb: roles[i].limb, material: mesh.material };
+      return { mesh, pivot, pieces: [], pieceMaterials: [], home: joint.clone(), out, limb: roles[i].limb, material: mesh.material };
+    });
+    pieces.forEach((piece) => {
+      const owner = ownerOf(new THREE.Box3().setFromObject(piece), boxes, roles.map((r) => r.limb), /_male\b/i.test(piece.name));
+      if (owner < 0) return;
+      list[owner].pivot.attach(piece);  // keeps it where it is, now moving with its part
+      list[owner].pieces.push(piece);
+      list[owner].pieceMaterials.push(piece.material);
     });
     return { root, parts: list };
   }, [gltf]);
@@ -158,6 +173,7 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
     parts.forEach((p, i) => {
       p.pivot.position.copy(p.home).addScaledVector(p.out, apart);
       p.mesh.material = tinted ? tints.current[i] : p.material;
+      p.pieces.forEach((piece, k) => { piece.material = tinted ? tints.current[i] : p.pieceMaterials[k]; });
     });
   }, [parts, apart, tinted]);
 
@@ -179,4 +195,35 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
   });
 
   return <primitive object={root} />;
+}
+
+/** A joint piece, not a part: Hi3D names them connector_###_ball_male / _female. */
+function isPiece(m: THREE.Mesh): boolean {
+  return /^connector_/i.test(m.name) || /^connector_/i.test(m.parent?.name || '');
+}
+
+/**
+ * The body part a joint piece belongs to: the one its box overlaps most (it
+ * sits in the cut between two parts, and overlaps the one it is part of more),
+ * else the nearest. A ball (male) goes with a limb when a limb overlaps it
+ * about as much as the other part does: balls are on the limbs.
+ */
+function ownerOf(box: THREE.Box3, boxes: THREE.Box3[], limbs: Limb[], male: boolean): number {
+  if (!boxes.length) return -1;
+  const overlap = boxes.map((b) => {
+    const i = box.clone().intersect(b);
+    if (i.isEmpty()) return 0;
+    const s = i.getSize(new THREE.Vector3());
+    return s.x * s.y * s.z;
+  });
+  const best = overlap.reduce((m, v, i) => (v > overlap[m] ? i : m), 0);
+  if (overlap[best] > 0) {
+    if (male && !limbs[best]) {
+      const limb = overlap.reduce((m, v, i) => (limbs[i] && v > 0 && (m < 0 || v > overlap[m]) ? i : m), -1);
+      if (limb >= 0 && overlap[limb] >= 0.5 * overlap[best]) return limb;
+    }
+    return best;
+  }
+  const centre = box.getCenter(new THREE.Vector3());
+  return boxes.reduce((m, b, i) => (b.distanceToPoint(centre) < boxes[m].distanceToPoint(centre) ? i : m), 0);
 }

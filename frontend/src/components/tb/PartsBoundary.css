@@ -1,0 +1,13 @@
+/* PartsBoundary: a parts viewer that could not load. It sits where the 3D was,
+   calm: the split's preview picture when there is one, and a line. */
+.tb-parts-fallback {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: var(--tb-space);
+  text-align: center; font-weight: 800;
+}
+.tb-parts-fallback img {
+  position: static; inset: auto;
+  width: auto; height: auto; max-width: min(70%, 320px); max-height: 60%;
+  object-fit: contain; border-radius: var(--tb-radius-card);
+}

@@ -513,31 +513,60 @@ def get_print_split(hero_id: str, request: Request,
     return print_split.view(creation, api_heroes.base_url(request), state)
 
 
-# The hero as an action figure: the owner pays credits for a jointed print
-# split (app/services/action_figure.py).
+# The hero as an action figure (app/services/action_figure.py): anyone who can
+# open the hero sees it once made; admins make it (free to the owner); owners
+# buy one only while packs.ACTION_FIGURE_FOR_SALE is on.
 @router.post("/heroes/{hero_id}/action-figure", status_code=202, include_in_schema=False)
 def start_action_figure(hero_id: str, request: Request, who: Principal = Depends(require(APP)),
                         db: Session = Depends(get_db)):
-    """Make the hero an action figure: printable parts with ball joints. Costs credits; refunded if it fails."""
+    """Make the hero an action figure: printable parts with ball joints."""
+    from app.config import packs
     from app.services import action_figure
     from app.services.print_split import SplitError
 
-    creation, _ = _own_hero(db, who, hero_id)
+    base = api_heroes.base_url(request)
     try:
+        if who.can(ADMIN):
+            creation = _live_hero(db, hero_id)
+            state = action_figure.make_free(db, creation, who.user_id)
+            return action_figure.public_view(creation, base, state, can_make=True)
+        if not packs.ACTION_FIGURE_FOR_SALE:
+            raise _error(403, "Only an admin can make an action figure for now.")
+        creation, _ = _own_hero(db, who, hero_id)
         state = action_figure.start(db, creation, who.user_id)
     except SplitError as e:
         raise HTTPException(status_code=e.status, detail={"code": e.code, "message": e.message})
-    return action_figure.view(creation, api_heroes.base_url(request), state)
+    return action_figure.public_view(creation, base, state, can_make=True, price=packs.ACTION_FIGURE_CREDITS)
 
 
 @router.get("/heroes/{hero_id}/action-figure", include_in_schema=False)
-def get_action_figure(hero_id: str, request: Request, who: Principal = Depends(require(APP)),
+def get_action_figure(hero_id: str, request: Request, who: Optional[Principal] = Depends(optional()),
                       db: Session = Depends(get_db)):
-    """The action figure: its price, how far along it is, and its parts once made."""
+    """The hero's action figure, for anyone who can open the hero: its parts once made.
+
+    Whoever may make one (an admin; the owner when figures are for sale) also
+    sees it being made, and an owner's paid split that failed is refunded here.
+    """
+    from app.api.creations import _live_creation
+    from app.config import packs
     from app.services import action_figure
 
-    creation, _ = _own_hero(db, who, hero_id)
-    return action_figure.view(creation, api_heroes.base_url(request), action_figure.refresh(db, creation))
+    creation = _live_creation(db, hero_id)
+    if creation is None:
+        raise _error(404, "No such hero.")
+    admin = bool(who and who.can(ADMIN))
+    owner = bool(who and who.user_id == creation.user_id)
+    can_make = admin or (owner and packs.ACTION_FIGURE_FOR_SALE)
+    # Only someone who may make it keeps the provider asked; a visitor reads what is stored.
+    state = action_figure.refresh(db, creation) if (admin or owner) else print_split_state(creation)
+    price = packs.ACTION_FIGURE_CREDITS if owner and not admin and packs.ACTION_FIGURE_FOR_SALE else None
+    return action_figure.public_view(creation, api_heroes.base_url(request), state, can_make=can_make, price=price)
+
+
+def print_split_state(creation: Creation):
+    from app.services import print_split
+
+    return print_split.read_state(creation)
 
 
 class Featured(BaseModel):

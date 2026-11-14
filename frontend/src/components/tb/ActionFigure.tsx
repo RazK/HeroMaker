@@ -2,6 +2,7 @@ import { lazy, ReactNode, Suspense, useEffect, useState } from 'react';
 import { ActionFigure, api, ApiError } from '../../api/client';
 import { Icon } from './Icon';
 import { TileCaption } from './HeroTile';
+import { PartsBoundary, PartsFallback } from './PartsBoundary';
 
 // three's React bindings are their own chunk: they load only once a figure is shown.
 const PartsStage = lazy(() => import('./PartsViewer'));
@@ -11,33 +12,38 @@ const POLL_MS = 3000;
 /**
  * The hero page's fourth slide, after the live hero: the hero as an action
  * figure, cut into parts that print on their own and click together with
- * ball joints, so arms and legs still move (backend action_figure.py, Hi3D).
- * The owner unlocks it with credits; a split that fails gives them back.
+ * ball joints, so arms and legs still move (backend action_figure.py).
+ * Anyone who can open the hero sees it once made; an admin makes it, free
+ * (and, while figures are for sale, the owner buys it with credits).
+ * HeroScreen adds this slide only when there is a figure or one may be made.
  *
  * Like every slide, it fills the room above the stage's dock and puts its own
  * controls in exactly the dock's box (HeroLive.css .tb-live-name /
  * .tb-hero-moves): locked, the buy button; being made, a name card saying
  * so; made, the pull-apart slider and the 3MF.
  */
-export function ActionFigureSlide({ heroId, heroName, credits, picture }: {
+export function ActionFigureSlide({ heroId, heroName, credits, initial, picture }: {
   heroId: string;
   heroName: string;
+  /** What HeroScreen already read, so the slide opens without a wait. */
+  initial?: ActionFigure;
   /** The viewer's balance, when known: too few opens Buy credits instead. */
   credits?: number;
   /** The hero's painting: the teaser, and what shows under the ring. */
   picture: ReactNode;
 }) {
-  const [figure, setFigure] = useState<ActionFigure | null>(null);
+  const [figure, setFigure] = useState<ActionFigure | null>(initial ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apart, setApart] = useState(0.35);
   const [moving, setMoving] = useState(true);
 
   useEffect(() => {
+    if (initial) return;
     let alive = true;
     api.getActionFigure(heroId).then((f) => { if (alive) setFigure(f); }, () => { /* the teaser stays */ });
     return () => { alive = false; };
-  }, [heroId]);
+  }, [heroId, initial]);
 
   const running = figure?.status === 'pending' || figure?.status === 'in_progress';
   useEffect(() => {
@@ -52,12 +58,13 @@ export function ActionFigureSlide({ heroId, heroName, credits, picture }: {
     return () => window.clearInterval(t);
   }, [running, heroId]);
 
-  const price = figure?.price_credits ?? 5;
+  // No price: an admin making it, free. A price: the owner buying it (while for sale).
+  const price = figure?.price_credits;
   const buyMore = () => window.dispatchEvent(new CustomEvent('credits:buy', {
     detail: { note: `An action figure is ${price} credits. You have ${credits ?? 0}.` },
   }));
   const buy = async () => {
-    if (credits !== undefined && credits < price) { buyMore(); return; }
+    if (price !== undefined && credits !== undefined && credits < price) { buyMore(); return; }
     setBusy(true); setError(null);
     try {
       setFigure(await api.startActionFigure(heroId));
@@ -79,9 +86,11 @@ export function ActionFigureSlide({ heroId, heroName, credits, picture }: {
     return (
       <>
         <div className="tb-live-room tb-figure-room">
-          <Suspense fallback={<div className="tb-figure-wait"><div className="tb-ring" style={{ ['--p' as string]: '25%' }}><span>…</span></div></div>}>
-            <PartsStage url={url} apart={apart} spin jointed={jointed} moving={moving} />
-          </Suspense>
+          <PartsBoundary fallback={<PartsFallback preview={figure.files?.preview} alt={`${heroName}, the action figure`} />}>
+            <Suspense fallback={<div className="tb-figure-wait"><div className="tb-ring" style={{ ['--p' as string]: '25%' }}><span>…</span></div></div>}>
+              <PartsStage url={url} apart={apart} spin jointed={jointed} moving={moving} />
+            </Suspense>
+          </PartsBoundary>
           <span className="tb-figure-tag">{figure.part_count ?? '?'} parts{jointed ? ` · ${figure.joint} joints` : ''}</span>
         </div>
         <div className="tb-figure-dock tb-figure-dock--made">
@@ -123,7 +132,9 @@ export function ActionFigureSlide({ heroId, heroName, credits, picture }: {
     );
   }
 
-  // Locked (or failed, and refunded): the teaser and the buy button.
+  // Not made: nothing for a visitor (HeroScreen leaves the slide out), the button for whoever may make it.
+  if (!figure?.can_make) return null;
+  // Locked (or failed, and refunded): the teaser and the button.
   const failed = figure?.status === 'failed' ? figure.error || 'That didn\'t work this time. Your credits are back.' : null;
   return (
     <>
@@ -133,8 +144,8 @@ export function ActionFigureSlide({ heroId, heroName, credits, picture }: {
         {(error || failed) && <div className="tb-notice tb-notice--error tb-figure-note" role="alert">{error || failed}</div>}
       </div>
       <button type="button" className="tb-btn tb-btn--primary tb-btn--with-trail tb-figure-dock tb-figure-buy" disabled={busy} onClick={buy}>
-        <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : 'Make it a toy'}</span>
-        <span className="tb-btn-trail">{price} credits</span>
+        <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : price === undefined ? 'Make the action figure' : 'Make it a toy'}</span>
+        <span className="tb-btn-trail">{price === undefined ? 'Admin' : `${price} credits`}</span>
       </button>
     </>
   );

@@ -61,6 +61,11 @@ def creation_credit_price() -> int:
 # into parts with ball joints by Hi3D, which costs us $0.40. 5 credits sits
 # around $0.80-$0.85 at our pack prices, about half a hero.
 ACTION_FIGURE_CREDITS = 5
+# Whether owners may buy one with credits. Off for now (Raz, 2026-11-14):
+# anyone sees a hero's action figure once one is made, and only admins make
+# them, free to the hero's owner, while the split itself is being proven.
+# On, the owner's paid path (action_figure.start) comes back as it was.
+ACTION_FIGURE_FOR_SALE = os.getenv("ACTION_FIGURE_FOR_SALE", "false").strip().lower() in ("1", "true", "yes", "on")
 
 
 def credit_cost_usd_micros() -> int:
