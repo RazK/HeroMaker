@@ -688,7 +688,8 @@ try {
     await snap(page, 'carousel');
     if (slideList.includes('figure')) {
       // On the action figure: its buy button (or its parts, once bought), in the dock.
-      const figure = stage.locator('.tb-slide[data-slide="figure"]');
+      // Its controls live in the stage's fixed dock (one layer per slide), not on the slide.
+      const figure = stage.locator('[data-dock="figure"]');
       if ((await figure.locator('.tb-figure-buy, .tb-figure-dock').count()) < 1) throw new Error('the action figure slide has nothing in its dock');
     }
     // A tap on the drawing opens it full screen; Back returns to the drawing.
@@ -716,7 +717,29 @@ try {
         return o >= 0.05 && r.width > 4 && r.right > st.left + 2 && r.left < st.right - 2;
       }).length;
     });
-    const held = async (fromShare, share) => {
+    // ONE name card (Raz: "Why 2 label elements if it's same label? Keep it
+    // there"): one element in the DOM, at most one in view, and it never
+    // moves sideways while the slides pass under it.
+    const nameCard = () => page.evaluate(() => {
+      const st = document.querySelector('.tb-live-stage');
+      const cards = [...st.querySelectorAll('.tb-live-name:not(.tb-figure-dock)')];
+      const seen = cards.filter((c) => {
+        let o = 1;
+        for (let e = c; e && e !== document.body; e = e.parentElement) {
+          const cs = getComputedStyle(e);
+          if (cs.visibility === 'hidden' || cs.display === 'none') return false;
+          o *= +cs.opacity;
+        }
+        return o >= 0.05;
+      });
+      return { inDom: cards.length, seen: seen.length, x: cards[0] ? cards[0].getBoundingClientRect().left : null };
+    });
+    const cardAtRest = await nameCard();
+    const checkCard = (c, way) => {
+      if (c.inDom !== 1 || c.seen > 1) throw new Error(`a slow swipe ${way} had ${c.inDom} name cards (${c.seen} in view), not one`);
+      if (Math.abs(c.x - cardAtRest.x) > 1) throw new Error(`a slow swipe ${way} moved the name card ${Math.round(c.x - cardAtRest.x)}px sideways`);
+    };
+    const held = async (fromShare, share, way) => {
       const box = await stage.boundingBox();
       const y = box.y + box.height * 0.45;
       const x0 = box.x + box.width * fromShare;
@@ -725,6 +748,7 @@ try {
       for (let i = 1; i <= 10; i++) await page.mouse.move(x0 + box.width * share * i / 10, y);
       await page.waitForTimeout(120);
       const n = await drawingsInView();
+      checkCard(await nameCard(), way);
       await page.mouse.up();
       const landing = [];
       for (let i = 0; i < 4; i++) { await page.waitForTimeout(70); landing.push(await drawingsInView()); }
@@ -733,9 +757,10 @@ try {
     };
     // From the drawing: a short one that snaps back, then a quarter and three
     // quarters each way, ending on the drawing.
-    for (const [fromShare, share, way] of [[0.9, -0.12, 'that snaps back'], [0.9, -0.25, 'to the painting'], [0.1, 0.5, 'back to the drawing'],
+    for (const [fromShare, share, way] of [[0.9, -0.12, 'that snaps back'], [0.9, -0.25, 'to the painting'], [0.1, 0.25, 'back to the drawing'],
+      [0.9, -0.5, 'to the painting'], [0.1, 0.5, 'back to the drawing'],
       [0.9, -0.75, 'to the painting'], [0.1, 0.75, 'back to the drawing']]) {
-      const seen = await held(fromShare, share);
+      const seen = await held(fromShare, share, way);
       if (seen.some((n) => n !== 1)) throw new Error(`a slow swipe ${way} showed ${seen.join('/')} drawings, not one`);
     }
     if ((await slideNow()) !== 'drawing') throw new Error(`the slow swipes ended on "${await slideNow()}", not the drawing`);
@@ -746,7 +771,9 @@ try {
       const st = document.querySelector('.tb-live-stage').getBoundingClientRect();
       return [...document.querySelectorAll('.tb-move')].filter((m) => {
         const b = m.getBoundingClientRect();
-        return !m.closest('[inert]') && b.width > 0 && b.left >= st.left - 1 && b.right <= st.right + 1 && b.top >= st.top - 1 && b.bottom <= st.bottom + 1;
+        let o = 1;
+        for (let e = m; e && e !== document.body; e = e.parentElement) o *= +getComputedStyle(e).opacity;
+        return !m.closest('[inert]') && o >= 0.5 && b.width > 0 && b.left >= st.left - 1 && b.right <= st.right + 1 && b.top >= st.top - 1 && b.bottom <= st.bottom + 1;
       }).length;
     });
     const movesSeen = { drawing: await movesInView() };
@@ -797,10 +824,26 @@ try {
     }
 
     // Play is the bottom-most button on the page. It opens the game chooser:
-    // two games, each opened with the same hero parameters.
+    // two games, each opened with the same hero parameters. Only buttons a
+    // person can see count: off-screen slides (their full-screen openers sit
+    // a stage away) and faded-out dock layers are not on the page for them.
     const lowest = await page.evaluate(() => {
-      const all = [...document.querySelectorAll('.tb-hero-screen button, .tb-hero-screen a')];
-      return all.reduce((a, b) => (b.getBoundingClientRect().bottom > a.getBoundingClientRect().bottom ? b : a)).className;
+      const shown = (el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0 || r.right <= 0 || r.left >= innerWidth || r.bottom <= 0 || r.top >= innerHeight) return false;
+        let o = 1;
+        for (let e = el; e && e !== document.body; e = e.parentElement) {
+          const c = getComputedStyle(e);
+          if (c.visibility === 'hidden' || c.display === 'none') return false;
+          o *= +c.opacity;
+        }
+        return o > 0;
+      };
+      const play = document.querySelector('.tb-hero-screen .tb-play');
+      const playBottom = play.getBoundingClientRect().bottom;
+      const below = [...document.querySelectorAll('.tb-hero-screen button, .tb-hero-screen a')]
+        .filter((el) => el !== play && shown(el) && el.getBoundingClientRect().bottom > playBottom + 1);
+      return below.length ? below[0].className : 'tb-play';
     });
     if (!/\btb-play\b/.test(lowest)) throw new Error(`the bottom-most button is "${lowest}", not Play`);
     const play = page.locator('.tb-play');

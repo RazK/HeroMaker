@@ -7,10 +7,27 @@
 .tb-live-stage { isolation: isolate; container-type: size; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; --tb-pol-pad: 10px; --tb-pol-radius: 14px; --tb-hero-inset: 32px; }
 
 /* The dock: the stage's foot, one box 16px (and a button's depth) off its
-   bottom, as tall as the gallery's name card. Each slide puts its own thing
-   in exactly that box: the drawing and the painting their name card, the
-   live hero its four moves (Raz: swiping swaps the card for the moves in
-   place). --tb-dock-clear is the dock, its depth and 12px. */
+   bottom, as tall as the gallery's name card. What it holds belongs to the
+   slide in view: the drawing and the painting their name card, the live hero
+   its four moves, the action figure its controls (Raz: swiping swaps the card
+   for the moves in place). Each is ONE element, never on a slide: a layer
+   over the stage that stays put while the slides pass under it, fading by how
+   much of its slides is in the middle (HeroLive.tsx Dock; Raz: "Why 2 label
+   elements if it's same label? Keep it there"). --tb-dock-clear is the dock,
+   its depth and 12px. */
+.tb-dock-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: var(--o, 1);
+  transition: opacity 260ms ease;
+}
+/* A finger on the stage: the fade follows it, no lag. */
+.tb-dock-layer--dragging { transition: none; }
+@media (prefers-reduced-motion: reduce) { .tb-dock-layer { transition: none; } }
+/* The action figure's controls (portalled in by ActionFigure.tsx) take taps. */
+.tb-dock-layer--figure > * { pointer-events: auto; }
 .tb-hero-screen { --tb-dock-h: 56px; --tb-dock-clear: calc(var(--tb-dock-h) + 32px); }
 .tb-live-stage .tb-live-name,
 .tb-live-stage .tb-hero-moves,
@@ -219,11 +236,11 @@
 .tb-ring::before { content: ''; position: absolute; inset: 10px; border-radius: 50%; background: var(--tb-white); }
 .tb-ring span { position: relative; font-family: var(--tb-font-display); font-weight: 700; font-size: 20px; color: var(--tb-grape); }
 
-/* ---------- The moves: one row of four, inside the live hero's slide ----------
+/* ---------- The moves: one row of four, in the live hero's dock ----------
    They are the 3D preview's own controls (Raz: "put the buttons inside it,
    not below it ... we can't make the drawing do a flip or dance"): along the
-   bottom of the stage on the hero's slide, sliding with it, never on the
-   drawing or the painting. White pills with ink depth read over the plate
+   bottom of the stage while the hero is in view, fading out as it leaves,
+   never on the drawing or the painting. White pills with ink depth read over the plate
    and the sun alike. */
 .tb-hero-moves { z-index: 2; pointer-events: none; }
 /* Four to a row in the dock's box, sharing its width equally, all of them in

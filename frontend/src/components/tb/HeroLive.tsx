@@ -77,9 +77,12 @@ const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
  * the one movement it makes alone, and only when its viewer was watching for
  * it (on the progress slide, or never swiped away from where it put them).
  *
- * Each slide keeps the stage's foot (the dock, one box) for what belongs to
- * it: the drawing and the painting their name card, the live hero its moves,
- * in exactly the same box. Nothing of one slide shows on another.
+ * The stage's foot (the dock, one box) holds what belongs to the slide in
+ * view: the drawing and the painting their name card, the live hero its
+ * moves, the action figure its controls. Each is ONE element that never moves
+ * sideways (Raz: "Why 2 label elements if it's same label? Keep it there"):
+ * the slides pass under it, and it fades in and out by how far its slides are
+ * from the middle (Dock). Nothing of one slide shows on another.
  */
 export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id), figure }: {
   creation: LiveHero;
@@ -152,6 +155,9 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   const [playing, setPlaying] = useState<string | null>(null);
   // The drawing or the painting, full screen.
   const [full, setFull] = useState<'drawing' | 'painting' | null>(null);
+  // Where the action figure's slide puts its dock controls (a portal: they
+  // live in the fixed dock, not on the moving slide).
+  const [figureDock, setFigureDock] = useState<HTMLDivElement | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const stage = useRef<HeroStageInstance | null>(null);
   const pendingMove = useRef<string | null>(null);
@@ -271,16 +277,39 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // its ring.
   const showMini = current.key !== 'drawing' && !(current.key === 'painting' && current.state !== 'ready');
   const drawingIndex = slides.findIndex((s) => s.key === 'drawing');
-  const oneDrawing = (offset: (key: string) => number, dragging: boolean) => (
-    <OneDrawing
-      offset={offset('drawing')}
-      dragging={dragging}
-      hideAtRest={current.key === 'painting' && current.state !== 'ready'}
-      tappable={showMini}
-      thumb={file('thumb_original.jpg')}
-      onTap={() => go.current?.(drawingIndex, -1)}
-    />
-  );
+  // Over the slides: the one drawing, and the dock with its one name card,
+  // one row of moves and the action figure's controls.
+  const overStage = (offset: (key: string) => number, dragging: boolean) => {
+    // How much of a slide is in the middle: 1 there, 0 a slide or more away.
+    const near = (key: string) => Math.max(0, 1 - Math.abs(offset(key)));
+    const nearPending = slides.filter((s) => s.state !== 'ready').reduce((a, s) => a + near(s.key), 0);
+    const hero = live ? near('hero') : 0;
+    const fig = live && figure ? near('figure') : 0;
+    // The card is out as far as the slides without it are in: between the
+    // hero and the action figure that is all the way (0.5 + 0.5), not half.
+    const cardOut = Math.min(1, hero + fig + nearPending);
+    return (
+      <>
+        <OneDrawing
+          offset={offset('drawing')}
+          dragging={dragging}
+          hideAtRest={current.key === 'painting' && current.state !== 'ready'}
+          tappable={showMini}
+          thumb={file('thumb_original.jpg')}
+          onTap={() => go.current?.(drawingIndex, -1)}
+        />
+        <Dock dragging={dragging} layers={[
+          // The name card: on the drawing and a finished painting, so away
+          // only as far as the hero, the action figure or a part being made
+          // come in. --o-draw: the drawing's share alone (a wide screen shows
+          // it on the drawing only; the painting's corner is the small card's).
+          { key: 'name', o: 1 - cardOut, vars: { '--o-draw': String(Math.round(near('drawing') * 1000) / 1000) }, node: nameCard },
+          ...(movesRow ? [{ key: 'moves', o: hero, node: movesRow }] : []),
+          ...(live && figure ? [{ key: 'figure', o: fig, node: null, ref: setFigureDock }] : []),
+        ]} />
+      </>
+    );
+  };
 
   // The live hero's own controls, on its slide only (Raz: "these controls are
   // part of the 3D animation preview"): along the bottom of the stage.
@@ -312,7 +341,6 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
         node: (
           <>
             <Opener label="Show the drawing full screen" onOpen={() => setFull('drawing')}><div className="tb-live-room">{drawingPic}</div></Opener>
-            {nameCard}
           </>
         ),
       };
@@ -350,7 +378,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     if (s.key === 'figure') {
       return {
         label: `${heroName}, the action figure`,
-        node: <ActionFigureSlide heroId={creation.id} heroName={heroName} credits={figure?.credits} initial={figure?.initial} picture={paintingPic} />,
+        node: <ActionFigureSlide heroId={creation.id} heroName={heroName} credits={figure?.credits} initial={figure?.initial} picture={paintingPic} dock={figureDock} />,
       };
     }
     if (s.key === 'painting') {
@@ -364,8 +392,6 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
                 {paintingPic}
               </div>
             </Opener>
-            {/* The same name card as under the drawing: an empty dock looked odd (Raz). */}
-            {nameCard}
           </>
         ),
       };
@@ -383,7 +409,6 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
               <Loading progress={progress}>{paintingPic}</Loading>
             </div>
           </div>
-          {movesRow}
         </>
       ),
     };
@@ -400,7 +425,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           index={index}
           onPick={pick}
           go={go}
-          overlay={oneDrawing}
+          overlay={overStage}
           data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
         />
         {making?.info}
@@ -640,6 +665,41 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
         return posOf(i) + (dx ?? 0) / (el.current?.clientWidth || 1);
       }, dx !== null)}
     </div>
+  );
+}
+
+/**
+ * The stage's foot: the things that belong to a slide, each ONE element that
+ * stays where it is while the slides pass under it (Raz: "Why 2 label
+ * elements if it's same label? Keep it there"). Each layer covers the stage
+ * (so its contents sit in the dock's box as they did on a slide) and fades by
+ * `o`, how much of its slides is in the middle, which a swipe drives: a slow
+ * swipe crossfades the name card into the moves in place, and a snap-back
+ * fades it back. A layer more out than in is inert (no taps, no focus).
+ */
+function Dock({ dragging, layers }: {
+  dragging: boolean;
+  layers: Array<{ key: string; o: number; node: ReactNode; vars?: Record<string, string>; ref?: (el: HTMLDivElement | null) => void }>;
+}) {
+  return (
+    <>
+      {layers.map((l) => {
+        const on = l.o >= 0.5;
+        return (
+          <div
+            key={l.key}
+            ref={l.ref}
+            className={`tb-dock-layer tb-dock-layer--${l.key}${dragging ? ' tb-dock-layer--dragging' : ''}`}
+            data-dock={l.key}
+            style={{ ['--o' as string]: String(Math.round(l.o * 1000) / 1000), ...l.vars } as CSSProperties}
+            aria-hidden={on ? undefined : true}
+            {...(on ? {} : { inert: '' })}
+          >
+            {l.node}
+          </div>
+        );
+      })}
+    </>
   );
 }
 

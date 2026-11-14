@@ -1,4 +1,5 @@
 import { lazy, ReactNode, Suspense, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ActionFigure, api, ApiError } from '../../api/client';
 import { Icon } from './Icon';
 import { TileCaption } from './HeroTile';
@@ -17,12 +18,13 @@ const POLL_MS = 3000;
  * (and, while figures are for sale, the owner buys it with credits).
  * HeroScreen adds this slide only when there is a figure or one may be made.
  *
- * Like every slide, it fills the room above the stage's dock and puts its own
- * controls in exactly the dock's box (HeroLive.css .tb-live-name /
- * .tb-hero-moves): locked, the buy button; being made, a name card saying
- * so; made, the pull-apart slider and the 3MF.
+ * Like every slide, it fills the room above the stage's dock, and its own
+ * controls sit in exactly the dock's box: locked, the buy button; being
+ * made, a name card saying so; made, the pull-apart slider and the 3MF. They
+ * are rendered into `dock` (HeroLive Dock: fixed while the slides move, fading
+ * in as this slide comes in), and on the slide itself only if there is none.
  */
-export function ActionFigureSlide({ heroId, heroName, credits, initial, picture }: {
+export function ActionFigureSlide({ heroId, heroName, credits, initial, picture, dock }: {
   heroId: string;
   heroName: string;
   /** What HeroScreen already read, so the slide opens without a wait. */
@@ -31,7 +33,10 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture 
   credits?: number;
   /** The hero's painting: the teaser, and what shows under the ring. */
   picture: ReactNode;
+  /** The stage's dock layer for this slide's controls. */
+  dock?: HTMLElement | null;
 }) {
+  const inDock = (node: ReactNode) => (dock ? createPortal(node, dock) : node);
   const [figure, setFigure] = useState<ActionFigure | null>(initial ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +98,7 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture 
           </PartsBoundary>
           <span className="tb-figure-tag">{figure.part_count ?? '?'} parts{jointed ? ` · ${figure.joint} joints` : ''}</span>
         </div>
-        <div className="tb-figure-dock tb-figure-dock--made">
+        {inDock(<div className="tb-figure-dock tb-figure-dock--made">
           {/* A drag on the slider is the slider's, not a swipe of the carousel. */}
           {jointed && (
             <button type="button" className={`tb-chip tb-figure-move${moving ? ' tb-chip--on' : ''}`} aria-pressed={moving} onClick={() => setMoving(!moving)}>
@@ -110,7 +115,7 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture 
               <Icon name="download" size={20} />.3mf
             </a>
           )}
-        </div>
+        </div>)}
       </>
     );
   }
@@ -127,7 +132,7 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture 
             <span className="tb-slide-status">Cutting into parts</span>
           </div>
         </div>
-        <TileCaption className="tb-live-name tb-figure-dock" title="Making the action figure" line="About a minute" tone="now" />
+        {inDock(<TileCaption className="tb-live-name tb-figure-dock" title="Making the action figure" line="About a minute" tone="now" />)}
       </>
     );
   }
@@ -143,10 +148,12 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture 
         <span className="tb-figure-tag"><Icon name="cube" size={18} />A toy you can print</span>
         {(error || failed) && <div className="tb-notice tb-notice--error tb-figure-note" role="alert">{error || failed}</div>}
       </div>
-      <button type="button" className="tb-btn tb-btn--primary tb-btn--with-trail tb-figure-dock tb-figure-buy" disabled={busy} onClick={buy}>
-        <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : price === undefined ? 'Make the action figure' : 'Make it a toy'}</span>
-        <span className="tb-btn-trail">{price === undefined ? 'Admin' : `${price} credits`}</span>
-      </button>
+      {inDock(
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--with-trail tb-figure-dock tb-figure-buy" disabled={busy} onClick={buy}>
+          <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : price === undefined ? 'Make the action figure' : 'Make it a toy'}</span>
+          <span className="tb-btn-trail">{price === undefined ? 'Admin' : `${price} credits`}</span>
+        </button>,
+      )}
     </>
   );
 }
