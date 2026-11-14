@@ -10,6 +10,19 @@ const PartsStage = lazy(() => import('./PartsViewer'));
 const POLL_MS = 3000;
 
 /**
+ * Two designs for the made figure, side by side for Raz to pick (?af=a or
+ * ?af=b; a by default):
+ *  a "Toy tiles": the dock is the moves row's own four tiles, Apart / Pose /
+ *    Spin / Print, and the figure idles facing you.
+ *  b "One big action": the figure shows itself off on a loop (together,
+ *    apart, hover, together, a pose); the dock is two bar buttons, "Take me
+ *    apart" and "Print".
+ */
+function chosenDesign(): 'a' | 'b' {
+  try { return new URLSearchParams(window.location.search).get('af') === 'b' ? 'b' : 'a'; } catch { return 'a'; }
+}
+
+/**
  * The hero page's fourth slide, after the live hero: the hero as an action
  * figure, cut into parts that print on their own and click together with
  * ball joints, so arms and legs still move (backend action_figure.py).
@@ -35,8 +48,12 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture 
   const [figure, setFigure] = useState<ActionFigure | null>(initial ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apart, setApart] = useState(0.35);
-  const [moving, setMoving] = useState(true);
+  const [apart, setApart] = useState(false);
+  const [poseKey, setPoseKey] = useState(0);
+  const [spinKey, setSpinKey] = useState(0);
+  // Option b: the loop plays until the kid takes the figure apart.
+  const [looping, setLooping] = useState(true);
+  const design = chosenDesign();
 
   useEffect(() => {
     if (initial) return;
@@ -81,36 +98,60 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture 
   const done = figure?.status === 'succeeded' && figure.files?.parts;
   if (done) {
     const url = figure.files!.parts_view || figure.files!.parts!;
-    // Hi3D cut it with joints: the arms and legs turn about them (PartsViewer).
+    // Cut with joints (Hi3D ball joints): the arms and legs pose about them.
     const jointed = figure.provider === 'hi3d' && !!figure.joint && figure.joint !== 'none';
+    const print = figure.files?.parts_3mf;
+    const fileName = `${heroName}-action-figure.3mf`;
+    const play = design === 'a'
+      ? { poseKey, spinKey, idle: !apart, loop: false }
+      : { poseKey, spinKey: 0, idle: !looping && !apart, loop: looping };
     return (
       <>
         <div className="tb-live-room tb-figure-room">
           <PartsBoundary fallback={<PartsFallback preview={figure.files?.preview} alt={`${heroName}, the action figure`} />}>
             <Suspense fallback={<div className="tb-figure-wait"><div className="tb-ring" style={{ ['--p' as string]: '25%' }}><span>…</span></div></div>}>
-              <PartsStage url={url} apart={apart} spin jointed={jointed} moving={moving} />
+              <PartsStage url={url} apart={apart ? 1 : 0} jointed={jointed} play={play} />
             </Suspense>
           </PartsBoundary>
-          <span className="tb-figure-tag">{figure.part_count ?? '?'} parts{jointed ? ` · ${figure.joint} joints` : ''}</span>
         </div>
-        <div className="tb-figure-dock tb-figure-dock--made">
-          {/* A drag on the slider is the slider's, not a swipe of the carousel. */}
-          {jointed && (
-            <button type="button" className={`tb-chip tb-figure-move${moving ? ' tb-chip--on' : ''}`} aria-pressed={moving} onClick={() => setMoving(!moving)}>
-              <Icon name="dance" size={18} />Move
+        {design === 'a' ? (
+          // The moves row's own tiles (HeroLive .tb-hero-moves): icon over a word, on the stage.
+          <div className="tb-hero-moves tb-figure-tiles">
+            <div className="tb-moves" role="toolbar" aria-label="Action figure">
+              <button type="button" className="tb-btn tb-btn--secondary tb-move" aria-pressed={apart} onClick={() => setApart(!apart)}>
+                <Icon name={apart ? 'box' : 'layers'} size={26} /><span>{apart ? 'Together' : 'Apart'}</span>
+              </button>
+              <button type="button" className="tb-btn tb-btn--secondary tb-move" disabled={!jointed}
+                onClick={() => { setApart(false); setPoseKey((k) => k + 1); }}>
+                <Icon name="run" size={26} /><span>Pose</span>
+              </button>
+              <button type="button" className="tb-btn tb-btn--secondary tb-move" onClick={() => setSpinKey((k) => k + 1)}>
+                <Icon name="redo" size={26} /><span>Spin</span>
+              </button>
+              {print && (
+                <a className="tb-btn tb-btn--secondary tb-move" href={print} download={fileName} aria-label="Print: download the file for a 3D printer">
+                  <Icon name="download" size={26} /><span>Print</span>
+                </a>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Two bar buttons in the dock's box: the one big action, and Print.
+          <div className="tb-figure-dock tb-figure-pair">
+            <button type="button" className="tb-btn tb-btn--primary tb-figure-main" aria-pressed={apart}
+              onClick={() => {
+                if (apart) { setApart(false); setPoseKey((k) => k + 1); window.setTimeout(() => setLooping(true), 2500); }
+                else { setLooping(false); setApart(true); }
+              }}>
+              <Icon name={apart ? 'box' : 'layers'} size={22} />{apart ? 'Put me together' : 'Take me apart'}
             </button>
-          )}
-          <label className="tb-figure-slider" onPointerDown={(e) => e.stopPropagation()} title="Pull apart">
-            <Icon name="expand" size={18} />
-            <input type="range" aria-label="Pull apart" min={0} max={1} step={0.01} value={apart} onChange={(e) => setApart(Number(e.target.value))} />
-          </label>
-          {figure.files?.parts_3mf && (
-            <a className="tb-btn tb-btn--secondary tb-btn--sm tb-figure-get" href={figure.files.parts_3mf}
-              download={`${heroName}-action-figure.3mf`} aria-label="Download for a 3D printer (.3mf)">
-              <Icon name="download" size={20} />.3mf
-            </a>
-          )}
-        </div>
+            {print && (
+              <a className="tb-btn tb-btn--secondary tb-figure-print" href={print} download={fileName} aria-label="Print: download the file for a 3D printer">
+                <Icon name="download" size={22} />Print
+              </a>
+            )}
+          </div>
+        )}
       </>
     );
   }

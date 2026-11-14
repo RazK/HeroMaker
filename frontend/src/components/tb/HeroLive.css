@@ -445,22 +445,15 @@
    3MF once made. The button's own depth sits inside the box. */
 .tb-live-stage .tb-figure-buy { z-index: 2; padding: 0 20px; box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
 .tb-figure-buy-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.tb-figure-dock--made {
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 8px 0 16px;
-  box-sizing: border-box;
-  border-radius: 20px;
-  background: var(--tb-white);
-}
-.tb-figure-slider { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; font-weight: 800; font-size: 15px; }
-.tb-figure-slider input { flex: 1; min-width: 0; height: 44px; accent-color: var(--tb-grape); touch-action: none; }
-.tb-figure-get { flex: none; gap: 4px; }
-.tb-figure-move { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; }
-.tb-figure-dock--made { padding-inline-start: 8px; gap: 8px; }
-.tb-figure-slider { gap: 6px; color: var(--tb-ink); }
+/* Made, design a: the moves row's tiles, exactly as on the hero's slide
+   (no panel behind them: they stand on the stage). */
+.tb-figure-tiles .tb-move { text-decoration: none; }
+/* Made, design b: two bar buttons sharing the dock's box, the big action
+   first. Their depth sits under the box, as the moves' does. */
+.tb-figure-pair { z-index: 2; display: flex; gap: 10px; }
+.tb-figure-pair .tb-btn { height: 100%; padding: 0 14px; font-size: 18px; }
+.tb-figure-main { flex: 1.7 1 0; min-width: 0; box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
+.tb-figure-print { flex: 1 1 0; min-width: 0; text-decoration: none; }
 /* The parts turn by themselves (a drag on the stage is a swipe). */
 .tb-figure-room canvas { display: block; }
 .tb-figure-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }

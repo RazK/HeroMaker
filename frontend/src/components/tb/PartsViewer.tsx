@@ -1,5 +1,5 @@
 import { ReactNode, Suspense, useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
@@ -20,8 +20,10 @@ const CAMERA_Z = 2.6;
  * figure slide (ActionFigure.tsx). Its own chunk: three's React bindings load
  * only when parts are shown.
  */
-export function PartsStage({ url, apart, tinted = false, spin = false, jointed = false, moving = false }: {
+export function PartsStage({ url, apart, tinted = false, spin = false, jointed = false, moving = false,
+  play }: {
   url: string;
+  /** How far apart (0 together - 1 apart). With `play`, the target the parts ease to. */
   apart: number;
   tinted?: boolean;
   /** Turn slowly by itself instead of by dragging: on a carousel slide a
@@ -31,6 +33,11 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
   jointed?: boolean;
   /** Swing the arms and legs about their joint centres. */
   moving?: boolean;
+  /** The toy view (ActionFigure.tsx): front-facing, framed to fill the
+   *  stage, animated instead of dragged. Each counter bump plays its action
+   *  once; `idle` sways and now and then strikes a small pose; `loop` plays
+   *  together > apart > hover > together > pose by itself. */
+  play?: { poseKey: number; spinKey: number; idle: boolean; loop: boolean };
 }) {
   return (
     <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: 40 }} dpr={[1, 2]}>
@@ -38,11 +45,13 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
       <directionalLight position={[2, 3, 4]} intensity={2.4} />
       <directionalLight position={[-3, 1, -2]} intensity={1} />
       <Suspense fallback={<Html center><div className="tb-ring tb-parts-loading" style={{ ['--p' as string]: '25%' }}><span>…</span></div></Html>}>
-        <Turntable on={spin}><Parts url={url} apart={apart} tinted={tinted} moving={jointed && moving} /></Turntable>
+        {play
+          ? <Parts url={url} apart={apart} tinted={tinted} moving={false} jointed={jointed} play={play} />
+          : <Turntable on={spin}><Parts url={url} apart={apart} tinted={tinted} moving={jointed && moving} jointed={jointed} /></Turntable>}
       </Suspense>
       {/* Zoom out only: the parts are framed to fit pulled fully apart, so a
           pinch never crops them at the stage's edges. */}
-      {!spin && <OrbitControls enablePan={false} minDistance={CAMERA_Z} maxDistance={6} />}
+      {!spin && !play && <OrbitControls enablePan={false} minDistance={CAMERA_Z} maxDistance={6} />}
     </Canvas>
   );
 }
@@ -110,18 +119,23 @@ function classify(boxes: THREE.Box3[]): { limb: Limb; joint: THREE.Vector3 }[] {
 }
 
 /** The split model, centred and sized, each part pushed out from the middle by `apart`. */
-function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tinted: boolean; moving: boolean }) {
+function Parts({ url, apart, tinted, moving, jointed, play }: {
+  url: string; apart: number; tinted: boolean; moving: boolean; jointed: boolean;
+  play?: { poseKey: number; spinKey: number; idle: boolean; loop: boolean };
+}) {
   const gltf = useLoader(GLTFLoader, url);
-  const { root, parts } = useMemo(() => {
-    const root = gltf.scene.clone(true);
-    const box = new THREE.Box3().setFromObject(root);
+  const { root, parts, size } = useMemo(() => {
+    // The model, centred at the origin inside a wrapper the toy view scales
+    // and turns; the admin sheet keeps a fixed scale sized for the parts
+    // fully pulled apart (each moves out by up to OUT of its distance from
+    // the middle), so the slider never pushes one off screen.
+    const model = gltf.scene.clone(true);
+    const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    // Sized for the parts fully pulled apart (each moves out by up to OUT of
-    // its distance from the middle), so the slider never pushes one off screen.
-    const scale = 1.75 / (Math.max(size.x, size.y, size.z || 1) * (1 + OUT));
-    root.position.copy(center.clone().multiplyScalar(-scale));
-    root.scale.setScalar(scale);
+    model.position.sub(center);
+    const root = new THREE.Group();
+    root.add(model);
     root.updateMatrixWorld(true);
     const all: THREE.Mesh[] = [];
     root.traverse((o) => { if ((o as THREE.Mesh).isMesh) all.push(o as THREE.Mesh); });
@@ -160,7 +174,9 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
       list[owner].pieces.push(piece);
       list[owner].pieceMaterials.push(piece.material);
     });
-    return { root, parts: list };
+    if (!play) root.scale.setScalar(1.75 / (Math.max(size.x, size.y, size.z || 1) * (1 + OUT)));
+    return { root, parts: list, size };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gltf]);
 
   const tints = useRef<THREE.Material[]>([]);
@@ -171,17 +187,20 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
 
   useEffect(() => {
     parts.forEach((p, i) => {
-      p.pivot.position.copy(p.home).addScaledVector(p.out, apart);
+      if (!play) p.pivot.position.copy(p.home).addScaledVector(p.out, apart);
       p.mesh.material = tinted ? tints.current[i] : p.material;
       p.pieces.forEach((piece, k) => { piece.material = tinted ? tints.current[i] : p.pieceMaterials[k]; });
     });
-  }, [parts, apart, tinted]);
+  }, [parts, apart, tinted, play]);
+
+  const toy = useToy(play, parts, root, size, apart, jointed);
 
   // The toy's moves: the arms swing down from the T-pose and up again, one
   // after the other, and the legs step, each about its own joint centre.
   // Stopping eases every limb back to where it was cut.
   const t = useRef(0);
   useFrame((_, dt) => {
+    if (toy) return;
     t.current = moving ? t.current + dt : 0;
     const s = t.current * 2.4;
     const on = moving ? 1 : 0;
@@ -226,4 +245,92 @@ function ownerOf(box: THREE.Box3, boxes: THREE.Box3[], limbs: Limb[], male: bool
   }
   const centre = box.getCenter(new THREE.Vector3());
   return boxes.reduce((m, b, i) => (b.distanceToPoint(centre) < boxes[m].distanceToPoint(centre) ? i : m), 0);
+}
+
+/* ---------- The toy view: front-facing, framed to fill, playing by itself ---------- */
+
+type Pose = Partial<Record<'arm-r' | 'arm-l' | 'leg-r' | 'leg-l', [number, number]>>; // [about x, about z]
+/**
+ * Poses a ball-jointed toy can strike from its T-pose. Angles stay inside
+ * what a printed ball joint swings (arms about 35 degrees, legs about 20):
+ * the view shows what the toy can really do, not a puppet. arm-r turns down
+ * for negative z, arm-l for positive.
+ */
+const POSES: Pose[] = [
+  { 'arm-r': [0, -0.6], 'arm-l': [0, 0.6] },                                      // arms down
+  { 'arm-r': [0, 0.6], 'arm-l': [0, 0.55] },                                      // wave hello
+  { 'arm-r': [0, 0.55], 'arm-l': [0, -0.55], 'leg-r': [0, 0.18], 'leg-l': [0, -0.18] }, // hero, arms up
+  { 'arm-r': [0.5, -0.45], 'arm-l': [-0.5, 0.45], 'leg-r': [0.35, 0], 'leg-l': [-0.35, 0] }, // walking
+  { 'arm-r': [-0.6, -0.2], 'arm-l': [0, 0.6], 'leg-l': [0.3, 0] },                // punch
+];
+const SMALL: Pose[] = [
+  { 'arm-r': [0, -0.15], 'arm-l': [0, 0.15] },
+  { 'arm-r': [0, 0.2] },
+  { 'arm-l': [0, -0.2] },
+  {},
+];
+const ease = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+
+/**
+ * The toy view's motion, one frame at a time: the parts ease to the apart
+ * target, the wrapper is scaled so the figure fills the stage (zooming out as
+ * the parts spread), the figure sways and breathes, a spin is one full turn,
+ * a pose eases every limb to its angles. `loop` runs its own timeline.
+ */
+function useToy(play: { poseKey: number; spinKey: number; idle: boolean; loop: boolean } | undefined,
+  parts: Part[], root: THREE.Group, size: THREE.Vector3, apart: number, jointed: boolean): boolean {
+  const viewport = useThree((st) => st.viewport);
+  const st = useRef({ t: 0, a: 0, pose: 0 as number, small: 3, nextSmall: 4, spinAt: -10, pk: -1, sk: -1 });
+  useFrame((_, dtRaw) => {
+    if (!play) return;
+    const dt = Math.min(dtRaw, 0.05);
+    const s = st.current;
+    s.t += dt;
+    if (s.pk !== play.poseKey) { if (s.pk >= 0) s.pose = (s.pose + 1) % POSES.length || 1; s.pk = play.poseKey; }
+    if (s.sk !== play.spinKey) { if (s.sk >= 0) s.spinAt = s.t; s.sk = play.spinKey; }
+
+    // The loop (option B): 0-1.6 s together, 1.6-2.6 come apart, 2.6-4.4 hover,
+    // 4.4-5.4 together, 5.4-7.4 a pose, then again.
+    let target = apart;
+    let loopPose: number | null = null;
+    let hover = 0;
+    if (play.loop) {
+      const L = s.t % 7.4;
+      target = L < 1.6 ? 0 : L < 2.6 ? ease((L - 1.6) / 1.0) : L < 4.4 ? 1 : L < 5.4 ? 1 - ease((L - 4.4) / 1.0) : 0;
+      hover = L >= 2.2 && L < 4.8 ? Math.sin(Math.min(1, (L - 2.2) / 0.4) * Math.PI / 2) * Math.min(1, (4.8 - L) / 0.4) : 0;
+      loopPose = L >= 5.2 ? 2 + Math.floor(s.t / 7.4) % 3 : null;
+    }
+    s.a = THREE.MathUtils.damp(s.a, target, 6, dt);
+
+    // Parts: out from the middle by `a`, and (hovering) bobbing each on its own beat.
+    parts.forEach((p, i) => {
+      p.pivot.position.copy(p.home).addScaledVector(p.out, s.a);
+      if (hover) p.pivot.position.y += hover * 0.02 * size.y * Math.sin(s.t * 3 + i * 1.7);
+    });
+
+    // Framed to fill: the figure as tall as the stage allows (as the hero on
+    // the 3D slide), its T-pose as wide, zooming out as the parts spread.
+    const grow = 1 + OUT * s.a;
+    const fit = Math.min((viewport.height * 0.86) / (size.y * grow), (viewport.width * 0.94) / (Math.max(size.x, 1e-6) * grow));
+    root.scale.setScalar(fit);
+
+    // Facing the viewer: a gentle sway (never its back) and breathing, plus a
+    // full turn when asked.
+    const spinP = ease((s.t - s.spinAt) / 1.8);
+    const spinning = s.t - s.spinAt < 1.8;
+    root.rotation.y = (play.idle || play.loop ? 0.22 * Math.sin(s.t * 0.6) : 0) + (spinning ? spinP * Math.PI * 2 : 0);
+    root.position.y = (play.idle ? 0.012 * Math.sin(s.t * 1.7) : 0) * viewport.height;
+
+    // Limbs: the asked-for pose; idle, now and then a small one.
+    if (play.idle && s.t > s.nextSmall) { s.small = (s.small + 1 + Math.floor(Math.random() * 2)) % SMALL.length; s.nextSmall = s.t + 3.5 + Math.random() * 2; }
+    const pose = loopPose !== null ? POSES[loopPose] : (s.pose === 0 && play.idle ? SMALL[s.small] : POSES[s.pose]);
+    for (const p of parts) {
+      if (!p.limb || !jointed) continue;
+      const [x, z] = pose[p.limb] || [0, 0];
+      const r = p.pivot.rotation;
+      r.x = THREE.MathUtils.damp(r.x, x, 5, dt);
+      r.z = THREE.MathUtils.damp(r.z, z, 5, dt);
+    }
+  });
+  return !!play;
 }
