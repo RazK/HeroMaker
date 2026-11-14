@@ -19,8 +19,7 @@ logger = logging.getLogger(__name__)
 
 class MeshyAPIError(Exception):
     """Custom exception for Meshy API errors."""
-    # The HTTP status Meshy answered with, when it answered at all.
-    status_code: Optional[int] = None
+    pass
 
 
 class MeshyOutOfCredits(MeshyAPIError, provider_errors.ProviderOutOfCredits):
@@ -107,9 +106,7 @@ class MeshyClient:
                 raise_if_out_of_credits(response.status_code, str(error_msg))
             except MeshyOutOfCredits as out:
                 raise out from e
-            err = MeshyAPIError(error_msg)
-            err.status_code = response.status_code
-            raise err from e
+            raise MeshyAPIError(error_msg) from e
         except requests.exceptions.RequestException as e:
             raise MeshyAPIError(f"Request failed: {str(e)}") from e
     
@@ -290,24 +287,6 @@ class MeshyClient:
             call.provider_ref = task_id
         return task_id
     
-    def create_remesh_from_model(self, model_url: str, usage: Optional[UsageContext] = None) -> str:
-        """Hand Meshy a model it no longer has, as a fresh task other tasks can take.
-
-        Meshy deletes a task 3 days after it ends (docs.meshy.ai/api/asset-retention),
-        and anything that takes an input_task_id then answers 404. Unlike the
-        pipeline's remesh, this one is a real, paid call: booked at its credits.
-        """
-        with usage_service.track(
-            usage, pricing.PROVIDER_MESHY, pricing.OP_MESHY_PRINT_REMESH,
-            quantity=1, metadata={"for": "print-split"},
-            finalize_on_success=False,
-        ) as call:
-            response = self._request("POST", "/openapi/v1/remesh",
-                                     json={"model_url": model_url, "target_formats": ["glb"]})
-            task_id = response.get("result")
-            call.provider_ref = task_id
-        return task_id
-
     def get_remesh_status(self, task_id: str) -> Dict[str, Any]:
         """Get status of remesh task."""
         return self._request("GET", f"/openapi/v1/remesh/{task_id}")

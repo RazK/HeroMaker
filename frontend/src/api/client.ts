@@ -241,8 +241,6 @@ export interface PrintSplit {
   object: 'print_split';
   hero_id: string;
   status: 'none' | 'pending' | 'in_progress' | 'succeeded' | 'failed' | 'canceled';
-  /** 'remesh' while Meshy takes in our stored model (its own copy expired), then 'split'. */
-  stage?: 'remesh' | 'split';
   progress?: number;
   mode?: 'auto' | 'by_parts';
   prompt?: string | null;
@@ -250,7 +248,7 @@ export interface PrintSplit {
   part_count?: number | null;
   error?: string | null;
   cost_meshy_credits?: number;
-  files?: { parts: string | null; parts_3mf: string | null; preview: string | null };
+  files?: { parts: string | null; parts_3mf: string | null; preview: string | null; parts_view?: string | null };
 }
 
 export interface V1Hero {

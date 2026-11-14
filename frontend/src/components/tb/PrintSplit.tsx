@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { Html, OrbitControls } from '@react-three/drei';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 import { api, CreationResponse, PrintSplit } from '../../api/client';
@@ -11,6 +11,8 @@ import './PrintSplit.css';
 /** Colours to tell the parts apart: the plates, then the sun and grape. */
 const PART_TINTS = ['#e9e3ff', '#ffe9a8', '#cff5ea', '#ffdcc7', '#d6ecff', '#ffd6e7', '#ffc233', '#5b3df5'];
 const POLL_MS = 3000;
+/** How far a part travels when fully pulled apart, as a share of its distance from the middle. */
+const OUT = 0.6;
 
 /**
  * Admin preview of Meshy's Auto Split: the hero cut into parts that print on
@@ -64,18 +66,19 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
       {running && (
         <div className="tb-split-wait" role="status">
           <div className="tb-ring" style={{ ['--p' as string]: `${split.progress ?? 0}%` }}><span>{split.progress ?? 0}%</span></div>
-          <div className="tb-split-line">{split.stage === 'remesh' ? 'Handing Meshy the model' : `Cutting ${creation.character_name || 'the hero'} into parts`}</div>
+          <div className="tb-split-line">Cutting {creation.character_name || 'the hero'} into parts</div>
         </div>
       )}
 
       {done && !again && (
         <>
           <div className="tb-split-stage">
-            <Canvas camera={{ position: [0, 0.4, 2.6], fov: 40 }} dpr={[1, 2]}>
-              <ambientLight intensity={0.9} />
-              <directionalLight position={[2, 3, 4]} intensity={1.2} />
-              <Suspense fallback={null}>
-                <Parts url={split.files!.parts!} apart={apart} tinted={tinted} />
+            <Canvas camera={{ position: [0, 0, 2.6], fov: 40 }} dpr={[1, 2]}>
+              <hemisphereLight args={['#ffffff', '#b9aee0', 2.2]} />
+              <directionalLight position={[2, 3, 4]} intensity={2.4} />
+              <directionalLight position={[-3, 1, -2]} intensity={1} />
+              <Suspense fallback={<Html center><div className="tb-ring tb-split-loading" style={{ ['--p' as string]: '25%' }}><span>…</span></div></Html>}>
+                <Parts url={split.files!.parts_view || split.files!.parts!} apart={apart} tinted={tinted} />
               </Suspense>
               <OrbitControls enablePan={false} minDistance={1.2} maxDistance={6} />
             </Canvas>
@@ -141,17 +144,22 @@ function Parts({ url, apart, tinted }: { url: string; apart: number; tinted: boo
     const box = new THREE.Box3().setFromObject(root);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    const scale = 1.6 / Math.max(size.x, size.y, size.z || 1);
+    // Sized for the parts fully pulled apart (each moves out by up to OUT of
+    // its distance from the middle), so the slider never pushes one off screen.
+    const scale = 1.5 / (Math.max(size.x, size.y, size.z || 1) * (1 + OUT));
     root.position.copy(center.clone().multiplyScalar(-scale));
     root.scale.setScalar(scale);
     const meshes: { mesh: THREE.Mesh; home: THREE.Vector3; out: THREE.Vector3; material: THREE.Material | THREE.Material[] }[] = [];
     root.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
+      // Meshy's split parts come without normals, and unlit-from-every-side
+      // is what three.js draws then: a dark silhouette.
+      if (!mesh.geometry.getAttribute('normal')) mesh.geometry.computeVertexNormals();
       const c = new THREE.Box3().setFromObject(mesh).getCenter(new THREE.Vector3());
       const out = c.sub(center);
       if (out.lengthSq() < 1e-9) out.set(0, 1, 0);
-      meshes.push({ mesh, home: mesh.position.clone(), out: out.multiplyScalar(0.9), material: mesh.material });
+      meshes.push({ mesh, home: mesh.position.clone(), out: out.multiplyScalar(OUT), material: mesh.material });
     });
     return { root, parts: meshes };
   }, [gltf]);
