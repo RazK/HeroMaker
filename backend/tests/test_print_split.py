@@ -260,7 +260,8 @@ def test_hi3d_client_books_its_price_and_sends_a_character_split(db, monkeypatch
         return SimpleNamespace(status_code=200, json=lambda: {"code": 200, "data": {"accessToken": "tok"}})
 
     def fake_request(method, url, headers=None, timeout=None, data=None, files=None, params=None):
-        calls.append((method, url, headers["Authorization"], data))
+        assert data is None  # multipart only: Hi3D answers 415 to a urlencoded form
+        calls.append((method, url, headers["Authorization"], {k: v[1] for k, v in (files or {}).items()}))
         return SimpleNamespace(status_code=200, json=lambda: {"code": 200, "data": {"task_id": "split_1", "state": "queueing"}})
 
     monkeypatch.setattr(hi3d_module.requests, "post", fake_post)

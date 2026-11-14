@@ -115,19 +115,21 @@ class Hi3dClient:
         form = {"model": "character", "part": part, "joint": joint, "format": str(FORMAT_GLB)}
         if joint != "none":
             form["merge"] = "yes" if merge else "no"
-        files = None
         if mesh_url:
             form["mesh_url"] = mesh_url
-        elif mesh is not None:
-            files = {"mesh": ("model.glb", mesh, "model/gltf-binary")}
-        else:
+        elif mesh is None:
             raise ValueError("mesh_url or mesh is required")
+        # Hi3D takes multipart/form-data only (a urlencoded form is 415), also
+        # when no file is sent: every field goes as a part of its own.
+        files = {k: (None, v) for k, v in form.items()}
+        if mesh is not None:
+            files["mesh"] = ("model.glb", mesh, "model/gltf-binary")
         with usage_service.track(
             usage, pricing.PROVIDER_HI3D, pricing.OP_HI3D_SPLIT, quantity=1,
             metadata={"part": part, "joint": joint, "merge": merge},
             finalize_on_success=False,
         ) as call:
-            data = self._call("POST", "/open-api/v1/split/create-task", data=form, files=files)
+            data = self._call("POST", "/open-api/v1/split/create-task", files=files)
             task_id = (data or {}).get("task_id")
             if not task_id:
                 raise Hi3dError(f"Hi3D gave no task id: {data}")
