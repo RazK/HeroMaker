@@ -129,6 +129,8 @@
 @media (orientation: landscape) {
   .tb-hero-screen.tb-hero-main[data-state='ready'] {
     --edge: clamp(150px, 11vw, 300px);
+    /* How far Play's box sits off the bottom; the bottom-start corner matches it. */
+    --wide-foot: calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
     --tb-rail-h: var(--tb-btn-h);
     max-width: none;
     display: grid;
@@ -198,10 +200,10 @@
   .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit--framed { inset: 42px calc(var(--edge) + 6px) 22px; }
   /* The drawing's name card, bottom-start (where the small card sits on the
      other slides; on the painting the small card has the corner). */
-  .tb-hero-main[data-state='ready'] .tb-slide[data-slide='painting'] .tb-live-name { display: none; }
+  .tb-hero-main[data-state='ready'] .tb-dock-layer--name { opacity: var(--o-draw, 1); }
   .tb-hero-main[data-state='ready'] .tb-live-stage .tb-live-name {
     inset-inline: var(--tb-gutter) auto;
-    inset-block-end: var(--tb-space);
+    inset-block-end: var(--wide-foot);
     max-width: min(240px, 26vw);
     margin: 0;
   }
@@ -214,10 +216,12 @@
     margin-inline: auto;
   }
   .tb-hero-main[data-state='ready'] .tb-figure-room { inset: 0 0 calc(var(--tb-dock-h) + var(--tb-space) + 8px); }
+  /* The small card's bottom is Play's (the bottom-end corner's): the same
+     inset, so Play stays the bottom-most button (Raz). */
   .tb-hero-main[data-state='ready'] .tb-mini-drawing {
     --mini-w: clamp(72px, min(12cqw, 26cqh), 170px);
     inset-inline-start: var(--tb-gutter);
-    inset-block-end: var(--tb-space);
+    inset-block-end: var(--wide-foot);
   }
   /* The moves: a rail at the end, between the header and Play. */
   .tb-hero-main[data-state='ready'] .tb-hero-moves {
