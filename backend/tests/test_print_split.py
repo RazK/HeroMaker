@@ -11,6 +11,7 @@ from app.config import pricing
 from app.models import CreationStep, UsageEvent
 from app.services import print_split
 from app.services.meshy import MeshyAPIError
+from app.utils.storage import get_storage
 from test_public_api import _bearer, _jwt, _key, client  # noqa: F401
 
 
@@ -155,3 +156,124 @@ def test_a_hero_older_than_meshys_three_days_says_so(client, make_user, hero, me
     assert r.status_code == 409 and r.json()["detail"]["code"] == "source_expired"
     assert "3 days" in r.json()["detail"]["message"]
     assert client.get(f"/api/v1/heroes/{hero.id}/print-split", headers=_jwt(make_user(is_admin=True))).json()["status"] == "none"
+
+
+# -- Hi3D: jointed parts from our own model, any age -------------------------
+
+def _two_part_glb() -> bytes:
+    """A real GLB: two triangles as two mesh nodes, the second moved up 1 m."""
+    import json
+    import struct
+
+    import numpy as np
+
+    pos = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=np.float32).tobytes()
+    idx = np.array([0, 1, 2], dtype=np.uint16).tobytes() + b"\0\0"
+    blob = pos + idx
+    js = {
+        "asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": [0, 1]}],
+        "nodes": [{"mesh": 0, "name": "body"}, {"mesh": 0, "name": "head", "translation": [0, 1, 0]}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}, "indices": 1}]}],
+        "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"},
+                      {"bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR"}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 36},
+                        {"buffer": 0, "byteOffset": 36, "byteLength": 6}],
+        "buffers": [{"byteLength": len(blob)}],
+    }
+    j = json.dumps(js).encode()
+    j += b" " * (-len(j) % 4)
+    body = struct.pack("<II", len(j), 0x4E4F534A) + j + struct.pack("<II", len(blob), 0x004E4942) + blob
+    return struct.pack("<III", 0x46546C67, 2, 12 + len(body)) + body
+
+
+class FakeHi3d:
+    def __init__(self):
+        self.created = []
+        self.task = {"state": "processing"}
+
+    def create_character_split(self, **kw):
+        self.created.append(kw)
+        return f"hi3d-{len(self.created)}"
+
+    def get_split(self, task_id):
+        return dict(self.task, task_id=task_id)
+
+
+@pytest.fixture
+def hi3d(monkeypatch, meshy):
+    from app.services import hi3d as hi3d_module
+
+    fake = FakeHi3d()
+    monkeypatch.setattr(hi3d_module, "Hi3dClient", lambda: fake)
+    glb = _two_part_glb()
+    monkeypatch.setattr(print_split, "_download", lambda url: glb if url.endswith(".glb") else b"png")
+    return fake
+
+
+def test_hi3d_splits_our_own_model_with_ball_joints_at_any_age(client, make_user, hero, meshy, hi3d):
+    import io
+    import zipfile
+
+    get_storage().upload_file(hero.user_id, hero.id, "model.glb", b"glTF our model", content_type="model/gltf-binary")
+    meshy.gone.add("img3d-42")  # Meshy forgot this hero long ago; Hi3D does not care
+    admin = _jwt(make_user(is_admin=True))
+    url = f"/api/v1/heroes/{hero.id}/print-split"
+
+    r = client.post(url, json={"provider": "hi3d", "part": "a", "joint": "ball"}, headers=admin)
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body["provider"] == "hi3d" and body["joint"] == "ball" and body["part_count"] == 6
+    sent = hi3d.created[0]
+    assert sent["part"] == "a" and sent["joint"] == "ball" and sent["merge"] is True
+    assert sent.get("mesh") == b"glTF our model" or sent.get("mesh_url", "").startswith("http")
+    assert meshy.created == []
+
+    assert client.get(url, headers=admin).json()["status"] == "in_progress"
+
+    hi3d.task = {"state": "success", "url": "https://hi3d/parts.glb", "cover_url": "https://hi3d/cover.png"}
+    done = client.get(url, headers=admin).json()
+    assert done["status"] == "succeeded"
+    assert done["files"]["parts"] and done["files"]["parts_3mf"] and done["files"]["preview"]
+    made = client.get(done["files"]["parts_3mf"].split("?")[0].split(".app", 1)[-1].split("testserver", 1)[-1])
+    assert made.status_code == 200
+    model = zipfile.ZipFile(io.BytesIO(made.content)).read("3D/3dmodel.model").decode()
+    assert model.count("<object ") == 2 and 'name="head"' in model and 'unit="millimeter"' in model
+
+
+def test_hi3d_without_keys_says_so(client, make_user, hero, monkeypatch):
+    monkeypatch.delenv("HI3D_CLIENT_ID", raising=False)
+    monkeypatch.delenv("HI3D_CLIENT_SECRET", raising=False)
+    get_storage().upload_file(hero.user_id, hero.id, "model.glb", b"glTF", content_type="model/gltf-binary")
+    r = client.post(f"/api/v1/heroes/{hero.id}/print-split", json={"provider": "hi3d"},
+                    headers=_jwt(make_user(is_admin=True)))
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "hi3d_not_configured"
+
+
+def test_hi3d_client_books_its_price_and_sends_a_character_split(db, monkeypatch, make_user, hero):
+    from app.services import hi3d as hi3d_module
+    from app.services.usage import UsageContext
+
+    calls = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        calls.append(("token", url, headers["Authorization"].split()[0]))
+        return SimpleNamespace(status_code=200, json=lambda: {"code": 200, "data": {"accessToken": "tok"}})
+
+    def fake_request(method, url, headers=None, timeout=None, data=None, files=None, params=None):
+        calls.append((method, url, headers["Authorization"], data))
+        return SimpleNamespace(status_code=200, json=lambda: {"code": 200, "data": {"task_id": "split_1", "state": "queueing"}})
+
+    monkeypatch.setattr(hi3d_module.requests, "post", fake_post)
+    monkeypatch.setattr(hi3d_module.requests, "request", fake_request)
+    monkeypatch.setattr(hi3d_module, "_token", {"value": None, "at": 0.0})
+    c = hi3d_module.Hi3dClient(client_id="ak", client_secret="sk")
+    task = c.create_character_split(mesh_url="https://s3/model.glb", part="b", joint="ball",
+                                    usage=UsageContext(user_id=make_user().id, creation_id=hero.id, step_name="print_split"))
+    assert task == "split_1"
+    assert calls[0] == ("token", "https://api.hitem3d.ai/open-api/v1/auth/token", "Basic")
+    method, url, auth, form = calls[1]
+    assert url.endswith("/open-api/v1/split/create-task") and auth == "Bearer tok"
+    assert form == {"model": "character", "part": "b", "joint": "ball", "format": "2", "merge": "yes",
+                    "mesh_url": "https://s3/model.glb"}
+    event = db.query(UsageEvent).filter_by(provider_ref="split_1").one()
+    assert event.provider == pricing.PROVIDER_HI3D and event.cost_usd_micros == 400_000

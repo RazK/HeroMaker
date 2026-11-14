@@ -23,6 +23,9 @@ const OUT = 0.6;
 export function PrintSplitSheet({ creation, onClose }: { creation: CreationResponse; onClose: () => void }) {
   const [split, setSplit] = useState<PrintSplit | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<'hi3d' | 'meshy'>('hi3d');
+  const [part, setPart] = useState<'a' | 'b' | 'd'>('a');
+  const [joint, setJoint] = useState<'ball' | 'pin'>('ball');
   const [mode, setMode] = useState<'auto' | 'by_parts'>('auto');
   const [prompt, setPrompt] = useState('head, body, arms, legs');
   const [connectors, setConnectors] = useState(false);
@@ -47,7 +50,9 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
   const start = async () => {
     setBusy(true); setError(null);
     try {
-      setSplit(await api.startPrintSplit(creation.id, { mode, prompt: mode === 'by_parts' ? prompt : undefined, connectors }));
+      setSplit(await api.startPrintSplit(creation.id, provider === 'hi3d'
+        ? { provider, part, joint }
+        : { provider, mode, prompt: mode === 'by_parts' ? prompt : undefined, connectors }));
       setAgain(false);
     } catch (e) {
       setError((e as Error).message || 'Could not start the split');
@@ -83,7 +88,9 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
               <OrbitControls enablePan={false} minDistance={1.2} maxDistance={6} />
             </Canvas>
           </div>
-          <div className="tb-split-line">{split.part_count ?? '?'} parts · drag to turn</div>
+          <div className="tb-split-line">
+            {split.part_count ?? '?'} parts{split.provider === 'hi3d' && split.joint && split.joint !== 'none' ? ` · ${split.joint} joints` : ''} · drag to turn
+          </div>
           <label className="tb-split-slider">
             <span>Pull apart</span>
             <input type="range" min={0} max={1} step={0.01} value={apart} onChange={(e) => setApart(Number(e.target.value))} />
@@ -110,6 +117,24 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
       {showOptions && (
         <>
           {split.status === 'failed' && <div className="tb-notice tb-notice--error" role="alert">{split.error || 'The split failed.'} Meshy returns its credits.</div>}
+          <div className="tb-chip-row" role="radiogroup" aria-label="Joints">
+            <button type="button" role="radio" aria-checked={provider === 'hi3d'} className={`tb-chip${provider === 'hi3d' ? ' tb-chip--on' : ''}`} onClick={() => setProvider('hi3d')}>Moving joints</button>
+            <button type="button" role="radio" aria-checked={provider === 'meshy'} className={`tb-chip${provider === 'meshy' ? ' tb-chip--on' : ''}`} onClick={() => setProvider('meshy')}>Glued pegs</button>
+          </div>
+          {provider === 'hi3d' && (
+            <>
+              <div className="tb-chip-row" role="radiogroup" aria-label="Parts">
+                {([['a', '6 parts'], ['b', '5 parts'], ['d', '4 parts']] as const).map(([k, label]) => (
+                  <button key={k} type="button" role="radio" aria-checked={part === k} className={`tb-chip${part === k ? ' tb-chip--on' : ''}`} onClick={() => setPart(k)}>{label}</button>
+                ))}
+              </div>
+              <div className="tb-chip-row" role="radiogroup" aria-label="Joint">
+                <button type="button" role="radio" aria-checked={joint === 'ball'} className={`tb-chip${joint === 'ball' ? ' tb-chip--on' : ''}`} onClick={() => setJoint('ball')}>Ball joints</button>
+                <button type="button" role="radio" aria-checked={joint === 'pin'} className={`tb-chip${joint === 'pin' ? ' tb-chip--on' : ''}`} onClick={() => setJoint('pin')}>Pin joints</button>
+              </div>
+            </>
+          )}
+          {provider === 'meshy' && (<>
           <div className="tb-chip-row" role="radiogroup" aria-label="How to cut">
             <button type="button" role="radio" aria-checked={mode === 'auto'} className={`tb-chip${mode === 'auto' ? ' tb-chip--on' : ''}`} onClick={() => setMode('auto')}>Meshy decides</button>
             <button type="button" role="radio" aria-checked={mode === 'by_parts'} className={`tb-chip${mode === 'by_parts' ? ' tb-chip--on' : ''}`} onClick={() => setMode('by_parts')}>By body parts</button>
@@ -123,10 +148,11 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
           <div className="tb-chip-row">
             <button type="button" role="switch" aria-checked={connectors} className={`tb-chip${connectors ? ' tb-chip--on' : ''}`} onClick={() => setConnectors(!connectors)}>Pegs to glue</button>
           </div>
+          </>)}
           {error && <div className="tb-notice tb-notice--error" role="alert">{error}</div>}
-          <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail" disabled={busy || (mode === 'by_parts' && !prompt.trim())} onClick={start}>
+          <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail" disabled={busy || (provider === 'meshy' && mode === 'by_parts' && !prompt.trim())} onClick={start}>
             <span className="tb-split-go"><Icon name="cube" />{busy ? 'Starting…' : 'Split it'}</span>
-            <span className="tb-btn-trail">{split.cost_meshy_credits ?? 10} Meshy credits</span>
+            <span className="tb-btn-trail">{provider === 'hi3d' ? 'Hi3D · $0.40' : `${split.cost_meshy_credits ?? 10} Meshy credits`}</span>
           </button>
         </>
       )}

@@ -248,6 +248,9 @@ export interface PrintSplit {
   part_count?: number | null;
   error?: string | null;
   cost_meshy_credits?: number;
+  provider?: 'meshy' | 'hi3d';
+  part?: string | null;
+  joint?: string | null;
   files?: { parts: string | null; parts_3mf: string | null; preview: string | null; parts_view?: string | null };
 }
 
@@ -464,7 +467,9 @@ export const api = {
     return fetchJson<PrintSplit>(`${V1}/heroes/${creationId}/print-split`);
   },
 
-  async startPrintSplit(creationId: string, body: { mode: 'auto' | 'by_parts'; prompt?: string; connectors: boolean }): Promise<PrintSplit> {
+  async startPrintSplit(creationId: string, body:
+    | { provider: 'hi3d'; part: 'a' | 'b' | 'd'; joint: 'ball' | 'pin' }
+    | { provider: 'meshy'; mode: 'auto' | 'by_parts'; prompt?: string; connectors: boolean }): Promise<PrintSplit> {
     return fetchJson<PrintSplit>(`${V1}/heroes/${creationId}/print-split`, json('POST', body));
   },
 
