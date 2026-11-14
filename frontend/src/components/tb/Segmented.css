@@ -43,7 +43,8 @@
   position: relative;
   z-index: 99;
   flex-shrink: 0;
-  padding: 0 var(--tb-gutter) var(--tb-space);
+  /* No bottom padding: the body's top padding is the one gap below it. */
+  padding: 0 var(--tb-gutter);
   background: var(--tb-cream);
 }
 .tb-switchbar::after {

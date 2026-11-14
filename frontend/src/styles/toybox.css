@@ -282,7 +282,11 @@ h1, h2, h3, h4 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth-sm));
+  /* Bottom: only room for the buttons' depth. The gap below the header is the
+     body's own top padding; a second --tb-space here doubled it once the line
+     between them went (Raz: "if you remove the lines, you need to remove one
+     of the spaces"). */
+  padding: var(--tb-space) var(--tb-gutter) var(--tb-depth-sm);
   background: var(--tb-cream);
   /* No line under the header (Raz: "I don't think we need the horizontal line
      splits"): space separates, and content scrolling under it fades out. */
@@ -439,9 +443,14 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
   display: flex;
   flex-direction: column;
   gap: var(--tb-stack);
-  padding: var(--tb-space) var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+  /* Top: nothing. The gap above the bar is the body's bottom padding (one
+     --tb-space, not two: see .tb-header). */
+  padding: 0 var(--tb-gutter) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
   background: var(--tb-cream);
 }
+/* A header with the gallery switch under it keeps its full bottom gap: the
+   switch, not the body, follows it, and the body's padding comes after. */
+.tb-header:has(+ .tb-switchbar) { padding-bottom: calc(var(--tb-space) + var(--tb-depth-sm)); }
 /* Space separates, not a line. What scrolls under a sticky header or bar fades
    into the cream over --tb-space, so the edge reads without a rule. */
 .tb-header::after,
