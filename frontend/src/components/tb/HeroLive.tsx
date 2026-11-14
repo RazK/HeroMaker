@@ -76,9 +76,9 @@ const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
  * the one movement it makes alone, and only when its viewer was watching for
  * it (on the progress slide, or never swiped away from where it put them).
  *
- * Each slide keeps the stage's foot (the dock) for what belongs to it: the
- * drawing its name card, the live hero its moves; the painting leaves it to
- * the plate. Nothing of one slide shows on another.
+ * Each slide keeps the stage's foot (the dock, one box) for what belongs to
+ * it: the drawing and the painting their name card, the live hero its moves,
+ * in exactly the same box. Nothing of one slide shows on another.
  */
 export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id) }: {
   creation: LiveHero;
@@ -171,13 +171,20 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     if (!mod || !host.current) return;
     const s = new mod.HeroStage(host.current, { onPlaying: setPlaying });
     stage.current = s;
-    // The pager dots sit over the top of the stage: keep the hero clear of them.
-    s.setInsetTop(DOTS_CLEAR);
+    // The pager dots sit over the top of the stage: keep the hero clear of
+    // them, by as much as the layout asks (HeroLive.css --tb-hero-inset: 40px
+    // under a phone's dots, a sliver where the hero fills a wide screen).
+    const el = host.current;
+    const inset = () => s.setInsetTop(heroInset(el));
+    inset();
+    const ro = new ResizeObserver(inset);
+    ro.observe(el);
     let alive = true;
     s.movesReady(vrm).then(() => { if (alive) setMovesReady(true); }, () => {});
     s.showHero(vrm).then(() => { if (alive) setShown(true); }, () => { if (alive) setFailed3d(true); });
     return () => {
       alive = false;
+      ro.disconnect();
       s.dispose();
       stage.current = null;
       setShown(false);
@@ -247,7 +254,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // frame and tilt, and under it the tile's name card ("by Maya, 6").
   const nameCard = <TileCaption className="tb-live-name" title={creation.character_name?.trim() || 'Your hero'} line={byLine(creation.name, creation.age)} />;
   const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} polaroid />;
-  const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} />;
+  const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} trim={painted && !framed} />;
 
   // The drawing stays in view as a small polaroid on the other slides, and
   // flies into it as you leave the drawing (and out of it, back to full size,
@@ -381,12 +388,16 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       return {
         label: 'Painted',
         node: (
-          <Opener label="Show the painting full screen" onOpen={() => setFull('painting')}>
-            <div className="tb-live-room">
-              <div className="tb-stage-sun" />
-              {paintingPic}
-            </div>
-          </Opener>
+          <>
+            <Opener label="Show the painting full screen" onOpen={() => setFull('painting')}>
+              <div className="tb-live-room">
+                {SUN && <div className="tb-stage-sun" />}
+                {paintingPic}
+              </div>
+            </Opener>
+            {/* The same name card as under the drawing: an empty dock looked odd (Raz). */}
+            {nameCard}
+          </>
         ),
       };
     }
@@ -395,7 +406,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       node: (
         <>
           <div className="tb-live-room">
-            <div className="tb-stage-sun" />
+            {SUN && <div className="tb-stage-sun" />}
             {/* The 3D can't load: the painting stands in for it. */}
             {failed3d && paintingPic}
             <div ref={host} className={`tb-live-canvas${shown ? ' tb-layer--on' : ''}`} />
@@ -738,7 +749,23 @@ function Loading({ progress, children }: { progress: number; children: ReactNode
 /** The top of the stage the pager dots take: 16px off the top, 16px tall, 8px clear. */
 const DOTS_CLEAR = 40;
 
-function SlidePicture({ thumb, full, framed = false, polaroid = false }: { thumb: string; full: string; framed?: boolean; polaroid?: boolean }) {
+/**
+ * The sun behind the painting and the live hero. Off (Raz, 2026-11: "do we
+ * need the disc at all?"): the figure stands on the plate, grounded by a soft
+ * contact shadow (the 3D draws its own; the painting gets .tb-contact). Set
+ * true to bring the sun back, behind the upper body (HeroLive.css).
+ */
+const SUN = false;
+
+/** The band the 3D keeps clear at the top (and bottom): --tb-hero-inset, in px or % of the stage's height. */
+function heroInset(el: HTMLElement): number {
+  const v = getComputedStyle(el).getPropertyValue('--tb-hero-inset').trim();
+  const n = parseFloat(v);
+  if (!Number.isFinite(n)) return DOTS_CLEAR;
+  return v.endsWith('%') ? (n / 100) * el.clientHeight : n;
+}
+
+function SlidePicture({ thumb, full, framed = false, polaroid = false, trim = false }: { thumb: string; full: string; framed?: boolean; polaroid?: boolean; trim?: boolean }) {
   const [src, setSrc] = useState(thumb);
   const [ar, setAr] = useState(0);
   useEffect(() => {
@@ -751,6 +778,26 @@ function SlidePicture({ thumb, full, framed = false, polaroid = false }: { thumb
     const r = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
     if (r > 0 && Math.abs(r - ar) > 0.005) setAr(r);
   };
+  const box = useOpaqueBox(trim ? thumb : null, full);
+  if (trim && ar && box) {
+    // A cut-out painting is sized by the figure, not by the transparent
+    // margin round it: the figure fills the slide (nothing in the margin is
+    // cut, it is empty), and stands on its contact shadow.
+    const bw = box.right - box.left;
+    const bh = box.bottom - box.top;
+    const arFig = (ar * bw) / bh;
+    // Positions in the picture's own pixels, so left/top whatever the
+    // writing direction (media are never mirrored).
+    const pic: CSSProperties = { position: 'absolute', maxWidth: 'none', maxHeight: 'none', width: `${100 / bw}%`, height: `${100 / bh}%`, left: `${(-box.left / bw) * 100}%`, top: `${(-box.top / bh) * 100}%` };
+    return (
+      <div className="tb-slide-fit">
+        <div className="tb-slide-figure" style={{ width: `min(100cqw, calc(100cqh * ${arFig}))`, aspectRatio: `${arFig}` }}>
+          {!SUN && <span className="tb-contact" aria-hidden="true" />}
+          <img className="tb-slide-pic" src={src} alt="" style={pic} draggable={false} onLoad={shown} />
+        </div>
+      </div>
+    );
+  }
   // The frame is outside the picture (content-box). A polaroid's frame is the
   // gallery's (--tb-pol-pad), and its tilt needs a little room of its own.
   const pad = polaroid ? 'var(--tb-pol-pad)' : `${framed ? 8 : 0}px`;
@@ -763,4 +810,60 @@ function SlidePicture({ thumb, full, framed = false, polaroid = false }: { thumb
       <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''}${polaroid ? ' tb-pol' : ''}`} src={src} alt="" style={style} draggable={false} onLoad={shown} />
     </div>
   );
+}
+
+/** Where a cut-out's figure is: its opaque pixels' box, as fractions of the picture. */
+interface OpaqueBox { left: number; top: number; right: number; bottom: number }
+
+/**
+ * Read a cut-out's alpha (its thumbnail, else the picture) for the box its
+ * figure fills. Null until known, or when it cannot be read (no CORS, no
+ * alpha): the picture is then shown whole, as before.
+ */
+function useOpaqueBox(url: string | null, fallback: string): OpaqueBox | null {
+  const [box, setBox] = useState<OpaqueBox | null>(null);
+  useEffect(() => {
+    setBox(null);
+    if (!url) return;
+    let alive = true;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (!alive) return;
+      try {
+        const k = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * k));
+        const h = Math.max(1, Math.round(img.naturalHeight * k));
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        if (!g) return;
+        g.drawImage(img, 0, 0, w, h);
+        const d = g.getImageData(0, 0, w, h).data;
+        let x0 = w, y0 = h, x1 = -1, y1 = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (d[(y * w + x) * 4 + 3] > 16) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            }
+          }
+        }
+        if (x1 < 0) return;
+        // A pixel's slack each side, so nothing faint at the edge is lost.
+        const b = { left: Math.max(0, x0 - 1) / w, top: Math.max(0, y0 - 1) / h, right: Math.min(w, x1 + 2) / w, bottom: Math.min(h, y1 + 2) / h };
+        // Nothing to gain from a picture that is all figure.
+        if (b.right - b.left > 0.97 && b.bottom - b.top > 0.97) return;
+        setBox(b);
+      } catch { /* not readable here: shown whole */ }
+    };
+    // No thumbnail (not every cut-out has one): the picture itself.
+    img.onerror = () => { if (alive && img.src !== new URL(fallback, location.href).href) img.src = fallback; };
+    img.src = url;
+    return () => { alive = false; img.onload = img.onerror = null; };
+  }, [url, fallback]);
+  return box;
 }

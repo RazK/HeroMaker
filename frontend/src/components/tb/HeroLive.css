@@ -4,26 +4,62 @@
    never scrolls the page (toybox.css: .tb-screen--fit .tb-stage). The drawing
    on it is the gallery's polaroid (HeroTile.css .tb-pol), with a frame as
    thick for its size as the tile's. */
-.tb-live-stage { isolation: isolate; container-type: size; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; --tb-pol-pad: 10px; --tb-pol-radius: 14px; }
+.tb-live-stage { isolation: isolate; container-type: size; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; --tb-pol-pad: 10px; --tb-pol-radius: 14px; --tb-hero-inset: 32px; }
 
-/* The dock: the stage's foot, 16px off its bottom, one button tall. Each
-   slide puts its own thing there (the drawing its name card, the live hero
-   its moves; HeroScreen's landscape bar shares its row), and keeps its
-   picture above it: --tb-dock-clear is the dock, its depth and 12px. */
-.tb-hero-screen { --tb-dock-h: 64px; --tb-dock-clear: calc(var(--tb-dock-h) + 32px); }
-@media (max-height: 700px) {
-  .tb-hero-screen { --tb-dock-h: 56px; }
+/* The dock: the stage's foot, one box 16px (and a button's depth) off its
+   bottom, as tall as the gallery's name card. Each slide puts its own thing
+   in exactly that box: the drawing and the painting their name card, the
+   live hero its four moves (Raz: swiping swaps the card for the moves in
+   place). --tb-dock-clear is the dock, its depth and 12px. */
+.tb-hero-screen { --tb-dock-h: 56px; --tb-dock-clear: calc(var(--tb-dock-h) + 32px); }
+.tb-live-stage .tb-live-name,
+.tb-live-stage .tb-hero-moves {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: calc(16px + var(--tb-depth-sm));
+  width: min(calc(100% - 32px), 340px);
+  height: var(--tb-dock-h);
+  margin-inline: auto;
 }
 /* What a slide shows, above the dock: the same room on every slide, so the
    drawing, the painting and the hero stand in one place. Its foot reaches
-   40px into the dock's clearance because the 3D stage keeps a 40px band at
-   the bottom as well as under the dots (HeroStage.setInsetTop): the hero's
-   feet stop exactly at the clearance. */
-.tb-live-room { position: absolute; inset: 0 0 calc(var(--tb-dock-clear) - 40px); container-type: size; }
-.tb-live-room .tb-slide-fit { inset: 40px 16px; }
-.tb-live-room .tb-slide-fit--framed { inset: 46px 22px; }
+   into the dock's clearance by the band the 3D stage keeps at the bottom as
+   well as under the dots (--tb-hero-inset, HeroStage.setInsetTop): the
+   hero's feet stop exactly at the clearance. Pictures keep 8px under the
+   dots (40px). */
+.tb-live-room { position: absolute; inset: 0 0 calc(var(--tb-dock-clear) - var(--tb-hero-inset)); container-type: size; }
+.tb-live-room .tb-slide-fit { inset: 40px 16px var(--tb-hero-inset); }
+.tb-live-room .tb-slide-fit--framed { inset: 46px 22px calc(var(--tb-hero-inset) + 6px); }
 /* The sun stays a circle on any stage shape (a wide stage made it a pill). */
 .tb-live-stage .tb-stage-sun { width: min(72cqw, 80cqh); height: min(72cqw, 80cqh); max-height: none; aspect-ratio: auto; }
+/* Behind the painting and the live hero, the sun sits behind the upper body
+   only, head and torso (Raz), so the figure is drawn as big as the room
+   allows and the sun follows it. The figure fills the band between the
+   insets (--band), standing 89% of it; its head and torso are its top half:
+   the sun's centre a third of the way down the band, a little over half the
+   band across. */
+.tb-live-room { --band-top: var(--tb-hero-inset); --band: calc(100cqh - 2 * var(--band-top)); }
+/* A cut-out painting, sized by its figure (HeroLive useOpaqueBox): the
+   picture's transparent margin runs outside this box, empty. With no sun
+   (HeroLive SUN, off) the figure stands on a soft contact shadow under its
+   feet, ink at a low alpha, like the 3D hero's own. */
+.tb-slide-figure { position: relative; container-type: size; }
+.tb-slide-figure .tb-contact {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -3cqh;
+  margin-inline: auto;
+  width: min(90cqw, 50cqh);
+  height: 6cqh;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(35, 25, 66, 0.22), rgba(35, 25, 66, 0));
+  pointer-events: none;
+}
+.tb-live-room .tb-stage-sun {
+  top: calc(var(--band-top) + var(--band) * 0.33);
+  width: min(84cqw, calc(var(--band) * 0.55));
+  height: min(84cqw, calc(var(--band) * 0.55));
+}
 
 /* One slide per part, side by side; HeroLive's Carousel moves them by whole
    stage widths, following the finger while it drags. A short ease, under
@@ -96,15 +132,9 @@
    slide would be a white box. */
 .tb-slide-pic.tb-pol { box-sizing: content-box; }
 .tb-slide-pic.tb-pol.tb-slide-pic--contain { visibility: hidden; }
-/* Under it, the gallery tile's name card (HeroTile TileCaption), centred in
-   the dock. A tap on it is a tap on the drawing. */
-.tb-live-stage .tb-live-name {
-  inset-inline: 0;
-  inset-block-end: calc(16px + var(--tb-depth-sm) + (var(--tb-dock-h) - 56px) / 2);
-  width: min(calc(100% - 32px), 340px);
-  margin-inline: auto;
-  pointer-events: none;
-}
+/* Under it, the gallery tile's name card (HeroTile TileCaption), in the
+   dock. A tap on it is a tap on the picture. */
+.tb-live-stage .tb-live-name { pointer-events: none; }
 /* A painting with no confident cut-out: on its white card (toybox.css
    .tb-stage-img--framed), the card clear of the stage's edges when tilted. */
 .tb-slide-fit--framed { inset: 46px 22px 22px; }
@@ -180,28 +210,23 @@
    bottom of the stage on the hero's slide, sliding with it, never on the
    drawing or the painting. White pills with ink depth read over the plate
    and the sun alike. */
-.tb-hero-moves {
-  position: absolute;
-  z-index: 2;
-  inset-inline: 0;
-  inset-block-end: 16px;
-  pointer-events: none;
-}
-/* Four to a row, 16px inside the stage's edges, all of them in view (a
-   swiped row once hid half of them behind a button cut off at the screen's
-   edge). The buttons' depth sits under them, inside the 16px. */
+.tb-hero-moves { z-index: 2; pointer-events: none; }
+/* Four to a row in the dock's box, sharing its width equally, all of them in
+   view (a swiped row once hid half of them behind a button cut off at the
+   screen's edge). The buttons' depth sits under the box, as the name card's
+   16px does. */
 .tb-moves {
   --gap: 10px;
   display: flex;
   justify-content: center;
   gap: var(--gap);
-  padding: 0 16px var(--tb-depth-sm);
+  height: 100%;
 }
 .tb-move {
   flex: 1 1 0;
   min-width: 0;
   max-width: calc((100% - 3 * var(--gap)) / 4);
-  height: var(--tb-dock-h);
+  height: 100%;
   padding: 0 4px;
   flex-direction: column;
   gap: 2px;
