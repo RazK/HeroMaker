@@ -45,3 +45,8 @@ google-auth>=2.20.0
 numpy>=1.26
 scipy>=1.11
 onnxruntime>=1.17
+
+# Printable action figure (app/utils/joint_split.py): closed solids and
+# booleans (Apache-2.0); trimesh (MIT) checks and exports the parts.
+manifold3d>=3.0
+trimesh>=4.0
