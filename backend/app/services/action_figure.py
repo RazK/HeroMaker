@@ -1,5 +1,16 @@
-"""The hero as an action figure: the owner pays credits, Hi3D cuts it into
-printable parts with ball joints (app/services/print_split.py, provider hi3d).
+"""The hero as an action figure: cut into printable parts with ball joints
+(app/services/print_split.py), shown as the hero page's fourth slide.
+
+Who sees and who makes it (Raz, 2026-11-14): "If a model was split, it's
+just like its fourth view to see the split. I don't need to be admin ... to
+generate splits for now is just admin, because it costs money. But for
+viewing, you don't need to be the admin."
+
+- Anyone who can open the hero sees its figure once one is made, whoever made
+  it (print_split's state is generic: Hi3D today, maybe our own split later).
+- Only admins make one for now, free to the owner (make_free).
+- With packs.ACTION_FIGURE_FOR_SALE on, the owner may buy one instead (start,
+  below), and these money rules apply:
 
 The money rules are the pipeline's (CLAUDE.md, "Payments"): credits are taken
 BEFORE the provider is called, so every bad ending gives them back.
@@ -39,6 +50,21 @@ FAILED = "That didn't work this time. Your credits are back."
 def _mine(state: Optional[Dict[str, Any]]) -> bool:
     """A Hi3D split, which is what the owner sees; an admin's Meshy split is not theirs."""
     return bool(state) and state.get("provider") == "hi3d"
+
+
+def make_free(db: Session, creation: Creation, admin_id: str, hi3d_client=None) -> Dict[str, Any]:
+    """An admin makes the figure: no one is charged. A figure running or made is returned as it is."""
+    state = print_split.read_state(creation)
+    if state and state.get("status") in print_split.RUNNING + ("SUCCEEDED",):
+        return state
+    if creation.status != "completed" or not get_storage().file_exists(
+            creation.user_id, creation.id, print_split.SOURCE_MODEL):
+        raise SplitError(409, "not_ready", "This hero isn't finished yet.")
+    state = print_split.start(db, creation, by_user_id=admin_id, provider="hi3d", part="a", joint="ball",
+                              hi3d_client=hi3d_client)
+    state["kind"] = "action_figure"
+    print_split._write_state(creation, state)
+    return state
 
 
 def start(db: Session, creation: Creation, user_id: str, hi3d_client=None) -> Dict[str, Any]:
@@ -100,8 +126,38 @@ def refresh(db: Session, creation: Creation) -> Optional[Dict[str, Any]]:
     return settle(db, creation, print_split.refresh(creation))
 
 
+def public_view(creation: Creation, base: str, state: Optional[Dict[str, Any]], *,
+                can_make: bool, price: Optional[int] = None) -> Dict[str, Any]:
+    """What any viewer reads. A visitor sees the figure once made and nothing before;
+    whoever may make one (an admin, or the owner when it is for sale) sees it coming.
+    Never a cost, a provider task id, or who made it."""
+    full = print_split.view(creation, base, state)
+    status = full["status"]
+    if not can_make and status != "succeeded":
+        status = "none"
+    jointed = full.get("joint") if full.get("provider") == "hi3d" else None
+    out = {
+        "object": "action_figure",
+        "hero_id": creation.id,
+        "status": status,
+        "progress": (full.get("progress") or 0) if can_make else (100 if status == "succeeded" else 0),
+        "part_count": full.get("part_count") if status == "succeeded" or can_make else None,
+        "provider": full.get("provider") if status != "none" else None,
+        "joint": jointed if status != "none" else None,
+        "files": full["files"] if status == "succeeded" else {"parts": None, "parts_3mf": None, "preview": None,
+                                                                "parts_view": None},
+        "can_make": can_make,
+    }
+    if can_make and status in ("failed", "canceled"):
+        refunded = (state or {}).get("refunded") or not (state or {}).get("charged_tx")
+        out["error"] = FAILED if (state or {}).get("charged_tx") and refunded else full.get("error")
+    if price is not None:
+        out["price_credits"] = price
+    return out
+
+
 def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """What the owner's app reads: the price, and the figure once it is made."""
+    """What the owner's app read when figures were for sale: the price, and the figure once made."""
     out = print_split.view(creation, base, state if _mine(state) else None)
     out["object"] = "action_figure"
     out["price_credits"] = ACTION_FIGURE_CREDITS

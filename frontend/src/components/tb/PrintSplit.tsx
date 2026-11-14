@@ -3,6 +3,7 @@ import { api, CreationResponse, PrintSplit } from '../../api/client';
 import { Icon } from './Icon';
 import { Sheet } from './parts';
 import { PartsStage } from './PartsViewer';
+import { PartsBoundary, PartsFallback } from './PartsBoundary';
 import './PrintSplit.css';
 
 const POLL_MS = 3000;
@@ -72,8 +73,8 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
       {done && !again && (
         <>
           <div className="tb-split-stage">
-            <PartsStage url={split.files!.parts_view || split.files!.parts!} apart={apart} tinted={tinted}
-              jointed={split.provider === 'hi3d' && !!split.joint && split.joint !== 'none'} moving={moving} />
+            <PartsBoundary fallback={<PartsFallback preview={split.files?.preview} alt="The parts" />}><PartsStage url={split.files!.parts_view || split.files!.parts!} apart={apart} tinted={tinted}
+              jointed={split.provider === 'hi3d' && !!split.joint && split.joint !== 'none'} moving={moving} /></PartsBoundary>
           </div>
           <div className="tb-split-line">
             {split.part_count ?? '?'} parts{split.provider === 'hi3d' && split.joint && split.joint !== 'none' ? ` · ${split.joint} joints` : ''} · drag to turn

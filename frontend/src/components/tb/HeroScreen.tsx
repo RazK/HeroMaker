@@ -1,5 +1,5 @@
 import { KeyboardEvent, ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
+import { ActionFigure, api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
 import { heroLink, leaveFromOverlay } from '../../routes';
@@ -52,6 +52,16 @@ export function HeroScreen(props: HeroScreenProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
+  // The action figure, if the hero has one (or this viewer may make one): the fourth slide.
+  const [figure, setFigure] = useState<ActionFigure | null>(null);
+  const figureReady = state === 'ready';
+  useEffect(() => {
+    if (!figureReady || props.fromClass) return;
+    let alive = true;
+    api.getActionFigure(creation.id).then((f) => { if (alive) setFigure(f); }, () => { /* no slide */ });
+    return () => { alive = false; };
+  }, [figureReady, creation.id, isLoggedIn, isAdmin, props.fromClass]);
+  const showFigure = !!figure && (figure.status === 'succeeded' || figure.can_make);
   const shown = useRef<(StepProgress & { key: string }) | null>(null);
   useFitScreen();
 
@@ -316,9 +326,9 @@ export function HeroScreen(props: HeroScreenProps) {
         key={creation.id}
         creation={creation}
         notice={notice}
-        // The action figure is the owner's to buy: not a visitor's, and not an
-        // admin's supporting someone else's hero (their credits are theirs).
-        figure={ready && owns && !supporting && !props.fromClass ? { credits: creditBalance } : undefined}
+        // The action figure: everyone sees it once made (Raz: "for viewing, you
+        // don't need to be the admin"); an admin also sees it to make it.
+        figure={ready && showFigure && figure ? { credits: supporting ? undefined : creditBalance, initial: figure } : undefined}
         making={ready ? undefined : {
           step: step?.step_name,
           pct: progress?.pct ?? 0,

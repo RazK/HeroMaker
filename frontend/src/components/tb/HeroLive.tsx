@@ -1,7 +1,7 @@
 import { ActionFigureSlide } from './ActionFigure';
 import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
-import { api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
+import { ActionFigure, api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
 import { Header, NavButton } from './parts';
@@ -85,9 +85,10 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   creation: LiveHero;
   making?: Making;
   notice?: ReactNode;
-  /** The owner's own hero: a fourth slide, the hero as an action figure
-   *  (ActionFigure.tsx), bought with credits. `credits` is their balance. */
-  figure?: { credits?: number };
+  /** A fourth slide, the hero as an action figure (ActionFigure.tsx): shown
+   *  when one is made, or to whoever may make one. `credits` is the viewer's
+   *  balance, for a price while figures are for sale. */
+  figure?: { credits?: number; initial?: ActionFigure };
   /** Which moves the row offers (ids of MOVES); none hides the row. */
   moves?: string[];
 }) {
@@ -349,7 +350,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     if (s.key === 'figure') {
       return {
         label: `${heroName}, the action figure`,
-        node: <ActionFigureSlide heroId={creation.id} heroName={heroName} credits={figure?.credits} picture={paintingPic} />,
+        node: <ActionFigureSlide heroId={creation.id} heroName={heroName} credits={figure?.credits} initial={figure?.initial} picture={paintingPic} />,
       };
     }
     if (s.key === 'painting') {
