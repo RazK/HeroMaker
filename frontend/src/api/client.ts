@@ -237,6 +237,9 @@ export interface V1Stage {
   error?: { code: StepErrorCode; message: string | null; credits_refunded: boolean; refunded_credits?: number | null; detail?: string | null; request_id?: string | null } | null;
 }
 /** GET/POST /api/v1/heroes/{id}/print-split: Meshy's Auto Split of the hero's 3D model. */
+/** The hero as an action figure: a Hi3D split with ball joints, bought with credits. */
+export type ActionFigure = Omit<PrintSplit, 'object'> & { object: 'action_figure'; price_credits: number };
+
 export interface PrintSplit {
   object: 'print_split';
   hero_id: string;
@@ -465,6 +468,16 @@ export const api = {
   /** The hero cut into printable parts (admins: backend/app/services/print_split.py). */
   async getPrintSplit(creationId: string): Promise<PrintSplit> {
     return fetchJson<PrintSplit>(`${V1}/heroes/${creationId}/print-split`);
+  },
+
+  /** The hero as an action figure (owner): its price, and its jointed parts once made. */
+  async getActionFigure(creationId: string): Promise<ActionFigure> {
+    return fetchJson<ActionFigure>(`${V1}/heroes/${creationId}/action-figure`);
+  },
+
+  /** Buy it: credits are taken now, and given back if it fails. 402: not enough credits. */
+  async startActionFigure(creationId: string): Promise<ActionFigure> {
+    return fetchJson<ActionFigure>(`${V1}/heroes/${creationId}/action-figure`, json('POST', {}));
   },
 
   async startPrintSplit(creationId: string, body:

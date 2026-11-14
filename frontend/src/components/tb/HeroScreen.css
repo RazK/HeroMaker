@@ -201,6 +201,15 @@
     width: min(240px, 26vw);
     margin: 0;
   }
+  /* The action figure's dock: bottom-centre, between the small drawing card
+     (start) and Play (end), its own 56px tall. */
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock {
+    inset-inline: 0;
+    inset-block-end: calc(var(--tb-space) + var(--tb-depth-sm));
+    width: min(360px, calc(100% - 2 * (var(--mini-w, 170px) + 2 * var(--tb-gutter))));
+    margin-inline: auto;
+  }
+  .tb-hero-main[data-state='ready'] .tb-figure-room { inset: 0 0 calc(var(--tb-dock-h) + var(--tb-space) + 8px); }
   .tb-hero-main[data-state='ready'] .tb-mini-drawing {
     --mini-w: clamp(72px, min(12cqw, 26cqh), 170px);
     inset-inline-start: var(--tb-gutter);

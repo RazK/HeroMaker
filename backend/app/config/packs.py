@@ -57,6 +57,12 @@ def creation_credit_price() -> int:
     return sum(step["credit_cost"] for step in STEPS)
 
 
+# The hero as a printable action figure (app/services/action_figure.py): cut
+# into parts with ball joints by Hi3D, which costs us $0.40. 5 credits sits
+# around $0.80-$0.85 at our pack prices, about half a hero.
+ACTION_FIGURE_CREDITS = 5
+
+
 def credit_cost_usd_micros() -> int:
     """
     What ONE credit costs us, in USD micros.

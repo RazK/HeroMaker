@@ -200,6 +200,9 @@ def _start_hi3d(creation: Creation, *, by_user_id: str, part: str, joint: str, c
     except hi3d.Hi3dNotConfigured:
         raise SplitError(503, "hi3d_not_configured", "Hi3D is not set up here: HI3D_CLIENT_ID / HI3D_CLIENT_SECRET.")
     except hi3d.Hi3dError as e:
+        if hi3d.is_out_of_balance(e):
+            raise SplitError(402, "hi3d_balance", "Payments to Hi3D are unavailable: our Hi3D API balance is "
+                                                  "empty (top it up at platform.hi3d.ai).")
         raise SplitError(502, "hi3d_refused", f"Hi3D refused the split: {e}")
     state = _new_state("hi3d", task_id, by_user_id, part=part, joint=joint,
                        part_count=hi3d.CHARACTER_PARTS[part])

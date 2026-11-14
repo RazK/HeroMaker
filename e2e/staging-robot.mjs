@@ -676,11 +676,23 @@ try {
       await page.waitForTimeout(450);
       return slideNow();
     };
-    const order = [await swipe(), await swipe(), await swipe()];
-    if (order.join(',') !== 'drawing,painting,hero') throw new Error(`swiping went hero > ${order.join(' > ')}, not drawing > painting > hero`);
+    // The owner's hero has a fourth slide after the hero, its action figure
+    // (ActionFigure.tsx): read the order from the stage, then go round it.
+    const slideList = (await stage.getAttribute('data-slides')).split(',');
+    const h = slideList.indexOf('hero');
+    const fromHero = [...slideList.slice(h + 1), ...slideList.slice(0, h + 1)];
+    if (slideList.slice(0, 3).join(',') !== 'drawing,painting,hero') throw new Error(`the slides are ${slideList.join(',')}`);
+    const order = [];
+    for (let i = 0; i < fromHero.length; i++) order.push(await swipe());
+    if (order.join(',') !== fromHero.join(',')) throw new Error(`swiping went hero > ${order.join(' > ')}, not ${fromHero.join(' > ')}`);
     await snap(page, 'carousel');
+    if (slideList.includes('figure')) {
+      // On the action figure: its buy button (or its parts, once bought), in the dock.
+      const figure = stage.locator('.tb-slide[data-slide="figure"]');
+      if ((await figure.locator('.tb-figure-buy, .tb-figure-dock').count()) < 1) throw new Error('the action figure slide has nothing in its dock');
+    }
     // A tap on the drawing opens it full screen; Back returns to the drawing.
-    await swipe();
+    for (let i = 0; i < slideList.length && (await slideNow()) !== 'drawing'; i++) await swipe();
     await stage.locator('.tb-slide[data-slide="drawing"] .tb-slide-open').click();
     await page.locator('.tb-drawing-full').waitFor({ timeout: 5000 });
     await page.goBack();

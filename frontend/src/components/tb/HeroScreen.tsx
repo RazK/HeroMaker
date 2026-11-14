@@ -316,6 +316,9 @@ export function HeroScreen(props: HeroScreenProps) {
         key={creation.id}
         creation={creation}
         notice={notice}
+        // The action figure is the owner's to buy: not a visitor's, and not an
+        // admin's supporting someone else's hero (their credits are theirs).
+        figure={ready && owns && !supporting && !props.fromClass ? { credits: creditBalance } : undefined}
         making={ready ? undefined : {
           step: step?.step_name,
           pct: progress?.pct ?? 0,
