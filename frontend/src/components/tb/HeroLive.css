@@ -341,25 +341,44 @@
 }
 .tb-live-zoom--settle { transition: transform 200ms ease-out; }
 /* The drawing, full screen: the gallery's polaroid, as big as the screen
-   allows less its name card (56px and a 12px gap) and the tilt's room. */
+   allows less its name card (56px) and the gap above it. The gap is one
+   --tb-space measured from the tilted frame's lowest corner, not from its
+   untilted box: rotating by 4deg drops that corner by (width / 2) * sin 4deg,
+   at most 3.5% of the room's width (Raz: "not enough space between it and
+   the drawing"). On a wide screen the height, not the width, bounds the
+   frame, so the allowance is capped by the height as well. */
 .tb-live-polaroid {
   --tb-pol-pad: 14px;
   --tb-pol-radius: 18px;
+  --tb-pol-gap: calc(var(--tb-space) + min(3.5cqw, 3cqh));
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--tb-pol-gap);
 }
 .tb-live-polaroid-img {
   display: block;
   box-sizing: content-box;
   max-width: calc((100cqw - 2 * var(--tb-pol-pad)) * 0.92);
-  max-height: calc((100cqh - 68px - 2 * var(--tb-pol-pad)) * 0.92);
+  max-height: calc((100cqh - 56px - var(--tb-pol-gap) - 2 * var(--tb-pol-pad)) * 0.92);
   width: auto;
   height: auto;
   -webkit-user-drag: none;
 }
-.tb-live-polaroid .tb-live-name { position: relative; inset: auto; width: min(100cqw, 340px); }
+/* Its name card is the slides' one (and the gallery tile's): as wide as its
+   words, at least a tile's card, both lines centred, so a Hebrew name lines
+   up with its "by" line (Raz: "not centred, and too wide"). */
+.tb-live-polaroid .tb-live-name {
+  position: relative;
+  inset: auto;
+  flex-shrink: 0;
+  width: max-content;
+  min-width: 156px;
+  max-width: min(100cqw, 340px);
+  align-items: center;
+  text-align: center;
+}
+.tb-live-polaroid .tb-live-name > * { max-width: 100%; }
 /* A framed painting on its white card, slightly tilted. */
 .tb-live-card {
   display: flex;
