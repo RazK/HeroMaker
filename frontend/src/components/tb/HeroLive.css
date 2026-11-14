@@ -39,17 +39,20 @@
    the sun's centre a third of the way down the band, a little over half the
    band across. */
 .tb-live-room { --band-top: var(--tb-hero-inset); --band: calc(100cqh - 2 * var(--band-top)); }
-/* With no sun (HeroLive SUN, off), the painting stands on a soft contact
-   shadow under its feet, ink at a low alpha, like the 3D hero's own. */
-.tb-live-room .tb-contact {
+/* A cut-out painting, sized by its figure (HeroLive useOpaqueBox): the
+   picture's transparent margin runs outside this box, empty. With no sun
+   (HeroLive SUN, off) the figure stands on a soft contact shadow under its
+   feet, ink at a low alpha, like the 3D hero's own. */
+.tb-slide-figure { position: relative; container-type: size; }
+.tb-slide-figure .tb-contact {
   position: absolute;
   inset-inline: 0;
-  inset-block-end: calc(var(--tb-hero-inset) - 8px);
+  inset-block-end: -3cqh;
   margin-inline: auto;
-  width: min(70cqw, calc(var(--band) * 0.34));
-  height: calc(var(--band) * 0.05);
+  width: min(90cqw, 50cqh);
+  height: 6cqh;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(35, 25, 66, 0.2), rgba(35, 25, 66, 0));
+  background: radial-gradient(closest-side, rgba(35, 25, 66, 0.22), rgba(35, 25, 66, 0));
   pointer-events: none;
 }
 .tb-live-room .tb-stage-sun {

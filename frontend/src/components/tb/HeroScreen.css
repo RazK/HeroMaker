@@ -188,7 +188,6 @@
      height; the sun, behind its upper body, follows (HeroLive.css --band). */
   .tb-hero-main[data-state='ready'] .tb-live-room { inset: 0; --band-top: -3cqh; --band: 106cqh; }
   .tb-hero-main[data-state='ready'] .tb-live-room .tb-live-canvas { inset: -3cqh 0; }
-  .tb-hero-main[data-state='ready'] .tb-live-room .tb-contact { inset-block-end: 8px; }
   /* The drawing and the painting as tall as the screen allows: under the
      dots, 16px off the bottom, out of the corners' way across. */
   .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit { inset: 36px var(--edge) 16px; }
