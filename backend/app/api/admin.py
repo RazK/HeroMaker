@@ -355,6 +355,83 @@ def admin_change_credits(
     return {"credits": int(tx.balance_after), "action": moderation.action_view(row)}
 
 
+# ============ Installing a hero's files ============
+
+# Step outputs (app/config/steps.py) plus the one extra file a step makes.
+_EXTRA_FILES = {"walking.glb": "meshy_rig"}
+_MAX_INSTALL_BYTES = 150 * 1024 * 1024
+
+
+def _installable() -> dict:
+    """file name -> the step that makes it."""
+    from app.config.steps import STEPS
+    return {**{s["output"]: s["name"] for s in STEPS}, **_EXTRA_FILES}
+
+
+@router.put("/creations/{creation_id}/files/{filename}")
+async def admin_install_file(
+    creation_id: str,
+    filename: str,
+    request: Request,
+    source: Optional[str] = Query(None, max_length=200, description="Where the file came from, kept on the step"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Put a file made outside the pipeline into a hero, as if its step had made it.
+
+    The body is the file's bytes. Only a step's output (processed.jpg,
+    rendered.png, model.glb, rigged.glb, avatar.vrm) or walking.glb is taken.
+    Installing a step's output marks that step completed, so the hero page,
+    gallery and games treat it like any other; the step keeps who installed it
+    and `source`. Nothing is charged or refunded, and no provider is called.
+    Used to try other providers (e.g. Tripo) on staging without a pipeline.
+    """
+    from datetime import datetime
+    from sqlalchemy.orm.attributes import flag_modified
+    from app.api.creations import require_picture
+    from app.models import Creation, CreationStep
+    from app.utils.storage import get_storage
+
+    step_name = _installable().get(filename)
+    if step_name is None:
+        raise HTTPException(status_code=400, detail=f"{filename} is not a hero file; one of: {', '.join(sorted(_installable()))}")
+    creation = db.query(Creation).filter(Creation.id == creation_id, Creation.deleted_at.is_(None)).first()
+    if creation is None:
+        raise HTTPException(status_code=404, detail="No such hero")
+    step = db.query(CreationStep).filter(CreationStep.creation_id == creation_id,
+                                         CreationStep.step_name == step_name).first()
+    if step is not None and step.status == "processing":
+        raise HTTPException(status_code=409, detail=f"{step_name} is running; cancel it first")
+    data = await request.body()
+    if not data or len(data) > _MAX_INSTALL_BYTES:
+        raise HTTPException(status_code=400, detail="Empty or too large")
+    if filename.endswith((".glb", ".vrm")):
+        if data[:4] != b"glTF":
+            raise HTTPException(status_code=400, detail=f"{filename} must be a binary glTF")
+    else:
+        require_picture(data)
+
+    get_storage().upload_file(creation.user_id, creation.id, filename, data)
+    now = datetime.utcnow()
+    if step is None:
+        step = CreationStep(creation_id=creation.id, step_name=step_name, metadata_json={})
+        db.add(step)
+    if filename not in _EXTRA_FILES:
+        step.status = "completed"
+        step.started_at = step.started_at or now
+        step.completed_at = now
+        step.estimated_progress = 100
+        step.error_message = None
+        step.error_code = None
+    step.metadata_json = {**(step.metadata_json or {}),
+                          f"installed:{filename}": {"by": admin.id, "at": now.isoformat(), "source": source}}
+    flag_modified(step, "metadata_json")
+    db.commit()
+    logger.info(f"[{creation.id}] admin {admin.id} installed {filename} ({len(data)} bytes, source={source!r})")
+    return {"creation_id": creation.id, "file": filename, "step": step_name, "step_status": step.status,
+            "bytes": len(data)}
+
+
 # ============ Coupon Endpoints ============
 
 @router.get("/coupons", response_model=List[AdminCouponResponse])
