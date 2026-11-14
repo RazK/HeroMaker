@@ -262,66 +262,23 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} trim={painted && !framed} />;
 
   // The drawing stays in view as a small polaroid on the other slides, and
-  // flies into it as you leave the drawing (and out of it, back to full size,
-  // as you return): what was drawn is always beside what it became. Not over
-  // a painting still being made, which already shows the drawing under its
-  // ring. The card is always there (hidden on the drawing), so the way back
-  // knows where it grows from.
+  // shrinks into it as you leave the drawing (and grows back out of it as you
+  // return): what was drawn is always beside what it became. It is ONE
+  // polaroid (OneDrawing), placed by how far the drawing's slide is from the
+  // middle, so a slow swipe either way never shows two drawings (Raz). Not
+  // over a painting still being made, which already shows the drawing under
+  // its ring.
   const showMini = current.key !== 'drawing' && !(current.key === 'painting' && current.state !== 'ready');
-  const mini = useRef<HTMLButtonElement>(null);
-  const wasAt = useRef(at);
-  const wasMini = useRef(showMini);
-  useLayoutEffect(() => {
-    const from = wasAt.current;
-    const hadMini = wasMini.current;
-    wasAt.current = at;
-    wasMini.current = showMini;
-    if (from === at || reducedMotion()) return;
-    const small = mini.current?.querySelector<HTMLElement>('.tb-pol');
-    const stage = mini.current?.closest<HTMLElement>('.tb-live-stage');
-    const big = stage?.querySelector<HTMLElement>('.tb-slide[data-slide="drawing"] .tb-pol');
-    const slide = big?.closest<HTMLElement>('.tb-slide');
-    if (!small || !stage || !big || !slide || !big.offsetWidth || !small.offsetWidth) return;
-    const shrinking = from === 'drawing' && showMini;
-    const growing = at === 'drawing' && hadMini;
-    if (!shrinking && !growing) return;
-    // One object between the two places: a copy of the big polaroid (the same
-    // frame, tilt and picture as the small one, just bigger), scaled between
-    // them. Both are tilted alike, so their boxes' centres and widths are all
-    // the move needs.
-    const st = stage.getBoundingClientRect();
-    const centre = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top + r.height / 2 - st.top }; };
-    const b = centre(big);
-    if (growing) {
-      // The drawing is still sliding in: where it will land, not where it is.
-      const sr = slide.getBoundingClientRect();
-      b.x -= sr.left - st.left;
-      b.y -= sr.top - st.top;
-    }
-    const s = centre(small);
-    const k = small.offsetWidth / big.offsetWidth;
-    const ghost = big.cloneNode(true) as HTMLElement;
-    ghost.removeAttribute('style');
-    ghost.classList.add('tb-mini-ghost');
-    Object.assign(ghost.style, { left: `${b.x - big.offsetWidth / 2}px`, top: `${b.y - big.offsetHeight / 2}px`, width: `${big.offsetWidth}px`, height: `${big.offsetHeight}px` });
-    stage.appendChild(ghost);
-    const atSmall = `translate(${s.x - b.x}px, ${s.y - b.y}px) scale(${k}) rotate(-4deg)`;
-    const atBig = 'translate(0, 0) scale(1) rotate(-4deg)';
-    const ms = LAND_MS + 120;
-    const ease = 'cubic-bezier(.2, .8, .2, 1)';
-    ghost.animate(shrinking ? [{ transform: atBig }, { transform: atSmall }] : [{ transform: atSmall }, { transform: atBig }], { duration: ms, easing: ease, fill: 'forwards' })
-      .finished.finally(() => ghost.remove());
-    // The real ones wait under the copy until it has landed on them.
-    big.animate([{ opacity: 0 }, { opacity: 0 }], { duration: ms });
-    if (shrinking) small.animate([{ opacity: 0 }, { opacity: 0 }], { duration: ms });
-  }, [at, showMini]); // eslint-disable-line react-hooks/exhaustive-deps
   const drawingIndex = slides.findIndex((s) => s.key === 'drawing');
-  const miniCard = (
-    <button ref={mini} type="button" className={`tb-mini-drawing${showMini ? '' : ' tb-mini-drawing--away'}`} aria-label="Show the drawing"
-      aria-hidden={showMini ? undefined : true} tabIndex={showMini ? undefined : -1}
-      onClick={() => go.current?.(drawingIndex, -1)}>
-      <img className="tb-pol" src={file('thumb_original.jpg')} alt="" draggable={false} />
-    </button>
+  const oneDrawing = (offset: (key: string) => number, dragging: boolean) => (
+    <OneDrawing
+      offset={offset('drawing')}
+      dragging={dragging}
+      hideAtRest={current.key === 'painting' && current.state !== 'ready'}
+      tappable={showMini}
+      thumb={file('thumb_original.jpg')}
+      onTap={() => go.current?.(drawingIndex, -1)}
+    />
   );
 
   // The live hero's own controls, on its slide only (Raz: "these controls are
@@ -442,7 +399,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           index={index}
           onPick={pick}
           go={go}
-          overlay={miniCard}
+          overlay={oneDrawing}
           data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
         />
         {making?.info}
@@ -492,8 +449,12 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
   onPick: (i: number) => void;
   /** Filled in with a way to slide straight to a slide from a given side. */
   go?: MutableRefObject<((i: number, dir: 1 | -1) => void) | null>;
-  /** Drawn over the slides, inside the stage (the drawing's small card). */
-  overlay?: ReactNode;
+  /**
+   * Drawn over the slides, inside the stage (the one drawing). Given how far
+   * a slide is from the middle right now, in slides (the drag included), and
+   * whether a finger is moving them.
+   */
+  overlay?: (offset: (key: string) => number, dragging: boolean) => ReactNode;
   className: string;
   label: string;
   data: Record<string, string>;
@@ -672,8 +633,103 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
           ))}
         </div>
       )}
-      {overlay}
+      {overlay?.((key) => {
+        const i = slides.findIndex((s) => s.key === key);
+        if (i < 0) return n;
+        return posOf(i) + (dx ?? 0) / (el.current?.clientWidth || 1);
+      }, dx !== null)}
     </div>
+  );
+}
+
+/**
+ * The drawing, as one polaroid over the stage. On the drawing's slide it is
+ * the big polaroid; one slide away it is the small card in the corner; in
+ * between (a finger dragging, or the slide's own 260ms move) it is placed and
+ * scaled between the two by how far the drawing's slide is from the middle.
+ * Both places are marked by invisible stand-ins laid out by the CSS (the
+ * drawing slide's picture and the corner button's), so the layout stays the
+ * CSS's; this only moves the one picture between them. Never two drawings.
+ */
+function OneDrawing({ offset, dragging, hideAtRest, tappable, thumb, onTap }: {
+  offset: number;
+  dragging: boolean;
+  /** Hidden when settled away from the drawing (a painting being made shows it already). */
+  hideAtRest: boolean;
+  tappable: boolean;
+  thumb: string;
+  onTap: () => void;
+}) {
+  const btn = useRef<HTMLButtonElement>(null);
+  const one = useRef<HTMLImageElement>(null);
+  const [, remeasure] = useState(0);
+  const watched = useRef<Element | null>(null);
+  const ro = useRef<ResizeObserver | null>(null);
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
+    ro.current = new ResizeObserver(() => remeasure((t) => t + 1));
+    const stage = btn.current?.closest('.tb-live-stage');
+    if (stage) ro.current.observe(stage);
+    const small = btn.current?.querySelector('img');
+    if (small) ro.current.observe(small);
+    return () => ro.current?.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const b = btn.current;
+    const el = one.current;
+    const stage = b?.closest<HTMLElement>('.tb-live-stage');
+    const big = stage?.querySelector<HTMLImageElement>('.tb-slide[data-slide="drawing"] .tb-slide-pic.tb-pol');
+    const slide = big?.closest<HTMLElement>('.tb-slide');
+    const small = b?.querySelector<HTMLImageElement>('img');
+    if (!el) return;
+    if (!stage || !big || !slide || !small) { el.style.opacity = '0'; return; }
+    // The big stand-in can be replaced (its shape becomes known): watch the current one.
+    if (watched.current !== big && ro.current) {
+      if (watched.current) ro.current.unobserve(watched.current);
+      ro.current.observe(big);
+      watched.current = big;
+    }
+    const known = !big.classList.contains('tb-slide-pic--contain') && big.offsetWidth > 0 && small.offsetWidth > 0;
+    const st = stage.getBoundingClientRect();
+    const br = big.getBoundingClientRect();
+    const sr = slide.getBoundingClientRect();
+    const mr = small.getBoundingClientRect();
+    // The big one's centre with its slide in the middle (a slide only moves
+    // sideways), whatever its slide is doing now.
+    const bx = br.left + br.width / 2 - sr.left;
+    const by = br.top + br.height / 2 - sr.top;
+    const mx = mr.left + mr.width / 2 - st.left;
+    const my = mr.top + mr.height / 2 - st.top;
+    const w = stage.clientWidth || 1;
+    const p = Math.min(1, Math.abs(offset));
+    // Riding its slide, and drawn towards the corner as the slide leaves.
+    const ride = bx + offset * w * (1 - p);
+    const x = ride + (mx - ride) * p;
+    const y = by + (my - by) * p;
+    const k = small.offsetWidth / big.offsetWidth;
+    const cs = getComputedStyle(big);
+    Object.assign(el.style, {
+      width: `${big.offsetWidth}px`,
+      height: `${big.offsetHeight}px`,
+      left: `${bx - big.offsetWidth / 2}px`,
+      top: `${by - big.offsetHeight / 2}px`,
+      padding: cs.padding,
+      borderRadius: cs.borderRadius,
+      transition: dragging || reducedMotion() ? 'none' : 'transform 260ms cubic-bezier(.2, .8, .2, 1), opacity 260ms ease',
+    });
+    el.style.transform = `translate(${x - bx}px, ${y - by}px) scale(${1 + (k - 1) * p}) rotate(-4deg)`;
+    el.style.opacity = !known ? '0' : hideAtRest ? String(1 - p) : '1';
+    if (big.currentSrc && el.src !== big.currentSrc) el.src = big.currentSrc;
+  });
+  return (
+    <>
+      {/* The corner's stand-in, and what a tap on the small card hits. */}
+      <button ref={btn} type="button" className={`tb-mini-drawing${tappable ? '' : ' tb-mini-drawing--away'}`} aria-label="Show the drawing"
+        aria-hidden={tappable ? undefined : true} tabIndex={tappable ? undefined : -1} onClick={onTap}>
+        <img className="tb-pol" src={thumb} alt="" draggable={false} />
+      </button>
+      <img ref={one} className="tb-pol tb-one-drawing" src={thumb} alt="" aria-hidden="true" draggable={false} />
+    </>
   );
 }
 
