@@ -57,8 +57,8 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 4. **Symmetry.** Paired things (drawing and hero, two game cards) are the same size, side by side. Control bars centred; never a panel in a corner.
 5. **No dead whitespace.** The hero or stage flexes to fill what is left.
 6. **Scrolling.** "Only scroll if there is significant new information to reveal." Phone screens fit 360 x 640 and up; the hero screen is `100dvh`. Lists (the gallery) are the exception.
-7. **Phone-first.** Desktop adapts the same layout (more gallery columns, a bigger stage). The hero has four moves, Dance, Wave, Flip, Punch, one row on every screen. It never invents screens.
-8. **Wider than tall, the hero is the screen.** A phone on its side, a laptop, a desktop: a ready hero's stage is the whole viewport, edge to edge, no column and no cap, and the 3D hero stands as tall as the room under the header row allows, on the plate, the sun behind its upper body. The drawing and the painting are as tall too. Every control floats over the stage at its edges, so the middle band is the hero's alone: top, Back at the start, the name centred over the hero with the dots centred under it (Raz: "the indication of step inside the carousel needs to be centered above the character not in the left. same as character name"), the secondary (Make your own or Share, small) and More at the end; the hero's room starts below the dots, clear of its head; Previous and Next arrows halfway down, the end one just inside the moves rail and the start one mirroring it; the four moves a rail of labelled pills at the end, on the hero's slide only; bottom, the drawing's small polaroid (on the drawing, its name card) at the start, about a fifth of the screen's height across (Raz: "the drawing is too small on the bottom left"), and Play, the one big button, at the end, still the last and bottom-most: the start corner's bottom is Play's, the same inset, never lower. Never a column of buttons beside the stage, never a full-width row of buttons across it. (A hero being made or failed keeps its own layout; see Known debt.)
+7. **Phone-first.** Desktop adapts the same layout (more gallery columns, a bigger stage), in the same cream frame: "Desktop and wide screens" below has every size's numbers. The hero has four moves, Dance, Wave, Flip, Punch, one row on every screen. It never invents screens.
+8. **Wider than tall, the hero is the picture in a cream frame.** A phone on its side, a laptop, a desktop: the phone's page, scaled up. A cream header (Back, the name centred, More), ONE plate card, the stage, as big as the frame leaves it, and a cream foot under it: the secondary at the start, the slide's own controls centred (the name card, the four moves, the toy's controls), Play at the end, the last and bottom-most button. Nothing is full bleed, nothing floats over the hero, no arrows, nothing overlaps. Numbers and diagrams: "Desktop and wide screens".
 
 **Hero tiles.** One tile for every hero shown as a card (`components/tb/HeroTile.tsx`): the gallery, the class page's students, the My classes shelf. Same plate, polaroid and size, in one grid: 2 columns on a phone, 3 from 680px of room, 4 from 1060px. The caption is always two lines, a sibling of "Speckle Sally / by Raz, 11": a hero being made says "Sculpting · 45%" on the second line, a child still drawing "Drawing…". No progress bar inside the caption. A tile with no caption (the shelf) centres its art on the plate.
 
@@ -79,16 +79,128 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 
 **No divider lines; space separates.** No horizontal rule anywhere: not under the header, not over the bar, not between groups in a sheet, not beside an "or". The header, the switch and the bar are cream on cream, set apart by `--tb-space` alone; content that scrolls under a sticky one fades into the cream over `--tb-space` (`.tb-header::after`, `.tb-switchbar::after`, `.tb-bar::before`). A pause between groups of sheet rows is `.tb-sheet-divider`, 12px of space. Lines that belong to a thing (a card's outline, a button's depth, an input's border, an admin table's rows) stay.
 
+## Desktop and wide screens
+
+Raz, 2026-11-15: "on mobile, you have this cream-white space behind the yellow, the purple one, and on desktop, you don't have it... the menu on the side, the top bar, and generally the frame around the preview [should be] in the same color." The phone is the reference. Every bigger screen is the same page in the same cream frame, with more room for the picture. Nothing new is invented for a desktop.
+
+### Modes
+
+| Mode | When | Fixed | Fluid |
+|---|---|---|---|
+| **Phone portrait** (the reference) | taller than wide | the column (100%, at most 560px), 20px gutters, 58px buttons, the 56px dock | the stage's height |
+| **Phone on its side** | wider than tall, under 560px tall | 48px buttons in the foot, a 32px dots row, half spaces (8px) round the card | the card's width and height |
+| **Tablet / laptop** | wider than tall, 560px tall or more, up to 1180px wide | 58px buttons, the 44px dots row, 16px spaces | the frame (`--tb-frame-x`), the card |
+| **Desktop** | 1180 to 1599px wide | the same, moves 140px wide | the card |
+| **Wide** | 1600px wide and 800px tall or more | 64px foot buttons, the name card at 1.2x; from 1880 x 900, 72px and 1.35x | the card |
+
+Wider-than-tall is `@media (orientation: landscape)`; the tighter phone-on-its-side rules add `max-height: 559px`. A sheet becomes a centred card from 900 x 600 (below). The fixed things are tokens in `toybox.css`: `--tb-frame-x` (the frame's side margin, `clamp(20px, 2.5vw, 48px)`: 20px on a phone, 36px at 1440, 48px from 1920), `--tb-page-max` (1200px, the gallery's page) and `--tb-dots-h` (44px, the dots' row and each dot's hit area).
+
+### The frame, on every size
+
+- **Cream behind everything.** The header, the side margins and the foot are `--tb-cream`. Only the stage is lavender, and only as a **plate card**: `--tb-plate-1`, `--tb-radius-card` (28px), inside even cream margins (`--tb-frame-x` at the sides, a `--tb-space` under the header, the foot under it).
+- **No full bleed.** No lavender to the screen's edges, no control floating over the hero.
+- **No arrows** anywhere: a swipe, a mouse drag (the stage shows the grab cursor), the dots and the arrow keys move the stage.
+- **Nothing overlaps.** The title, the dots, a caption, each dock control, the bar's buttons and the small drawing each have a place of their own. `e2e/hero-layout.mjs` measures it on every slide (the staging robot runs it at 1280 x 900, 1920 x 1080 and 390 x 844).
+
+### The grid
+
+| Room (the page's width less its margins) | Gallery columns | Tile gap | Page |
+|---|---|---|---|
+| under 680px | 2 | 12px | the column, 20px gutters |
+| 680 to 1059px | 3 | 16px | 1200px (`--tb-page-max`), centred, 20px gutters |
+| 1060px and up | 4 (a tile about 278px wide at 1200) | 16px | the same; wider screens get cream margins, never a fifth column |
+
+Text screens (sign in, buy credits, account, forms) stay the 560px column, centred on the cream. Forms inside them are at most 420px. The game itself (`/play`) is its own full-screen world and is not framed.
+
+### The hero page, wider than tall
+
+```
+ ┌───────────────────────────────────────────────────────────────────┐  cream
+ │ (‹)                       Speckle Sally                       (⋯) │  header, 60px
+ │ ╭───────────────────────────────────────────────────────────────╮ │  a space (16px)
+ │ │                          ·  ━  ·                              │ │  dots row: a space, 44px, a space
+ │ │                                                               │ │
+ │ │                         .-~~~-.                               │ │
+ │ │                        (  hero  )   the room: as tall as the  │ │
+ │ │  ╭────╮                 \_____/     card leaves under the dots│ │
+ │ │  │draw│                  |   |      and a space over its foot │ │
+ │ │  │ing │                  |   |                                │ │
+ │ │  ╰────╯                 _|   |_                               │ │  small drawing: bottom-start,
+ │ ╰───────────────────────────────────────────────────────────────╯ │  a space in from the card's edges
+ │ [ ✎ Make your own ]   [Dance][Wave][Flip][Punch]       [ ▶ Play ] │  foot: a space, a button, a space
+ └───────────────────────────────────────────────────────────────────┘
+   ↑ --tb-frame-x                                       --tb-frame-x ↑
+```
+
+- **Header:** cream, 60px. Back at the start, the name centred, More (⋯) at the end, each `--tb-frame-x` from the edge. Nothing else lives there.
+- **The card:** the stage, centred, as wide as the frame leaves (no cap: the hero is the point) and as tall as the header and the foot leave. It never scrolls.
+- **The dots:** centred in their own row at the card's top: a `--tb-space`, the 44px row, a `--tb-space` (Raz: "The indicators of the stage above the character are just too close to the name and the character. It's all too dense. You need to have more breathing space."). Each dot is a 32 x 44px target, so a mouse can click one; a dot goes straight to its slide.
+- **The room:** under the dots' row, down to a `--tb-space` above the card's foot. The 3D hero stands as tall as the room; the drawing and the painting are as tall, a space in from its sides.
+- **The foot:** cream, under the card: a `--tb-space`, one button (58px; 64px from 1600 wide; 72px from 1880 x 900), its 6px depth, a `--tb-space`. The secondary (Make your own, or Share) at the start, at least 200px wide; **Play at the end, the last and bottom-most button**, the same size. Between them, centred and on the same baseline, the slide's own controls, each one foot button tall:
+  - the drawing and the painting: **the name card**, centred under the picture (Raz: "why is the label so far on the left? should be below the character man"), never in a corner. It scales with the screen so it reads as the label of a big picture (Raz: "or bigger"): the phone's size up to 1600px wide, 1.2x from 1600, 1.35x from 1880 (`--cap-s`);
+  - the live hero: **the four moves**, labelled pills 140px wide (120px under 1180px; 152px and 164px on wide screens), 12px apart;
+  - the toy: **Move, the pieces slider and the .3mf**, bare on the cream like the moves (not a white panel), at most 620px wide;
+  - each kept clear of the foot's two buttons by `--foot-side` (220px; 180px under 1180px; 260px and 300px on wide screens; 176px and 158px on a phone on its side).
+- **The small drawing:** in the card's bottom-start corner, a `--tb-space` in from its edges, `clamp(110px, min(24cqh, 14cqw), 240px)` across. On the drawing's slide it grows out of that corner into the picture (one element, as on a phone).
+- **Captions over a slide** (the locked toy's "A toy you can print") sit in the room, under the dots' row, never on the name or the dots. The made toy has no caption.
+- **Phone on its side:** the same frame, tighter: 8px over and under the card, a 32px dots row, 48px foot buttons, moves at their words' width, 6px apart (4px and 13px type under 740px wide, so all four still fit between the two buttons).
+
+The hero **being made** or **failed** stays the phone's page, in a 720px column centred on the cream from 900 x 600 (560px before). Its steps, its ring and its bar are the phone's.
+
+### The full-screen drawing
+
+```
+ ┌───────────────────────────────────────────────────────────────────┐  cream
+ │ (✕)                        The drawing                            │  header across the frame
+ │                          ╭──────────╮                              │
+ │                          │          │  the polaroid, tilted, as     │
+ │                          │ drawing  │  tall as the screen leaves    │
+ │                          │          │                               │
+ │                          ╰──────────╯                              │
+ │                        [ Speckle Sally ]   name card, a space under │
+ │                        [  by Raz, 11   ]                            │
+ └───────────────────────────────────────────────────────────────────┘
+```
+
+Cream, the header across the frame (Close at `--tb-frame-x`, not in a 560px column), the picture inset by `--tb-frame-x` at the sides, the compact centred name card a `--tb-space` under the tilted frame.
+
+### Sheets and dialogs
+
+| | Phone (and anything under 900 x 600) | 900 x 600 and up |
+|---|---|---|
+| **Sheet** (More, New hero, the game chooser) | a bottom sheet: full width up to 560px, the grip, rounded top | a **centred card**: 480px wide (the game chooser 640px), `--tb-radius-card` all round, no grip, at most the screen's height less two `--tb-frame-x` |
+| **Dialog** (Delete, confirmations) | centred, 420px max, 20px from the edges | the same |
+
+A sheet never runs edge to edge on a desktop, and never sits at the bottom of a 1080px-tall screen.
+
+### Other screens
+
+| Screen | Wider than tall |
+|---|---|
+| Landing and gallery | the 1200px page on the cream, the header across it, tiles in 3 or 4 columns (the grid above); the bar's button keeps to the middle 560px |
+| Sign in, sign up | the 560px column, centred |
+| Buy credits | the 560px column |
+| Profile / account | the 560px column |
+| The game chooser | a centred sheet, 640px, two game cards side by side |
+| Class pages | the teacher's page on the 1200px page, class cards 2 across from 720px and 3 from 1100px; the live class screen up to 1600px wide; a child's name and PIN screens in the 420px form |
+
+### Density
+
+- **One `--tb-space` (16px) between any two things that are not one control**: the header and the card, the card's top and the dots' row, the dots' row and the hero, the hero and the card's foot, the card and the foot's buttons.
+- Inside one control (a pill's icon and word, a caption's two lines) 2 to 10px.
+- Nothing smaller than a `--tb-space` from the card's edge but the card's own rounding.
+- If something does not fit, it gets smaller (the moves' width, then their type), never closer, never on top of something else.
+
 ## Images
 
 - Never crop: `object-fit: contain`, always.
 - Heroes are transparent and stand on a plate (the hero's page: on its contact shadow, no sun behind them).
 - An old painting with an opaque studio backdrop is shown from its cut-out (`cut_rendered.png`, `thumb_rendered.png`). One with no confident cut (`painting: "framed"`) is a polaroid, the drawing's tilted white card, never a beige box.
-- The hero's stage is one swipe carousel, in a loop: the drawing, the painting, the live hero (the still 3D model is never shown). A ready hero's page opens on how it was made: the drawing, then the painting once it has loaded, then the live hero once the 3D has, about a second on each (Raz, 2026-10-25); any touch ends it there, and from then on it is swipe only. Pager dots over the top of the stage (16px from the top), and a Previous and a Next arrow at its two edges halfway down the room (the header's round nav button; on a phone 40px and quiet until a pointer or focus finds them), so the swipe is visible (Raz: "there is no indication that you're supposed to swipe... add arrows"). They step exactly as the arrow keys and the dots do, round the ends. The stage's foot is the **dock**, one button tall and 16px inside the stage; each picture fills the room above it, 16px clear of the edges, contained, never cropped, and the dock holds what belongs to the slide in view, at the same height and foot (to the pixel): the drawing and the painting their name card, the gallery tile's caption at the tile's own size (as wide as its words, at least a tile card's 156px, centred, both lines centred; Raz: "too much white space... the same size as it was in the gallery"), the live hero its four moves across the dock's full width, the action figure its controls, so a swipe swaps one for the other in place (Raz: the painting's empty band "looks weird"). **Each is one element, never one per slide** (Raz: "Why 2 label elements if it's same label? Keep it there"): the dock is a stack of layers over the stage (`Dock` in `HeroLive.tsx`), one for the name card, one for the moves, one for the action figure's controls; the slides pass under them and they never move sideways. Each fades by how much of its slides is in the middle, following the finger: between the drawing and the painting the name card simply stays; between the painting and the hero it gives way to the moves in place, one after the other, never one over the other (text over buttons looked messy): the outgoing layer is gone by half way, the incoming one appears only after it, and half way the dock is empty; the same between the moves and the action figure's controls; a snap-back runs it back. A layer more out than in takes no taps. The robot holds slow swipes part-way both ways and fails on a second name card or one that moved. Behind the painting and the live hero the sun stands behind the upper body only, head and torso (Raz, 2026-11-15: "maybe resume the yellow circle we had earlier? it was nice..."), so the figure is still sized to the stage as if nothing were behind it (a cut-out painting by its figure, not by the transparent margin round it). It was off for a while (Raz had asked whether the disc was needed at all); `SUN` in `HeroLive.tsx` is the one flag, and off, the figure stands on a soft contact shadow instead.
+- The hero's stage is one swipe carousel, in a loop: the drawing, the painting, the live hero (the still 3D model is never shown). A ready hero's page opens on how it was made: the drawing, then the painting once it has loaded, then the live hero once the 3D has, about a second on each (Raz, 2026-10-25); any touch ends it there, and from then on it is swipe only. Pager dots over the top of the stage (16px from the top on a phone; on a wide screen their own 44px row, a space clear of the card's top and of the hero), and **no arrows** (Raz: "the left-right arrows, I don't really like them... They're just floating in the middle of nowhere and don't make sense", and "On mobile, we don't need the arrows. I think we can just slide. The indication above the character is enough"). A swipe, a mouse drag, the arrow keys and the dots move it; a dot goes straight to its own slide. The stage's foot is the **dock**, one button tall and 16px inside the stage; each picture fills the room above it, 16px clear of the edges, contained, never cropped, and the dock holds what belongs to the slide in view, at the same height and foot (to the pixel): the drawing and the painting their name card, the gallery tile's caption at the tile's own size (as wide as its words, at least a tile card's 156px, centred, both lines centred; Raz: "too much white space... the same size as it was in the gallery"), the live hero its four moves across the dock's full width, the action figure its controls, so a swipe swaps one for the other in place (Raz: the painting's empty band "looks weird"). **Each is one element, never one per slide** (Raz: "Why 2 label elements if it's same label? Keep it there"): the dock is a stack of layers over the stage (`Dock` in `HeroLive.tsx`), one for the name card, one for the moves, one for the action figure's controls; the slides pass under them and they never move sideways. Each fades by how much of its slides is in the middle, following the finger: between the drawing and the painting the name card simply stays; between the painting and the hero it gives way to the moves in place, one after the other, never one over the other (text over buttons looked messy): the outgoing layer is gone by half way, the incoming one appears only after it, and half way the dock is empty; the same between the moves and the action figure's controls; a snap-back runs it back. A layer more out than in takes no taps. The robot holds slow swipes part-way both ways and fails on a second name card or one that moved. Behind the painting and the live hero the sun stands behind the upper body only, head and torso (Raz, 2026-11-15: "maybe resume the yellow circle we had earlier? it was nice..."), so the figure is still sized to the stage as if nothing were behind it (a cut-out painting by its figure, not by the transparent margin round it). It was off for a while (Raz had asked whether the disc was needed at all); `SUN` in `HeroLive.tsx` is the one flag, and off, the figure stands on a soft contact shadow instead.
 - **The drawing is always the gallery's polaroid: white frame, slight tilt, name card under it** (Raz: the hero page's flat card "loses this nice white frame with the slight tilt, and the name is shown differently"). One rule (`.tb-pol` in `HeroTile.css`) and one name card (`TileCaption`: the hero's name, "by Maya, 6") serve the gallery tile, the drawing slide, its small card and its full-screen view, so they never drift apart. The frame hugs the whole picture: no bars inside it, nothing cropped. A tap on the drawing or the painting opens it full screen; Close or Back return to the same slide. Full screen, the name card is the same compact, centred card, one `--tb-space` below the tilted frame's lowest corner (not its untilted box).
-- On the painting and the live hero, the drawing stays in view as that small polaroid in the stage's bottom-start corner, just above the dock (on a wide screen, in the corner itself), about a third of the stage across (112px on a phone, up to 150px on a desktop; Raz: the old 64px card in the top corner was too small). Leaving the drawing, it visibly shrinks into that card; tapping the card (or swiping back) grows it out again (Raz, 2026-10-25: "the drawing goes into the small card smoothly when swiped"). **It is one element, never two**: one polaroid over the stage (`OneDrawing` in `HeroLive.tsx`) placed and scaled between the drawing slide's polaroid and the corner card by how far the drawing's slide is from the middle, so it follows a finger at any speed, either way, and lands with the slide when let go (snapping back too). The two places are invisible stand-ins laid out by the CSS; nothing else ever draws the drawing on the stage. The robot holds slow swipes part-way both ways and fails on anything but one drawing in view. Not over a painting still being made, which already shows the drawing under its ring.
-- **The moves are the live hero's own controls** (Raz: "put the buttons inside it, not below it, so that when we preview the painting or the drawing, we don't see them, because we can't make the drawing do a flip or dance. These controls are part of the 3D animation preview."): one centred row of white pills in the dock while the hero is in view (on a wide screen, a rail at the end: Layout rule 8), fading out as it leaves; never on the drawing or the painting. A tap plays at once. The stage grew into the room the row used to take under it.
-- **The owner's hero has a fourth slide, after the live hero: the action figure** (Raz, 2026-11: "show it next in another screen, add it as option with more credits"). The hero cut into parts that print on their own and click together with ball joints (Hi3D, `ActionFigure.tsx`). Only the owner sees it, and only once the hero is ready. Locked, it shows the painting under a white tag, "A toy you can print", and its dock is the buy button, "Make it a toy" with its credits as the trail (too few credits opens Buy credits; a split that fails gives them back and says so). Being made, the painting dims under the ring and the dock is a name card saying so. Made, the parts turn slowly by themselves (a drag on the stage is a swipe, as over the live hero) while the arms and legs swing about their ball joints (Move, on by default: only parts Hi3D cut with a joint move), and the dock is a white card with Move, the pull-apart slider and the `.3mf` for a printer. Users only ever get Hi3D ball joints; the Meshy choice is the admin sheet's. Same dock box as every other slide; on a wide screen, bottom-centre between the drawing's card and Play.
+- On the painting and the live hero, the drawing stays in view as that small polaroid in the stage's bottom-start corner, just above the dock (on a wide screen, in the corner itself), about a third of the stage across (112px on a phone; on a wide screen `clamp(110px, min(24cqh, 14cqw), 240px)`, in the card's bottom-start corner; Raz: the old 64px card in the top corner was too small). Leaving the drawing, it visibly shrinks into that card; tapping the card (or swiping back) grows it out again (Raz, 2026-10-25: "the drawing goes into the small card smoothly when swiped"). **It is one element, never two**: one polaroid over the stage (`OneDrawing` in `HeroLive.tsx`) placed and scaled between the drawing slide's polaroid and the corner card by how far the drawing's slide is from the middle, so it follows a finger at any speed, either way, and lands with the slide when let go (snapping back too). The two places are invisible stand-ins laid out by the CSS; nothing else ever draws the drawing on the stage. The robot holds slow swipes part-way both ways and fails on anything but one drawing in view. Not over a painting still being made, which already shows the drawing under its ring.
+- **The moves are the live hero's own controls** (Raz: "put the buttons inside it, not below it, so that when we preview the painting or the drawing, we don't see them, because we can't make the drawing do a flip or dance. These controls are part of the 3D animation preview."): one centred row of white pills in the dock while the hero is in view (on a wide screen, centred in the foot under the card: "Desktop and wide screens"), fading out as it leaves; never on the drawing or the painting. A tap plays at once. The stage grew into the room the row used to take under it.
+- **The owner's hero has a fourth slide, after the live hero: the action figure** (Raz, 2026-11: "show it next in another screen, add it as option with more credits"). The hero cut into parts that print on their own and click together with ball joints (Hi3D, `ActionFigure.tsx`). Only the owner sees it, and only once the hero is ready. Locked, it shows the painting under a white tag, "A toy you can print", and its dock is the buy button, "Make it a toy" with its credits as the trail (too few credits opens Buy credits; a split that fails gives them back and says so). Being made, the painting dims under the ring and the dock is a name card saying so. Made, the parts turn slowly by themselves (a drag on the stage is a swipe, as over the live hero) while the arms and legs swing about their ball joints (Move, on by default: only parts Hi3D cut with a joint move), and the dock is Move, the pieces slider ("Show the pieces") and the `.3mf` for a printer: on a phone in a white card, on a wide screen bare in the foot like the moves, each one foot button tall. No tag over the made toy (a "6 parts · ball joints" pill sat on the name and the dots: "elements override each other its awful"). Users only ever get Hi3D ball joints; the Meshy choice is the admin sheet's. Same dock box as every other slide; on a wide screen, the foot's centre between the secondary and Play.
 - Being made, the carousel builds: each part shows its progress where it will appear, and the carousel moves on when it is ready, unless you swiped back to look. Tapping the hero's name in the header renames it (its owner only).
 - Thumbnail first, full size swapped in when loaded.
 - Each game owns a colour, a world and a pose, so its card reads before its title: never two posters on the same backdrop or in the same stance. Robot Rumble is tangerine rays and a punch; Dance party is a magenta night club and a disco point.
@@ -143,7 +255,12 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 | Transparent hero on its plate, the sun behind its upper body | An opaque painting covering the plate, or a disc behind the whole hero that limits its size |
 | Paired things equal and side by side | A small drawing in a corner beside a huge hero, as a static thumbnail (the stage's small drawing card is the exception: the drawing itself flies into it, so it reads as the same picture) |
 | Moves in one centred bar | A panel stuck in a corner |
-| Wider than tall: the hero fills the screen's height, the controls small at its edges | A column of buttons beside the stage, or a full-width row of buttons across its foot |
+| Wider than tall: the stage a plate card in the cream frame, its controls in the cream foot under it | Lavender to the screen's edges, or controls floating over the hero |
+| Every element in a place of its own (`e2e/hero-layout.mjs` checks) | A caption on the name or the dots; two things in one spot |
+| A swipe, a drag, the dots (44px targets), the arrow keys | Previous and Next arrows |
+| The name card centred under the picture, scaled with the screen | The name card in a corner, or a phone-sized chip under a 1000px picture |
+| A space between the name, the dots and the hero | The dots touching the hero's head or the header |
+| On a desktop, a sheet as a centred card | A bottom drawer across a 1920px screen |
 | The hero's moves inside its own slide | Moves under every slide, on a drawing that cannot dance |
 | The drawing as the gallery's tilted polaroid with its name card | A flat drawing card with its own name strip |
 | A labelled pill: "How it was made" | An unlabelled icon for anything but back/close/more/play |
@@ -174,7 +291,12 @@ Text 4.5:1. Tap targets 44px. Visible focus (`0 0 0 4px rgba(91,61,245,.25)`). `
 - **Chips broken across lines.** "Refunds and terms should be in new line not break line like currently. This is a recurring comment." A line of text and the chips about it never share a line: the text on its own line, the chips together on the next (`.tb-chip-row`, never wraps). The footer's version gets its own line too.
 - **Underlined text links.** "No underlined links." Every action is a button, a row, a chip or a toggle; `.tb-link` is gone.
 - **The name and the dots at the top-start on a wide screen.** Beside Back, away from the hero: "the indication of step inside the carousel needs to be centered above the character not in the left. same as character name". Both are centred over the hero now.
-- **No sign the stage swipes.** Dots alone: "there is no indication that you're supposed to swipe... add arrows or something". Previous and Next arrows now.
+- **No sign the stage swipes.** Dots alone: "there is no indication that you're supposed to swipe... add arrows or something". Previous and Next arrows came, then went: see the next entry.
+- **Floating Previous and Next arrows** (to v2.0.105): "the left-right arrows, I don't really like them. I don't think they look good, especially on desktop. They're just floating in the middle of nowhere and don't make sense", and "On mobile, we don't need the arrows. I think we can just slide. The indication above the character is enough". Now none: swipe, drag, the dots and the arrow keys.
+- **A full-bleed lavender stage on a desktop** (to v2.0.105): the stage was the whole viewport with the controls floating over it, so the desktop lost the phone's cream frame: "on mobile, you have this cream-white space behind the yellow, the purple one, and on desktop, you don't have it." Now a plate card in a cream frame, its controls in the cream foot.
+- **Dots crammed between the name and the hero**: "The indicators of the stage above the character are just too close to the name and the character. It's all too dense. You need to have more breathing space." Now their own 44px row, a space clear on each side.
+- **Elements on top of each other** (v2.0.105, the toy's slide at 2000px): a "6 parts · ball joints" pill on the name and the dots, the toy's controls in a white panel floating at the bottom: "layout is horrible man elements override each other its awful". Now the made toy has no tag, its controls sit in the foot like the moves, and `e2e/hero-layout.mjs` fails on any overlap.
+- **The name card in the corner** (v2.0.105, wide screens): the drawing centred, its card at the bottom-start: "why is the label so far on the left? should be below the character man", then "or bigger, i dont know". Now centred under the picture and scaled with the screen.
 - **Names under the step dots.** Tried; Raz: "Remove the labels, but make the transition automatic between the phases." The steps now play by themselves.
 - **My classes as a chip.** The fourth chip on a phone, cut off at the edge: "I could miss it. It needs a higher level in the hierarchy." Now the switch.
 - **Two columns on a wide screen.** A phone on its side and the desktop put the stage in one half and the four moves and two buttons in the other, mostly empty: "This is an awful desktop layout. You need to have most of the area showing the character and then have these controls under it or over, like overlay, but don't use half the screen just for a few buttons where most of the space is empty." Now the stage takes the width and its controls sit in one row at its foot.
@@ -193,7 +315,7 @@ Mock-ups of each are in the artifact's "Rejected" card.
 
 ## Before you show Raz any UI
 
-1. Screenshot every screen you touched at **360x640, 390x844, 844x390, 1280x800** and check each against this book (the Do/Don't table is the quick pass).
+1. Screenshot every screen you touched at **360x640, 390x844, 844x390, 1280x800, 1440x900, 1920x1080** and check each against this book (the Do/Don't table is the quick pass). For the hero page, also run `node e2e/hero-layout.mjs <url> <hero-id>`.
 2. Robot-test staging with Playwright, the whole flow: landing → gallery → sign in → buy credits (Lemon Squeezy test mode) → upload a drawing → image → 3D → rigged and animated → the hero in the profile → play a game.
 3. Send a short message: the one ask at the top, on its own line, with a working staging link. Then what you tested.
 4. Never ask for approval without a link.
@@ -205,7 +327,8 @@ Mock-ups of each are in the artifact's "Rejected" card.
 ## Known debt (do not copy)
 
 - Primary above secondary in the New hero sheet and Delete dialog. Rule: primary last.
-- Hero screen being made or failed, at 1280 x 800: it stays a 560px column. (On a phone on its side the stage is on one side full height, the steps and the status on the other above the bar, whose buttons share one row there, primary at the end. A ready hero on any wider-than-tall screen follows Layout rule 8.)
+- Hero screen being made or failed on a desktop: the phone's page in a 720px column, not yet the frame and foot a ready hero has. (On a phone on its side the stage is on one side full height, the steps and the status on the other above the bar, whose buttons share one row there, primary at the end.)
+- The screenshots in the table above are from before the desktop frame; retake them at the next release.
 - Signed-out gallery has a 25-word paragraph under the headline.
 - The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.
 - `--tb-line` borders on inputs and chips are 1.3:1, under the 3:1 a control border needs.

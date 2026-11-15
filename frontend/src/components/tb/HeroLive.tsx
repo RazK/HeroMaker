@@ -521,10 +521,14 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
   };
   const stepRef = useRef(step);
   stepRef.current = step;
+  // A dot goes to its own slide, however far round (it used to step one
+  // slide toward it, so on four slides a dot two away landed on the wrong one).
   const goTo = (i: number) => {
     if (i === index) return;
-    if (n === 2) stepRef.current(side);
-    else stepRef.current(posOf(i) > 0 ? 1 : -1);
+    if (n === 2) { stepRef.current(side); return; }
+    const p = posOf(i);
+    if (Math.abs(p) === 1) stepRef.current(p > 0 ? 1 : -1);
+    else slideToRef.current(i, p > 0 ? 1 : -1);
   };
 
   // Straight to slide i, coming in from side dir, however far round it is:

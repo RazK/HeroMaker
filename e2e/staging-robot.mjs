@@ -27,6 +27,7 @@ import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { checkHeroLayout } from './hero-layout.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
@@ -859,6 +860,24 @@ try {
       await page.waitForTimeout(2000);
     }
 
+    // Nothing overlaps on any slide, and wider than tall the name card is
+    // centred under the picture (hero-layout.mjs; Raz: "elements override
+    // each other its awful", "should be below the character"). At the
+    // robot's own size, a big desktop and a phone, then back.
+    let layoutSizes = '';
+    if (!DEMO) {
+      const sizes = [VIEW, { width: 1920, height: 1080 }, { width: 390, height: 844 }];
+      for (const size of sizes) {
+        await page.setViewportSize(size);
+        await page.waitForTimeout(800);
+        const bad = (await checkHeroLayout(page)).filter((s) => s.problems.length);
+        if (bad.length) throw new Error(`at ${size.width}x${size.height}: ${bad.map((s) => `${s.slide}: ${s.problems.join('; ')}`).join(' | ')}`);
+      }
+      await page.setViewportSize(VIEW);
+      await page.waitForTimeout(800);
+      layoutSizes = sizes.map((v) => `${v.width}x${v.height}`).join(', ');
+    }
+
     // Play is the bottom-most button on the page. It opens the game chooser:
     // two games, each opened with the same hero parameters. Only buttons a
     // person can see count: off-screen slides (their full-screen openers sit
@@ -928,7 +947,7 @@ try {
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened drawing > painting > hero, the drawing on its small card; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; no moves on the drawing or the painting, all 4 inside the hero's stage; punch ${punchMs} ms and backflip ${flipMs} ms after the tap; no scroll; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
+    return `"${title}" opened drawing > painting > hero, the drawing on its small card; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; no moves on the drawing or the painting, all 4 inside the hero's stage; punch ${punchMs} ms and backflip ${flipMs} ms after the tap; no scroll; nothing overlaps on any slide${layoutSizes ? ` at ${layoutSizes}` : ''}; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
   });
 
   await step(page, 'class', async () => {

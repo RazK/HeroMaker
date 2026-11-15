@@ -96,7 +96,6 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
               <PartsStage url={url} apart={apart} spin jointed={jointed} moving={moving} />
             </Suspense>
           </PartsBoundary>
-          <span className="tb-figure-tag">{figure.part_count ?? '?'} parts{jointed ? ` · ${figure.joint} joints` : ''}</span>
         </div>
         {inDock(<div className="tb-figure-dock tb-figure-dock--made">
           {/* A drag on the slider is the slider's, not a swipe of the carousel. */}
