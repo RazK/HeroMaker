@@ -10,7 +10,20 @@
 //   - no stage arrows;
 //   - Play is the bottom-most button;
 //   - wider than tall, on the drawing and the painting: the name card's
-//     centre is the picture's (within 2px) and its top is under the picture.
+//     centre is the picture's (within 2px) and its top is under the picture;
+//   - the dock (the name card, the moves, the toy's controls) is inside the
+//     card, at least 16px from its edges, as on a phone (Raz: "on mobile, the
+//     action items ... are inside the purple area, but here you put them
+//     outside. Why?");
+//   - on a desktop (1180px wide and 560px tall or more) the drawing's small
+//     card is at least 32px in from the card's start and bottom edges, and
+//     16px clear of the dock;
+//   - wider than tall (and 560px tall or more), the 3D hero is at least 70%
+//     of the free height between the dots and the dock, and a space clear of
+//     both.
+//
+// Each slide also reports its measurements (insets, gaps, the hero's share),
+// which the self-review in a PR quotes.
 //
 // Standalone, against any deployment:
 //   node e2e/hero-layout.mjs <base-url> <hero-id> [WxH,WxH,...]
@@ -95,8 +108,87 @@ async function slideProblems(page) {
         if (c.top < p.bottom) problems.push(`the name card's top (${Math.round(c.top)}) is above the picture's bottom (${Math.round(p.bottom)})`);
       }
     }
-    return { slide, problems };
+    // Inside the card: the dock, the dots, the small drawing.
+    const m = { card: { l: Math.round(sb.left), t: Math.round(sb.top), w: Math.round(sb.width), h: Math.round(sb.height) } };
+    const dockEls = [...document.querySelectorAll('.tb-dock-layer .tb-live-name, .tb-dock-layer .tb-hero-moves, .tb-dock-layer .tb-figure-dock')].filter(seen);
+    if (dockEls.length) {
+      const d = dockEls.map((e) => e.getBoundingClientRect());
+      const db = { l: Math.min(...d.map((r) => r.left)), t: Math.min(...d.map((r) => r.top)), r: Math.max(...d.map((r) => r.right)), b: Math.max(...d.map((r) => r.bottom)) };
+      m.dock = { top: Math.round(db.t), bottomInset: Math.round(sb.bottom - db.b), startInset: Math.round(db.l - sb.left), endInset: Math.round(sb.right - db.r), centreOff: Math.round((db.l + db.r) / 2 - (sb.left + sb.right) / 2) };
+      if (db.l < sb.left + 16 || db.r > sb.right - 16 || db.t < sb.top + 16 || db.b > sb.bottom - 16) problems.push(`the dock is not inside the card with 16px to spare (${m.dock.startInset}/${m.dock.bottomInset}/${m.dock.endInset}px)`);
+      // Its buttons' depth hangs under the box: the inset counts to the face.
+    }
+    if (dots.length) {
+      const c = dots[0];
+      m.dotTopInset = Math.round((c.top + c.bottom) / 2 - 4 - sb.top);
+      m.dotsBottom = Math.round((c.top + c.bottom) / 2 + 4);
+    }
+    const one = document.querySelector('.tb-one-drawing');
+    if (slide !== 'drawing' && one && seen(one)) {
+      const r = one.getBoundingClientRect();
+      m.mini = { startInset: Math.round(r.left - sb.left), bottomInset: Math.round(sb.bottom - r.bottom), h: Math.round(r.height), share: Math.round((r.height / sb.height) * 100) };
+      // Clear of the dock: beside it (wider than tall) or above it (a phone).
+      if (m.dock) {
+        const d = dockEls.map((e) => e.getBoundingClientRect());
+        const side = Math.min(...d.map((x) => x.left)) - r.right;
+        const above = Math.min(...d.map((x) => x.top)) - r.bottom;
+        m.mini.gapToDock = Math.round(Math.max(side, above));
+      }
+      const desktop = innerWidth >= 1180 && innerHeight >= 560 && innerWidth > innerHeight;
+      if (desktop && (m.mini.startInset < 32 || m.mini.bottomInset < 32)) problems.push(`the small drawing is ${m.mini.startInset}px / ${m.mini.bottomInset}px from the card's start / bottom, under 32`);
+      if (m.mini.gapToDock !== undefined && m.mini.gapToDock < 16) problems.push(`the small drawing is ${m.mini.gapToDock}px from the dock, under 16`);
+    }
+    return { slide, problems, m };
   });
+}
+
+/**
+ * The 3D hero's visible height on the hero's slide, against the free height
+ * between the dots and the dock: its ink outline, found in a screenshot of
+ * the middle half of its room (the sun, the plate and the contact shadow are
+ * all lighter than the outline).
+ */
+async function heroShare(page, m) {
+  const room = page.locator('.tb-slide[data-slide="hero"] .tb-live-room');
+  const rb = await room.boundingBox();
+  if (!rb || !m.dock || m.dotsBottom === undefined) return null;
+  // Only the band between the dots and the dock: nothing else is the hero.
+  const y0 = Math.max(rb.y, m.dotsBottom + 1);
+  const y1 = Math.min(rb.y + rb.height, m.dock.top - 1);
+  // The hero dances while it waits: a few frames, the tallest it stands for
+  // its size, all of them together for how close it comes to the dots and
+  // the dock.
+  const frames = [];
+  for (let k = 0; k < 4; k++) {
+    if (k) await page.waitForTimeout(300);
+    frames.push(await page.screenshot({ clip: { x: rb.x + rb.width * 0.25, y: y0, width: rb.width * 0.5, height: y1 - y0 } }));
+  }
+  const measured = [];
+  for (const png of frames) measured.push(await page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data;
+    let top = -1; let bottom = -1;
+    for (let y = 0; y < c.height; y++) {
+      let n = 0;
+      for (let i = y * c.width * 4; i < (y + 1) * c.width * 4; i += 4) if (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2] < 150) n++;
+      if (n >= 2) { if (top < 0) top = y; bottom = y; }
+    }
+    return { top, bottom, h: c.height };
+  }, png.toString('base64')));
+  const seen = measured.filter((r) => r.top >= 0);
+  if (!seen.length) return null;
+  const scale = (y1 - y0) / seen[0].h;
+  const tallest = Math.max(...seen.map((r) => r.bottom - r.top)) * scale;
+  const heroTop = y0 + Math.min(...seen.map((r) => r.top)) * scale;
+  const heroBottom = y0 + Math.max(...seen.map((r) => r.bottom)) * scale;
+  const free = m.dock.top - m.dotsBottom;
+  return { heroH: Math.round(tallest), free, share: Math.round((tallest / free) * 100), dotsToHero: Math.round(heroTop - m.dotsBottom), heroToDock: Math.round(m.dock.top - heroBottom) };
 }
 
 /**
@@ -115,6 +207,17 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
       .then(() => true, () => false);
     await page.waitForTimeout(settle);
     const got = await slideProblems(page);
+    if (slides[i] === 'hero') {
+      const h = await heroShare(page, got.m);
+      if (h) {
+        got.m.hero = h;
+        // Wider than tall and 560px tall or more (a phone on its side is
+        // measured, not held to it: 375px of height has no more to give).
+        const roomy = await page.evaluate(() => innerWidth > innerHeight && innerHeight >= 560);
+        if (roomy && h.share < 70) got.problems.push(`the hero is ${h.share}% of the free height between the dots and the dock, under 70%`);
+        if (roomy && (h.dotsToHero < 16 || h.heroToDock < 16)) got.problems.push(`the hero is ${h.dotsToHero}px from the dots and ${h.heroToDock}px from the dock, under 16`);
+      }
+    }
     // A dot goes straight to its own slide.
     if (!landed) got.problems.unshift(`the dot for "${slides[i]}" landed on "${got.slide}"`);
     out.push(got);
@@ -143,9 +246,10 @@ async function main() {
       const m = document.querySelector('.tb-dock-layer--moves');
       return m && getComputedStyle(m).opacity === '1';
     }, null, { timeout: 120000 });
-    for (const { slide, problems } of await checkHeroLayout(page)) {
+    for (const { slide, problems, m } of await checkHeroLayout(page)) {
       bad += problems.length;
       console.log(`${size} ${slide}: ${problems.length ? problems.join('; ') : 'ok'}`);
+      if (process.env.METRICS) console.log(`  ${JSON.stringify(m)}`);
     }
     await page.close();
   }

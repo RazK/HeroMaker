@@ -9,13 +9,23 @@
    1100px window breakpoints less its two 20px gutters: the gallery itself
    looks exactly as it did. */
 .tb-tiles { container: tb-tiles / inline-size; min-width: 0; }
-.tb-tiles-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+/* One rule on every size (BRANDBOOK "One layout, every size"): as many
+   columns as fit tiles of at least --tile-min; the sizes only change the
+   token. 150px makes 2 on any phone; 216px makes 3 from 680px of room;
+   253px makes 4 from 1060px, the most the 1200px page holds. */
+.tb-tiles-grid {
+  --tile-min: 150px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--tile-min)), 1fr));
+  gap: 12px;
+  align-items: start;
+}
 @container tb-tiles (min-width: 680px) {
-  .tb-tiles-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .tb-tiles-grid { --tile-min: 216px; gap: 16px; }
   .tb-tile:not(.tb-tile--mini) { height: 280px; }
 }
 @container tb-tiles (min-width: 1060px) {
-  .tb-tiles-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tb-tiles-grid { --tile-min: 253px; }
 }
 
 .tb-tile {
