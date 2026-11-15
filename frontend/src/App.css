@@ -6,7 +6,7 @@
   background: var(--tb-cream);
 }
 
-.tb-screen--wide { max-width: 1200px; }
+.tb-screen--wide { max-width: var(--tb-page-max); }
 /* The bar's hairline runs edge to edge, like the header's; its button keeps
    to the middle 560px. */
 .tb-screen--wide > .tb-bar { padding-inline: max(var(--tb-gutter), calc((100% - 560px) / 2)); }

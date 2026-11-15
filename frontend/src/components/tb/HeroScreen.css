@@ -110,168 +110,249 @@
   .tb-hero-screen:not([data-state='ready']) > .tb-bar { grid-area: bar; }
 }
 
-/* ---------- A ready hero on any screen wider than tall ----------
-   A phone on its side, a laptop, a desktop: the hero IS the screen. The
-   stage is the whole viewport, edge to edge, and the 3D hero stands at four
-   fifths of its height on a sun that grows with it. Everything else floats
-   over the stage at its edges, so the middle band is the hero's alone:
-     top     back and the name at the start, the dots in the middle, the
-             secondary (Make your own / Share, small) and the more button
-             at the end;
-     end     the four moves, a rail of labelled pills, on the hero's slide;
-     bottom  the drawing's small polaroid (or, on the drawing, its name
-             card) at the start, Play, the one big button, at the end:
-             still the last and bottom-most thing on the page.
-   Raz rejected two layouts before this one: two columns ("don't use half
-   the screen just for a few buttons") and a stage capped at 1100px with a
-   full-width row of six buttons across its foot ("Look at the size of the
-   hero compared to the size of the screen"). */
+/* ---------- A ready hero on any screen wider than tall: the frame ----------
+   BRANDBOOK, "Desktop and wide screens". The phone's page, scaled up: a cream
+   frame (the header, the side margins, the foot) round ONE plate card, the
+   stage. Nothing is full bleed (Raz: "the menu on the side, the top bar, and
+   generally the frame around the preview are in the same color").
+     top     the cream header: Back at the start, the name centred, More at
+             the end;
+     middle  the stage card, as wide and as tall as the frame leaves it (no
+             cap: the hero is the point); the dots centred in their own row
+             at its top, a --tb-space clear of the card's edge and of the
+             hero (Raz: "too close to the name and the character"); the hero
+             as big as the room under them; the drawing's small card in the
+             card's bottom-start corner;
+     foot    a cream row under the card: the secondary (Make your own or
+             Share) at the start, the slide's own controls centred (the name
+             card, the four moves, the toy's controls), Play at the end, the
+             last and bottom-most button.
+   No arrows: a swipe, a mouse drag, the dots and the arrow keys move it
+   (Raz: "They're just floating in the middle of nowhere and don't make
+   sense"). The stage element runs down through the foot (its slides are
+   clipped at the card's sides), so the dock's layers, which cover the stage,
+   land in the foot; the plate is painted by its ::before, the card's part
+   only. */
 @media (orientation: landscape) {
   .tb-hero-screen.tb-hero-main[data-state='ready'] {
-    --edge: clamp(150px, 11vw, 300px);
-    /* The header row and the dots under it: the hero's room starts below. */
-    --wide-top: 80px;
-    /* How far Play's box sits off the bottom; the bottom-start corner matches it. */
-    --wide-foot: calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
-    --tb-rail-h: var(--tb-btn-h);
+    --frame-x: var(--tb-frame-x);
+    /* The foot's buttons, and the room each side keeps for them so the
+       centred controls never meet them. */
+    --foot-btn: var(--tb-btn-h);
+    --foot-side: 220px;
+    /* The name card's scale: the phone's size up to 1600px wide. */
+    --cap-s: 1;
+    --foot: calc(var(--tb-space) + var(--foot-btn) + var(--tb-depth) + var(--tb-space) + env(safe-area-inset-bottom, 0px));
+    /* The card's top to where the hero may start: a space, the dots' row, a space. */
+    --room-top: calc(var(--tb-space) + var(--tb-dots-h) + var(--tb-space));
     max-width: none;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-areas: none;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: 'head' 'body';
   }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > * { grid-area: 1 / 1; }
-  /* The header floats over the stage: no ground, no hairline; only its
-     buttons take a tap, a swipe anywhere else is the stage's. The name sits
-     beside Back, clear of the dots and of the hero's head. */
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header {
-    align-self: start;
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header { grid-area: head; padding-inline: var(--frame-x); }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header > .tb-header-title {
+    left: calc(var(--frame-x) + 56px);
+    right: calc(var(--frame-x) + 56px);
+  }
+  /* Nothing scrolls on this page: no fade under the header or over the foot. */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header::after,
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar::before { display: none; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-screen-body {
+    grid-area: body;
+    padding: var(--tb-space) var(--frame-x) 0;
+  }
+  /* The stage: transparent, the card painted by ::before down to the foot. */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-live-stage {
+    background: none;
+    border-radius: 0;
+    --tb-hero-inset: 0px;
+  }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-live-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 var(--foot);
+    z-index: -1;
+    border-radius: var(--tb-radius-card);
+    background: var(--tb-plate-1);
+  }
+  /* The dots, centred in their own 44px row a space below the card's top;
+     each dot a 44px tap target (a mouse clicks them). */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-dots { inset-block-start: var(--tb-space); }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-dot { width: 32px; height: var(--tb-dots-h); }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-live-stage { cursor: grab; }
+
+  /* The foot: the bar's two buttons at its ends. */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar {
+    grid-area: body;
+    align-self: end;
+    z-index: 5;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 var(--frame-x) calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
     background: none;
     box-shadow: none;
     pointer-events: none;
   }
-  /* Nothing scrolls under a header or bar that floats over the stage: no fade. */
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header::after,
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar::before { display: none; }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header > .tb-header-side { pointer-events: auto; }
-  /* The name centred over the hero, between Back (start) and Share and ⋯
-     (end): the one header everywhere, a round button on each edge and the
-     title centred (Raz: "the indication of step inside the carousel needs to
-     be centered above the character not in the left. same as character
-     name"). Both sides keep room for the end's two buttons, so it stays
-     centred. */
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header > .tb-header-title {
-    left: calc(var(--tb-gutter) + 48px + 12px + 140px);
-    right: calc(var(--tb-gutter) + 48px + 12px + 140px);
-    text-align: center;
-  }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-screen-body { padding: 0; }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-live-stage { border-radius: 0; --tb-hero-inset: 0px; }
-  /* The dots centred under the name. The hero stands below both
-     (.tb-live-room's top, --wide-top), clear of its head. */
-  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-dots {
-    inset-inline: 0;
-    inset-block-start: 58px;
-    justify-content: center;
-  }
-  /* Previous and next, full size, halfway down the hero's room; the end one
-     just inside the moves rail, the start one mirroring it. */
-  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-arrow {
-    --tb-header-ctl: 48px;
-    inset-block-start: calc(var(--wide-top) + (100% - var(--wide-top)) / 2 - 24px);
-    opacity: 1;
-  }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-arrow--prev { inset-inline-start: calc(var(--tb-gutter) + 132px + 16px); }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-arrow--next { inset-inline-end: calc(var(--tb-gutter) + 132px + 16px); }
-  /* The bar's two buttons go to their own corners. */
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar { display: contents; }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { grid-area: 1 / 1; z-index: 4; width: auto; }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn--secondary {
-    align-self: start;
-    justify-self: end;
-    height: var(--tb-btn-sm-h);
-    margin-block-start: var(--tb-space);
-    margin-inline-end: calc(var(--tb-gutter) + 48px + 12px);
-    padding: 0 16px;
-    font-size: 16px;
-  }
-  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn--primary {
-    align-self: end;
-    justify-self: end;
-    min-width: 160px;
-    margin-block-end: calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
-    margin-inline-end: var(--tb-gutter);
-    padding: 0 32px;
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn {
+    pointer-events: auto;
+    flex: none;
+    width: auto;
+    min-width: 200px;
+    height: var(--foot-btn);
+    padding: 0 28px;
   }
 
-  /* Inside the stage: one room, the whole stage; no dock. The 3D's canvas
-     runs 3% past its top and bottom (clipped by the stage), so the hero,
-     framed with the stage's own margin round it, stands 94% of the screen's
-     height; the sun, behind its upper body, follows (HeroLive.css --band). */
-  .tb-hero-main[data-state='ready'] .tb-live-room { inset: var(--wide-top) 0 0; --band-top: -3cqh; --band: 106cqh; }
-  .tb-hero-main[data-state='ready'] .tb-live-room .tb-live-canvas { inset: -3cqh 0; }
-  /* The drawing and the painting as tall as the screen allows: under the
-     dots, 16px off the bottom, out of the corners' way across. */
-  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit { inset: 0 var(--edge) 16px; }
-  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit--framed { inset: 6px calc(var(--edge) + 6px) 22px; }
-  /* The drawing's name card, bottom-start (where the small card sits on the
-     other slides; on the painting the small card has the corner). */
-  .tb-hero-main[data-state='ready'] .tb-dock-layer--name { opacity: var(--o-draw, 1); }
+  /* Inside the card: the hero's room, under the dots and above the foot. */
+  .tb-hero-main[data-state='ready'] .tb-live-room {
+    inset: var(--room-top) 0 calc(var(--foot) + var(--tb-space));
+    --band-top: 0px;
+    --band: 100cqh;
+  }
+  .tb-hero-main[data-state='ready'] .tb-live-room .tb-live-canvas { inset: 0; }
+  /* A picture's full-screen opener is the card, not the foot under it. */
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-slide-open { inset-block-end: var(--foot); }
+  .tb-hero-main[data-state='ready'] .tb-slide-open > .tb-live-room { inset-block-end: var(--tb-space); }
+  /* The drawing and the painting as tall as the room, a space off its sides. */
+  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit { inset: 0 var(--tb-space); }
+  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit--framed { inset: 6px calc(var(--tb-space) + 6px); }
+
+  /* The dock, in the foot: centred between the bar's buttons, its foot on
+     theirs. The name card is the gallery caption; the moves a row of
+     labelled pills; the toy's controls their own box. */
+  .tb-hero-main[data-state='ready'] .tb-live-stage :is(.tb-live-name, .tb-hero-moves, .tb-figure-dock) {
+    inset-block-end: calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+  }
+  /* The name card: the gallery caption, one foot button tall, scaled with
+     the screen (--cap-s) so on a big screen it reads as the label of a big
+     picture, not a phone-sized chip (Raz: "or bigger"). Centred under the
+     picture, never in a corner (Raz: "should be below the character"). */
   .tb-hero-main[data-state='ready'] .tb-live-stage .tb-live-name {
-    inset-inline: var(--tb-gutter) auto;
-    inset-block-end: var(--wide-foot);
-    max-width: min(240px, 26vw);
-    margin: 0;
+    height: var(--foot-btn);
+    min-width: calc(156px * var(--cap-s));
+    max-width: min(calc(340px * var(--cap-s)), calc(100% - 2 * var(--foot-side)));
+    padding: 0 calc(12px * var(--cap-s));
+    border-radius: calc(20px * var(--cap-s));
+    gap: calc(2px * var(--cap-s));
   }
-  /* The action figure's dock: bottom-centre, between the small drawing card
-     (start) and Play (end), its own 56px tall. */
-  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock {
-    inset-inline: 0;
-    inset-block-end: calc(var(--tb-space) + var(--tb-depth-sm));
-    width: min(360px, calc(100% - 2 * (var(--mini-w, 170px) + 2 * var(--tb-gutter))));
-    margin-inline: auto;
-  }
-  .tb-hero-main[data-state='ready'] .tb-figure-room { inset: 0 0 calc(var(--tb-dock-h) + var(--tb-space) + 8px); }
-  /* The small card's bottom is Play's (the bottom-end corner's): the same
-     inset, so Play stays the bottom-most button (Raz). */
-  .tb-hero-main[data-state='ready'] .tb-mini-drawing {
-    /* About a fifth of the screen's height (Raz: "the drawing is too small
-       on the bottom left"), never wider than a sixth of it. */
-    --mini-w: clamp(96px, min(22cqh, 16cqw), 280px);
-    inset-inline-start: var(--tb-gutter);
-    /* The tilt drops its lowest corner about 6% of its width below its box:
-       lifted by that, the card's lowest pixel is Play's bottom, never lower. */
-    inset-block-end: calc(var(--wide-foot) + var(--mini-w) * 0.06);
-  }
-  /* The moves: a rail at the end, between the header and Play. */
-  .tb-hero-main[data-state='ready'] .tb-hero-moves {
-    inset-inline: auto var(--tb-gutter);
-    inset-block: 80px calc(var(--tb-space) + var(--tb-depth) + var(--tb-btn-h) + 12px);
+  .tb-hero-main[data-state='ready'] .tb-live-name .tb-tile-name { font-size: calc(17px * var(--cap-s)); line-height: calc(22px * var(--cap-s)); }
+  .tb-hero-main[data-state='ready'] .tb-live-name .tb-tile-line { font-size: calc(13px * var(--cap-s)); line-height: calc(18px * var(--cap-s)); }
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-hero-moves {
     width: auto;
-    height: auto;
-    margin: 0;
+    max-width: calc(100% - 2 * var(--foot-side));
+    height: var(--foot-btn);
     display: flex;
-    align-items: center;
+    justify-content: center;
   }
-  .tb-hero-main[data-state='ready'] .tb-moves { flex-direction: column; gap: var(--gap); height: auto; padding: 0 0 var(--tb-depth-sm); }
+  .tb-hero-main[data-state='ready'] .tb-moves { flex-direction: row; gap: 12px; height: var(--foot-btn); padding: 0; }
   .tb-hero-main[data-state='ready'] .tb-move {
     flex: none;
-    width: 132px;
+    width: 140px;
     max-width: none;
-    height: var(--tb-rail-h);
+    height: var(--foot-btn);
     flex-direction: row;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 10px;
     padding: 0 16px;
-    font-size: 17px;
+    font-size: 18px;
   }
   .tb-hero-main[data-state='ready'] .tb-move svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock {
+    width: min(460px, calc(100% - 2 * var(--foot-side)));
+  }
+  /* The toy's controls, made: the foot's own parts, like the moves, never a
+     white panel floating over the frame (Raz: "elements override each
+     other"). Move a pill like a move, the slider bare on the cream, the 3MF
+     an outlined button, all one foot button tall. */
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock--made {
+    width: min(620px, calc(100% - 2 * var(--foot-side)));
+    height: var(--foot-btn);
+    padding: 0;
+    gap: var(--tb-space);
+    border-radius: 0;
+    background: none;
+  }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-move,
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-get {
+    height: var(--foot-btn);
+    padding: 0 22px;
+    gap: 8px;
+    font-size: 18px;
+  }
+  .tb-hero-main[data-state='ready'] .tb-figure-slider { gap: 10px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-room { inset: var(--room-top) 0 calc(var(--foot) + var(--tb-space)); }
+
+  /* The drawing's small card: in the card's bottom-start corner, a space in
+     from its edges, about a fifth of the card's height across. */
+  .tb-hero-main[data-state='ready'] .tb-mini-drawing {
+    --mini-w: clamp(110px, min(24cqh, 14cqw), 240px);
+    inset-inline-start: var(--tb-space);
+    /* The tilt drops its lowest corner about 6% of its width below its box. */
+    inset-block-end: calc(var(--foot) + var(--tb-space) + var(--mini-w) * 0.06);
+  }
 }
-/* A phone on its side: 48px rail pills, closer together, so four fit
-   between the header and Play. */
+/* A laptop narrower than the foot's three groups: the moves keep their
+   labels, narrower. */
+/* A big screen: the foot grows with it, and the name card with the foot
+   (1.2x the phone's from 1600px wide, 1.35x from 1880px). */
+@media (orientation: landscape) and (min-width: 1600px) and (min-height: 800px) {
+  .tb-hero-screen.tb-hero-main[data-state='ready'] { --foot-btn: 64px; --foot-side: 260px; --cap-s: 1.2; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { min-width: 230px; font-size: 21px; }
+  .tb-hero-main[data-state='ready'] .tb-move { width: 152px; font-size: 19px; }
+}
+@media (orientation: landscape) and (min-width: 1880px) and (min-height: 900px) {
+  .tb-hero-screen.tb-hero-main[data-state='ready'] { --foot-btn: 72px; --foot-side: 300px; --cap-s: 1.35; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { min-width: 260px; font-size: 22px; }
+  .tb-hero-main[data-state='ready'] .tb-move { width: 164px; font-size: 20px; }
+  .tb-hero-main[data-state='ready'] .tb-move svg { width: 24px; height: 24px; }
+}
+@media (orientation: landscape) and (max-width: 1180px) {
+  .tb-hero-screen.tb-hero-main[data-state='ready'] { --foot-side: 180px; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { min-width: 160px; padding: 0 20px; }
+  .tb-hero-main[data-state='ready'] .tb-move { width: 120px; padding: 0 12px; font-size: 17px; }
+}
+/* A phone on its side: the same frame, tighter. 48px buttons in the foot,
+   a half space over the card, the dots' row 32px. */
 @media (orientation: landscape) and (max-height: 559px) {
-  .tb-hero-screen.tb-hero-main[data-state='ready'] { --tb-rail-h: var(--tb-btn-sm-h); }
-  .tb-hero-main[data-state='ready'] .tb-moves { --gap: 6px; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] {
+    --foot-btn: var(--tb-btn-sm-h);
+    --foot-side: 176px;
+    --foot: calc(8px + var(--foot-btn) + var(--tb-depth-sm) + 8px + env(safe-area-inset-bottom, 0px));
+    --room-top: calc(8px + 32px + 4px);
+  }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-screen-body { padding-block-start: 8px; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-dots { inset-block-start: 8px; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-dot { height: 32px; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar { padding-block-end: calc(8px + var(--tb-depth-sm) + env(safe-area-inset-bottom, 0px)); }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { min-width: 120px; padding: 0 16px; font-size: 16px; }
+  .tb-hero-main[data-state='ready'] .tb-live-stage :is(.tb-live-name, .tb-hero-moves, .tb-figure-dock) {
+    inset-block-end: calc(8px + var(--tb-depth-sm) + env(safe-area-inset-bottom, 0px));
+  }
+  .tb-hero-main[data-state='ready'] .tb-live-room { inset-block-end: calc(var(--foot) + 8px); }
+  .tb-hero-main[data-state='ready'] .tb-slide-open > .tb-live-room { inset-block-end: 8px; }
+  .tb-hero-main[data-state='ready'] .tb-move { width: auto; min-width: 0; padding: 0 12px; gap: 6px; font-size: 15px; }
+  .tb-hero-main[data-state='ready'] .tb-moves { gap: 6px; }
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock--made { width: calc(100% - 2 * var(--foot-side)); gap: 8px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-move,
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-get { padding: 0 12px; font-size: 15px; }
+  .tb-hero-main[data-state='ready'] .tb-move svg { width: 18px; height: 18px; }
+  .tb-hero-main[data-state='ready'] .tb-mini-drawing {
+    --mini-w: clamp(72px, 22cqh, 120px);
+    inset-inline-start: 8px;
+    inset-block-end: calc(var(--foot) + 8px + var(--mini-w) * 0.06);
+  }
+}
+/* A small phone on its side (667 x 375): the four labelled moves still fit
+   between the foot's two buttons, a little smaller. */
+@media (orientation: landscape) and (max-height: 559px) and (max-width: 740px) {
+  .tb-hero-screen.tb-hero-main[data-state='ready'] { --foot-side: 158px; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { min-width: 0; padding: 0 12px; font-size: 15px; }
+  .tb-hero-main[data-state='ready'] .tb-move { padding: 0 8px; gap: 4px; font-size: 13px; }
+  .tb-hero-main[data-state='ready'] .tb-moves { gap: 4px; }
+  .tb-hero-main[data-state='ready'] .tb-move svg { width: 16px; height: 16px; }
 }
 
 /* Pick a game: two equal cards side by side (brand book: paired things are

@@ -521,10 +521,14 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
   };
   const stepRef = useRef(step);
   stepRef.current = step;
+  // A dot goes to its own slide, however far round (it used to step one
+  // slide toward it, so on four slides a dot two away landed on the wrong one).
   const goTo = (i: number) => {
     if (i === index) return;
-    if (n === 2) stepRef.current(side);
-    else stepRef.current(posOf(i) > 0 ? 1 : -1);
+    if (n === 2) { stepRef.current(side); return; }
+    const p = posOf(i);
+    if (Math.abs(p) === 1) stepRef.current(p > 0 ? 1 : -1);
+    else slideToRef.current(i, p > 0 ? 1 : -1);
   };
 
   // Straight to slide i, coming in from side dir, however far round it is:
@@ -645,19 +649,6 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
           </div>
         );
       })}
-      {/* Previous and next: the swipe made visible (Raz, 2026-11-15: "there is
-          no indication that you're supposed to swipe... add arrows"). They
-          step exactly as the arrow keys and the dots do, round the ends. */}
-      {n > 1 && (
-        <>
-          <button type="button" className="tb-nav tb-carousel-arrow tb-carousel-arrow--prev" aria-label="Previous" onClick={() => stepRef.current(-1)}>
-            <Icon name="back" />
-          </button>
-          <button type="button" className="tb-nav tb-carousel-arrow tb-carousel-arrow--next" aria-label="Next" onClick={() => stepRef.current(1)}>
-            <Icon name="next" />
-          </button>
-        </>
-      )}
       {n > 1 && (
         <div className="tb-carousel-dots">
           {slides.map((s, i) => (
