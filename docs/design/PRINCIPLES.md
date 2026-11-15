@@ -104,6 +104,21 @@ they are for.
 29. **Nothing scary or broken is ever shown,** even as an example: a toy with
     the wrong colours (a blue face) is not a placeholder.
 
+## Shape (Raz, 2026-11-15)
+
+30. **Equal padding.** A box's inner space is the same at its sides and below
+    its last element (add a button's 6px depth back underneath).
+31. **Concentric corners.** An enclosing box's radius = the radius of what is
+    inside it + the padding between them.
+32. **A corner element sits equally in from both edges it is near.**
+33. **What you can press looks pressable** (ink outline and depth); flat
+    panels are information only.
+34. **Hints show once,** the first time, inside the card; never as a standing
+    line.
+35. **No prev/next arrows** on any size: swipe, drag, the dots and the keys.
+
+The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
+
 ## Before showing Raz
 
 - Screens at 360x640, 390x844, 844x390, 1280x800, 1440x900 and 1920x1080, phone

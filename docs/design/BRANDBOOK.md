@@ -1,6 +1,6 @@
 # HeroMaker brand book: Toy Box
 
-**The hero is a toy; the UI is its packaging.** First read [`PRINCIPLES.md`](PRINCIPLES.md) (Raz's rules: binding) and [`USER_STORIES.md`](USER_STORIES.md) (what each screen is for). Then read this before any UI work. Every rule came from a real rejection or decision by Raz. If a screen breaks a rule, the screen is wrong.
+**The hero is a toy; the UI is its packaging.** First read [`PRINCIPLES.md`](PRINCIPLES.md) (Raz's rules: binding), its long form [`DOS_AND_DONTS.md`](DOS_AND_DONTS.md) (every review as a Do and a Don't, the appendix of this book) and [`USER_STORIES.md`](USER_STORIES.md) (what each screen is for). Then read this before any UI work. Every rule came from a real rejection or decision by Raz. If a screen breaks a rule, the screen is wrong.
 
 - Visual version (live components, swatches, do/don't pairs): <https://claude.ai/artifact/XESKFupFdphrXKy6JzH2LH>
 - Source of truth: `frontend/src/styles/toybox.css`, `frontend/src/components/tb/`, `games/hero-moves/src/ui/reel.css`. Token names below are the CSS variables there.
