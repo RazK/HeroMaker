@@ -129,6 +129,8 @@
 @media (orientation: landscape) {
   .tb-hero-screen.tb-hero-main[data-state='ready'] {
     --edge: clamp(150px, 11vw, 300px);
+    /* The header row and the dots under it: the hero's room starts below. */
+    --wide-top: 80px;
     /* How far Play's box sits off the bottom; the bottom-start corner matches it. */
     --wide-foot: calc(var(--tb-space) + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
     --tb-rail-h: var(--tb-btn-h);
@@ -152,21 +154,35 @@
   .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header::after,
   .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar::before { display: none; }
   .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header > .tb-header-side { pointer-events: auto; }
+  /* The name centred over the hero, between Back (start) and Share and ⋯
+     (end): the one header everywhere, a round button on each edge and the
+     title centred (Raz: "the indication of step inside the carousel needs to
+     be centered above the character not in the left. same as character
+     name"). Both sides keep room for the end's two buttons, so it stays
+     centred. */
   .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-header > .tb-header-title {
-    left: auto;
-    right: auto;
-    inset-inline-start: calc(var(--tb-gutter) + 48px + 12px);
-    max-width: calc(50% - var(--tb-gutter) - 48px - 12px - 40px);
-    text-align: start;
+    left: calc(var(--tb-gutter) + 48px + 12px + 140px);
+    right: calc(var(--tb-gutter) + 48px + 12px + 140px);
+    text-align: center;
   }
   .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-screen-body { padding: 0; }
   .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-live-stage { border-radius: 0; --tb-hero-inset: 0px; }
-  /* The dots go under the name (the top's middle is the hero's head now). */
+  /* The dots centred under the name. The hero stands below both
+     (.tb-live-room's top, --wide-top), clear of its head. */
   .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-dots {
-    inset-inline: calc(var(--tb-gutter) + 48px + 6px) auto;
+    inset-inline: 0;
     inset-block-start: 58px;
-    justify-content: flex-start;
+    justify-content: center;
   }
+  /* Previous and next, full size, halfway down the hero's room; the end one
+     just inside the moves rail, the start one mirroring it. */
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-arrow {
+    --tb-header-ctl: 48px;
+    inset-block-start: calc(var(--wide-top) + (100% - var(--wide-top)) / 2 - 24px);
+    opacity: 1;
+  }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-arrow--prev { inset-inline-start: calc(var(--tb-gutter) + 132px + 16px); }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] .tb-carousel-arrow--next { inset-inline-end: calc(var(--tb-gutter) + 132px + 16px); }
   /* The bar's two buttons go to their own corners. */
   .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar { display: contents; }
   .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { grid-area: 1 / 1; z-index: 4; width: auto; }
@@ -192,12 +208,12 @@
      runs 3% past its top and bottom (clipped by the stage), so the hero,
      framed with the stage's own margin round it, stands 94% of the screen's
      height; the sun, behind its upper body, follows (HeroLive.css --band). */
-  .tb-hero-main[data-state='ready'] .tb-live-room { inset: 0; --band-top: -3cqh; --band: 106cqh; }
+  .tb-hero-main[data-state='ready'] .tb-live-room { inset: var(--wide-top) 0 0; --band-top: -3cqh; --band: 106cqh; }
   .tb-hero-main[data-state='ready'] .tb-live-room .tb-live-canvas { inset: -3cqh 0; }
   /* The drawing and the painting as tall as the screen allows: under the
      dots, 16px off the bottom, out of the corners' way across. */
-  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit { inset: 36px var(--edge) 16px; }
-  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit--framed { inset: 42px calc(var(--edge) + 6px) 22px; }
+  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit { inset: 0 var(--edge) 16px; }
+  .tb-hero-main[data-state='ready'] .tb-live-room .tb-slide-fit--framed { inset: 6px calc(var(--edge) + 6px) 22px; }
   /* The drawing's name card, bottom-start (where the small card sits on the
      other slides; on the painting the small card has the corner). */
   .tb-hero-main[data-state='ready'] .tb-dock-layer--name { opacity: var(--o-draw, 1); }
@@ -219,9 +235,13 @@
   /* The small card's bottom is Play's (the bottom-end corner's): the same
      inset, so Play stays the bottom-most button (Raz). */
   .tb-hero-main[data-state='ready'] .tb-mini-drawing {
-    --mini-w: clamp(72px, min(12cqw, 26cqh), 170px);
+    /* About a fifth of the screen's height (Raz: "the drawing is too small
+       on the bottom left"), never wider than a sixth of it. */
+    --mini-w: clamp(96px, min(22cqh, 16cqw), 280px);
     inset-inline-start: var(--tb-gutter);
-    inset-block-end: var(--wide-foot);
+    /* The tilt drops its lowest corner about 6% of its width below its box:
+       lifted by that, the card's lowest pixel is Play's bottom, never lower. */
+    inset-block-end: calc(var(--wide-foot) + var(--mini-w) * 0.06);
   }
   /* The moves: a rail at the end, between the header and Play. */
   .tb-hero-main[data-state='ready'] .tb-hero-moves {
