@@ -63,6 +63,19 @@ html { font-synthesis: none; }
   --tb-radius-input: 18px;
   --tb-shadow-card: 0 2px 0 var(--tb-line), 0 12px 32px rgba(35, 25, 66, 0.08);
 
+  /* Wider than a phone (BRANDBOOK, "Desktop and wide screens"). The cream
+     frame's side margin: the phone's gutter, growing with the screen to 48px.
+     Everything wide sits inside it, the stage card included: nothing is full
+     bleed (Raz: "the menu on the side, the top bar, and generally the frame
+     around the preview are in the same color"). */
+  --tb-frame-x: clamp(20px, 2.5vw, 48px);
+  /* The widest a page of the app (gallery, sheets aside) grows. */
+  --tb-page-max: 1200px;
+  /* The pager's own row at the top of a stage card: a 44px tap row, a
+     --tb-space above it and below it before the picture starts (Raz: "too
+     close to the name and the character. It's all too dense"). */
+  --tb-dots-h: 44px;
+
   /* The older components read these; pointing them at Toy Box keeps every
      dialog and admin screen in the same palette. */
   --primary-color: var(--tb-grape);
@@ -509,6 +522,22 @@ html.tb-no-scroll .tb-screen--app { height: 100%; }
 @media (orientation: landscape) and (max-height: 559px) {
   .tb-sheet { max-height: calc(100vh - var(--tb-space)); max-height: calc(100dvh - var(--tb-space)); }
   .tb-sheet-grip { display: none; }
+}
+/* A desktop (BRANDBOOK, "Desktop and wide screens"): a sheet is a card in
+   the middle of the screen, not a drawer from the bottom edge of a wide
+   window. Same content, same order, the primary still last; all four corners
+   round, no grip (nothing to drag), 480px wide (the game chooser's two cards
+   take 640px). */
+@media (min-width: 900px) and (min-height: 600px) {
+  .tb-scrim:not(.tb-scrim--center) { align-items: center; padding: var(--tb-frame-x); }
+  .tb-scrim:not(.tb-scrim--center) > .tb-sheet {
+    max-width: 480px;
+    max-height: calc(100dvh - 2 * var(--tb-frame-x));
+    border-radius: var(--tb-radius-card);
+    padding-block-end: calc(var(--tb-space) + var(--tb-depth));
+  }
+  .tb-scrim:not(.tb-scrim--center) > .tb-sheet.tb-games-sheet { max-width: 640px; }
+  .tb-scrim:not(.tb-scrim--center) > .tb-sheet .tb-sheet-grip { display: none; }
 }
 .tb-sheet-title { font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; padding: 0 4px 8px; }
 .tb-dialog {

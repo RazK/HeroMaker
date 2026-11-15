@@ -8,7 +8,6 @@ const PATHS: Record<string, JSX.Element> = {
   download: <><path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" /></>,
   more: <><circle cx="5" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="19" cy="12" r="1.6" fill="currentColor" /></>,
   back: <path d="M15 18l-6-6 6-6" />,
-  next: <path d="M9 18l6-6-6-6" />,
   // Delete the last digit (the class code keypad): a key with an x, never the back chevron.
   backspace: <><path d="M9 5.5h10.5a1.5 1.5 0 011.5 1.5v10a1.5 1.5 0 01-1.5 1.5H9L3 12z" /><path d="M12 9.5l5 5" /><path d="M17 9.5l-5 5" /></>,
   close: <><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>,

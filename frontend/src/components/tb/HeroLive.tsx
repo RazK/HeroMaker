@@ -645,19 +645,6 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
           </div>
         );
       })}
-      {/* Previous and next: the swipe made visible (Raz, 2026-11-15: "there is
-          no indication that you're supposed to swipe... add arrows"). They
-          step exactly as the arrow keys and the dots do, round the ends. */}
-      {n > 1 && (
-        <>
-          <button type="button" className="tb-nav tb-carousel-arrow tb-carousel-arrow--prev" aria-label="Previous" onClick={() => stepRef.current(-1)}>
-            <Icon name="back" />
-          </button>
-          <button type="button" className="tb-nav tb-carousel-arrow tb-carousel-arrow--next" aria-label="Next" onClick={() => stepRef.current(1)}>
-            <Icon name="next" />
-          </button>
-        </>
-      )}
       {n > 1 && (
         <div className="tb-carousel-dots">
           {slides.map((s, i) => (
