@@ -184,7 +184,7 @@ export function HeroScreen(props: HeroScreenProps) {
       // The per-step admin view is a debugging tool, not designed for users.
       isAdmin && <SheetRow key="steps" icon="grid" label="Admin: every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />,
       // Meshy's Auto Split, cut into printable parts: a preview, admins only (it spends Meshy credits).
-      isAdmin && ready && <SheetRow key="split" icon="cube" label="Admin: split for printing" onClick={() => setSheet('split')} />,
+      isAdmin && ready && <SheetRow key="split" icon="cube" label="Admin: make a printable toy" onClick={() => setSheet('split')} />,
       isAdmin && ready && !creation.in_class && (
         <SheetRow
           key="featured"

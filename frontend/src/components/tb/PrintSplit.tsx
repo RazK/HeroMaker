@@ -60,13 +60,13 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
   const showOptions = split && !running && (!done || again);
 
   return (
-    <Sheet title="Split for printing" onClose={onClose} className="tb-split">
+    <Sheet title="A toy to print" onClose={onClose} className="tb-split">
       {!split && !error && <div className="tb-split-wait"><div className="tb-ring" style={{ ['--p' as string]: '0%' }}><span>…</span></div></div>}
 
       {running && (
         <div className="tb-split-wait" role="status">
           <div className="tb-ring" style={{ ['--p' as string]: `${split.progress ?? 0}%` }}><span>{split.progress ?? 0}%</span></div>
-          <div className="tb-split-line">Cutting {creation.character_name || 'the hero'} into parts</div>
+          <div className="tb-split-line">Turning {creation.character_name || 'the hero'} into a toy</div>
         </div>
       )}
 
@@ -80,7 +80,7 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
             {split.part_count ?? '?'} parts{split.provider === 'hi3d' && split.joint && split.joint !== 'none' ? ` · ${split.joint} joints` : ''} · drag to turn
           </div>
           <label className="tb-split-slider">
-            <span>Pull apart</span>
+            <span>Show the pieces</span>
             <input type="range" min={0} max={1} step={0.01} value={apart} onChange={(e) => setApart(Number(e.target.value))} />
           </label>
           <div className="tb-chip-row tb-split-chips">
@@ -88,7 +88,7 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
             {split.provider === 'hi3d' && split.joint && split.joint !== 'none' && (
               <button type="button" className={`tb-chip${moving ? ' tb-chip--on' : ''}`} aria-pressed={moving} onClick={() => setMoving(!moving)}>Move it</button>
             )}
-            <button type="button" className="tb-chip" onClick={() => setAgain(true)}>Split again</button>
+            <button type="button" className="tb-chip" onClick={() => setAgain(true)}>Make it again</button>
           </div>
           <div className="tb-stack">
             {split.files?.parts && (
@@ -142,7 +142,7 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
           </>)}
           {error && <div className="tb-notice tb-notice--error" role="alert">{error}</div>}
           <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail" disabled={busy || (provider === 'meshy' && mode === 'by_parts' && !prompt.trim())} onClick={start}>
-            <span className="tb-split-go"><Icon name="cube" />{busy ? 'Starting…' : 'Split it'}</span>
+            <span className="tb-split-go"><Icon name="cube" />{busy ? 'Starting…' : 'Make the toy'}</span>
             <span className="tb-btn-trail">{provider === 'hi3d' ? 'Hi3D · $0.40' : `${split.cost_meshy_credits ?? 10} Meshy credits`}</span>
           </button>
         </>
