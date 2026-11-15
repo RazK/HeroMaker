@@ -32,7 +32,14 @@ These came straight from the product owner. They override your defaults.
   he approves *Promote to production*. Everything except his review is yours
   to automate.
 
-## Design: read docs/design/BRANDBOOK.md before any UI work
+## Design: read docs/design/PRINCIPLES.md, then BRANDBOOK.md, before any UI work
+
+`docs/design/PRINCIPLES.md` is Raz's rules, written down so he never repeats them:
+design before code, phone and desktop as one layout, intentional spacing, no
+overlap, less is more, review before showing. `docs/design/USER_STORIES.md` says
+what every screen is for. A new or changed screen is designed for phone and
+desktop and approved before it is built.
+
 
 Toy Box is the only look: tokens in `frontend/src/styles/toybox.css`, parts in
 `frontend/src/components/tb/`. The brand book holds the layout, text, icon and
