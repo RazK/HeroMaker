@@ -105,9 +105,9 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
               <Icon name="dance" size={18} />Move
             </button>
           )}
-          <label className="tb-figure-slider" onPointerDown={(e) => e.stopPropagation()} title="Pull apart">
+          <label className="tb-figure-slider" onPointerDown={(e) => e.stopPropagation()} title="Show the pieces">
             <Icon name="expand" size={18} />
-            <input type="range" aria-label="Pull apart" min={0} max={1} step={0.01} value={apart} onChange={(e) => setApart(Number(e.target.value))} />
+            <input type="range" aria-label="Show the pieces" min={0} max={1} step={0.01} value={apart} onChange={(e) => setApart(Number(e.target.value))} />
           </label>
           {figure.files?.parts_3mf && (
             <a className="tb-btn tb-btn--secondary tb-btn--sm tb-figure-get" href={figure.files.parts_3mf}
@@ -129,7 +129,7 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
             <div className="tb-slide-dim">{picture}</div>
             <div className="tb-shimmer" />
             <div className="tb-ring" style={{ ['--p' as string]: `${pct}%` }}><span>{pct}%</span></div>
-            <span className="tb-slide-status">Cutting into parts</span>
+            <span className="tb-slide-status">Becoming a toy</span>
           </div>
         </div>
         {inDock(<TileCaption className="tb-live-name tb-figure-dock" title="Making the action figure" line="About a minute" tone="now" />)}
