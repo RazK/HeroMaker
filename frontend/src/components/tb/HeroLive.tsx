@@ -645,6 +645,19 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
           </div>
         );
       })}
+      {/* Previous and next: the swipe made visible (Raz, 2026-11-15: "there is
+          no indication that you're supposed to swipe... add arrows"). They
+          step exactly as the arrow keys and the dots do, round the ends. */}
+      {n > 1 && (
+        <>
+          <button type="button" className="tb-nav tb-carousel-arrow tb-carousel-arrow--prev" aria-label="Previous" onClick={() => stepRef.current(-1)}>
+            <Icon name="back" />
+          </button>
+          <button type="button" className="tb-nav tb-carousel-arrow tb-carousel-arrow--next" aria-label="Next" onClick={() => stepRef.current(1)}>
+            <Icon name="next" />
+          </button>
+        </>
+      )}
       {n > 1 && (
         <div className="tb-carousel-dots">
           {slides.map((s, i) => (
@@ -882,12 +895,13 @@ function Loading({ progress, children }: { progress: number; children: ReactNode
 const DOTS_CLEAR = 40;
 
 /**
- * The sun behind the painting and the live hero. Off (Raz, 2026-11: "do we
- * need the disc at all?"): the figure stands on the plate, grounded by a soft
- * contact shadow (the 3D draws its own; the painting gets .tb-contact). Set
- * true to bring the sun back, behind the upper body (HeroLive.css).
+ * The sun behind the painting and the live hero, behind the upper body only
+ * (head and torso), so the hero is drawn as big as without it (HeroLive.css).
+ * It was off for a while (Raz, 2026-11: "do we need the disc at all?") and is
+ * back (Raz, 2026-11-15: "maybe resume the yellow circle we had earlier? it
+ * was nice..."). False puts the figure on a soft contact shadow instead.
  */
-const SUN = false;
+const SUN = true;
 
 /** The band the 3D keeps clear at the top (and bottom): --tb-hero-inset, in px or % of the stage's height. */
 function heroInset(el: HTMLElement): number {

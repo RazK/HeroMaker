@@ -104,6 +104,25 @@
 }
 .tb-carousel--dragging { cursor: grabbing; }
 
+/* Previous and next (Raz: "no indication that you're supposed to swipe...
+   add arrows"): the header's round nav button, at the stage's two edges,
+   halfway down the room the slides show (above the dock). On a phone they
+   are smaller and quiet until a pointer or focus finds them, so the hero
+   stays the picture; on a wide screen they are full size (HeroScreen.css). */
+.tb-carousel-arrow {
+  --tb-header-ctl: 40px;
+  position: absolute;
+  z-index: 4;
+  inset-block-start: calc((100% - var(--tb-dock-clear, 0px)) / 2 - var(--tb-header-ctl) / 2);
+  opacity: 0.6;
+  transition: opacity 150ms ease;
+}
+.tb-carousel-arrow--prev { inset-inline-start: 8px; }
+.tb-carousel-arrow--next { inset-inline-end: 8px; }
+.tb-carousel-arrow:hover,
+.tb-carousel-arrow:focus-visible { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .tb-carousel-arrow { transition: none; } }
+
 /* The pager: three quiet dots over the top of the stage, the only chrome,
    so people know it swipes; the foot stays the picture's (Raz: the name and
    the dots stacked at the foot were "too dense"). Each dot's hit area is
