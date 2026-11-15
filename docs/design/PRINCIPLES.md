@@ -82,6 +82,28 @@ they are for.
 23. **Decisions belong where they are made.** Choose what to make (a moving hero, a
     toy, or both) when making it, not by a sales button on an unrelated screen.
 
+## Text, images and buttons (Raz, 2026-11-15)
+
+24. **As little text as possible, in one voice.** A screen's text is one font
+    per role and one colour per line: never a word picked out in another colour,
+    and the logo is one colour (ink). The gallery says one thing, its headline.
+    "So much text!! … so many different fonts and forms of text."
+25. **Two sentences get a line each.** Never break a sentence across lines when
+    each could have its own, and never leave one word alone on a last line
+    (`text-wrap: balance`).
+26. **A picture fills its space.** A drawing or hero is as large as its area
+    allows; a small picture floating in a big empty card is a bug. "Why so
+    small, there is so much empty space around it."
+27. **One rule for every button.** Icon and words centred; a price follows the
+    words ("Make it · 10 credits"), never pushed to the far edge. Phone: full
+    width, stacked, primary last. Desktop: 320px each, one centred row, primary
+    last. Fields beside buttons take the same width.
+28. **Show people only what is theirs.** Visitors see "Run a class" beside
+    "Make a hero"; a signed-in user who is not a teacher never sees it, and
+    becomes one from their account ("I teach a class").
+29. **Nothing scary or broken is ever shown,** even as an example: a toy with
+    the wrong colours (a blue face) is not a placeholder.
+
 ## Before showing Raz
 
 - Screens at 360x640, 390x844, 844x390, 1280x800, 1440x900 and 1920x1080, phone
