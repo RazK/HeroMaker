@@ -102,6 +102,7 @@ Buttons are pills with a hard offset shadow, not a blur: primary `0 6px 0 --tb-g
 - Our errors never blame the user: "Payments are unavailable right now."
 - A failed step reads "Painting failed" and one line chosen by its error code (`backend/app/services/step_errors.py`): "We couldn't paint this picture. Credits returned. Try another drawing or photo." A provider's own words never reach a user; an admin reads them behind a quiet Details chip.
 - Words: hero, drawing, gallery, make a hero, play, credits.
+- The printable action figure is a **toy** made of **pieces**: "Becoming a toy", "A toy to print", "Show the pieces", "Make the toy". Never cut, cutting, split, dissect or pull apart in anything a person reads (code and admin-only error details may say split). Raz: "I don't think 'cutting it into parts' is the right terminology… It's almost violent."
 
 ## Icons
 
