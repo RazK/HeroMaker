@@ -124,6 +124,7 @@ PRINCIPLES.md rule, or NEW when only this page (or the brand book) has it.
 | B11 | Put the gallery's search, filter and sort in one row, with search taking the spare width | Three rows of controls | "I want the search, the filtering, and the ordering all in one line. Expand the search as much as you can" | 2026-09-08 | **NEW** |
 | B12 | Put a place (Gallery, My classes) on a switch under the header, and use chips only within a place | A place as the fourth chip, cut off at the edge | "I could miss it. It needs a higher level in the hierarchy." | 2026-10-19 | **NEW** (BB) |
 | B13 | Show "Run a class" only to visitors and teachers. Others become teachers from their account. | A teacher pitch shown to everyone | "if not teacher dont show it. let user become teachers from user profile interface" | 2026-11-15 | 28 |
+| B14 | Make every button a pill, with its icon and its words on one line, on every size | A rounded-rectangle button; an icon stacked above its label | "Rounded corner rectangles, we only use pills for buttons… why do you have the icon and the text in different lines inside the button? That is horrible." | 2026-11-19 | 36 |
 
 ## 8. Motion and 3D rendering
 
