@@ -40,6 +40,7 @@ from app.services import step_stats
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
 from app.services import step_errors
+from app.services import analytics
 from app.config import pricing
 from app.services import usage as usage_service
 from app.services.usage import UsageContext
@@ -827,7 +828,9 @@ async def execute_step(
         duration = (step.completed_at - step.started_at).total_seconds()
         db.commit()
         logger.info(f"[{creation_id}] Step {step_name} completed in {duration:.1f}s")
-        
+        if analytics.is_last_step(step_name):
+            analytics.hero_ready(db, creation_id, mock=bool(mock_creation_id))
+
         return {"status": "completed"}
         
     except Exception as e:
@@ -849,6 +852,7 @@ async def execute_step(
             if refund is not None:
                 step_errors.note_refund(step, refund)
                 db.commit()
+            analytics.hero_failed(db, creation_id, step_name, code, mock=bool(mock_creation_id))
         raise
 
 

@@ -10,7 +10,7 @@ from collections.abc import Coroutine
 from app.database import SessionLocal
 from app.models import CreationStep
 from app.services.credits import refund_last_step_charge
-from app.services import step_errors
+from app.services import analytics, step_errors
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,9 @@ class TaskManager:
                             if refund is not None:
                                 step_errors.note_refund(step, refund)
                                 db.commit()
+                            # The same reason the refund is here: a timeout
+                            # never reaches execute_step's handler.
+                            analytics.hero_failed(db, creation_id, step.step_name, step_errors.PROVIDER_BUSY)
                     except Exception as e:
                         logger.error(f"[{creation_id}] Error marking timed-out step as failed: {e}")
                     finally:
