@@ -1,20 +1,23 @@
 import { ReactNode, Suspense, useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
+import { spreadPlan } from './partsSpread';
 
 /** Colours to tell the parts apart: the plates, then the sun and grape. */
 const PART_TINTS = ['#e9e3ff', '#ffe9a8', '#cff5ea', '#ffdcc7', '#d6ecff', '#ffd6e7', '#ffc233', '#5b3df5'];
-/** How far a part travels when fully pulled apart, as a share of its distance from the middle. */
-const OUT = 0.6;
 /** Where the camera stands; zooming is clamped so it never comes closer (all of it always fits). */
 const CAMERA_Z = 2.6;
+const CAMERA_FOV = 40;
+/** The share of the view the parts may fill when pulled fully apart. */
+const FILL = 0.94;
 
 /**
  * A hero cut into printable parts (backend print_split.py), in 3D: `apart`
- * (0-1) pulls the parts away from the middle, `tinted` colours each part its
- * own, and `moving` swings the arms and legs about their joints, the way the
+ * (0-1) pulls each part away along its own joint (partsSpread.ts: the head
+ * up, an arm the way it points, the body still), `tinted` colours each part
+ * its own, and `moving` swings the arms and legs about their joints, the way the
  * printed toy moves (only when `jointed`: the parts were cut with joints).
  * Used by the admin split sheet (PrintSplit.tsx) and the hero page's action
  * figure slide (ActionFigure.tsx). Its own chunk: three's React bindings load
@@ -33,7 +36,7 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
   moving?: boolean;
 }) {
   return (
-    <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: 40 }} dpr={[1, 2]}>
+    <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }} dpr={[1, 2]}>
       <hemisphereLight args={['#ffffff', '#b9aee0', 2.2]} />
       <directionalLight position={[2, 3, 4]} intensity={2.4} />
       <directionalLight position={[-3, 1, -2]} intensity={1} />
@@ -75,12 +78,11 @@ interface Part {
 /**
  * Which part is which, read from where the parts sit in a T-pose (Y up, the
  * figure facing +Z): the arms are the parts far out to the sides; of the
- * rest, the torso is the one the arms meet, and the legs hang below it. A
- * limb's joint is the centre of its bounding box's face towards the torso:
- * the inner end of an arm, the top of a leg. Anything not recognised stays
- * still.
+ * rest, the torso is the one the arms meet, and the legs hang below it.
+ * Anything not recognised does not swing. (Where a limb's joint is comes from
+ * partsSpread.ts: the end of the part that lies against the body.)
  */
-function classify(boxes: THREE.Box3[]): { limb: Limb; joint: THREE.Vector3 }[] {
+function classify(boxes: THREE.Box3[]): Limb[] {
   const all = boxes.reduce((b, x) => b.union(x), new THREE.Box3());
   const half = Math.max(1e-6, (all.max.x - all.min.x) / 2);
   const mid = all.getCenter(new THREE.Vector3());
@@ -99,30 +101,49 @@ function classify(boxes: THREE.Box3[]): { limb: Limb; joint: THREE.Vector3 }[] {
   }
   return boxes.map((b, i) => {
     const c = centres[i];
-    if (isArm[i]) return { limb: c.x > mid.x ? 'arm-r' : 'arm-l', joint: inner(i) };
+    if (isArm[i]) return c.x > mid.x ? 'arm-r' : 'arm-l';
     // A leg: below the torso's middle, its top no higher than a bit into the torso.
     if (torso >= 0 && i !== torso && c.y < centres[torso].y
         && b.max.y <= centres[torso].y + 0.25 * (boxes[torso].max.y - boxes[torso].min.y)) {
-      return { limb: c.x > mid.x ? 'leg-r' : 'leg-l', joint: new THREE.Vector3(c.x, b.max.y, c.z) };
+      return c.x > mid.x ? 'leg-r' : 'leg-l';
     }
-    return { limb: null, joint: c.clone() };
+    return null;
   });
 }
 
-/** The split model, centred and sized, each part pushed out from the middle by `apart`. */
+/** The points of a part, in the figure's space; a dense part is thinned evenly. */
+function cloudOf(mesh: THREE.Mesh, most = 20000): Float32Array {
+  const at = mesh.geometry.getAttribute('position');
+  const step = Math.max(1, Math.ceil(at.count / most));
+  const out = new Float32Array(Math.ceil(at.count / step) * 3);
+  const v = new THREE.Vector3();
+  for (let i = 0, k = 0; i < at.count; i += step, k += 3) {
+    v.fromBufferAttribute(at, i).applyMatrix4(mesh.matrixWorld);
+    out[k] = v.x; out[k + 1] = v.y; out[k + 2] = v.z;
+  }
+  return out;
+}
+
+/**
+ * How large the parts may be drawn so that all of them show when pulled fully
+ * apart, on a view of this shape, at any turn: `half` is how far they reach
+ * up or down from the middle, `round` how far out from the turning axis.
+ */
+function fitScale(half: number, round: number, aspect: number): number {
+  const t = FILL * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2));
+  const tall = (t * CAMERA_Z) / (half + t * round);
+  const wide = (t * aspect * CAMERA_Z) / (round * (1 + t * aspect));
+  return Math.min(tall, wide);
+}
+
+/** The split model, centred and sized, each part moved out along its joint by `apart`. */
 function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tinted: boolean; moving: boolean }) {
   const gltf = useLoader(GLTFLoader, url);
-  const { root, parts } = useMemo(() => {
+  const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
+  const { root, parts, half, round } = useMemo(() => {
     const root = gltf.scene.clone(true);
-    const box = new THREE.Box3().setFromObject(root);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    // Sized for the parts fully pulled apart (each moves out by up to OUT of
-    // its distance from the middle), so the slider never pushes one off screen.
-    const scale = 1.75 / (Math.max(size.x, size.y, size.z || 1) * (1 + OUT));
-    root.position.copy(center.clone().multiplyScalar(-scale));
-    root.scale.setScalar(scale);
     root.updateMatrixWorld(true);
+    const center = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
     const all: THREE.Mesh[] = [];
     root.traverse((o) => { if ((o as THREE.Mesh).isMesh) all.push(o as THREE.Mesh); });
     // Split parts can come without normals, and unlit-from-every-side is
@@ -134,33 +155,44 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
     const meshes = all.filter((m) => !isPiece(m));
     const pieces = all.filter(isPiece);
     const boxes = meshes.map((m) => new THREE.Box3().setFromObject(m));
-    const roles = classify(boxes);
-    const middle = boxes.reduce((b, x) => b.union(x), new THREE.Box3()).getCenter(new THREE.Vector3());
+    const limbs = classify(boxes);
+    // Where each part's joint is and which way it travels (partsSpread.ts).
+    const plan = spreadPlan(meshes.map((m) => cloudOf(m)));
+    // Sized for the parts pulled fully apart, so the slider never pushes one
+    // off screen: how far they then reach from the middle, up and around.
+    let half = 1e-6;
+    let round = 1e-6;
     const list: Part[] = meshes.map((mesh, i) => {
       const parent = mesh.parent!;
+      const at = new THREE.Vector3(...plan.joint[i]);
+      const move = new THREE.Vector3(...plan.offset[i]);
+      for (const end of [boxes[i].min, boxes[i].max]) for (const far of [0, 1]) {
+        const p = end.clone().addScaledVector(move, far).sub(center);
+        half = Math.max(half, Math.abs(p.y));
+      }
+      for (const x of [boxes[i].min.x, boxes[i].max.x]) for (const z of [boxes[i].min.z, boxes[i].max.z]) for (const far of [0, 1]) {
+        round = Math.max(round, Math.hypot(x + far * move.x - center.x, z + far * move.z - center.z));
+      }
       // The joint, in the parent's space: a pivot stands there and the part hangs off it.
-      const joint = parent.worldToLocal(roles[i].joint.clone());
+      const joint = parent.worldToLocal(at.clone());
       const pivot = new THREE.Group();
       pivot.position.copy(joint);
       parent.add(pivot);
       pivot.updateMatrixWorld(true);
       pivot.attach(mesh);
-      // Pulling apart moves the pivot (and so the part) out from the middle, in the parent's units.
-      const push = boxes[i].getCenter(new THREE.Vector3()).sub(middle);
-      if (push.lengthSq() < 1e-9) push.set(0, 1, 0);
-      const from = boxes[i].getCenter(new THREE.Vector3());
-      const to = from.clone().addScaledVector(push, OUT);
-      const out = parent.worldToLocal(to).sub(parent.worldToLocal(from));
-      return { mesh, pivot, pieces: [], pieceMaterials: [], home: joint.clone(), out, limb: roles[i].limb, material: mesh.material };
+      // Pulling apart moves the pivot (and so the part) along its joint, in the parent's units.
+      const out = parent.worldToLocal(at.clone().add(move)).sub(joint);
+      return { mesh, pivot, pieces: [], pieceMaterials: [], home: joint.clone(), out, limb: limbs[i], material: mesh.material };
     });
     pieces.forEach((piece) => {
-      const owner = ownerOf(new THREE.Box3().setFromObject(piece), boxes, roles.map((r) => r.limb), /_male\b/i.test(piece.name));
+      const owner = ownerOf(new THREE.Box3().setFromObject(piece), boxes, limbs, /_male\b/i.test(piece.name));
       if (owner < 0) return;
       list[owner].pivot.attach(piece);  // keeps it where it is, now moving with its part
       list[owner].pieces.push(piece);
       list[owner].pieceMaterials.push(piece.material);
     });
-    return { root, parts: list };
+    root.position.copy(center).negate();
+    return { root, parts: list, half, round };
   }, [gltf]);
 
   const tints = useRef<THREE.Material[]>([]);
@@ -194,7 +226,7 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
     }
   });
 
-  return <primitive object={root} />;
+  return <group scale={fitScale(half, round, aspect)}><primitive object={root} /></group>;
 }
 
 /** A joint piece, not a part: Hi3D names them connector_###_ball_male / _female. */
