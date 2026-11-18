@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "tsc -p tsconfig.test.json && cd .test-build && node --test"
   },
   "dependencies": {
     "@react-three/drei": "^9.92.7",
