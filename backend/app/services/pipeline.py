@@ -550,15 +550,21 @@ async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
     client = MeshyClient()
 
     with _get_file_path_for_processing(creation_id, user_id, "rendered.png", "r") as input_path:
-        # Create task (sync call)
-        task_id = await loop.run_in_executor(
-            None,
-            lambda: client.create_image_to_3d_task(
-                input_path,
-                usage=UsageContext.for_step(creation_id, user_id, "meshy_3d"),
-                **_meshy_3d_call_kwargs(),
+        # Create task (sync call). It may wait minutes for a free task slot at
+        # Meshy; if this step is cancelled or times out meanwhile, tell the
+        # waiting thread, or it would create a task nobody collects.
+        try:
+            task_id = await loop.run_in_executor(
+                None,
+                lambda: client.create_image_to_3d_task(
+                    input_path,
+                    usage=UsageContext.for_step(creation_id, user_id, "meshy_3d"),
+                    **_meshy_3d_call_kwargs(),
+                )
             )
-        )
+        except asyncio.CancelledError:
+            client.abandon()
+            raise
 
         logger.info(f"[{creation_id}] Meshy 3D task created: {task_id}")
 
@@ -609,13 +615,17 @@ async def step_meshy_rig(creation_id: str, user_id: str, db: Session) -> None:
     step = _get_creation_step(creation_id, "meshy_rig", db)
     
     with _get_file_path_for_processing(creation_id, user_id, "rigged.glb", "w") as output_path:
-        await loop.run_in_executor(
-            None,
-            lambda: execute_meshy_rig_sync(
-                input_task_id, output_path, step, db, client,
-                usage=UsageContext.for_step(creation_id, user_id, "meshy_rig"),
+        try:
+            await loop.run_in_executor(
+                None,
+                lambda: execute_meshy_rig_sync(
+                    input_task_id, output_path, step, db, client,
+                    usage=UsageContext.for_step(creation_id, user_id, "meshy_rig"),
+                )
             )
-        )
+        except asyncio.CancelledError:
+            client.abandon()  # stop waiting for a task slot (see step_meshy_3d)
+            raise
 
     if cache.active:
         produced = dict(step.metadata_json or {})

@@ -4,6 +4,8 @@ Meshy API client for HeroMaker pipeline
 """
 
 import logging
+import os
+import threading
 import time
 import requests
 import base64
@@ -23,11 +25,44 @@ class MeshyAPIError(Exception):
 
 
 class MeshyOutOfCredits(MeshyAPIError, provider_errors.ProviderOutOfCredits):
-    """Our Meshy account cannot take more work (HTTP 402, NoMorePendingTasks).
+    """Our Meshy account has no credits left (HTTP 402).
     Still a MeshyAPIError, so every existing handler keeps catching it."""
 
     def __init__(self, detail: str):
         provider_errors.ProviderOutOfCredits.__init__(self, pricing.PROVIDER_MESHY, detail)
+
+
+class MeshyQueueFull(MeshyAPIError):
+    """Every task slot our plan allows is in use (HTTP 429, a message starting
+    NoMorePendingTasks). Not an empty account and not a fault: a slot frees
+    when one of our own tasks finishes, so the caller waits for one."""
+
+
+class MeshyRateLimited(MeshyAPIError):
+    """Too many requests per second (HTTP 429, "Rate limit exceeded")."""
+
+    def __init__(self, message: str, retry_after: float):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+# docs.meshy.ai/en/api/rate-limits, read 2026-11-19: a plan allows a fixed
+# number of tasks PENDING or IN_PROGRESS at once (Pro 10, Premium 30, Studio
+# 60, Ultra and Enterprise 100). Over it, creating a task answers 429
+# "NoMorePendingTasks ..." with no Retry-After: "Wait for one of your tasks to
+# finish, then create the next one." A hero's model takes about five minutes,
+# so the eleventh hero inside five minutes meets this on Pro.
+#
+# How long a new task waits for a slot before the step gives up, and how often
+# it asks again. The wait sits inside the step's own timeout (30 minutes).
+QUEUE_WAIT_SECONDS = int(os.getenv("MESHY_QUEUE_WAIT_SECONDS", "600"))
+QUEUE_RETRY_SECONDS = 15
+# Requests per second: wait what Retry-After says, a few times.
+RATE_LIMIT_RETRIES = 5
+RATE_LIMIT_MAX_WAIT_SECONDS = 30
+# One ERROR line an alert can match when the wait runs out: the plan is too
+# small for the traffic.
+QUEUE_ALERT_MARKER = "PROVIDER_QUEUE_FULL"
 
 
 def raise_if_out_of_credits(status_code, message: str) -> None:
@@ -35,6 +70,15 @@ def raise_if_out_of_credits(status_code, message: str) -> None:
     if provider_errors.is_meshy_out_of_credits(status_code, message):
         provider_errors.alert_out_of_credits(pricing.PROVIDER_MESHY, message)
         raise MeshyOutOfCredits(message)
+
+def _retry_after_seconds(response) -> float:
+    """Retry-After as seconds, between 1 and RATE_LIMIT_MAX_WAIT_SECONDS."""
+    try:
+        value = float((getattr(response, "headers", None) or {}).get("Retry-After", 1))
+    except (TypeError, ValueError):
+        value = 1.0
+    return max(1.0, min(value, float(RATE_LIMIT_MAX_WAIT_SECONDS)))
+
 
 class MeshyClient:
     """Client for interacting with Meshy API."""
@@ -56,22 +100,60 @@ class MeshyClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
-    
+        # Set when the step this client works for is cancelled or timed out,
+        # so a request waiting for a task slot stops instead of creating (and
+        # paying for) a task nobody will collect.
+        self._abandoned = threading.Event()
+
+    def abandon(self) -> None:
+        """Stop waiting: whoever asked is gone."""
+        self._abandoned.set()
+
     def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """
-        Make HTTP request to Meshy API.
-        
-        Args:
-            method: HTTP method (GET, POST, etc.)
-            endpoint: API endpoint (e.g., "/openapi/v1/image-to-3d")
-            **kwargs: Additional arguments for requests.request()
-        
+        Make an HTTP request to the Meshy API, waiting out its two limits.
+
+        A full task queue (MeshyQueueFull) is waited for up to
+        QUEUE_WAIT_SECONDS; a requests-per-second limit (MeshyRateLimited) for
+        what Retry-After says, RATE_LIMIT_RETRIES times. Everything else is
+        raised as it comes.
+
         Returns:
             JSON response as dictionary
-        
+
         Raises:
             MeshyAPIError: If request fails
         """
+        waited_from = None
+        rate_retries = 0
+        while True:
+            try:
+                return self._request_once(method, endpoint, **kwargs)
+            except MeshyQueueFull as full:
+                now = time.monotonic()
+                if waited_from is None:
+                    waited_from = now
+                    logger.warning("Meshy has no free task slot for %s; waiting up to %ss (%s)",
+                                   endpoint, QUEUE_WAIT_SECONDS, full)
+                waited = now - waited_from
+                if self._abandoned.is_set():
+                    raise MeshyAPIError("Meshy request abandoned while waiting for a task slot") from full
+                if waited + QUEUE_RETRY_SECONDS > QUEUE_WAIT_SECONDS:
+                    logger.error("%s meshy: waited %ds for a task slot on %s: %s",
+                                 QUEUE_ALERT_MARKER, int(waited), endpoint, full)
+                    raise MeshyAPIError(
+                        f"Meshy is busy: every task slot on our plan stayed in use for "
+                        f"{int(waited)} seconds. Try again later. Provider said: {full}"
+                    ) from full
+                time.sleep(QUEUE_RETRY_SECONDS)
+            except MeshyRateLimited as limited:
+                rate_retries += 1
+                if rate_retries > RATE_LIMIT_RETRIES or self._abandoned.is_set():
+                    raise
+                time.sleep(limited.retry_after)
+
+    def _request_once(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+        """One HTTP request to the Meshy API, its error turned into ours."""
         url = f"{self.BASE_URL}{endpoint}"
         
         try:
@@ -106,6 +188,10 @@ class MeshyClient:
                 raise_if_out_of_credits(response.status_code, str(error_msg))
             except MeshyOutOfCredits as out:
                 raise out from e
+            if provider_errors.is_meshy_queue_full(str(error_msg)):
+                raise MeshyQueueFull(str(error_msg)) from e
+            if response.status_code == 429:
+                raise MeshyRateLimited(str(error_msg), _retry_after_seconds(response)) from e
             raise MeshyAPIError(error_msg) from e
         except requests.exceptions.RequestException as e:
             raise MeshyAPIError(f"Request failed: {str(e)}") from e

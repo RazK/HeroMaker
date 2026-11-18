@@ -220,11 +220,16 @@ def test_a_real_openai_rate_limit_is_still_a_rate_limit(
 
 @pytest.mark.parametrize("status, text, out", [
     (402, "Payment Required", True),
-    (400, "NoMorePendingTasks", True),
+    # A plan with no task limit and no credits left (docs.meshy.ai rate limits).
+    (429, "NoMoreConcurrentTasks: no credits left", True),
+    # A full task queue is NOT an empty account: tests/test_meshy_queue.py.
+    (429, "NoMorePendingTasks: too many pending tasks", False),
     (429, "Too many requests", False),
     (500, "Internal error", False),
 ])
-def test_meshy_out_of_credits_is_recognised(status, text, out, caplog):
+def test_meshy_out_of_credits_is_recognised(status, text, out, caplog, monkeypatch):
+    monkeypatch.setattr(meshy.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(meshy, "QUEUE_WAIT_SECONDS", 0)
     class _Response:
         status_code = status
 
