@@ -566,7 +566,7 @@ def get_action_figure(hero_id: str, request: Request, who: Optional[Principal] =
 def print_split_state(creation: Creation):
     from app.services import print_split
 
-    return print_split.read_state(creation)
+    return print_split.stored(creation)
 
 
 class Featured(BaseModel):
