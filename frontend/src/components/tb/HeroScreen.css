@@ -278,6 +278,7 @@
   .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-move,
   .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-get {
     height: var(--foot-btn);
+    min-width: 120px;
     padding: 0 22px;
     gap: 8px;
     font-size: 18px;
@@ -337,7 +338,7 @@
   .tb-hero-main[data-state='ready'] .tb-moves { gap: 6px; }
   .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock--made { width: calc(100% - 2 * var(--foot-side)); gap: 8px; }
   .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-move,
-  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-get { padding: 0 12px; font-size: 15px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-get { min-width: 96px; padding: 0 12px; font-size: 15px; }
   .tb-hero-main[data-state='ready'] .tb-move svg { width: 18px; height: 18px; }
   .tb-hero-main[data-state='ready'] .tb-mini-drawing {
     --mini-w: clamp(72px, 22cqh, 120px);
