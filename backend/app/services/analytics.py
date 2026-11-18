@@ -37,6 +37,7 @@ Recording never breaks the product: ``record_server`` and the helpers built on
 it catch everything and log.
 """
 import logging
+import os
 import re
 import threading
 import time
@@ -54,6 +55,27 @@ from app.services import step_errors
 from app.services.account_kinds import is_test_account
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# On or off
+# ---------------------------------------------------------------------------
+
+ENV_FLAG = "ANALYTICS_ENABLED"
+
+
+def enabled() -> bool:
+    """Whether anything is recorded at all. OFF unless ANALYTICS_ENABLED is set.
+
+    Off by default on purpose. The privacy policy Raz approved
+    (frontend/src/components/tb/Privacy.tsx) says "No analytics, ads or
+    tracking", and only he changes its words. Staging turns this on
+    (devops/railway/env/backend.staging.env); production stays off, whatever
+    is promoted, until the policy says what is collected and the variable is
+    set there. Off, the endpoint answers and stores nothing, and the backend's
+    own events are not written.
+    """
+    return os.getenv(ENV_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
+
 
 # ---------------------------------------------------------------------------
 # The allow-list
@@ -244,6 +266,9 @@ def record_browser(db: Session, payload: Any, user: Optional[User] = None) -> Di
     in the allowed shape. Inside a usable batch, each event stands alone: one
     that is not on the allow-list is dropped and counted, the rest are stored.
     """
+    if not enabled():
+        # The client stops sending for this page when it reads "off".
+        return {"accepted": 0, "rejected": 0, "off": True}
     if not isinstance(payload, dict):
         raise Rejected("body must be an object")
     unknown = set(payload) - {"visitor", "door", "device", "robot", "events"}
@@ -365,6 +390,8 @@ def record_server(
 
     Call it after the caller's own commit: it commits (or rolls back) `db`.
     """
+    if not enabled():
+        return None
     try:
         props = clean_props(SERVER_EVENTS, name, props)
         if once and ref and db.query(AnalyticsEvent.id).filter(
@@ -422,6 +449,8 @@ def _hero_subject(db: Session, creation_id: str) -> Tuple[Optional[str], Optiona
 
 def hero_ready(db: Session, creation_id: str, mock: bool = False) -> None:
     """The last pipeline step of a hero has completed. Once per hero. Never raises."""
+    if not enabled():
+        return
     try:
         first = (
             db.query(CreationStep.started_at)
@@ -448,6 +477,8 @@ def hero_ready(db: Session, creation_id: str, mock: bool = False) -> None:
 
 def hero_failed(db: Session, creation_id: str, step_name: str, code: Optional[str], mock: bool = False) -> None:
     """A step of a hero failed and it was not the user cancelling. Never raises."""
+    if not enabled():
+        return
     try:
         user_id, visitor_id, door = _hero_subject(db, creation_id)
     except Exception:

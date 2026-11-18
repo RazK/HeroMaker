@@ -66,6 +66,12 @@ FORBIDDEN_KEYS = {
 
 
 @pytest.fixture(autouse=True)
+def _on(monkeypatch):
+    """Analytics is off unless an environment turns it on; these tests do."""
+    monkeypatch.setenv(analytics.ENV_FLAG, "true")
+
+
+@pytest.fixture(autouse=True)
 def _clean():
     def wipe():
         db = SessionLocal()
@@ -182,6 +188,43 @@ def test_a_body_that_is_not_json_or_is_huge_is_refused(client, db):
     assert client.post("/api/v1/events", content=b"visit!").status_code == 400
     huge = json.dumps(_batch([{"name": "visit"}] * 10, door="x" * 40) | {"pad": "y" * 40_000})
     assert client.post("/api/v1/events", content=huge).status_code == 413
+    assert _stored(db) == []
+
+
+# ---------------------------------------------------------------------------
+# Off until an environment turns it on
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("value", [None, "", "false", "0", "off"])
+def test_nothing_is_recorded_unless_it_is_turned_on(client, db, make_user, make_creation, storage_ok,
+                                                    store, monkeypatch, value):
+    """The privacy policy says "No analytics" until Raz changes it, so an
+    environment records nothing unless ANALYTICS_ENABLED says so: not the
+    browser's events, and not the backend's own."""
+    if value is None:
+        monkeypatch.delenv(analytics.ENV_FLAG, raising=False)
+    else:
+        monkeypatch.setenv(analytics.ENV_FLAG, value)
+    user = make_user(credits=100)
+
+    r = client.post("/api/v1/events", json=_batch([{"name": "visit"}]), headers=_auth(user))
+    assert r.status_code == 200 and r.json() == {"accepted": 0, "rejected": 0, "off": True}
+
+    raw, headers = _order("order-off", user.id)
+    assert client.post("/api/payments/webhook", content=raw, headers=headers).json()["status"] == "ok"
+
+    names = get_all_step_names()
+    creation = make_creation(user.id, steps={names[-1]: "pending", "meshy_3d": "pending"})
+    _step_does(monkeypatch, _fine)
+    _run(pipeline.execute_step(creation.id, user.id, names[-1], db))
+
+    async def boom(*_a, **_kw):
+        raise RuntimeError("provider exploded")
+    _step_does(monkeypatch, boom)
+    with pytest.raises(RuntimeError):
+        _run(pipeline.execute_step(creation.id, user.id, "meshy_3d", db))
+
+    client.post("/api/v1/classes", json={"title": "Grade 2B", "seats": 3}, headers=_auth(user))
     assert _stored(db) == []
 
 
