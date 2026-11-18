@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flush, track } from '../../analytics';
 import qrcode from 'qrcode-generator';
 import { api, ApiError, paintingFramed } from '../../api/client';
 import { HeroSummary, SeatsCheckout, Student, dollars } from '../../api/classes';
@@ -251,6 +252,8 @@ export function PaySeatsDialog({ seats, cents, title, seatsBefore, open, onClose
     try {
       const checkout = await open();
       try { sessionStorage.setItem(PAYING_KEY, JSON.stringify({ id: checkout.class_id, seats: seatsBefore })); } catch { /* fine */ }
+      track('checkout_started', { pack: 'class_seats' });
+      flush(true);
       window.location.href = checkout.checkout_url;
     } catch (e) {
       // 502 and 503 are ours, never the teacher's.

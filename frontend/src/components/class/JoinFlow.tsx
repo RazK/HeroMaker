@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { track } from '../../analytics';
 import { api, ApiError, CreationResponse, paintingFramed } from '../../api/client';
 import { GuestView, studentApi } from '../../api/classes';
 import { FileUpload } from '../FileUpload';
@@ -306,8 +307,13 @@ function Draw({ me, onMade }: { me: GuestView; onMade: (v: GuestView) => void })
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  // Analytics: the student set out to make a hero (once), then how the
+  // picture came in. Nothing about the picture itself.
+  const startedRef = useRef(false);
+  const started = () => { if (!startedRef.current) { startedRef.current = true; track('make_started'); } };
 
-  const pick = (f: File) => {
+  const pick = (f: File, how: 'photo_taken' | 'photo_chosen') => {
+    track(how);
     setFile(f);
     setError(null);
     const r = new FileReader();
@@ -319,6 +325,7 @@ function Draw({ me, onMade }: { me: GuestView; onMade: (v: GuestView) => void })
     setBusy(true);
     setError(null);
     try {
+      track('make_choice', { choice: 'moving' });
       onMade(await studentApi.makeHero(file, style));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
@@ -337,11 +344,11 @@ function Draw({ me, onMade }: { me: GuestView; onMade: (v: GuestView) => void })
         </div>
       </div>
       <div className="tb-bar">
-        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full cls-choose" onClick={() => picker.current?.click()}><Icon name="image" />Choose a photo</button>
-        <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-snap" onClick={() => setWebcam(true)}><Icon name="camera" />Take a photo</button>
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full cls-choose" onClick={() => { started(); picker.current?.click(); }}><Icon name="image" />Choose a photo</button>
+        <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-snap" onClick={() => { started(); setWebcam(true); }}><Icon name="camera" />Take a photo</button>
       </div>
-      <input ref={picker} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) pick(f); e.target.value = ''; }} />
-      {webcam && <FileUpload showWebcamOnMount onClose={() => setWebcam(false)} onUpload={(f) => { setWebcam(false); pick(f); }} />}
+      <input ref={picker} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) pick(f, 'photo_chosen'); e.target.value = ''; }} />
+      {webcam && <FileUpload showWebcamOnMount onClose={() => setWebcam(false)} onUpload={(f) => { setWebcam(false); pick(f, 'photo_taken'); }} />}
       {file && (
         <Sheet title="Make this hero?" onClose={() => { if (!busy) { setFile(null); setPreview(null); } }} className="post-upload-actions-modal">
           {preview && <div className="tb-upload-preview"><img src={preview} alt="Your drawing" /></div>}
@@ -459,6 +466,7 @@ function ShowParents({ name, path, onClose }: { name: string; path: string; onCl
   const url = `${window.location.origin}${path}`;
   const [copied, setCopied] = useState(false);
   const send = async () => {
+    track('share_tapped');
     try {
       if (navigator.share) { await navigator.share({ title: `${name}’s hero`, url }); return; }
     } catch { /* fall back to copying */ }

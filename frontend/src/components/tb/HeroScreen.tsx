@@ -3,6 +3,7 @@ import { ActionFigure, api, ApiError, CreationResponse, CreationStepResponse } f
 import { getTotalCost } from '../../config/steps';
 import { arenaUrl, playUrl } from '../../config/play';
 import { heroLink, leaveFromOverlay } from '../../routes';
+import { flush, track } from '../../analytics';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, ProgressBar, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
@@ -151,6 +152,7 @@ export function HeroScreen(props: HeroScreenProps) {
     return () => window.clearTimeout(t);
   }, [copied]);
   const share = async () => {
+    track('share_tapped');
     const url = heroLink(creation.id);
     const title = name;
     const text = `Meet ${name}! Tap to see it move.`;
@@ -352,12 +354,12 @@ export function HeroScreen(props: HeroScreenProps) {
         <Sheet title="Pick a game" onClose={() => setSheet(null)} className="tb-games-sheet">
           <div className="tb-games">
             {/* The sheet's entry is replaced: the game's Back lands on the hero, not on this sheet. */}
-            <a className="tb-game" data-game="arena" href={arenaUrl(creation)} onClick={(e) => leaveFromOverlay(e, arenaUrl(creation))}>
+            <a className="tb-game" data-game="arena" href={arenaUrl(creation)} onClick={(e) => { track('game_started', { game: 'arena' }); flush(true); leaveFromOverlay(e, arenaUrl(creation)); }}>
               <span className="tb-game-pic"><img src="/games/robot-rumble.webp" srcSet="/games/robot-rumble.webp 1x, /games/robot-rumble@2x.webp 2x" alt="" width={400} height={500} /></span>
               <span className="tb-game-name">Robot Rumble</span>
               <span className="tb-game-line">Punch, jump, score!</span>
             </a>
-            <a className="tb-game" data-game="dance" href={playUrl(creation)} onClick={(e) => leaveFromOverlay(e, playUrl(creation))}>
+            <a className="tb-game" data-game="dance" href={playUrl(creation)} onClick={(e) => { track('game_started', { game: 'dance' }); flush(true); leaveFromOverlay(e, playUrl(creation)); }}>
               <span className="tb-game-pic"><img src="/games/dance-party.webp" srcSet="/games/dance-party.webp 1x, /games/dance-party@2x.webp 2x" alt="" width={400} height={500} /><span className="tb-game-badge" aria-label="Uses the camera"><Icon name="camera" size={16} /></span></span>
               <span className="tb-game-name">Dance party</span>
               <span className="tb-game-line">Dance on camera</span>

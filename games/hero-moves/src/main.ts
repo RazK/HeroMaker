@@ -21,6 +21,7 @@ import { bodyConfidence, type Skeleton } from './pose/keypoints'
 import { classify, POSE_BY_ID } from './pose/vocab'
 import { onScreen } from './pose/mirror'
 import { OWN_HERO, OWN_NAME, goBack } from './ownhero'
+import { trackGameEnded } from './core/track'
 import { tbButton, tbNav, tbChips, tbField, tbGrip } from './ui/tb'
 
 /**
@@ -414,7 +415,12 @@ game.onPhase = (p: PartyPhase) => {
   // nobody can press — a tap in the middle of it lands on the scrim. RESUME on
   // the card is the same command, said where it can be reached.
   hud.pauseBtn.hidden = p === 'paused'
-  if (p === 'results') { showResults(); audio.setMusic(false); celebrate() }
+  if (p === 'results') {
+    showResults(); audio.setMusic(false); celebrate()
+    // The round's length, and the best dancer's accuracy as a score out of 100.
+    const top = game.ranking[0]
+    trackGameEnded('dance', game.state.songTime, top ? game.accuracy(top) * 100 : 0)
+  }
   if (p === 'menu') { hud.resetStrip(); audio.setMusic(false); idleDance() }
   if (p === 'dancing') audio.setMusic(true)
   if (p === 'paused') audio.setMusic(false)

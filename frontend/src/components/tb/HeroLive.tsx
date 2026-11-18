@@ -1,4 +1,5 @@
 import { ActionFigureSlide } from './ActionFigure';
+import { track } from '../../analytics';
 import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
 import { ActionFigure, api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
@@ -213,6 +214,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // a tap plays at once (Raz: "we can't make the drawing do a flip").
   const go = useRef<((i: number, dir: 1 | -1) => void) | null>(null);
   const tap = (id: string) => {
+    track('move_tapped', { move: id });
     pendingMove.current = id;
     if (stage.current?.play(id)) pendingMove.current = null;
   };
