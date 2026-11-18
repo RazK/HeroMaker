@@ -6,7 +6,13 @@ OpenAI answers an empty account with HTTP 429 and `code: insufficient_quota`
 Stored as "rate limit exceeded ... will be retried automatically", it read like
 a blip that waiting would fix. Nothing fixes it but topping the account up, and
 until then every hero fails at that step. Meshy says the same thing as HTTP 402
-or `NoMorePendingTasks`.
+(and, on a plan with no task limit, a message starting `NoMoreConcurrentTasks`).
+
+`NoMorePendingTasks` is NOT that. It is Meshy's 429 for "all the task slots
+your plan allows are in use" (docs.meshy.ai/en/api/rate-limits): it clears when
+one of our own tasks finishes. It was treated as an empty account here until
+2026-11-19, which failed the eleventh hero of a busy five minutes for good and
+paged us about money we had. meshy.MeshyClient now waits for a slot instead.
 
 So that case gets its own exception, its own stored message ("... unavailable:
 out of credits"), and one ERROR log line with a fixed marker an alert can match:
@@ -49,7 +55,8 @@ def alert_out_of_credits(provider: str, detail: str) -> None:
 # ---------------------------------------------------------------------------
 
 _OPENAI_MARKERS = ("insufficient_quota", "no credits remaining", "exceeded your current quota")
-_MESHY_MARKERS = ("nomorependingtasks", "insufficient credit", "insufficient balance", "payment required")
+_MESHY_MARKERS = ("nomoreconcurrenttasks", "insufficient credit", "insufficient balance", "payment required")
+_MESHY_QUEUE_FULL_MARKER = "nomorependingtasks"
 
 
 def is_openai_out_of_credits(exc: BaseException) -> bool:
@@ -71,3 +78,8 @@ def is_meshy_out_of_credits(status_code, message: str) -> bool:
         return True
     text = (message or "").lower()
     return any(m in text for m in _MESHY_MARKERS)
+
+
+def is_meshy_queue_full(message: str) -> bool:
+    """True when Meshy says every task slot our plan allows is in use."""
+    return _MESHY_QUEUE_FULL_MARKER in (message or "").lower()

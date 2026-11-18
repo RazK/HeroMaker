@@ -66,7 +66,7 @@ _SAFETY = (
 )
 _PROVIDER_EMPTY = (
     "our account is out of credits", "insufficient_quota", "no credits remaining",
-    "exceeded your current quota", "nomorependingtasks", "payment required",
+    "exceeded your current quota", "nomoreconcurrenttasks", "payment required",
     "insufficient balance", "billing_hard_limit",
 )
 _SETUP = (
@@ -78,6 +78,8 @@ _BUSY = (
     "timeout", "server error", "server_error", "gateway error", "connection error",
     "connection refused", "connection reset", "temporarily unavailable",
     "service unavailable", "bad gateway", "try again later",
+    # Meshy: every task slot our plan allows is in use. Busy, not empty.
+    "nomorependingtasks",
 )
 _BUSY_STATUS = re.compile(r"(error code:?\s*|status\s*|\()(429|5\d\d)\b", re.IGNORECASE)
 _BAD_INPUT = (
