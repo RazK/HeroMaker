@@ -27,6 +27,14 @@ split.glb (the parts, textured), split.3mf (the parts, for a slicer) and
 split_preview.png once Meshy is done. Nothing polls in the background: each GET
 asks Meshy, at most every few seconds, until the task ends, so a restart loses
 nothing.
+
+The parts' colours are the hero's own, whatever the provider sent
+(app/utils/parts_colours.py). Hi3D's file multiplies the right texture by a
+flat label colour per part, which drew a blue face and one green leg. Every
+split.glb is put right before it is stored, and a split stored before that
+existed is put right the first time it is read (COLOURS, `stored`): no new
+split, no charge. Hi3D's cover picture is a render in those label colours, so
+it is not kept.
 """
 from __future__ import annotations
 
@@ -44,7 +52,7 @@ from app.models import Creation, CreationStep
 from app.services import usage as usage_service
 from app.services.meshy import MeshyAPIError, MeshyClient, MeshyOutOfCredits
 from app.services.usage import UsageContext
-from app.utils.storage import get_storage
+from app.utils.storage import derived_names, get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +72,10 @@ RUNNING = ("PENDING", "IN_PROGRESS")
 ENDED = ("SUCCEEDED", "FAILED", "CANCELED")
 # How often a GET may ask Meshy how it is going.
 POLL_SECONDS = 3.0
+# The colour repair a stored split.glb has had (state["colours"]["v"]). Raise it
+# when parts_colours.true_colours changes what it does: every split stored
+# under an older number is repaired again the next time it is read.
+COLOURS = 1
 
 
 class SplitError(Exception):
@@ -93,6 +105,60 @@ def read_state(creation: Creation) -> Optional[Dict[str, Any]]:
     if not storage.file_exists(creation.user_id, creation.id, STATE_FILE):
         return None
     return json.loads(storage.download_file(creation.user_id, creation.id, STATE_FILE))
+
+
+def stored(creation: Creation) -> Optional[Dict[str, Any]]:
+    """The split as stored, its colours put right first if it was stored before the repair existed."""
+    state = read_state(creation)
+    if state and state.get("status") == "SUCCEEDED" and (state.get("colours") or {}).get("v") != COLOURS:
+        state = _repair_colours(creation, state)
+    return state
+
+
+def _true_colours(creation: Creation, glb: bytes) -> tuple[bytes, Dict[str, Any]]:
+    """The parts in the hero's own colours, and a note of what was done for the state file."""
+    from app.utils import parts_colours
+
+    storage = get_storage()
+    try:
+        model = (storage.download_file(creation.user_id, creation.id, SOURCE_MODEL)
+                 if storage.file_exists(creation.user_id, creation.id, SOURCE_MODEL) else None)
+        fixed, report = parts_colours.true_colours(glb, model)
+    except Exception as e:  # not a GLB we can read: it stays as the provider sent it
+        logger.warning("[%s] split colours: could not be checked (%s)", creation.id, e)
+        return glb, {"v": COLOURS, "error": str(e)[:200]}
+    did = [row["did"] for row in report]
+    after = [row["after"] for row in report if row["after"] is not None]
+    note = {"v": COLOURS, "labels": did.count("labels"), "painted": did.count("painted"),
+            "worst": round(max(after), 1) if after else None}
+    logger.info("[%s] split colours: %s", creation.id, note)
+    if after and max(after) > parts_colours.FAR:
+        logger.warning("[%s] split colours: a piece is still far from the hero's model: %s", creation.id, report)
+    return fixed, note
+
+
+def _repair_colours(creation: Creation, state: Dict[str, Any]) -> Dict[str, Any]:
+    """Put a stored split's colours right, once: no provider is asked and nothing is charged."""
+    storage = get_storage()
+    files = list(state.get("files") or [])
+    note: Dict[str, Any] = {"v": COLOURS}
+    try:
+        if PARTS_GLB in files:
+            glb = storage.download_file(creation.user_id, creation.id, PARTS_GLB)
+            fixed, note = _true_colours(creation, glb)
+            if fixed != glb:
+                # Uploading also drops the stale opt_split.glb the viewer reads.
+                storage.upload_file(creation.user_id, creation.id, PARTS_GLB, fixed, content_type="model/gltf-binary")
+        if state.get("provider") == "hi3d" and PREVIEW in files:
+            for name in [PREVIEW] + derived_names(PREVIEW):  # Hi3D's cover: the label colours
+                storage.delete_file(creation.user_id, creation.id, name)
+            files.remove(PREVIEW)
+    except Exception:  # storage trouble: the split is shown as it is, and repaired on a later read
+        logger.exception("[%s] split colours: the repair did not finish", creation.id)
+        return state
+    state.update(files=files, colours=note)
+    _write_state(creation, state)
+    return state
 
 
 def _write_state(creation: Creation, state: Dict[str, Any]) -> None:
@@ -231,7 +297,7 @@ def _refresh_hi3d(creation: Creation, state: Dict[str, Any], client, now: float)
     ended = datetime.utcnow().isoformat() + "Z"
     if status == "SUCCEEDED":
         storage = get_storage()
-        glb = _download(task["url"])  # valid for one hour
+        glb, colours = _true_colours(creation, _download(task["url"]))  # the link is valid for one hour
         storage.upload_file(creation.user_id, creation.id, PARTS_GLB, glb, content_type="model/gltf-binary")
         files = [PARTS_GLB]
         try:
@@ -239,11 +305,8 @@ def _refresh_hi3d(creation: Creation, state: Dict[str, Any], client, now: float)
             files.append(PARTS_3MF)
         except Exception:  # the parts are still worth showing without a 3MF
             logger.exception("[%s] Hi3D split %s: could not make the 3MF", creation.id, state["task_id"])
-        if task.get("cover_url"):
-            storage.upload_file(creation.user_id, creation.id, PREVIEW, _download(task["cover_url"]),
-                                content_type="image/png")
-            files.append(PREVIEW)
-        state.update(status="SUCCEEDED", progress=100, files=files, finished_at=ended)
+        # Hi3D's cover picture is not kept: it shows the parts in its label colours.
+        state.update(status="SUCCEEDED", progress=100, files=files, finished_at=ended, colours=colours)
         usage_service.finalize_usage_by_provider_ref(pricing.PROVIDER_HI3D, state["task_id"], "succeeded")
     elif status == "FAILED":
         state.update(status="FAILED", error=str(task.get("msg") or task.get("error") or "Hi3D could not split it"),
@@ -266,7 +329,7 @@ def _download(url: str) -> bytes:
 def refresh(creation: Creation, client: Optional[MeshyClient] = None,
             now: Optional[float] = None, hi3d_client=None) -> Optional[Dict[str, Any]]:
     """The split as it stands, after asking Meshy if it is still running."""
-    state = read_state(creation)
+    state = stored(creation)
     if not state or state.get("status") in ENDED:
         return state
     now = time.time() if now is None else now
@@ -291,16 +354,20 @@ def refresh(creation: Creation, client: Optional[MeshyClient] = None,
         storage = get_storage()
         urls = task.get("model_urls") or {}
         files = []
+        colours = {"v": COLOURS}
         for name, key, kind in ((PARTS_GLB, "glb", "model/gltf-binary"), (PARTS_3MF, "3mf", "model/3mf")):
             if urls.get(key):
-                storage.upload_file(creation.user_id, creation.id, name, _download(urls[key]), content_type=kind)
+                data = _download(urls[key])
+                if name == PARTS_GLB:
+                    data, colours = _true_colours(creation, data)
+                storage.upload_file(creation.user_id, creation.id, name, data, content_type=kind)
                 files.append(name)
         preview = task.get("alpha_thumbnail_url") or task.get("thumbnail_url")
         if preview:
             storage.upload_file(creation.user_id, creation.id, PREVIEW, _download(preview), content_type="image/png")
             files.append(PREVIEW)
         state.update(status="SUCCEEDED", progress=100, part_count=task.get("part_count"), files=files,
-                     finished_at=datetime.utcnow().isoformat() + "Z")
+                     finished_at=datetime.utcnow().isoformat() + "Z", colours=colours)
         usage_service.finalize_usage_by_provider_ref(
             pricing.PROVIDER_MESHY, state["task_id"], "succeeded",
             metadata={"part_count": task.get("part_count"), "consumed_credits": task.get("consumed_credits")},
@@ -325,8 +392,11 @@ def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict
         return {"object": "print_split", "hero_id": creation.id, "status": "none"}
     files = set(state.get("files") or [])
     # Each split overwrites the same names: the task id in the URL keeps a
-    # browser from showing the previous split's file.
+    # browser from showing the previous split's file, and the colour repair's
+    # number keeps it from showing the file as it was before the repair.
     stamp = f"?v={state['task_id'][:12]}"
+    if (state.get("colours") or {}).get("v"):
+        stamp += f".c{state['colours']['v']}"
 
     def url(name: str) -> Optional[str]:
         return file_url(base, creation, name) + stamp if name in files else None

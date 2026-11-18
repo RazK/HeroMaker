@@ -233,7 +233,9 @@ def test_hi3d_splits_our_own_model_with_ball_joints_at_any_age(client, make_user
     hi3d.task = {"state": "success", "url": "https://hi3d/parts.glb", "cover_url": "https://hi3d/cover.png"}
     done = client.get(url, headers=admin).json()
     assert done["status"] == "succeeded"
-    assert done["files"]["parts"] and done["files"]["parts_3mf"] and done["files"]["preview"]
+    assert done["files"]["parts"] and done["files"]["parts_3mf"]
+    # Hi3D's cover is a render in its part-label colours (a blue head): not kept (test_parts_colours.py).
+    assert done["files"]["preview"] is None
     made = client.get(done["files"]["parts_3mf"].split("?")[0].split(".app", 1)[-1].split("testserver", 1)[-1])
     assert made.status_code == 200
     model = zipfile.ZipFile(io.BytesIO(made.content)).read("3D/3dmodel.model").decode()
