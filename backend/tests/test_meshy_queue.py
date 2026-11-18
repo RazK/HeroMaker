@@ -144,6 +144,28 @@ def test_an_abandoned_request_stops_waiting_and_creates_nothing(network, clock):
     assert clock.slept == []
 
 
+def test_a_caller_inside_a_web_request_is_told_busy_at_once(network, clock):
+    """The admin's print split creates its task inside the request: it must
+    not hold the request for ten minutes."""
+    fake = network(_full())
+    client = meshy.MeshyClient(api_key="test", queue_wait_seconds=0)
+
+    with pytest.raises(meshy.MeshyAPIError) as caught:
+        client._request("POST", "/openapi/v1/print/split", json={})
+
+    assert clock.slept == []
+    assert len(fake.calls) == 1
+    assert step_errors.classify(caught.value) == step_errors.PROVIDER_BUSY
+    assert not isinstance(caught.value, provider_errors.ProviderOutOfCredits)
+
+
+def test_the_print_split_does_not_wait_for_a_slot(monkeypatch):
+    from app.services import print_split
+    monkeypatch.setattr(meshy, "MESHY_API_KEY", "test-key")
+    assert print_split._meshy_client().queue_wait_seconds == 0
+    assert meshy.MeshyClient().queue_wait_seconds == meshy.QUEUE_WAIT_SECONDS
+
+
 def test_a_requests_per_second_limit_waits_what_meshy_says(network, clock):
     fake = network(
         _Response(429, {"message": "Rate limit exceeded"}, {"Retry-After": "3"}),

@@ -85,7 +85,7 @@ class MeshyClient:
     
     BASE_URL = "https://api.meshy.ai"
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, queue_wait_seconds: Optional[int] = None):
         """
         Initialize Meshy API client.
         
@@ -104,6 +104,10 @@ class MeshyClient:
         # so a request waiting for a task slot stops instead of creating (and
         # paying for) a task nobody will collect.
         self._abandoned = threading.Event()
+        # How long a new task waits for a free slot. The pipeline's steps run
+        # in the background and wait (QUEUE_WAIT_SECONDS); a caller inside a
+        # web request passes 0 and is told "busy" at once.
+        self.queue_wait_seconds = QUEUE_WAIT_SECONDS if queue_wait_seconds is None else queue_wait_seconds
 
     def abandon(self) -> None:
         """Stop waiting: whoever asked is gone."""
@@ -134,16 +138,17 @@ class MeshyClient:
                 if waited_from is None:
                     waited_from = now
                     logger.warning("Meshy has no free task slot for %s; waiting up to %ss (%s)",
-                                   endpoint, QUEUE_WAIT_SECONDS, full)
+                                   endpoint, self.queue_wait_seconds, full)
                 waited = now - waited_from
                 if self._abandoned.is_set():
                     raise MeshyAPIError("Meshy request abandoned while waiting for a task slot") from full
-                if waited + QUEUE_RETRY_SECONDS > QUEUE_WAIT_SECONDS:
+                if waited + QUEUE_RETRY_SECONDS > self.queue_wait_seconds:
                     logger.error("%s meshy: waited %ds for a task slot on %s: %s",
                                  QUEUE_ALERT_MARKER, int(waited), endpoint, full)
+                    how_long = f" stayed in use for {int(waited)} seconds" if waited else " is in use"
                     raise MeshyAPIError(
-                        f"Meshy is busy: every task slot on our plan stayed in use for "
-                        f"{int(waited)} seconds. Try again later. Provider said: {full}"
+                        f"Meshy is busy: every task slot on our plan{how_long}. "
+                        f"Try again later. Provider said: {full}"
                     ) from full
                 time.sleep(QUEUE_RETRY_SECONDS)
             except MeshyRateLimited as limited:

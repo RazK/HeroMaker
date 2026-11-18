@@ -168,6 +168,15 @@ def _write_state(creation: Creation, state: Dict[str, Any]) -> None:
     )
 
 
+def _meshy_client() -> MeshyClient:
+    """A Meshy client for work done inside a web request: if every task slot
+    on our plan is in use it says "busy" at once, where the pipeline's
+    background steps wait up to ten minutes for one (meshy.QUEUE_WAIT_SECONDS)."""
+    client = MeshyClient()
+    client.queue_wait_seconds = 0
+    return client
+
+
 def start(db: Session, creation: Creation, *, by_user_id: str, mode: str = "auto",
           prompt: Optional[str] = None, connectors: bool = False,
           client: Optional[MeshyClient] = None, provider: str = "meshy",
@@ -192,7 +201,7 @@ def start(db: Session, creation: Creation, *, by_user_id: str, mode: str = "auto
     if not source:
         raise SplitError(409, "no_source", "This hero has no finished 3D model to split.")
 
-    client = client or MeshyClient()
+    client = client or _meshy_client()
     try:
         task_id = client.create_print_split_task(
             source, mode=mode, prompt=prompt if mode == "by_parts" else None, connectors=connectors,
@@ -338,7 +347,7 @@ def refresh(creation: Creation, client: Optional[MeshyClient] = None,
 
     if state.get("provider") == "hi3d":
         return _refresh_hi3d(creation, state, hi3d_client, now)
-    client = client or MeshyClient()
+    client = client or _meshy_client()
     try:
         task = client.get_print_split_status(state["task_id"])
     except MeshyAPIError as e:
