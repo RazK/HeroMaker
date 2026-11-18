@@ -325,6 +325,9 @@ def parse_order_event(payload: Dict[str, Any]) -> Dict[str, Any]:
         currency      the currency they paid in
         email         the buyer's email, for the receipt only - never for lookup
         kind, class_id, seats   from custom_data, for a class seat order
+        variant_id    the variant the order's item was actually sold as, or
+                      None when the body carries no order item. Unlike
+                      custom_data, the buyer cannot choose this.
         subtotal_usd_micros, discount_usd_micros   the price before tax, and
                       any discount code, for checking a class seat order
 
@@ -370,7 +373,11 @@ def parse_order_event(payload: Dict[str, Any]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             return None
 
+    item = attributes.get("first_order_item") or {}
+    variant = item.get("variant_id") if isinstance(item, dict) else None
+
     return {
+        "variant_id": (str(variant).strip() if variant not in (None, "") else None),
         # "class_seats" for seats bought for one class; None for a pack.
         "kind": (str(custom["kind"]) if custom.get("kind") else None),
         "class_id": (str(custom["class_id"]) if custom.get("class_id") else None),

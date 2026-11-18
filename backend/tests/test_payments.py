@@ -56,7 +56,13 @@ def balance(user_id, db):
     return cached
 
 
-def order_body(order_id, user_id, pack="maker", event="order_created", status="paid", total_usd=1500):
+def order_body(order_id, user_id, pack="maker", event="order_created", status="paid", total_usd=1500,
+               variant=None, subtotal_usd=None, discount_usd=0, test_mode=True):
+    """`variant` adds the order item Lemon Squeezy really sends (the variant
+    the goods were sold as); without it the body is the older, item-less shape."""
+    item = {"first_order_item": {"id": 1, "variant_id": variant, "price": subtotal_usd or total_usd}} if variant else {}
+    priced = {"subtotal": subtotal_usd, "subtotal_usd": subtotal_usd,
+              "discount_total": discount_usd, "discount_total_usd": discount_usd} if subtotal_usd is not None else {}
     return {
         "meta": {
             "event_name": event,
@@ -73,7 +79,9 @@ def order_body(order_id, user_id, pack="maker", event="order_created", status="p
                 "currency": "USD",
                 "user_email": "buyer@example.test",
                 "refunded": event == "order_refunded",
-                "test_mode": True,
+                "test_mode": test_mode,
+                **item,
+                **priced,
             },
         },
     }
@@ -184,6 +192,89 @@ def test_the_same_order_delivered_twice_grants_credits_once(configured, client, 
     assert balance(user.id, db) == 30
     purchases = [t for t in ledger.list_transactions(user.id, db) if t.reason == "purchase"]
     assert len(purchases) == 1
+
+
+# custom_data is copied from the checkout link, and anyone can write a link:
+#   https://<store>.lemonsqueezy.com/checkout/buy/<starter variant>
+#       ?checkout[custom][user_id]=<me>&checkout[custom][pack]=studio
+# These drive the real webhook with exactly that order.
+
+def test_the_cheapest_pack_cannot_be_relabelled_as_the_biggest(configured, client, make_user, db):
+    """$5 for the Starter variant, custom data saying 'studio': 30 credits, not 300."""
+    user = make_user(credits=0)
+    raw, headers = signed(order_body("order-relabel", user.id, pack="studio", total_usd=500,
+                                     variant="variant-starter", subtotal_usd=500))
+
+    response = client.post("/api/payments/webhook", content=raw, headers=headers)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["credits_granted"] == 30
+    assert balance(user.id, db) == 30
+    purchase = [t for t in ledger.list_transactions(user.id, db) if t.reason == "purchase"][0]
+    assert purchase.metadata_json["pack"] == "starter"
+
+
+def test_an_order_for_something_that_is_not_a_pack_grants_nothing(configured, client, make_user, db):
+    """Any other product in the store, dressed up as a pack."""
+    user = make_user(credits=0)
+    raw, headers = signed(order_body("order-other-product", user.id, pack="studio", total_usd=100,
+                                     variant="variant-of-something-else", subtotal_usd=100))
+
+    response = client.post("/api/payments/webhook", content=raw, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ignored"
+    assert balance(user.id, db) == 0
+
+
+def test_a_discount_code_still_buys_the_pack(configured, client, make_user, db):
+    """A campaign code takes half off a Maker: the variant is still Maker."""
+    user = make_user(credits=0)
+    raw, headers = signed(order_body("order-discount", user.id, pack="maker", total_usd=750,
+                                     variant="variant-maker", subtotal_usd=1500, discount_usd=750))
+
+    response = client.post("/api/payments/webhook", content=raw, headers=headers)
+
+    assert response.json()["credits_granted"] == 100
+    assert balance(user.id, db) == 100
+
+
+def test_an_order_with_no_item_must_be_priced_like_the_pack(configured, client, make_user, db):
+    """No order item to read the variant from: the price decides."""
+    user = make_user(credits=0)
+    raw, headers = signed(order_body("order-no-item-cheap", user.id, pack="studio", total_usd=500))
+
+    response = client.post("/api/payments/webhook", content=raw, headers=headers)
+
+    assert response.json()["status"] == "ignored"
+    assert balance(user.id, db) == 0
+
+
+def test_a_test_card_buys_nothing_on_a_live_deployment(configured, client, make_user, db, monkeypatch):
+    """Production with the test webhook's secret typed in by mistake: an order
+    paid with 4242... is signed correctly and must still grant nothing."""
+    monkeypatch.setenv("LEMONSQUEEZY_TEST_MODE", "false")
+    user = make_user(credits=0)
+    raw, headers = signed(order_body("order-test-on-live", user.id, pack="maker",
+                                     variant="variant-maker", test_mode=True))
+
+    response = client.post("/api/payments/webhook", content=raw, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ignored"
+    assert balance(user.id, db) == 0
+
+
+def test_a_real_order_is_credited_on_a_live_deployment(configured, client, make_user, db, monkeypatch):
+    monkeypatch.setenv("LEMONSQUEEZY_TEST_MODE", "false")
+    user = make_user(credits=0)
+    raw, headers = signed(order_body("order-live", user.id, pack="maker",
+                                     variant="variant-maker", test_mode=False))
+
+    response = client.post("/api/payments/webhook", content=raw, headers=headers)
+
+    assert response.json()["credits_granted"] == 100
+    assert balance(user.id, db) == 100
 
 
 def test_an_unpaid_order_grants_nothing(configured, client, make_user, db):
