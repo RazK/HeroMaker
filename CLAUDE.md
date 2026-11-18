@@ -309,18 +309,19 @@ idempotent, so a retried step really does cost again; keying on creation+step
 would refund the first failure and silently swallow every later one. A user
 cancellation deliberately keeps its charge.
 
-**Known blocker, unrelated to any of the above:** the Meshy account is on the
-free plan, which Meshy has discontinued (`NoMorePendingTasks`). No hero can
-complete on any environment until that is upgraded.
+**`NoMorePendingTasks` is not "out of credits".** It is Meshy's 429 for "every
+task slot your plan allows is in use" (Pro: 10 at once). It was treated as an
+empty account until 2026-11-19, which failed the eleventh hero of a busy five
+minutes for good. `MeshyClient` now waits for a slot; an empty account is HTTP
+402. See `backend/tests/test_meshy_queue.py`.
 
-### Buying credits: the API is done, the UI is not (deliberate)
+### Buying credits: built end to end; read docs/launch/READINESS.md before launch
 
-The backend can take money today. The frontend has no way to spend it — PR #25
-changed zero files under `frontend/`. **This is a known, accepted gap, not an
-oversight to re-report.** The UI is planned as separate work.
-
-If you are the agent building it, everything you need already exists and is
-verified against the live store:
+The purchase UI exists (`frontend/src/components/BuyCredits.tsx`, and "Pay for
+N seats" on a class) and the staging robot buys a pack and class seats in
+Lemon Squeezy test mode on every run. **`docs/launch/READINESS.md` is the
+checklist of what is proven, what was fixed, and what only Raz can do before
+production takes real money.** Keep it current when any of this changes.
 
 ```
 GET  /api/v1/packs            what is on sale (no margin data leaks to the customer)
@@ -329,21 +330,24 @@ POST /api/payments/webhook    Lemon Squeezy only. Credits are granted HERE, nowh
 GET  /api/v1/receipts         the signed-in user's own purchases
 ```
 
-Rules for that UI:
+Rules that hold the money path together:
 
 - Send the buyer to `checkout_url` and nothing else. **The browser must never
   tell the backend a payment happened** — only the signed webhook grants
-  credits, and that is the whole security model. On return from checkout, just
-  re-read the balance; the webhook usually lands within a second or two.
-- Render only the packs `GET /packs` returns. A pack missing its Lemon Squeezy
-  variant is omitted on purpose: a price with no working button is worse than
-  no price.
+  credits. On return from checkout, re-read the balance; the webhook usually
+  lands within a second or two.
+- **Custom data is not proof of anything.** Lemon Squeezy copies it from the
+  checkout link, and anyone can write a link. The webhook credits the pack
+  whose *variant* the order was sold as (`payments._pack_paid_for`), and
+  re-prices class seats. Until 2026-11-19 a $5 order saying `pack=studio` got
+  300 credits. Any new thing sold must be checked the same way.
+- A live deployment (`LEMONSQUEEZY_TEST_MODE=false`) ignores test-mode orders.
+- Nothing is listed and no checkout opens unless `lemonsqueezy.can_sell()`:
+  API key, store id AND webhook secret. Without the secret a buyer would pay
+  and get nothing.
 - `checkout` answers **503** when the store is unconfigured and **502** when
   Lemon Squeezy refuses. Both are ours, not the customer's — show "payments are
   unavailable right now", not a validation error.
-- `price_display` currently renders four decimals (`"$5.0000"`); `packs.py`
-  omits the `places=2` that the receipts endpoint passes. Fix it there, not in
-  the UI.
-- `/packs` lists packs whenever the *variant ids* are set, even if
-  `LEMONSQUEEZY_API_KEY` is missing — so a half-configured deployment can show
-  a Buy button that 503s. Worth tightening in `packs.get_packs` before launch.
+- The price table (`backend/app/config/pricing.py`) is behind Meshy's price
+  page; READINESS.md has the real cost of a hero. Do not quote the margin
+  report until that is settled.
