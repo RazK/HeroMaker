@@ -33,7 +33,7 @@ from app.config import packs as packs_config
 from app.database import get_db
 from app.models import ClassRoom, Payment, User
 from app.services import classes as class_service
-from app.services import ledger, lemonsqueezy
+from app.services import analytics, ledger, lemonsqueezy
 
 logger = logging.getLogger(__name__)
 
@@ -505,6 +505,15 @@ def _record_payment(db: Session, event: dict, pack: dict, user_id: str, extra: O
             },
         ))
         db.commit()
+        # The funnel's "bought" step, said by the backend because only the
+        # signed webhook knows a payment happened. Here, beside the payment
+        # row, so a redelivery (which returned above) is one purchase, and a
+        # pack and a class's seats both count. Never raises.
+        analytics.record_server(
+            db, "purchase_done",
+            {"pack": pack["slug"], "amount_cents": (gross or 0) // 10_000, "test": bool(event["test_mode"])},
+            user_id=user_id, ref=ref, once=True,
+        )
     except Exception:
         db.rollback()
         logger.exception(

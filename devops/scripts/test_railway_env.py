@@ -157,7 +157,11 @@ STAGING_ONLY = {
     # Result cache for the paid pipeline steps, so the staging robot does not
     # pay OpenAI and Meshy for the same drawing every run.
     # backend/app/services/result_cache.py
-    "backend": {"PIPELINE_RESULT_CACHE"},
+    # Analytics is staging-only FOR NOW: production's privacy policy still says
+    # "No analytics", and only Raz changes its words. When it says what is
+    # collected, the line moves to backend.env and leaves this set.
+    # backend/app/services/analytics.py
+    "backend": {"PIPELINE_RESULT_CACHE", "ANALYTICS_ENABLED"},
 }
 
 

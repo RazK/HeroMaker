@@ -54,7 +54,7 @@ from app.config.settings import get_jwt_secret_key
 from app.config.steps import get_all_step_names, get_step_cost
 from app.models import ClassGuest, ClassRoom, ClassSession, Creation, CreationStep, User
 from app.schemas.creation import file_versions, painting_look
-from app.services import ledger, step_errors
+from app.services import analytics, ledger, step_errors
 from app.services.credits import refund_creation_charges
 from app.utils.storage import get_storage, is_derived
 
@@ -342,6 +342,7 @@ def create_class(db: Session, teacher: User, title: str, seats: int, ages: Optio
     db.commit()
     db.refresh(classroom)
     funnel("class_created", class_id=classroom.id, teacher=teacher.id, seats=seats, credits=need)
+    analytics.record_server(db, "class_created", user_id=teacher.id, ref=f"class:{classroom.id}", once=True)
     return classroom
 
 
@@ -355,6 +356,7 @@ def create_class_to_buy(db: Session, teacher: User, title: str, seats: int,
     check_seats(seats)
     classroom = _new_class(db, teacher, title, ages)
     funnel("class_created", class_id=classroom.id, teacher=teacher.id, seats=0, credits=0, paying=int(seats))
+    analytics.record_server(db, "class_created", user_id=teacher.id, ref=f"class:{classroom.id}", once=True)
     return classroom
 
 
@@ -663,7 +665,8 @@ def guest_by_token(db: Session, token: Optional[str]) -> Optional[ClassGuest]:
 
 
 def join(db: Session, session: ClassSession, first_name: str, age, device_token: Optional[str],
-         guest_token: Optional[str], now: Optional[datetime] = None) -> Tuple[ClassGuest, Optional[str], str]:
+         guest_token: Optional[str], now: Optional[datetime] = None,
+         visitor: Optional[str] = None) -> Tuple[ClassGuest, Optional[str], str]:
     """Join `session`. Returns (guest, new pass or None, browser marker).
 
     The browser coming back with its pass gets the same student: no new pass,
@@ -704,6 +707,10 @@ def join(db: Session, session: ClassSession, first_name: str, age, device_token:
     db.refresh(guest)
     funnel("student_joined", class_id=session.class_id, session=session.id, guest=guest.id,
            shared_device=shared, status=status, has_age=age is not None)
+    # The student has no account: the browser's own visitor id (if it sent
+    # one) is what ties this, and later their hero, to their visit.
+    analytics.record_server(db, "class_joined", visitor_id=visitor, ref=guest.id,
+                            door=analytics.class_door(session.class_id), once=True)
     return guest, token, device_token
 
 

@@ -52,7 +52,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import CreationStep
-from app.services import step_errors
+from app.services import analytics, step_errors
 from app.services.credits import refund_last_step_charge
 
 logger = logging.getLogger(__name__)
@@ -135,6 +135,7 @@ def reconcile_stuck_steps(
         step_errors.mark_failed(step, RESTART_MESSAGE, code=step_errors.INTERRUPTED)
         step_errors.note_refund(step, refund)
         db.commit()
+        analytics.hero_failed(db, creation_id, step_name, step_errors.INTERRUPTED)
         logger.info(
             "Marked step %s:%s as failed (%s)%s",
             creation_id, step_name, note, " and refunded it" if refund is not None else "",

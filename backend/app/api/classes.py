@@ -22,7 +22,7 @@ from app.api.creations import _checked_style, create_with_drawing, require_pictu
 from app.database import get_db
 from app.models import ClassGuest, ClassRoom, Creation, User
 from app.config import packs as packs_config
-from app.services import classes, demo_library, lemonsqueezy
+from app.services import analytics, classes, demo_library, lemonsqueezy
 from app.schemas.creation import file_versions
 from app.services.auth import get_current_user_required, verify_access_token
 from app.services.task_manager import get_task_manager
@@ -304,6 +304,9 @@ class JoinRequest(BaseModel):
     pin: str
     first_name: Optional[str] = None
     age: Optional[int] = None
+    # The browser's anonymous analytics id (frontend/src/analytics.ts), so the
+    # join lands in the same funnel as the visit. Optional, never a name.
+    visitor: Optional[str] = None
 
 
 @student_router.get("/join/{pin}")
@@ -327,6 +330,8 @@ def find_class(pin: str, request: Request, response: Response, db: Session = Dep
         # This browser already joined this class: skip the name, show its hero.
         # A student the teacher removed joins again, as someone new.
         "joined": guest is not None and guest.class_id == classroom.id and guest.status != "removed",
+        # Which door this visitor came through, for analytics: this class.
+        "door": analytics.class_door(classroom.id),
     }
 
 
@@ -335,11 +340,13 @@ def join_class(body: JoinRequest, request: Request, response: Response, db: Sess
     device = _device_token(request)
     with _refusals():
         session = classes.find_open_by_pin(db, body.pin, device)
-        guest, token, device = classes.join(db, session, body.first_name, body.age, device, _pass_token(request))
+        guest, token, device = classes.join(db, session, body.first_name, body.age, device, _pass_token(request),
+                                            visitor=body.visitor)
     _set_cookie(response, request, classes.DEVICE_COOKIE, device)
     if token:
         _set_cookie(response, request, classes.GUEST_COOKIE, token)
-    return {**classes.guest_view(db, guest), "pass": token, "device_token": device}
+    return {**classes.guest_view(db, guest), "pass": token, "device_token": device,
+            "door": analytics.class_door(guest.class_id)}
 
 
 @student_router.post("/leave")

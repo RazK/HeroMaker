@@ -636,3 +636,41 @@ class ApiHero(Base):
 
     creation = relationship("Creation")
     api_key = relationship("ApiKey")
+
+
+class AnalyticsEvent(Base):
+    """
+    One thing a visitor did, or one thing that happened to them
+    (docs/analytics/REQUIREMENTS.md). Append-only.
+
+    No personal data, by construction: `name` is one of a fixed list and
+    `props` holds only the properties that list allows, each an enum, a
+    bounded integer, a boolean or a short slug (app/services/analytics.py).
+    No IP address, no user agent, no names, no free text.
+
+    `visitor_id` is a random id the browser made for itself; `user_id` is set
+    only once that browser is signed in. Events the backend records itself
+    (a purchase, a finished hero) carry the visitor that account was last
+    seen on, when there is one. `user_id` is not a foreign key: the record of
+    a funnel must not block, or be lost with, an account's deletion.
+
+    `ref` is the backend's own handle for its events (an order, a hero, a
+    class student): what makes a redelivered webhook or a retried hero count
+    once, and how a class student's hero finds the browser that joined.
+    """
+    __tablename__ = "analytics_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    name = Column(String(40), nullable=False, index=True)
+    visitor_id = Column(String(64), nullable=True, index=True)
+    user_id = Column(String, nullable=True, index=True)
+    # Where this visitor first came from: a `?via=` tag or a class. NULL is "direct".
+    door = Column(String(40), nullable=True, index=True)
+    device = Column(String(10), nullable=True)  # phone | desktop
+    # The staging robot, any automated browser, and test accounts: kept, and
+    # left out of every graph.
+    is_robot = Column(Boolean, nullable=False, default=False, server_default=false(), index=True)
+    source = Column(String(10), nullable=False, default="browser")  # browser | server
+    props = Column(JSONVariant, nullable=False, default=dict)
+    ref = Column(String(80), nullable=True, index=True)
