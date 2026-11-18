@@ -111,7 +111,7 @@ def seat_price() -> Optional[dict]:
     per seat, in cents (app/config/packs.py has the numbers and their margin).
     None hides the option: no class-seats variant, or no store, configured,
     exactly as GET /api/v1/packs omits a pack it cannot sell."""
-    if not (lemonsqueezy.is_configured() and packs_config.class_seats_variant_id()):
+    if not (lemonsqueezy.can_sell() and packs_config.class_seats_variant_id()):
         return None
     return {
         "order_cents": packs_config.price_cents(packs_config.CLASS_ORDER_USD_MICROS),

@@ -344,6 +344,28 @@ def test_packs_endpoint_lists_configured_packs_only(configured, client, monkeypa
     assert slugs == ["starter", "maker"]
 
 
+@pytest.mark.parametrize("missing", [
+    "LEMONSQUEEZY_API_KEY",         # the Buy button would answer 503
+    "LEMONSQUEEZY_STORE_ID",
+    "LEMONSQUEEZY_WEBHOOK_SECRET",  # the buyer would pay and get nothing
+])
+def test_a_half_configured_store_sells_nothing(configured, client, make_user, monkeypatch, missing):
+    """Variant ids alone are not a shop: no price is shown, and no checkout
+    opens, unless we can both take the money and hear that we did."""
+    monkeypatch.delenv(missing, raising=False)
+
+    assert client.get("/api/v1/packs").json() == []
+
+    user = make_user(credits=0)
+    called = []
+    monkeypatch.setattr(lemonsqueezy.requests, "post", lambda *a, **kw: called.append(a))
+    from app.services.auth import create_access_token
+    signed_in = {"Authorization": f"Bearer {create_access_token(user.id)}"}
+    response = client.post("/api/v1/checkout", json={"pack": "starter"}, headers=signed_in)
+    assert response.status_code == 503
+    assert called == [], "a checkout was opened at Lemon Squeezy by a store that cannot finish the sale"
+
+
 def test_packs_endpoint_never_leaks_our_margins(configured, client):
     body = client.get("/api/v1/packs").text
     assert "margin" not in body

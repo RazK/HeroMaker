@@ -63,7 +63,15 @@ def list_packs():
     shown greyed out: a price with no working button is worse than no price.
     Margin figures are deliberately NOT in this response - they are our
     business, and they live on the admin finance page.
+
+    Nothing is listed unless the store can both open a checkout and hear that
+    it was paid (lemonsqueezy.can_sell): variant ids alone used to be enough,
+    so a deployment missing its API key showed Buy buttons that answered 503,
+    and one missing its webhook secret would have taken money and granted
+    nothing.
     """
+    if not lemonsqueezy.can_sell():
+        return []
     return [
         PackOut(
             slug=p["slug"], name=p["name"], blurb=p["blurb"],

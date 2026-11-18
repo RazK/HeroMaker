@@ -81,8 +81,21 @@ def test_mode() -> bool:
 
 
 def is_configured() -> bool:
-    """Can we open a checkout at all?"""
+    """Can we talk to the store at all? (API key and store id.)"""
     return bool(api_key() and store_id())
+
+
+def can_sell() -> bool:
+    """
+    May a customer be shown a price and sent to a checkout?
+
+    Only when the whole loop is there: the key and store to open a checkout,
+    AND the webhook secret to hear that it was paid. Without the secret every
+    webhook is rejected (verify_signature), so a buyer would pay and get
+    nothing. Without the key the Buy button answers 503. Either way the honest
+    thing to show is "payments are unavailable", before any money moves.
+    """
+    return is_configured() and webhook_secret() is not None
 
 
 def config_status() -> Dict[str, Any]:
@@ -102,6 +115,8 @@ def config_status() -> Dict[str, Any]:
         # LEMONSQUEEZY_VARIANT_CLASS_SEATS. Unset hides "Pay $X for N seats".
         "class_seats_configured": packs.class_seats_variant_id() is not None,
         "ready_for_checkout": is_configured() and bool(configured_packs),
+        # What customers see: packs are listed and checkouts open only then.
+        "selling": can_sell() and bool(configured_packs),
         "ready_for_webhook": webhook_secret() is not None,
     }
 
@@ -136,10 +151,10 @@ def create_checkout(
     Raises NotConfiguredError when the store or the pack's variant is unset, and
     LemonSqueezyError when the API says no.
     """
-    if not is_configured():
+    if not can_sell():
         raise NotConfiguredError(
-            "Lemon Squeezy is not configured; set LEMONSQUEEZY_API_KEY and "
-            "LEMONSQUEEZY_STORE_ID"
+            "Lemon Squeezy is not configured; set LEMONSQUEEZY_API_KEY, "
+            "LEMONSQUEEZY_STORE_ID and LEMONSQUEEZY_WEBHOOK_SECRET"
         )
     variant = pack.get("variant_id")
     if not variant:
@@ -178,10 +193,10 @@ def create_class_seats_checkout(
 
     Returns (checkout url, the quote it was opened at).
     """
-    if not is_configured():
+    if not can_sell():
         raise NotConfiguredError(
-            "Lemon Squeezy is not configured; set LEMONSQUEEZY_API_KEY and "
-            "LEMONSQUEEZY_STORE_ID"
+            "Lemon Squeezy is not configured; set LEMONSQUEEZY_API_KEY, "
+            "LEMONSQUEEZY_STORE_ID and LEMONSQUEEZY_WEBHOOK_SECRET"
         )
     quote = packs.class_seats_quote(seats)
     if not quote["variant_id"]:
