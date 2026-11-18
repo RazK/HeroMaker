@@ -50,7 +50,10 @@ async function slideProblems(page) {
       range.selectNodeContents(title);
       add('the header title', title, range.getBoundingClientRect());
     }
-    document.querySelectorAll('.tb-hero-screen > .tb-header button').forEach((el) => seen(el) && add(`header ${el.getAttribute('aria-label') || 'button'}`, el));
+    // The header's other controls. For its owner the title is itself a button
+    // ("Rename <name>"): that is the title, already in the list by its words,
+    // so it is not also one of the things the title must keep clear of.
+    document.querySelectorAll('.tb-hero-screen > .tb-header button:not(.tb-header-title)').forEach((el) => seen(el) && add(`header ${el.getAttribute('aria-label') || 'button'}`, el));
     // The dots: the row they make, not the full-width strip holding them.
     const dots = [...document.querySelectorAll('.tb-carousel-dot')].map((d) => d.getBoundingClientRect());
     if (dots.length) items.push({ name: 'the dots', l: Math.min(...dots.map((d) => d.left)), t: Math.min(...dots.map((d) => d.top)), r: Math.max(...dots.map((d) => d.right)), b: Math.max(...dots.map((d) => d.bottom)) });
