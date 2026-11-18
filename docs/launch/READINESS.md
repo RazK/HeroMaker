@@ -1,7 +1,7 @@
 # Launch readiness: can a stranger pay and get a hero?
 
-Audit of 2026-11-19, before the first paid marketing campaign. Staging was
-v2.0.112; production was v2.0.85 (deployed 2026-11-02).
+Audit of 2026-11-19, before the first paid marketing campaign. Production was
+v2.0.85 (deployed 2026-11-02); the fixes below reached staging as v2.0.115.
 
 **Verdict: not yet.** The code path is proven on staging in test mode. What is
 not proven is production itself: whether its store takes real money, and
@@ -13,8 +13,8 @@ Keep this file current. When an item changes, move it between the lists.
 
 | What | Proof |
 |---|---|
-| Buy a pack: checkout → card → webhook → credits | Staging robot, every run. Run [44383776616](https://github.com/RazK/HeroMaker/actions/runs/44383776616): "paid $5.00; balance 0 -> 30". A real Lemon Squeezy test-mode order through the real webhook. |
-| Buy class seats at the teacher price | Same robot run, class step. The seats go to the class, never to the teacher's balance. |
+| Buy a pack: checkout → card → webhook → credits | Staging robot, every run: a real Lemon Squeezy test-mode order through the real webhook. Green on the build with the fixes below: run [44422584044](https://github.com/RazK/HeroMaker/actions/runs/44422584044). |
+| Buy class seats at the teacher price | Same run, class step: "5 seats at $6.75 … paid on Lemon Squeezy, seats in 0.8s after returning … balance unchanged". The seats go to the class, never to the teacher's balance. |
 | A forged, unsigned or replayed webhook grants nothing | `backend/tests/test_payments.py`, `test_class_seat_purchase.py`; checked against real HTTP on 2026-09-22. Unsigned POST to both backends answers 401 (checked 2026-11-19). |
 | A step that fails or times out gives its credits back | `backend/tests/test_step_refunds.py`, `test_restart_refund.py`, on the real `pipeline.execute_step`. |
 | The buyer comes back before the webhook lands | The app says "Thanks! Adding your credits…" and re-reads the balance for 30 s; the browser never reports a payment (`App.tsx`). |
@@ -31,7 +31,7 @@ Keep this file current. When an item changes, move it between the lists.
 | Fix | PR |
 |---|---|
 | **$5 could buy 300 credits.** The webhook trusted the pack named in the checkout link. It now credits the pack whose variant was actually sold, and a live deployment ignores test-card orders. | [#230](https://github.com/RazK/HeroMaker/pull/230) |
-| **The eleventh hero in five minutes failed as "out of credits".** Meshy's "all task slots in use" was read as an empty account. A new hero now waits up to 10 minutes for a slot. | [#232](https://github.com/RazK/HeroMaker/pull/232) |
+| **The eleventh hero in five minutes failed as "out of credits".** Meshy's "all task slots in use" was read as an empty account. A new hero now waits up to 10 minutes for a slot. | [#232](https://github.com/RazK/HeroMaker/pull/232), [#236](https://github.com/RazK/HeroMaker/pull/236) |
 | **A half-configured store could show a price.** Without the API key the button answered 503; without the webhook secret the buyer would have paid and got nothing. Now nothing is listed. | [#233](https://github.com/RazK/HeroMaker/pull/233) |
 
 ## 3. Needs Raz
