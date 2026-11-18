@@ -13,6 +13,9 @@
 .tb-split-slider { display: flex; align-items: center; gap: 12px; font-weight: 800; }
 .tb-split-slider input { flex: 1; min-width: 0; accent-color: var(--tb-grape); height: 44px; }
 .tb-split-chips { justify-content: center; }
+/* A row of chips wider than the sheet goes onto a second line, inside the
+   sheet's gutters: never against or past the screen's edges. */
+.tb-split .tb-chip-row { flex-wrap: wrap; }
 .tb-split-go { display: inline-flex; align-items: center; gap: 8px; }
 .tb-split .tb-btn { text-decoration: none; }
 .tb-parts-loading { width: 72px; height: 72px; }

@@ -502,8 +502,29 @@
 }
 .tb-figure-slider { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; font-weight: 800; font-size: 15px; }
 .tb-figure-slider input { flex: 1; min-width: 0; height: 44px; accent-color: var(--tb-grape); touch-action: none; }
-.tb-figure-get { flex: none; gap: 4px; }
-.tb-figure-move { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; }
+/* Move and the 3MF are one size (Raz: "the 3MF button ... needs to be the
+   same size as the move"): the same box, the same letters, the same icon. */
+.tb-figure-dock--made > .tb-figure-move,
+.tb-figure-dock--made > .tb-figure-get {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 44px;
+  min-width: 96px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.tb-figure-dock--made > :is(.tb-figure-move, .tb-figure-get) svg { width: 18px; height: 18px; flex-shrink: 0; }
+/* Upright, the 3MF sits in the dock's white box: the small outline and depth
+   (the header's), so its depth stays inside the box. */
+@media (orientation: portrait) {
+  .tb-figure-dock--made > .tb-figure-get { border-width: 2px; }
+  .tb-figure-dock--made > .tb-figure-get:not(:focus-visible) { box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink); }
+  .tb-figure-dock--made > .tb-figure-get:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
+}
 .tb-figure-dock--made { padding-inline-start: 8px; gap: 8px; }
 .tb-figure-slider { gap: 6px; color: var(--tb-ink); }
 /* The parts turn by themselves (a drag on the stage is a swipe). */
