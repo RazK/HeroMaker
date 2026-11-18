@@ -335,6 +335,22 @@ def get_pack(slug: str) -> Optional[Dict]:
     return None
 
 
+def pack_for_variant(variant: Optional[str]) -> Optional[Dict]:
+    """
+    The pack a Lemon Squeezy variant sells, or None.
+
+    The webhook credits by this, not by the pack named in the order's custom
+    data: custom data is whatever the checkout link carried, and anyone can
+    write a link (payments.py).
+    """
+    if not variant:
+        return None
+    for pack in get_packs():
+        if pack["variant_id"] and str(pack["variant_id"]) == str(variant).strip():
+            return pack
+    return None
+
+
 def check_packs() -> List[str]:
     """
     Every reason the price list is wrong, as a list of sentences. Empty means

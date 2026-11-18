@@ -180,6 +180,18 @@ async def lemonsqueezy_webhook(
     if event["event"] not in lemonsqueezy.HANDLED_EVENTS:
         return {"status": "ignored", "reason": f"unhandled event {event['event']}"}
 
+    if event["test_mode"] and not lemonsqueezy.test_mode():
+        # A live deployment is being told about a test-mode order: paid with
+        # Lemon Squeezy's test card, so no money moved. The test and live
+        # webhooks normally have different signing secrets and this never gets
+        # here; it does if the same secret was typed into both.
+        logger.error(
+            "Lemon Squeezy order %s is a TEST-mode order and this deployment is live "
+            "(LEMONSQUEEZY_TEST_MODE=false); nothing was granted",
+            event["order_id"],
+        )
+        return {"status": "ignored", "reason": "test-mode order on a live deployment"}
+
     if event["kind"] == packs_config.CLASS_SEATS_SLUG:
         return _class_seats_event(db, event)
 
@@ -210,14 +222,15 @@ async def lemonsqueezy_webhook(
         )
         return {"status": "ignored", "reason": "order carries no custom_data"}
 
-    pack = packs_config.get_pack(pack_slug)
+    pack = _pack_paid_for(event, pack_slug)
     if pack is None:
         logger.error(
-            "Lemon Squeezy order %s names pack %r, which no longer exists; "
-            "user %s was not credited",
-            event["order_id"], pack_slug, user_id,
+            "Lemon Squeezy order %s (custom pack %r, variant %r, subtotal %s) did not pay "
+            "for a pack we sell; user %s was not credited",
+            event["order_id"], pack_slug, event["variant_id"], event["subtotal_usd_micros"], user_id,
         )
-        return {"status": "ignored", "reason": f"unknown pack {pack_slug}"}
+        return {"status": "ignored", "reason": "order did not pay for a pack"}
+    pack_slug = pack["slug"]
 
     try:
         tx = ledger.record_purchase(
@@ -269,6 +282,43 @@ async def lemonsqueezy_webhook(
         "credits_granted": pack["credits"],
         "balance_after": tx.balance_after,
     }
+
+
+def _pack_paid_for(event: dict, claimed_slug: str) -> Optional[dict]:
+    """
+    The pack this order actually paid for, or None.
+
+    custom_data names a pack, but custom_data is not proof: Lemon Squeezy
+    copies it from the checkout link, and anyone can write a link to the
+    cheapest variant that says `pack=studio` (docs.lemonsqueezy.com/help/
+    checkout/passing-custom-data). Before this check, $5 bought 300 credits.
+
+    What the buyer cannot choose is the variant the order's item was sold as,
+    so the pack is read from that. A discount code still works: the variant is
+    the same whatever was taken off.
+
+    A body with no order item (not seen from Lemon Squeezy, but the item is the
+    one thing here we do not control) falls back to the price: the claimed
+    pack counts only if the goods were priced at least that much before any
+    discount and before tax. One cent of slack for a converted currency.
+    """
+    variant = event["variant_id"]
+    if variant:
+        pack = packs_config.pack_for_variant(variant)
+        if pack is not None and pack["slug"] != claimed_slug:
+            logger.warning(
+                "Lemon Squeezy order %s says pack %r but was sold as %r; crediting %r",
+                event["order_id"], claimed_slug, pack["slug"], pack["slug"],
+            )
+        return pack
+
+    pack = packs_config.get_pack(claimed_slug)
+    if pack is None:
+        return None
+    priced = event["subtotal_usd_micros"]
+    if priced is None:
+        priced = event["total_usd_micros"]
+    return pack if priced >= pack["price_usd_micros"] - 10_000 else None
 
 
 # --------------------------------------------------------------------------
