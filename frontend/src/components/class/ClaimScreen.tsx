@@ -5,6 +5,7 @@ import { HeroLive, LiveHero } from '../tb/HeroLive';
 import { Icon } from '../tb/Icon';
 import { Header, useClearOfPolaroid, useFitScreen } from '../tb/parts';
 import './class.css';
+import { SafeImg } from '../tb/Picture';
 
 export const CLAIM_PATH = '/claim/';
 
@@ -162,7 +163,7 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
             <>
               <div ref={stageRef} className="tb-stage cls-claim-stage">
                 <div className="tb-stage-sun" />
-                <img className="tb-stage-img tb-hero-faded" src={art} alt={heroName} />
+                <SafeImg className="tb-stage-img tb-hero-faded" src={art} alt={heroName} />
               </div>
               <div className="cls-claim-who">
                 <div className="tb-h2">{heroName}</div>

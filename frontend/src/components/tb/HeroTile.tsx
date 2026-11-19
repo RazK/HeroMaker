@@ -1,4 +1,5 @@
 import { ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { SafeImg } from './Picture';
 import './HeroTile.css';
 
 /**
@@ -82,7 +83,7 @@ export function HeroTile({
   } else if (art.kind === 'drawing') {
     picture = (
       <span className="tb-tile-art">
-        <span className="tb-tile-drawing tb-tile-drawing--still"><img src={art.src} alt={alt} {...imgLoading(eager, true)} /></span>
+        <span className="tb-tile-drawing tb-tile-drawing--still"><SafeImg src={art.src} alt={alt} {...imgLoading(eager, true)} /></span>
       </span>
     );
   } else {
@@ -200,7 +201,8 @@ function wavePhaseDelay(index: number): string {
  * BOTH images have loaded, so a tile never fades to a blank plate. Neither
  * waits for the other: whichever loads first shows at once, the drawing
  * preferred (the story starts there, and it is asked for first); if it
- * fails, the tile shows the render for good.
+ * fails (after its retries, Picture.tsx), the tile shows the render for good.
+ * A picture that never loads is hidden: the plate shows, never a broken icon.
  */
 export function TileFade({ drawing, hero, framed = false, name, index, eager }: { drawing: string; hero: string; framed?: boolean; name: string; index: number; eager: boolean }) {
   const [loaded, setLoaded] = useState({ drawing: false, hero: false });
@@ -225,15 +227,15 @@ export function TileFade({ drawing, hero, framed = false, name, index, eager }: 
     <span className={`tb-tile-fade${loaded.drawing && !drawingFailed ? ' tb-tile-fade--drawn' : ''}${fading ? ' tb-tile-fade--on' : ''}`} style={{ ['--tb-fade-delay' as string]: delay }}>
       <span className="tb-tile-drawing" aria-hidden="true">
         {!drawingFailed && (
-          <img ref={drawingRef} src={drawing} alt="" {...imgLoading(eager, true)} onLoad={() => done('drawing')} onError={() => setDrawingFailed(true)} />
+          <SafeImg ref={drawingRef} src={drawing} alt="" {...imgLoading(eager, true)} onLoad={() => done('drawing')} onFail={() => setDrawingFailed(true)} />
         )}
       </span>
       {framed ? (
         <span className="tb-tile-framed tb-tile-hero">
-          <img ref={heroRef} src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
+          <SafeImg ref={heroRef} src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
         </span>
       ) : (
-        <img ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
+        <SafeImg ref={heroRef} className="tb-tile-img tb-tile-hero" src={hero} alt={name} {...imgLoading(eager, false)} onLoad={() => done('hero')} />
       )}
     </span>
   );
