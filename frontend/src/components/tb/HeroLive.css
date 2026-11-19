@@ -249,20 +249,22 @@
    16px does. */
 .tb-moves {
   --gap: 6px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: var(--gap);
   height: 100%;
 }
+/* The moves are controls (the header buttons' height), all one width, the
+   row as wide as the card's inside; their depth ends one space above the
+   card's edge, the space from the card to the bar (Two tiers, one rhythm). */
+.tb-live-stage .tb-hero-moves { width: calc(100% - 32px); height: var(--tb-header-ctl); }
 /* Every button is a pill with its icon and its word on one line (Raz): never
    a rounded rectangle, never the icon above the word, on any size. Upright,
    four share the dock's width, so the letters and the icon are small. */
 .tb-move {
-  flex: 1 1 0;
   min-width: 0;
-  max-width: calc((100% - 3 * var(--gap)) / 4);
-  height: 44px;
+  height: 100%;
   padding: 0 4px;
   gap: 4px;
   font-size: 14px;
@@ -285,9 +287,9 @@
 .tb-moves--few .tb-move { max-width: none; }
 .tb-move[aria-pressed='true'],
 .tb-move[aria-pressed='true']:active:not(:disabled) {
-  background: var(--tb-grape);
-  border-color: var(--tb-grape-deep);
-  color: var(--tb-white);
+  background: var(--tb-chosen);
+  border-color: var(--tb-grape);
+  color: var(--tb-ink);
   box-shadow: 0 4px 0 var(--tb-grape-deep);
   transform: none;
 }

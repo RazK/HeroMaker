@@ -190,7 +190,7 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
   const gltf = useLoader(GLTFLoader, url);
   const scene = useThree((s) => s.scene);
   const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
-  const { root, parts, half, round } = useMemo(() => {
+  const { root, parts, half, round, halfTogether, roundTogether } = useMemo(() => {
     const root = gltf.scene.clone(true);
     root.updateMatrixWorld(true);
     const center = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
@@ -208,10 +208,14 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
     const limbs = classify(boxes);
     // Where each part's joint is and which way it travels (partsSpread.ts).
     const plan = spreadPlan(meshes.map((m) => cloudOf(m)));
-    // Sized for the parts pulled fully apart, so the slider never pushes one
-    // off screen: how far they then reach from the middle, up and around.
+    // How far the parts reach from the middle, up and around: together, and
+    // pulled fully apart. The framing goes from one to the other as they
+    // move, so the toy fills the stage when together and every piece still
+    // shows when apart.
     let half = 1e-6;
     let round = 1e-6;
+    let halfTogether = 1e-6;
+    let roundTogether = 1e-6;
     const list: Part[] = meshes.map((mesh, i) => {
       const parent = mesh.parent!;
       const at = new THREE.Vector3(...plan.joint[i]);
@@ -219,9 +223,12 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
       for (const end of [boxes[i].min, boxes[i].max]) for (const far of [0, 1]) {
         const p = end.clone().addScaledVector(move, far).sub(center);
         half = Math.max(half, Math.abs(p.y));
+        if (!far) halfTogether = Math.max(halfTogether, Math.abs(p.y));
       }
       for (const x of [boxes[i].min.x, boxes[i].max.x]) for (const z of [boxes[i].min.z, boxes[i].max.z]) for (const far of [0, 1]) {
-        round = Math.max(round, Math.hypot(x + far * move.x - center.x, z + far * move.z - center.z));
+        const r = Math.hypot(x + far * move.x - center.x, z + far * move.z - center.z);
+        round = Math.max(round, r);
+        if (!far) roundTogether = Math.max(roundTogether, r);
       }
       // The joint, in the parent's space: a pivot stands there and the part hangs off it.
       const joint = parent.worldToLocal(at.clone());
@@ -248,7 +255,7 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
       list[owner].pieceMaterials.push(piece.material);
     });
     root.position.copy(center).negate();
-    return { root, parts: list, half, round };
+    return { root, parts: list, half, round, halfTogether, roundTogether };
   }, [gltf]);
 
   const tints = useRef<THREE.Material[]>([]);
@@ -299,6 +306,9 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
   const ball = useMemo(() => new THREE.Vector3(), []);
   const socket = useMemo(() => new THREE.Vector3(), []);
   const still = useMemo(() => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  const frame = useRef<THREE.Group>(null);
+  const together = fitScale(halfTogether, roundTogether, aspect);
+  const apartScale = fitScale(half, round, aspect);
   useFrame(({ clock, camera, size }) => {
     // Taking apart: an ease in and out, from wherever it was.
     const s = shown.current;
@@ -309,6 +319,8 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
       s.value = k >= 1 ? s.to : s.from + (s.to - s.from) * e;
       place(s.value);
     }
+    // The framing follows: as big as fits for how far apart they are now.
+    frame.current?.scale.setScalar(together + (apartScale - together) * Math.min(1, Math.max(0, s.value)));
     if (!arrowPaths.current.length) return;
     // The arrows show as the pieces come apart, wiggling.
     const seen = THREE.MathUtils.smoothstep(s.value, 0.6, 0.95);
@@ -346,7 +358,7 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
     }
   });
 
-  return <group scale={fitScale(half, round, aspect)}><primitive object={root} /></group>;
+  return <group ref={frame} scale={together + (apartScale - together) * Math.min(1, Math.max(0, apart))}><primitive object={root} /></group>;
 }
 
 /** A joint piece, not a part: Hi3D names them connector_###_ball_male / _female. */

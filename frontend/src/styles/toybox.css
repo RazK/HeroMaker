@@ -251,7 +251,8 @@ h1, h2, h3, h4 {
   white-space: nowrap;
   cursor: pointer;
 }
-.tb-chip--on { background: var(--tb-ink); border-color: var(--tb-ink); color: var(--tb-white); }
+/* Chosen, as everywhere (--tb-chosen): never ink, never solid grape. */
+.tb-chip--on { background: var(--tb-chosen); border-color: var(--tb-grape); color: var(--tb-ink); box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
 
 /* Header credits pill: the nav button's height, outline and depth (see
    .tb-nav), in sun. The outline matters: the account circle's ink ring runs
