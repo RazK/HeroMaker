@@ -796,6 +796,15 @@ export const api = {
     return result;
   },
 
+  /** A grown-up said Yes before this account signed in: the account keeps the (first) time. */
+  async confirmAdult(confirmedAt: string): Promise<void> {
+    await fetchJson<unknown>(`${V1}/me/adult-confirmed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmed_at: confirmedAt }),
+    });
+  },
+
   /**
    * Admin API methods
    */

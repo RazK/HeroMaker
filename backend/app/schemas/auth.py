@@ -80,7 +80,9 @@ class UserResponse(BaseModel):
     is_admin: bool
     is_teacher: bool = False
     created_at: str
-    
+    # When a grown-up confirmed they were there, before signing in (or null).
+    adult_confirmed_at: Optional[str] = None
+
     @classmethod
     def from_user(cls, user):
         return cls(
@@ -91,7 +93,8 @@ class UserResponse(BaseModel):
             credits=user.credits,
             is_admin=user.is_admin,
             is_teacher=bool(getattr(user, "is_teacher", False)),
-            created_at=user.created_at.isoformat() if user.created_at else None
+            created_at=user.created_at.isoformat() if user.created_at else None,
+            adult_confirmed_at=user.adult_confirmed_at.isoformat() if getattr(user, "adult_confirmed_at", None) else None,
         )
 
 

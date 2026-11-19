@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { GrownUpSheet, adultConfirmedAt, needsGrownUpCheck } from './tb/GrownUpSheet';
 import { api, getAuthToken, ApiError } from '../api/client';
 import { AuthModal, type AuthMode } from './AuthModal';
 import { CouponRedeem } from './CouponRedeem';
@@ -110,6 +111,7 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
   const [user, setUserState] = useState<User | null>(() => (getAuthToken() ? lastUser : null));
   const setUser = (u: User | null) => { lastUser = u; setUserState(u); };
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [askGrownUp, setAskGrownUp] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   // A line the sheet shows for whoever opened it, e.g. where a kept hero goes.
   const [authNote, setAuthNote] = useState<string | undefined>(undefined);
@@ -145,9 +147,7 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
     // Anywhere can ask for sign-in or sign-up, e.g. "Make a hero" while signed out.
     const handleOpenAuth = (e: Event) => {
       const { mode, note } = (e as CustomEvent).detail ?? {};
-      setAuthMode(mode === 'signup' || mode === 'forgot' ? mode : 'login');
-      setAuthNote(typeof note === 'string' ? note : undefined);
-      setShowAuthModal(true);
+      openAuthRef.current(mode === 'signup' || mode === 'forgot' ? mode : 'login', typeof note === 'string' ? note : undefined);
     };
     window.addEventListener('auth:open', handleOpenAuth);
 
@@ -183,10 +183,32 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
     }
   };
 
+  // Every way to the sign-in sheet comes here. The first time in a browser,
+  // the grown-up check comes first (GrownUpSheet): Yes goes on to the sheet,
+  // Not yet goes back to where they were.
+  const openAuth = (mode: AuthMode, note?: string) => {
+    setAuthMode(mode);
+    setAuthNote(note);
+    if (needsGrownUpCheck()) setAskGrownUp(true);
+    else setShowAuthModal(true);
+  };
+  const openAuthRef = useRef(openAuth);
+  openAuthRef.current = openAuth;
+
   const handleLoginSuccess = async () => {
     await checkAuth();
     setShowAuthModal(false);
+    // The account keeps when a grown-up said they were there (the first time).
+    const confirmed = adultConfirmedAt();
+    if (confirmed) api.confirmAdult(confirmed).catch(() => { /* kept for the next sign-in */ });
   };
+
+  const grownUpCheck = askGrownUp && (
+    <GrownUpSheet
+      onYes={() => { setAskGrownUp(false); setShowAuthModal(true); }}
+      onNotYet={() => { setAskGrownUp(false); window.dispatchEvent(new CustomEvent('auth:closed')); }}
+    />
+  );
 
   const handleLogout = async () => {
     await api.logout();
@@ -257,10 +279,11 @@ export function HeaderAuth({ onOpenAdmin, onClassesMode, controls = true }: Head
     return (
       <>
         {controls && (
-          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm header-auth-button" onClick={() => { setAuthMode('login'); setAuthNote(undefined); setShowAuthModal(true); }}>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm header-auth-button" onClick={() => openAuth('login')}>
             Sign in
           </button>
         )}
+        {grownUpCheck}
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => { setShowAuthModal(false); window.dispatchEvent(new CustomEvent('auth:closed')); }}
