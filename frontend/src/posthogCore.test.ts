@@ -13,6 +13,7 @@ function library() {
     init: (key, options) => { calls.push(['init', key, options]); },
     capture: (event, properties) => { calls.push(['capture', event, properties]); },
     register: (properties) => { calls.push(['register', properties]); },
+    setPersonProperties: (properties) => { calls.push(['setPersonProperties', properties]); },
   };
   let loads = 0;
   return { calls, load: async () => { loads += 1; return posthog; }, loaded: () => loads };
@@ -54,7 +55,8 @@ test('with a key it starts once, with every privacy rule set', async () => {
   assert.equal(options.persistence, 'memory');
   assert.deepEqual(options.bootstrap, { distinctID: person.visitor });
   // Nobody identified; what the page says is masked; addresses are scrubbed.
-  assert.equal(options.person_profiles, 'never');
+  assert.equal(options.person_profiles, 'identified_only');
+  assert.equal('identify' in options, false);
   assert.equal(options.mask_all_text, true);
   assert.equal(options.mask_all_element_attributes, true);
   assert.equal(options.before_send, scrubEvent);

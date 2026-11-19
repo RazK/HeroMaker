@@ -11,7 +11,7 @@
  *
  * No session recording, ever. No cookies. Nobody identified.
  */
-import { device, door, robot, setMirror, visitorId } from './analytics';
+import { Traits, device, door, robot, setMirror, setTraitsMirror, visitorId, visitorTraits } from './analytics';
 import { PostHogLike, PostHogSetting, scrubUrl, startIfAllowed } from './posthogCore';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -46,6 +46,15 @@ export function startPostHog(): void {
             : props);
         };
         setMirror(send);
+        // The two answers, as this anonymous visitor's person properties (and
+        // on each event, so a funnel can be cut by them). Never a name.
+        const traits = (t: Traits) => {
+          if (!t.purpose && !t.who) return;
+          posthog.setPersonProperties(t);
+          posthog.register(t);
+        };
+        setTraitsMirror(traits);
+        traits(visitorTraits());
         waiting.forEach(([name, props]) => send(name, props));
       })
       .catch(() => setMirror(null));
