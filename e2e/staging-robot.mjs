@@ -43,6 +43,9 @@ const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS || 25 * 60 * 
 // cursor, on a phone-sized portrait screen, and marks where the long pipeline wait starts and
 // ends so e2e/cut-demo.sh can fast-forward it. The checks are identical.
 const DEMO = process.env.DEMO === '1';
+// A staging hero with a made toy, for the toy slide's layout (its own hero
+// has none: making one spends a provider's credits). TOY_HERO=none skips it.
+const TOY_HERO = (process.env.TOY_HERO ?? 'b4acf85a-a135-462d-b19b-5c4fc0d50793').trim();
 const marks = {};
 
 if (!BASE_URL) {
@@ -884,6 +887,34 @@ try {
       layoutSizes = sizes.map((v) => `${v.width}x${v.height}`).join(', ');
     }
 
+    // The toy slide, together and taken apart, on a hero that has a toy: the
+    // same rules, its two buttons one size, its arrows drawn (the approved
+    // "Hero · toy" boards), on a phone and a laptop.
+    let toyLayout = '';
+    if (!DEMO && TOY_HERO && TOY_HERO !== 'none') {
+      const toy = await context.newPage();
+      try {
+        for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+          await toy.setViewportSize(size);
+          await toy.goto(`${BASE_URL}/hero/${TOY_HERO}`, { waitUntil: 'load' });
+          await toy.waitForFunction(() => {
+            const m = document.querySelector('.tb-dock-layer--moves');
+            return m && getComputedStyle(m).opacity === '1';
+          }, null, { timeout: 120000 });
+          if (!/(^|,)figure(,|$)/.test(await toy.locator('.tb-live-stage').getAttribute('data-slides'))) {
+            throw new Error(`the toy hero ${TOY_HERO} has no toy slide (set TOY_HERO to a staging hero with a made toy)`);
+          }
+          const got = await checkHeroLayout(toy, { settle: 1500 });
+          if (!got.some((s) => s.slide === 'figure taken apart')) throw new Error(`at ${size.width}x${size.height}: the toy has no Take apart button`);
+          const bad = got.filter((s) => s.problems.length);
+          if (bad.length) throw new Error(`the toy hero at ${size.width}x${size.height}: ${bad.map((s) => `${s.slide}: ${s.problems.join('; ')}`).join(' | ')}`);
+        }
+      } finally {
+        await toy.close();
+      }
+      toyLayout = '; the toy slide, together and taken apart, at 390x844 and 1280x900: nothing overlaps or touches an edge, its two buttons one size, its arrows drawn';
+    }
+
     // Play is the bottom-most button on the page. It opens the game chooser:
     // two games, each opened with the same hero parameters. Only buttons a
     // person can see count: off-screen slides (their full-screen openers sit
@@ -953,7 +984,7 @@ try {
     await page.waitForTimeout(DEMO ? 3000 : 1500);
     await snap(page, 'dance-party');
     mark('end');
-    return `"${title}" opened drawing > painting > hero, the drawing on its small card; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; no moves on the drawing or the painting, all 4 inside the hero's stage; punch ${punchMs} ms and backflip ${flipMs} ms after the tap; no scroll; nothing overlaps on any slide${layoutSizes ? ` at ${layoutSizes}` : ''}; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
+    return `"${title}" opened drawing > painting > hero, the drawing on its small card; swiping went drawing > painting > hero; the drawing opened full screen and Back returned to it; no moves on the drawing or the painting, all 4 inside the hero's stage; punch ${punchMs} ms and backflip ${flipMs} ms after the tap; no scroll; nothing overlaps on any slide${layoutSizes ? ` at ${layoutSizes}` : ''}${toyLayout}; Play is the bottom-most button, its chooser opens both games with the same hero, a Robot Rumble round began (no hero hittable${audit ? `, ${audit.crowd} cheering` : ''}), its Back returned to the hero's page, and Dance party started`;
   });
 
   await step(page, 'class', async () => {

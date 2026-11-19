@@ -46,7 +46,7 @@ export function curl(from: Point, to: Point, side: 1 | -1 = 1, wiggle = 0): Curl
   // out (sin^2), so the arrow leaves the ball and reaches the socket heading
   // straight. A loop needs a radius over length / 2pi; capped so a long arrow
   // keeps a neat loop.
-  const r = Math.min(0.2 * length, 40) * (1 + wiggle);
+  const r = Math.min(0.4 * length, 40) * (1 + wiggle);
   const nx = -uy * side;
   const ny = ux * side;
   const at = (t: number): Point => {
