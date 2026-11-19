@@ -81,11 +81,13 @@ def enabled() -> bool:
 # The allow-list
 # ---------------------------------------------------------------------------
 
-ENUM, INT, BOOL, SLUG = "enum", "int", "bool", "slug"
+ENUM, INT, BOOL, SLUG, ID, IDS, INTS, MAP = "enum", "int", "bool", "slug", "id", "ids", "ints", "map"
 # The only kinds a property may be. Not one of them is free text.
-KINDS = (ENUM, INT, BOOL, SLUG)
+KINDS = (ENUM, INT, BOOL, SLUG, ID, IDS, INTS, MAP)
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
+# One of our own ids (a hero's): a UUID, which says nothing about a person.
+ID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 VISITOR_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 DEVICES = ("phone", "desktop")
 
@@ -100,6 +102,16 @@ def integer(low: int, high: int) -> tuple:
 
 BOOLEAN = (BOOL,)
 SLUG_VALUE = (SLUG,)
+ID_VALUE = (ID,)
+# A list of our own ids, and a list of whole numbers beside it (a gallery's
+# tiles and their places). Capped, and each item is checked like a single one.
+MAX_LIST = 200
+ID_LIST = (IDS,)
+POSITION_LIST = (INTS, 0, 100_000)
+# Experiment key -> variant, both slugs: which arm of a test this browser is
+# in. Empty today; the seam for a later A/B test (no experiment logic here).
+MAX_VARIANTS = 10
+VARIANT_MAP = (MAP,)
 
 MOCK_PROVIDER = "mock"
 PROVIDERS = pricing.PROVIDERS + (MOCK_PROVIDER,)
@@ -109,10 +121,37 @@ def _pack_slugs() -> tuple:
     return tuple(p["slug"] for p in packs_config.get_packs()) + (packs_config.CLASS_SEATS_SLUG,)
 
 
+# The app's screens (frontend/src/App.tsx's views, the class pages).
+SCREENS = (
+    "gallery", "classes", "hero", "steps", "class", "join", "claim", "admin", "reset",
+    "privacy", "terms", "refunds", "developers",
+)
+
 # What the browser may send.
 BROWSER_EVENTS: Dict[str, Dict[str, tuple]] = {
     "visit": {"returning": BOOLEAN},
-    "hero_opened": {"from": enum("gallery", "mine", "class", "link")},
+    # A hero opened: which, from where, and (from a gallery) its place in the
+    # grid and the ordering in use, so click-through per place can be counted.
+    "hero_opened": {
+        "from": enum("gallery", "mine", "class", "link"), "hero_id": ID_VALUE,
+        "position": integer(0, 100_000), "order": SLUG_VALUE,
+    },
+    # Every hero that was really on screen in one gallery visit (about a
+    # second each), in the order seen, with its place in the grid: the
+    # impressions. One event per visit, said on leaving the gallery.
+    "gallery_seen": {
+        "hero_ids": ID_LIST, "positions": POSITION_LIST, "order": SLUG_VALUE,
+        "max_scroll_pct": integer(0, 100),
+    },
+    # Every slide of a hero a visitor lands on: per hero, how many saw the
+    # drawing, the painting, the 3D hero, the toy.
+    "hero_slide_viewed": {
+        "hero_id": ID_VALUE,
+        "slide": enum("drawing", "painting", "3d", "toy"),
+        "from": enum("gallery", "mine", "class", "link"),
+    },
+    # Time on a screen, said as it is left (or the page is hidden).
+    "screen_viewed": {"screen": enum(*SCREENS), "seconds": integer(0, 86_400)},
     "make_started": {},
     "photo_taken": {},
     "photo_chosen": {},
@@ -126,10 +165,14 @@ BROWSER_EVENTS: Dict[str, Dict[str, tuple]] = {
     "credits_shown": {},
     "checkout_started": {"pack": enum(*_pack_slugs())},
     "wait_left": {"minutes": integer(0, 600)},
-    "move_tapped": {"move": SLUG_VALUE},
-    "game_started": {"game": SLUG_VALUE},
+    "move_tapped": {"move": SLUG_VALUE, "hero_id": ID_VALUE},
+    "game_started": {"game": SLUG_VALUE, "hero_id": ID_VALUE},
     "game_ended": {"game": SLUG_VALUE, "seconds": integer(0, 86_400), "score": integer(0, 10_000_000)},
-    "share_tapped": {},
+    "share_tapped": {"hero_id": ID_VALUE},
+    # The toy branch of the funnel: the pieces pulled apart, and the print
+    # file downloaded (the other funnel end, beside playing a game).
+    "take_apart_tapped": {"hero_id": ID_VALUE},
+    "print_file_downloaded": {"hero_id": ID_VALUE, "format": enum("3mf", "glb", "stl")},
 }
 
 # What only the backend writes.
@@ -145,6 +188,8 @@ SERVER_EVENTS: Dict[str, Dict[str, tuple]] = {
         "provider": enum(*PROVIDERS),
         "code": enum(*step_errors.CODES),
     },
+    # The hero became a printable toy (a print split completed).
+    "toy_made": {"provider": enum(*PROVIDERS)},
     "class_created": {},
     "class_joined": {},
 }
@@ -181,6 +226,25 @@ def clean_value(spec: tuple, value: Any) -> Any:
             return value
     elif kind == SLUG:
         if isinstance(value, str) and SLUG_RE.match(value):
+            return value
+    elif kind == ID:
+        if isinstance(value, str) and ID_RE.match(value):
+            return value
+    elif kind == IDS:
+        if isinstance(value, list) and len(value) <= MAX_LIST and all(
+            isinstance(v, str) and ID_RE.match(v) for v in value
+        ):
+            return value
+    elif kind == INTS:
+        if isinstance(value, list) and len(value) <= MAX_LIST and all(
+            isinstance(v, int) and not isinstance(v, bool) and spec[1] <= v <= spec[2] for v in value
+        ):
+            return value
+    elif kind == MAP:
+        if isinstance(value, dict) and len(value) <= MAX_VARIANTS and all(
+            isinstance(k, str) and SLUG_RE.match(k) and isinstance(v, str) and SLUG_RE.match(v)
+            for k, v in value.items()
+        ):
             return value
     raise ValueError("not allowed")
 
@@ -271,7 +335,7 @@ def record_browser(db: Session, payload: Any, user: Optional[User] = None) -> Di
         return {"accepted": 0, "rejected": 0, "off": True}
     if not isinstance(payload, dict):
         raise Rejected("body must be an object")
-    unknown = set(payload) - {"visitor", "door", "device", "robot", "events"}
+    unknown = set(payload) - {"visitor", "door", "device", "robot", "events", "variants"}
     if unknown:
         raise Rejected(f"unknown field {sorted(unknown)[0]!r}")
     visitor = payload.get("visitor")
@@ -287,6 +351,10 @@ def record_browser(db: Session, payload: Any, user: Optional[User] = None) -> Di
     robot = payload.get("robot", False)
     if not isinstance(robot, bool):
         raise Rejected("robot must be true or false")
+    try:
+        variants = clean_value(VARIANT_MAP, payload.get("variants") or {})
+    except ValueError:
+        raise Rejected("variants must map short tags to short tags")
     events = payload.get("events")
     if not isinstance(events, list) or len(events) > MAX_BATCH:
         raise Rejected(f"events must be a list of at most {MAX_BATCH}")
@@ -301,6 +369,9 @@ def record_browser(db: Session, payload: Any, user: Optional[User] = None) -> Di
                 raise ValueError("unknown event field")
             name = item.get("name")
             props = clean_props(BROWSER_EVENTS, name, item.get("props"))
+            if variants:
+                # Which arm of each experiment this browser was in, on the event itself.
+                props["variants"] = variants
             ago = item.get("ago", 0)
             if not isinstance(ago, int) or isinstance(ago, bool) or ago < 0:
                 raise ValueError("ago must be seconds")
@@ -496,6 +567,25 @@ def hero_failed(db: Session, creation_id: str, step_name: str, code: Optional[st
             "code": code if code in step_errors.CODES else step_errors.UNKNOWN,
         },
         user_id=user_id, visitor_id=visitor_id, door=door, ref=f"hero:{creation_id}",
+    )
+
+
+def toy_made(db: Session, creation_id: str, provider: Optional[str]) -> None:
+    """A hero's print split completed: it is a toy now. Once per hero. Never raises."""
+    if not enabled():
+        return
+    try:
+        user_id, visitor_id, door = _hero_subject(db, creation_id)
+    except Exception:
+        logger.exception("analytics: could not read hero %s", creation_id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return
+    record_server(
+        db, "toy_made", {"provider": provider if provider in PROVIDERS else pricing.PROVIDER_INTERNAL},
+        user_id=user_id, visitor_id=visitor_id, door=door, ref=f"toy:{creation_id}", once=True,
     )
 
 

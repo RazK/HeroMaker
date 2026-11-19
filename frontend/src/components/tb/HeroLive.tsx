@@ -1,5 +1,5 @@
 import { ActionFigureSlide } from './ActionFigure';
-import { track } from '../../analytics';
+import { HeroSlide, currentHeroDoor, track } from '../../analytics';
 import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
 import { ActionFigure, api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
@@ -51,6 +51,8 @@ export interface Making {
 const STEP_FILE: Record<string, string> = { openai_render: 'rendered.png', meshy_3d: 'model.glb' };
 
 type SlideKey = 'drawing' | 'painting' | 'hero' | 'figure';
+/** What analytics calls each slide. */
+const SLIDE_NAMES: Record<SlideKey, HeroSlide> = { drawing: 'drawing', painting: 'painting', hero: '3d', figure: 'toy' };
 type SlideState = 'ready' | 'pending' | 'failed';
 interface Slide { key: SlideKey; state: SlideState }
 
@@ -130,6 +132,21 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   const follow = useRef(true);
   const index = Math.max(0, slides.findIndex((s) => s.key === at));
   const current = slides[index];
+  // Analytics: a slide the visitor landed on (it stayed in the middle for a
+  // second, so the intro passing through does not count), once per slide.
+  const seenSlides = useRef(new Set<string>());
+  useEffect(() => {
+    const door = currentHeroDoor();
+    if (!door || current.state !== 'ready') return;
+    const slide = SLIDE_NAMES[current.key];
+    const once = `${creation.id}:${slide}`;
+    if (seenSlides.current.has(once)) return;
+    const t = window.setTimeout(() => {
+      seenSlides.current.add(once);
+      track('hero_slide_viewed', { hero_id: creation.id, slide, from: door });
+    }, 1000);
+    return () => window.clearTimeout(t);
+  }, [creation.id, current.key, current.state]);
   const pick = (i: number) => {
     const s = slides[i];
     if (!s) return;
@@ -214,7 +231,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // a tap plays at once (Raz: "we can't make the drawing do a flip").
   const go = useRef<((i: number, dir: 1 | -1) => void) | null>(null);
   const tap = (id: string) => {
-    track('move_tapped', { move: id });
+    track('move_tapped', { move: id, hero_id: creation.id });
     pendingMove.current = id;
     if (stage.current?.play(id)) pendingMove.current = null;
   };

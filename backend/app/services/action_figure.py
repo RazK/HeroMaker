@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session
 
 from app.config.packs import ACTION_FIGURE_CREDITS
 from app.models import Creation
-from app.services import credits, ledger, print_split
+from app.services import analytics, credits, ledger, print_split
 from app.services.print_split import SplitError
 from app.utils.storage import get_storage
 
@@ -123,7 +123,13 @@ def settle(db: Session, creation: Creation, state: Optional[Dict[str, Any]]) -> 
 
 
 def refresh(db: Session, creation: Creation) -> Optional[Dict[str, Any]]:
-    return settle(db, creation, print_split.refresh(creation))
+    """Ask the provider how the split stands, refund one that ended badly, and
+    say once (analytics) that the hero became a toy when it has just finished."""
+    state = settle(db, creation, print_split.refresh(creation))
+    if state and state.get("status") == "SUCCEEDED":
+        # Once per hero (the event's own guard), whoever reads it first.
+        analytics.toy_made(db, creation.id, state.get("provider"))
+    return state
 
 
 def public_view(creation: Creation, base: str, state: Optional[Dict[str, Any]], *,

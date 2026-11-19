@@ -123,9 +123,33 @@ def _run(coro):
 def test_no_event_property_can_hold_personal_data():
     """Every property of every event is an enum, a bounded int, a bool or a
     slug, and none of those takes anything a person could be known by."""
-    assert set(analytics.KINDS) == {"enum", "int", "bool", "slug"}, (
+    assert set(analytics.KINDS) == {"enum", "int", "bool", "slug", "id", "ids", "ints", "map"}, (
         "a new property kind was added: prove here it cannot carry personal data"
     )
+    # The list and map kinds hold only what their single twins hold: a list
+    # of our ids, a list of bounded whole numbers, a few slug -> slug pairs.
+    an_id = "3f2b8c1e-9a44-4d1f-8e2a-5b6c7d8e9f00"
+    assert analytics.clean_value(analytics.ID_LIST, [an_id, an_id]) == [an_id, an_id]
+    assert analytics.clean_value(analytics.POSITION_LIST, [0, 7, 42]) == [0, 7, 42]
+    assert analytics.clean_value(analytics.VARIANT_MAP, {"gallery-order": "b"}) == {"gallery-order": "b"}
+    for spec, bad in (
+        (analytics.ID_LIST, [an_id, "Maya Cohen"]), (analytics.ID_LIST, [an_id] * (analytics.MAX_LIST + 1)),
+        (analytics.ID_LIST, an_id), (analytics.ID_LIST, [[an_id]]),
+        (analytics.POSITION_LIST, [1, "maya@example.com"]), (analytics.POSITION_LIST, [1, -1]),
+        (analytics.POSITION_LIST, [True]), (analytics.POSITION_LIST, [1] * (analytics.MAX_LIST + 1)),
+        (analytics.VARIANT_MAP, {"name": "Maya Cohen"}), (analytics.VARIANT_MAP, {"Maya Cohen": "a"}),
+        (analytics.VARIANT_MAP, {"a": {"b": "c"}}), (analytics.VARIANT_MAP, {"a": 1}),
+        (analytics.VARIANT_MAP, {f"k{i}": "a" for i in range(analytics.MAX_VARIANTS + 1)}),
+    ):
+        with pytest.raises(ValueError):
+            analytics.clean_value(spec, bad)
+    # An id is one of our own UUIDs and nothing else: 32 hex digits in the
+    # one fixed shape, so no word, no number of a person's, no address fits.
+    assert analytics.clean_value(analytics.ID_VALUE, "3f2b8c1e-9a44-4d1f-8e2a-5b6c7d8e9f00")
+    for not_an_id in ("3F2B8C1E-9A44-4D1F-8E2A-5B6C7D8E9F00", "3f2b8c1e9a444d1f8e2a5b6c7d8e9f00",
+                      "maya-cohe-n123-4567-890123456789", " 3f2b8c1e-9a44-4d1f-8e2a-5b6c7d8e9f00", 123):
+        with pytest.raises(ValueError):
+            analytics.clean_value(analytics.ID_VALUE, not_an_id)
     for event, props in analytics.EVENTS.items():
         for key, spec in props.items():
             assert spec[0] in analytics.KINDS, f"{event}.{key} has an unknown kind {spec[0]!r}"
@@ -249,6 +273,63 @@ def test_a_batch_is_stored_with_its_door_and_device(client, db):
     assert {e.source for e in rows} == {"browser"}
     assert all(e.user_id is None and e.is_robot is False for e in rows)
     assert rows[4].props == {"game": "robot-rumble", "seconds": 42, "score": 900}
+
+
+def test_the_fine_grained_events_are_stored(client, db):
+    """Per hero and per screen: which slides were seen, how deep the gallery
+    was scrolled, how long each screen was looked at. Ids and numbers only."""
+    hero = "3f2b8c1e-9a44-4d1f-8e2a-5b6c7d8e9f00"
+    other = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+    r = client.post("/api/v1/events", json=_batch([
+        {"name": "hero_opened", "props": {"from": "gallery", "hero_id": hero}},
+        {"name": "hero_slide_viewed", "props": {"hero_id": hero, "slide": "drawing", "from": "gallery"}},
+        {"name": "hero_slide_viewed", "props": {"hero_id": hero, "slide": "3d", "from": "gallery"}},
+        {"name": "hero_slide_viewed", "props": {"hero_id": hero, "slide": "toy", "from": "link"}},
+        {"name": "move_tapped", "props": {"move": "backflip", "hero_id": hero}},
+        {"name": "share_tapped", "props": {"hero_id": hero}},
+        {"name": "gallery_seen", "props": {"hero_ids": [hero, other], "positions": [0, 3], "order": "default",
+                                           "max_scroll_pct": 62}},
+        {"name": "hero_opened", "props": {"from": "gallery", "hero_id": other, "position": 3, "order": "default"}},
+        {"name": "take_apart_tapped", "props": {"hero_id": hero}},
+        {"name": "print_file_downloaded", "props": {"hero_id": hero, "format": "3mf"}},
+        {"name": "screen_viewed", "props": {"screen": "gallery", "seconds": 41}},
+        {"name": "screen_viewed", "props": {"screen": "hero", "seconds": 95}},
+        # Not allowed: a hero's name, a slide that does not exist, a made-up screen, a percentage over 100.
+        {"name": "hero_slide_viewed", "props": {"hero_id": hero, "slide": "drawing", "hero_name": "Super Maya"}},
+        {"name": "hero_slide_viewed", "props": {"hero_id": "Super Maya", "slide": "drawing"}},
+        {"name": "hero_slide_viewed", "props": {"hero_id": hero, "slide": "secret"}},
+        {"name": "screen_viewed", "props": {"screen": "Maya's page", "seconds": 3}},
+        {"name": "gallery_seen", "props": {"hero_ids": [hero], "positions": [0], "order": "default",
+                                           "max_scroll_pct": 101}},
+        # ... a gallery list with a name in it, a print format that is a file name.
+        {"name": "gallery_seen", "props": {"hero_ids": [hero, "Super Maya"], "positions": [0, 1]}},
+        {"name": "print_file_downloaded", "props": {"hero_id": hero, "format": "maya-toy.3mf"}},
+    ]))
+    assert r.json() == {"accepted": 12, "rejected": 7}
+    rows = _stored(db)
+    seen = next(e for e in rows if e.name == "gallery_seen")
+    assert seen.props == {"hero_ids": [hero, other], "positions": [0, 3], "order": "default", "max_scroll_pct": 62}
+    assert [e.props.get("slide") for e in rows if e.name == "hero_slide_viewed"] == ["drawing", "3d", "toy"]
+    assert {e.props["hero_id"] for e in rows if "hero_id" in e.props} == {hero, other}
+    assert "Maya" not in json.dumps([e.props for e in rows]) and "maya" not in json.dumps([e.props for e in rows])
+
+
+def test_an_experiment_arm_rides_on_every_event_of_the_batch(client, db):
+    """The seam for a later A/B test: the batch may say which variant of each
+    experiment this browser is in (short tags only), and each event keeps it.
+    There is no experiment logic; without variants, nothing is added."""
+    r = client.post("/api/v1/events", json=_batch(
+        [{"name": "visit"}, {"name": "hero_opened", "props": {"from": "gallery", "position": 2, "order": "newest"}}],
+        variants={"gallery-order": "newest"}))
+    assert r.json() == {"accepted": 2, "rejected": 0}
+    client.post("/api/v1/events", json=_batch([{"name": "make_started"}], visitor=OTHER, variants={}))
+    visit, opened, plain = _stored(db)
+    assert visit.props == {"variants": {"gallery-order": "newest"}}
+    assert opened.props["variants"] == {"gallery-order": "newest"} and opened.props["order"] == "newest"
+    assert plain.props == {}
+
+    r = client.post("/api/v1/events", json=_batch([{"name": "visit"}], variants={"who": "Maya Cohen"}))
+    assert r.status_code == 422
 
 
 def test_no_door_is_direct(client, db):
