@@ -291,7 +291,9 @@ const browser = await chromium.launch();
 // is exactly the viewport: Playwright does not scale a 2x device into a 2x
 // video, it paints the page into the top-left quarter and leaves the rest
 // grey, so a larger phone at 1x is what gives a sharp, full frame.
-const VIEW = DEMO ? { width: 540, height: 1170 } : { width: 1280, height: 900 };
+// VIEWPORT=390x844 runs it at another size (a phone-sized check of a new screen).
+const SIZE = /^(\d+)x(\d+)$/.exec(process.env.VIEWPORT || "");
+const VIEW = DEMO ? { width: 540, height: 1170 } : SIZE ? { width: +SIZE[1], height: +SIZE[2] } : { width: 1280, height: 900 };
 const context = await browser.newContext({
   viewport: VIEW, locale: 'en-US', timezoneId: 'America/New_York',
   ...(DEMO ? { isMobile: true, hasTouch: true, recordVideo: { dir: OUT, size: VIEW } } : {}),
