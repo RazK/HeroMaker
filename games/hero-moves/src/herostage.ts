@@ -7,6 +7,10 @@ import { Performer, CLIPS } from './anim/performer'
 import { preloadClip } from './anim/clips'
 import { animUrl } from './anim/files'
 import { damp } from './core/math'
+import { applyLook } from './look'
+
+// The hero page's light and finish, for the app's toy viewer too (look.ts).
+export { applyLook, finishMaterials, LOOK } from './look'
 
 /**
  * The hero page of the HeroMaker app, as a module the app imports at run time.
@@ -255,13 +259,7 @@ const world = new THREE.Group()
 scene.add(world)
 const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 60)
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xffe9c4, 0.85))
-const key = new THREE.DirectionalLight(0xfff3e0, 2.1)
-key.position.set(1.2, 3.5, 4)
-scene.add(key)
-const fill = new THREE.DirectionalLight(0xe9e3ff, 0.6)
-fill.position.set(-3, 1.5, 2)
-scene.add(fill)
+// The lights, the room, the tone mapping: look.ts, applied with the renderer below.
 
 /** A soft contact shadow, so the hero stands on the plate instead of floating over it. */
 const shadow = (() => {
@@ -288,14 +286,8 @@ function getRenderer(): THREE.WebGLRenderer {
   if (renderer) return renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
   renderer.setClearColor(0x000000, 0)
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
-  const pmrem = new THREE.PMREMGenerator(renderer)
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-  scene.environmentIntensity = 0.25
-  pmrem.dispose()
+  applyLook({ THREE, RoomEnvironment }, renderer, scene)
   const canvas = renderer.domElement
   canvas.style.display = 'block'
   canvas.style.width = '100%'
