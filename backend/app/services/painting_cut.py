@@ -23,7 +23,8 @@ WHAT IT STORES
 * ``cut_rendered.png`` next to the original (a WebP with alpha, named like its
   source as thumbnails are), only for a ``cut``.
 * ``thumb_rendered.png`` is remade from the cut (or from the original), and
-  overwrites whatever an older version made.
+  overwrites whatever an older version made; ``display_rendered.png`` (the
+  slides' size) is dropped, to be made again from the same source.
 * The decision, on the creation: ``metadata["painting_cut"] = {kind, algo,
   of, reason}``. ``of`` is the painting's version (its step's completed_at),
   ``algo`` the CUTOUT_VERSION. Either changing makes it stale, and it is made
@@ -49,13 +50,14 @@ from typing import Optional
 from sqlalchemy.orm import selectinload
 
 from app.utils import cutout
-from app.utils.storage import THUMB_PREFIX, cut_name
+from app.utils.storage import DISPLAY_PREFIX, THUMB_PREFIX, cut_name
 
 logger = logging.getLogger(__name__)
 
 SOURCE = "rendered.png"
 CUT_FILE = cut_name(SOURCE)          # cut_rendered.png
 THUMB_FILE = THUMB_PREFIX + SOURCE   # thumb_rendered.png
+DISPLAY_FILE = DISPLAY_PREFIX + SOURCE  # display_rendered.png
 STEP = "openai_render"               # the step whose output SOURCE is
 METADATA_KEY = "painting_cut"
 
@@ -189,6 +191,9 @@ def _derive(storage, user_id: str, creation_id: str) -> tuple[str, str]:
     # Overwrite whatever thumbnail an older version made from the opaque original.
     thumb, mime = _make_thumbnail(thumb_source)
     storage.upload_file(user_id, creation_id, THUMB_FILE, thumb, content_type=mime)
+    # The display copy is made again, from the same source, when next asked for.
+    if storage.file_exists(user_id, creation_id, DISPLAY_FILE):
+        storage.delete_file(user_id, creation_id, DISPLAY_FILE)
     return result.kind, result.reason
 
 

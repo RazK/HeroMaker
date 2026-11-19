@@ -95,6 +95,15 @@ export const PAINTING_FILE = 'cut_rendered.png';
  */
 export const PAINTING_THUMB = 'thumb_rendered.png';
 
+/**
+ * The painting and the drawing at the size a screen shows them: WebP copies
+ * the backend makes on first request (files.py, DISPLAY_SIZE). The painting
+ * itself is a ~1.1 MB PNG; its display copy is ~66 KB and looks the same.
+ * The originals stay for downloads.
+ */
+export const PAINTING_DISPLAY = 'display_rendered.png';
+export const DRAWING_DISPLAY = 'display_original.jpg';
+
 /** Show this hero's painting in a polaroid frame (no confident cut-out)? */
 export const paintingFramed = (h: { painting?: Painting | null } | null | undefined) => h?.painting === 'framed';
 
@@ -446,8 +455,8 @@ export const api = {
    */
   heroFileUrl(creation: Pick<CreationResponse, 'id' | 'user_id' | 'file_versions'>, filename: string): string {
     const url = api.getFileUrl(creation.id, filename, creation.user_id);
-    // Derived files (thumb_x, cut_x) carry the version of the file they are made from.
-    const derived = /^(thumb|cut)_/.exec(filename);
+    // Derived files (thumb_x, cut_x, display_x) carry the version of the file they are made from.
+    const derived = /^(thumb|cut|display)_/.exec(filename);
     if (!derived) return url;
     const version = creation.file_versions?.[filename.slice(derived[0].length)];
     return version ? `${url}?v=${encodeURIComponent(version)}` : url;

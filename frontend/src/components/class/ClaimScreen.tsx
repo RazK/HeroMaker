@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError, getAuthToken } from '../../api/client';
+import { api, ApiError, DRAWING_DISPLAY, getAuthToken } from '../../api/client';
 import { ClaimView, claimApi, heroFile } from '../../api/classes';
 import { HeroLive, LiveHero } from '../tb/HeroLive';
 import { Icon } from '../tb/Icon';
@@ -125,7 +125,7 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
   // the child, so a link forwarded to a class group exposes no one.
   const spent = !!view?.claimed && !done;
   const heroName = hero?.character_name || `${first}’s hero`;
-  const art = hero && !ready ? heroFile(hero, 'original.jpg') : null;
+  const art = hero && !ready ? heroFile(hero, DRAWING_DISPLAY) : null;
   useClearOfPolaroid(stageRef, art);
 
   return (
