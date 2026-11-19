@@ -333,3 +333,27 @@ def test_the_plate_paintings_thumbnail_is_there_whatever_its_kind(db, make_user,
             == _get(client, user, creation, "thumb_rendered.png").content)
     db.expire_all()
     assert CreationResponse.from_creation(db.get(Creation, creation.id)).painting == kind
+
+
+def test_the_display_painting_is_made_from_the_cut(db, make_user, make_creation, local, client):
+    """The slides show display_rendered.png: the cut, like thumb_rendered.png,
+    so a hero with a studio backdrop stands free there too."""
+    painting = _png(_studio())
+    user, creation = _painted_hero(db, make_user, make_creation, local, painting)
+
+    r = _get(client, user, creation, "display_rendered.png", v="1")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/webp"
+    with Image.open(io.BytesIO(r.content)) as d:
+        assert d.format == "WEBP" and d.mode == "RGBA"
+        assert d.getpixel((2, 2))[3] == 0, "made from the cut"
+    assert local.download_file(user.id, creation.id, "rendered.png") == painting
+
+
+def test_a_new_cut_drops_the_old_display_painting(db, make_user, make_creation, local, client, monkeypatch):
+    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio()))
+    _get(client, user, creation, "display_rendered.png")
+    assert local.file_exists(user.id, creation.id, "display_rendered.png")
+
+    monkeypatch.setattr(cutout, "CUTOUT_VERSION", cutout.CUTOUT_VERSION + 1)
+    painting_cut.prepare(local, user.id, creation.id)
+    assert not local.file_exists(user.id, creation.id, "display_rendered.png")

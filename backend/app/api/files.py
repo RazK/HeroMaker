@@ -13,7 +13,8 @@ import threading
 import time
 from sqlalchemy.orm import Session
 from app.config.settings import FILES_ROOT
-from app.utils.storage import get_storage, LocalFileStorage, THUMB_PREFIX, OPT_PREFIX, optimized_name
+from app.utils.storage import (get_storage, LocalFileStorage, THUMB_PREFIX, OPT_PREFIX, DISPLAY_PREFIX,
+                               optimized_name, display_name)
 from app.utils.gltf_optimize import optimize_glb
 from app.services.auth import get_current_user_required
 from app.services import moderation
@@ -57,10 +58,35 @@ def _make_thumbnail(data: bytes) -> tuple[bytes, str]:
         return out.getvalue(), "image/jpeg"
 
 
-def _generate_thumbnail(original_path: Path, thumb_path: Path) -> bool:
-    """Generate a thumbnail file from an original on disk. Returns True on success."""
+# The slides and the full-screen picture: a phone's slot is ~350 CSS px wide
+# at up to 3x, and the paintings are 1024 px, so this keeps them as they are
+# and only shrinks a big phone photo of a drawing. Always WebP: the painting,
+# a 1.1 MB PNG, is ~66 KB at the same size and looks the same.
+DISPLAY_SIZE = (1280, 1280)
+DISPLAY_WEBP_QUALITY = 85
+
+
+def _make_display(data: bytes) -> tuple[bytes, str]:
+    """The picture at the size a screen shows it, as WebP (with its alpha, if it has one)."""
+    from PIL import Image, ImageOps
+    with Image.open(io.BytesIO(data)) as src:
+        img = ImageOps.exif_transpose(src)
+        img.thumbnail(DISPLAY_SIZE, Image.LANCZOS)
+        if img.mode in ("P", "PA", "LA"):
+            img = img.convert("RGBA")
+        if img.mode == "RGBA" and img.getextrema()[-1][0] == 255:
+            img = img.convert("RGB")
+        elif img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGB")
+        out = io.BytesIO()
+        img.save(out, "WEBP", quality=DISPLAY_WEBP_QUALITY, method=6)
+        return out.getvalue(), "image/webp"
+
+
+def _generate_thumbnail(original_path: Path, thumb_path: Path, make=None) -> bool:
+    """Generate a thumbnail (or display copy) file from an original on disk. Returns True on success."""
     try:
-        thumb, _ = _make_thumbnail(original_path.read_bytes())
+        thumb, _ = (make or _make_thumbnail)(original_path.read_bytes())
         thumb_path.write_bytes(thumb)
         return True
     except Exception as e:
@@ -145,6 +171,8 @@ class _ThumbMemory:
 
 
 _thumb_memory = _ThumbMemory(THUMB_MEMORY_BYTES)
+# Display copies are ~20-100 KB: a few hundred heroes' worth.
+_display_memory = _ThumbMemory(48 * 1024 * 1024)
 
 
 def _etag(data: bytes) -> str:
@@ -160,7 +188,7 @@ def _thumb_response(data: bytes, mime: Optional[str], etag: str, versioned: bool
 
 
 def _s3_thumbnail_bytes(storage, user_id: str, creation_id: str,
-                        thumb_name: str, original_name: str) -> Optional[tuple[bytes, str]]:
+                        thumb_name: str, original_name: str, make=None) -> Optional[tuple[bytes, str]]:
     """(bytes, mime) of the stored S3 thumbnail, generating and storing it on
     first use. None if the original is not an image we can read.
 
@@ -177,7 +205,7 @@ def _s3_thumbnail_bytes(storage, user_id: str, creation_id: str,
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="File not found")
     try:
-        thumb, mime = _make_thumbnail(original)
+        thumb, mime = (make or _make_thumbnail)(original)
     except Exception as e:
         logger.error(f"Failed to generate thumbnail for {original_name}: {e}")
         return None
@@ -333,6 +361,12 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
     (services/painting_cut.py), or the painting itself when it needs no cut
     or has no confident one; 'thumb_rendered.png' is made from it.
 
+    'display_' + a picture's name (display_rendered.png, display_original.jpg)
+    is the picture as a WebP no larger than DISPLAY_SIZE, made and served
+    exactly like a thumbnail: what the hero page's slides show, ~66 KB where
+    the painting is 1.1 MB. 'display_rendered.png' is made from the cut,
+    like 'thumb_rendered.png'.
+
     Likewise 'opt_' + a .glb or .vrm name (e.g. opt_walking.glb) serves a copy
     ~5x smaller and visually identical (see app/utils/gltf_optimize.py), made on
     first request and cached the same way. If it cannot be made, the original
@@ -360,12 +394,20 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
     is_thumbnail = filename.startswith(THUMB_PREFIX)
     is_optimized = (not is_thumbnail and filename.startswith(OPT_PREFIX)
                     and optimized_name(filename[len(OPT_PREFIX):]) == filename)
+    is_display = (not is_thumbnail and filename.startswith(DISPLAY_PREFIX)
+                  and display_name(filename[len(DISPLAY_PREFIX):]) == filename)
     if is_thumbnail:
         original_filename = filename[len(THUMB_PREFIX):]
     elif is_optimized:
         original_filename = filename[len(OPT_PREFIX):]
+    elif is_display:
+        original_filename = filename[len(DISPLAY_PREFIX):]
     else:
         original_filename = filename
+    # A display copy is served like a thumbnail (bytes, one hop), only bigger.
+    is_picture_copy = is_thumbnail or is_display
+    make_copy = _make_display if is_display else _make_thumbnail
+    memory = _display_memory if is_display else _thumb_memory
 
     # The painting shown on a plate: its cut-out (services/painting_cut.py).
     # cut_rendered.png is the painting with its studio backdrop removed, or
@@ -390,7 +432,8 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
             "ETag": f'"{path.stat().st_mtime}"',
         })
     thumb_source = original_filename
-    if filename == painting_cut.THUMB_FILE and not (v and _thumb_memory.get((user_id, creation_id, filename, v))):
+    if (filename in (painting_cut.THUMB_FILE, painting_cut.DISPLAY_FILE)
+            and not (v and memory.get((user_id, creation_id, filename, v)))):
         kind = await run_in_threadpool(painting_cut.prepare, storage, user_id, creation_id)
         if kind == cutout.CUT:
             thumb_source = painting_cut.CUT_FILE
@@ -403,20 +446,20 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
             return await run_in_threadpool(
                 _s3_optimized_redirect, storage, user_id, creation_id, filename, original_filename
             )
-        if is_thumbnail:
+        if is_picture_copy:
             versioned = bool(v)
             key = (user_id, creation_id, filename, v)
-            hit = _thumb_memory.get(key) if versioned else None
+            hit = memory.get(key) if versioned else None
             if hit is None:
                 loaded = await run_in_threadpool(
-                    _s3_thumbnail_bytes, storage, user_id, creation_id, filename, thumb_source
+                    _s3_thumbnail_bytes, storage, user_id, creation_id, filename, thumb_source, make_copy
                 )
                 if loaded is None:
                     # Not an image we can read: fall back to the original, as on disk.
                     return _s3_redirect(storage, user_id, creation_id, original_filename)
                 hit = (loaded[0], loaded[1], _etag(loaded[0]))
                 if versioned:
-                    _thumb_memory.put(key, hit)
+                    memory.put(key, hit)
             return _thumb_response(*hit, versioned=versioned, if_none_match=if_none_match)
         if not storage.file_exists(user_id, creation_id, filename):
             raise HTTPException(status_code=404, detail="File not found")
@@ -437,11 +480,11 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
             "ETag": f'"{file_path.stat().st_mtime}"',
         })
 
-    if is_thumbnail:
+    if is_picture_copy:
         thumb_path = original_path.parent / filename
         # Generate thumbnail if it doesn't exist yet
         if not thumb_path.exists():
-            if not _generate_thumbnail(original_path.parent / thumb_source, thumb_path):
+            if not _generate_thumbnail(original_path.parent / thumb_source, thumb_path, make_copy):
                 # Fallback to original if thumbnail generation fails
                 return FileResponse(original_path, headers={"Cache-Control": "no-cache"})
         file_path = thumb_path
@@ -449,7 +492,7 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
         file_path = original_path
 
     if file_path.exists() and file_path.is_file():
-        if is_thumbnail:
+        if is_picture_copy:
             mime_type = _sniff_mime(file_path)
         else:
             mime_type, _ = mimetypes.guess_type(file_path.name)
@@ -457,7 +500,7 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
         # Build headers with caching. A thumbnail is only immutable under a
         # versioned URL: locally the pipeline rewrites originals in place.
         headers = {
-            "Cache-Control": IMMUTABLE if (v or not is_thumbnail) else "no-cache",
+            "Cache-Control": IMMUTABLE if (v or not is_picture_copy) else "no-cache",
             "ETag": f'"{file_path.stat().st_mtime}"'
         }
         return FileResponse(file_path, headers=headers, media_type=mime_type)

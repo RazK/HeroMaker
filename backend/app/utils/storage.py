@@ -41,11 +41,17 @@ OPTIMIZABLE_SUFFIXES = (".glb", ".vrm")
 CUT_PREFIX = "cut_"
 CUTTABLE = ("rendered.png",)
 
-_DERIVED_PREFIXES = (THUMB_PREFIX, OPT_PREFIX, CUT_PREFIX)
+# A picture at the size a screen shows it is stored next to it as
+# "display_<filename>": a WebP no larger than files.DISPLAY_SIZE. A phone
+# shows the painting ~350 px wide; the painting itself is a ~1 MB PNG.
+DISPLAY_PREFIX = "display_"
+DISPLAYABLE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
+
+_DERIVED_PREFIXES = (THUMB_PREFIX, OPT_PREFIX, CUT_PREFIX, DISPLAY_PREFIX)
 
 
 def is_derived(filename: str) -> bool:
-    """A cached copy made from another file (thumb_, opt_, cut_): never copy or back it up."""
+    """A cached copy made from another file (thumb_, opt_, cut_, display_): never copy or back it up."""
     return filename.startswith(_DERIVED_PREFIXES)
 
 
@@ -68,11 +74,19 @@ def optimized_name(filename: str) -> Optional[str]:
     return OPT_PREFIX + filename
 
 
+def display_name(filename: str) -> Optional[str]:
+    """The cached display-size name for a picture, or None if there is none."""
+    if filename.startswith(_DERIVED_PREFIXES) or not filename.lower().endswith(DISPLAYABLE_SUFFIXES):
+        return None
+    return DISPLAY_PREFIX + filename
+
+
 def derived_names(filename: str) -> list[str]:
     """Every cached copy generated from ``filename``; uploading it makes them stale."""
     if filename.startswith(_DERIVED_PREFIXES):
         return []
-    return [n for n in (thumbnail_name(filename), optimized_name(filename), cut_name(filename)) if n]
+    return [n for n in (thumbnail_name(filename), optimized_name(filename), cut_name(filename),
+                        display_name(filename)) if n]
 
 
 class StorageBackend(ABC):

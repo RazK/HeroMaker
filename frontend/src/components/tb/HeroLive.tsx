@@ -2,13 +2,14 @@ import { ActionFigureSlide } from './ActionFigure';
 import { HeroSlide, currentHeroDoor, track } from '../../analytics';
 import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
-import { ActionFigure, api, CreationResponse, PAINTING_FILE, PAINTING_THUMB, paintingFramed } from '../../api/client';
+import { ActionFigure, api, CreationResponse, DRAWING_DISPLAY, PAINTING_DISPLAY, PAINTING_THUMB, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
 import { Header, NavButton } from './parts';
 import { TileCaption, byLine } from './HeroTile';
 import { HeroStageInstance, StageModule, loadStage } from './stage';
 import { usePinchZoom } from './usePinchZoom';
+import { SafeImg, usePictureSrc } from './Picture';
 import './HeroLive.css';
 
 /**
@@ -236,7 +237,8 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     if (stage.current?.play(id)) pendingMove.current = null;
   };
 
-  const paintingFile = painted ? PAINTING_FILE : 'original.jpg';
+  // What the slides show: the display-size copies, never the 1 MB originals.
+  const paintingFile = painted ? PAINTING_DISPLAY : DRAWING_DISPLAY;
   const paintingThumb = painted ? PAINTING_THUMB : 'thumb_original.jpg';
   const framed = painted && paintingFramed(creation);
 
@@ -285,7 +287,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // The drawing is always the gallery's polaroid (Raz): the tile's white
   // frame and tilt, and under it the tile's name card ("by Maya, 6").
   const nameCard = <TileCaption className="tb-live-name" title={creation.character_name?.trim() || 'Your hero'} line={byLine(creation.name, creation.age)} />;
-  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} polaroid />;
+  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file(DRAWING_DISPLAY)} polaroid />;
   const paintingPic = <SlidePicture thumb={file(paintingThumb)} full={file(paintingFile)} framed={framed} trim={painted && !framed} />;
 
   // The drawing stays in view as a small polaroid on the other slides, and
@@ -453,7 +455,8 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       {full && (
         <FullPicture
           title={full === 'drawing' ? 'The drawing' : 'Painted'}
-          src={file(full === 'drawing' ? 'original.jpg' : PAINTING_FILE)}
+          thumb={file(full === 'drawing' ? 'thumb_original.jpg' : paintingThumb)}
+          src={file(full === 'drawing' ? DRAWING_DISPLAY : paintingFile)}
           card={full === 'drawing' || framed}
           caption={full === 'drawing' ? nameCard : null}
           onClose={() => setFull(null)}
@@ -815,9 +818,9 @@ function OneDrawing({ offset, dragging, hideAtRest, tappable, thumb, onTap }: {
       {/* The corner's stand-in, and what a tap on the small card hits. */}
       <button ref={btn} type="button" className={`tb-mini-drawing${tappable ? '' : ' tb-mini-drawing--away'}`} aria-label="Show the drawing"
         aria-hidden={tappable ? undefined : true} tabIndex={tappable ? undefined : -1} onClick={onTap}>
-        <img className="tb-pol" src={thumb} alt="" draggable={false} />
+        <SafeImg className="tb-pol" src={thumb} alt="" draggable={false} />
       </button>
-      <img ref={one} className="tb-pol tb-one-drawing" src={thumb} alt="" aria-hidden="true" draggable={false} />
+      <SafeImg ref={one} className="tb-pol tb-one-drawing" src={thumb} alt="" aria-hidden="true" draggable={false} />
     </>
   );
 }
@@ -828,7 +831,7 @@ function OneDrawing({ offset, dragging, hideAtRest, tappable, thumb, onTap }: {
  * two fingers zoom it. Back closes it, back to the same slide. The drawing
  * keeps its white card and its artist's name; a framed painting its card.
  */
-function FullPicture({ title, src, card, caption, onClose }: { title: string; src: string; card: boolean; caption: ReactNode; onClose: () => void }) {
+function FullPicture({ title, thumb, src, card, caption, onClose }: { title: string; thumb: string; src: string; card: boolean; caption: ReactNode; onClose: () => void }) {
   const pinch = usePinchZoom();
   const close = useFullBack(onClose);
   useEffect(() => {
@@ -844,12 +847,12 @@ function FullPicture({ title, src, card, caption, onClose }: { title: string; sr
           <div className={`tb-live-zoom${pinch.settling ? ' tb-live-zoom--settle' : ''}`} style={{ transform: pinch.transform }}>
             {caption ? (
               <div className="tb-live-polaroid">
-                <img className="tb-pol tb-live-polaroid-img" src={src} alt={title} draggable={false} />
+                <SafeImg className="tb-pol tb-live-polaroid-img" src={thumb} full={src} alt={title} draggable={false} />
                 {caption}
               </div>
             ) : (
               <div className={card ? 'tb-live-card tb-live-card--bare' : 'tb-live-plain'}>
-                <img className="tb-live-card-img" src={src} alt={title} draggable={false} />
+                <SafeImg className="tb-live-card-img" src={thumb} full={src} alt={title} draggable={false} />
               </div>
             )}
           </div>
@@ -923,18 +926,17 @@ function heroInset(el: HTMLElement): number {
 }
 
 function SlidePicture({ thumb, full, framed = false, polaroid = false, trim = false }: { thumb: string; full: string; framed?: boolean; polaroid?: boolean; trim?: boolean }) {
-  const [src, setSrc] = useState(thumb);
+  // The thumbnail at once (cached from the gallery), the full picture once
+  // it has loaded; retried, and never a broken image (Picture.tsx).
+  const pic = usePictureSrc(thumb, full);
+  const src = pic.src;
   const [ar, setAr] = useState(0);
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => setSrc(full);
-    img.src = full;
-  }, [full]);
-  useEffect(() => setSrc(thumb), [thumb]);
   const shown = (e: SyntheticEvent<HTMLImageElement>) => {
+    pic.onLoad();
     const r = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
     if (r > 0 && Math.abs(r - ar) > 0.005) setAr(r);
   };
+  const hide = (style: CSSProperties | undefined): CSSProperties | undefined => (pic.hidden ? { ...style, visibility: 'hidden' } : style);
   const box = useOpaqueBox(trim ? thumb : null, full);
   if (trim && ar && box) {
     // A cut-out painting is sized by the figure, not by the transparent
@@ -945,12 +947,12 @@ function SlidePicture({ thumb, full, framed = false, polaroid = false, trim = fa
     const arFig = (ar * bw) / bh;
     // Positions in the picture's own pixels, so left/top whatever the
     // writing direction (media are never mirrored).
-    const pic: CSSProperties = { position: 'absolute', maxWidth: 'none', maxHeight: 'none', width: `${100 / bw}%`, height: `${100 / bh}%`, left: `${(-box.left / bw) * 100}%`, top: `${(-box.top / bh) * 100}%` };
+    const place: CSSProperties = { position: 'absolute', maxWidth: 'none', maxHeight: 'none', width: `${100 / bw}%`, height: `${100 / bh}%`, left: `${(-box.left / bw) * 100}%`, top: `${(-box.top / bh) * 100}%` };
     return (
       <div className="tb-slide-fit">
         <div className="tb-slide-figure" style={{ width: `min(100cqw, calc(100cqh * ${arFig}))`, aspectRatio: `${arFig}` }}>
           {!SUN && <span className="tb-contact" aria-hidden="true" />}
-          <img className="tb-slide-pic" src={src} alt="" style={pic} draggable={false} onLoad={shown} />
+          <img className="tb-slide-pic" src={src} alt="" style={hide(place)} draggable={false} onLoad={shown} onError={pic.onError} />
         </div>
       </div>
     );
@@ -964,7 +966,7 @@ function SlidePicture({ thumb, full, framed = false, polaroid = false, trim = fa
     : undefined;
   return (
     <div className={`tb-slide-fit${framed ? ' tb-slide-fit--framed' : ''}`}>
-      <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''}${polaroid ? ' tb-pol' : ''}`} src={src} alt="" style={style} draggable={false} onLoad={shown} />
+      <img className={`tb-slide-pic${ar ? '' : ' tb-slide-pic--contain'}${framed ? ' tb-slide-pic--framed' : ''}${polaroid ? ' tb-pol' : ''}`} src={src} alt="" style={hide(style)} draggable={false} onLoad={shown} onError={pic.onError} />
     </div>
   );
 }

@@ -75,8 +75,10 @@ def s3(monkeypatch):
     fake = FakeS3Storage()
     monkeypatch.setattr(files_api, "get_storage", lambda: fake)
     files_api._thumb_memory.clear()
+    files_api._display_memory.clear()
     yield fake
     files_api._thumb_memory.clear()
+    files_api._display_memory.clear()
 
 
 @pytest.fixture
@@ -273,6 +275,8 @@ def test_s3_upload_sets_content_type_and_invalidates_the_thumbnail():
         ("delete", f"{USER}/{CREATION}/thumb_rendered.png", None),
         # A new painting also makes its cut-out stale (services/painting_cut.py).
         ("delete", f"{USER}/{CREATION}/cut_rendered.png", None),
+        # And the copy the slides show.
+        ("delete", f"{USER}/{CREATION}/display_rendered.png", None),
     ]
 
 
@@ -346,3 +350,53 @@ def test_file_versions_change_when_a_step_runs_again():
     assert first["original.jpg"] == again["original.jpg"]
     assert first["rendered.png"] != again["rendered.png"]
     assert "rendered.png" not in running, "a step still running has no version yet"
+
+
+# --- display copies: the size a screen shows, not the 1 MB original ----------
+
+def test_the_painting_is_shown_as_a_small_webp_not_its_png(s3, client):
+    """The hero page's painting slide used to download the 1.1 MB PNG to show
+    it ~350 px wide. display_rendered.png is the same picture as a WebP."""
+    png = _encode(_noisy("RGBA"), "PNG")
+    s3.upload_file(USER, CREATION, "rendered.png", png)
+
+    r = client.get(f"/api/files/{USER}/{CREATION}/display_rendered.png?v=1")
+
+    assert r.status_code == 200, "the bytes themselves, no second hop to S3"
+    assert r.headers["content-type"] == "image/webp"
+    assert r.headers["cache-control"] == files_api.IMMUTABLE
+    with Image.open(io.BytesIO(r.content)) as img:
+        assert img.format == "WEBP" and img.mode == "RGBA", "the transparency is kept"
+        assert img.size == (1024, 1024), "a 1024 px painting keeps its size"
+        assert img.getpixel((2, 2))[3] == 0
+    assert len(r.content) < len(png) / 4
+    assert s3.objects[f"{USER}/{CREATION}/display_rendered.png"][0] == r.content, "stored, made once"
+
+    s3.downloads.clear()
+    assert client.get(f"/api/files/{USER}/{CREATION}/display_rendered.png?v=1").content == r.content
+    assert s3.downloads == [], "served from memory"
+
+
+def test_a_big_photo_of_a_drawing_is_shrunk_to_display_size(s3, client):
+    s3.upload_file(USER, CREATION, "original.jpg", _encode(_noisy("RGB", (3000, 4000)), "JPEG"))
+
+    r = client.get(f"/api/files/{USER}/{CREATION}/display_original.jpg")
+
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
+    with Image.open(io.BytesIO(r.content)) as img:
+        assert img.format == "WEBP" and img.mode == "RGB"
+        assert img.size == (960, 1280)
+
+
+def test_uploading_the_original_drops_its_display_copy(s3, client):
+    s3.upload_file(USER, CREATION, "original.jpg", _encode(_noisy("RGB"), "JPEG"))
+    client.get(f"/api/files/{USER}/{CREATION}/display_original.jpg")
+    assert storage_mod.display_name("original.jpg") in storage_mod.derived_names("original.jpg")
+    assert storage_mod.is_derived("display_original.jpg")
+    assert storage_mod.display_name("model.glb") is None
+    assert storage_mod.display_name("display_original.jpg") is None
+
+
+def test_a_display_copy_of_a_missing_picture_is_a_404(s3, client):
+    assert client.get(f"/api/files/{USER}/{CREATION}/display_original.jpg").status_code == 404
+    assert client.get(f"/api/files/{USER}/{CREATION}/display_model.glb").status_code == 404
