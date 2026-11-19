@@ -2,7 +2,7 @@ import { ActionFigureSlide } from './ActionFigure';
 import { HeroSlide, currentHeroDoor, track } from '../../analytics';
 import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
-import { ActionFigure, api, CreationResponse, PAINTING_FILE, PAINTING_THUMB, paintingFramed } from '../../api/client';
+import { ActionFigure, api, CreationResponse, DRAWING_DISPLAY, PAINTING_DISPLAY, PAINTING_THUMB, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
 import { Header, NavButton } from './parts';
@@ -237,7 +237,8 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     if (stage.current?.play(id)) pendingMove.current = null;
   };
 
-  const paintingFile = painted ? PAINTING_FILE : 'original.jpg';
+  // What the slides show: the display-size copies, never the 1 MB originals.
+  const paintingFile = painted ? PAINTING_DISPLAY : DRAWING_DISPLAY;
   const paintingThumb = painted ? PAINTING_THUMB : 'thumb_original.jpg';
   const framed = painted && paintingFramed(creation);
 
@@ -286,7 +287,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // The drawing is always the gallery's polaroid (Raz): the tile's white
   // frame and tilt, and under it the tile's name card ("by Maya, 6").
   const nameCard = <TileCaption className="tb-live-name" title={creation.character_name?.trim() || 'Your hero'} line={byLine(creation.name, creation.age)} />;
-  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} polaroid />;
+  const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file(DRAWING_DISPLAY)} polaroid />;
   const paintingPic = <SlidePicture thumb={file(paintingThumb)} full={file(paintingFile)} framed={framed} trim={painted && !framed} />;
 
   // The drawing stays in view as a small polaroid on the other slides, and
@@ -455,7 +456,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
         <FullPicture
           title={full === 'drawing' ? 'The drawing' : 'Painted'}
           thumb={file(full === 'drawing' ? 'thumb_original.jpg' : paintingThumb)}
-          src={file(full === 'drawing' ? 'original.jpg' : PAINTING_FILE)}
+          src={file(full === 'drawing' ? DRAWING_DISPLAY : paintingFile)}
           card={full === 'drawing' || framed}
           caption={full === 'drawing' ? nameCard : null}
           onClose={() => setFull(null)}
