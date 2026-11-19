@@ -483,7 +483,7 @@ button.cls-card:active { transform: scale(0.98); }
   color: var(--tb-ink);
   cursor: pointer;
 }
-.cls-age--on { border-color: var(--tb-ink); background: var(--tb-sun); box-shadow: 0 4px 0 var(--tb-ink); }
+.cls-age--on { border-color: var(--tb-grape); background: var(--tb-chosen); color: var(--tb-ink); box-shadow: 0 4px 0 var(--tb-grape-deep); }
 .cls-form { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 420px; margin: 0 auto; }
 
 /* A big round picture on a plate or the sun: the draw prompt, the waits. */

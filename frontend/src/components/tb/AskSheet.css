@@ -46,7 +46,7 @@
   cursor: pointer;
   transition: transform 80ms ease, box-shadow 80ms ease, background 80ms ease;
 }
-.tb-ask-pick[aria-pressed='true'] { background: #f1edff; border-color: var(--tb-grape); box-shadow: 0 4px 0 var(--tb-grape-deep); }
+.tb-ask-pick[aria-pressed='true'] { background: var(--tb-chosen); border-color: var(--tb-grape); box-shadow: 0 4px 0 var(--tb-grape-deep); }
 .tb-ask-pick:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
 .tb-ask-pick[aria-pressed='true']:active { box-shadow: 0 1px 0 var(--tb-grape-deep); }
 .tb-ask-pick:focus-visible { outline: 3px solid rgba(91, 61, 245, 0.35); outline-offset: 2px; }

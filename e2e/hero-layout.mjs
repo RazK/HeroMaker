@@ -14,6 +14,8 @@
 //     the card or outside it, at least 4px clear either way;
 //   - the toy's two buttons (Take apart, Print file) are one size, and taken
 //     apart the toy still passes all of the above and draws its arrows;
+//   - a laptop or bigger: the dock inside the card, and under it only the
+//     bar's two buttons;
 //   - no stage arrows;
 //   - Play is the bottom-most button;
 //   - wider than tall, on the drawing and the painting: the name card's
@@ -109,6 +111,13 @@ async function slideProblems(page) {
       const inside = it.l >= card.l + CLEAR && it.r <= card.r - CLEAR && it.t >= card.t + CLEAR && it.b <= card.b - CLEAR;
       const outside = it.r <= card.l - CLEAR || it.l >= card.r + CLEAR || it.b <= card.t - CLEAR || it.t >= card.b + CLEAR;
       if (!inside && !outside) problems.push(`${it.name} touches the card's edge`);
+      // A laptop or bigger (the approved boards): the dock is inside the card.
+      if (innerWidth > innerHeight && innerHeight >= 560 && it.name.startsWith('dock ') && !inside) problems.push(`${it.name} is not inside the card`);
+    }
+    // ... and the foot under the card has the bar's two buttons and nothing else.
+    if (innerWidth > innerHeight && innerHeight >= 560) {
+      const foot = items.filter((it) => it.t >= card.b);
+      if (foot.length !== 2 || foot.some((it) => !it.name.startsWith('bar '))) problems.push(`the foot holds ${foot.map((it) => it.name).join(', ') || 'nothing'}, not the bar's two buttons`);
     }
     // The toy's buttons: one size.
     const pair = [...document.querySelectorAll('.tb-dock-layer .tb-figure-btn')].filter(seen).map((el) => el.getBoundingClientRect());

@@ -344,6 +344,62 @@
   .tb-hero-main[data-state='ready'] .tb-move svg { width: 16px; height: 16px; }
 }
 
+/* Two tiers, one rhythm (the approved "Hero · 3D" and "Hero · toy" desktop
+   boards, Raz 2026-11-19). A laptop or bigger:
+     - the bar: Make your own and Play, 320px each, centred, 16px apart;
+     - the dock (the moves, the toy's two buttons, the name card) INSIDE the
+       card, centred, its row exactly as wide as the bar's two buttons; its
+       buttons are controls, the header buttons' height, all one width, and
+       their depth ends one space above the card's edge, the space from the
+       card to the bar;
+     - the picture (the hero, the toy, the painting) and the drawing's card
+       stand side by side as a pair, centred, the drawing on the start side
+       and vertically centred; the picture as tall as the room over the dock.
+   A phone on its side keeps the foot row (its card is too short for both). */
+@media (orientation: landscape) and (min-height: 560px) {
+  .tb-hero-screen.tb-hero-main[data-state='ready'] {
+    --dock-h: var(--tb-header-ctl);
+    /* The dock's band in the card: the tallest thing in it, the name card. */
+    --dock-zone: var(--foot-btn);
+    --row-w: min(656px, calc(100% - 2 * var(--tb-space)));
+    --room-bottom: calc(var(--foot) + var(--tb-space) + var(--dock-zone) + var(--tb-depth-sm) + var(--tb-space));
+    /* Resolved where they are used, inside the stage (its container). */
+    --room-h: calc(100cqh - var(--room-top) - var(--room-bottom));
+    --poly: clamp(140px, calc(var(--room-h) * 0.42), 300px);
+    --pair-gap: 64px;
+    --fig-w: min(var(--room-h), calc(100cqw - var(--poly) - var(--pair-gap) - 4 * var(--tb-space)));
+    --pair-x: calc((100cqw - var(--poly) - var(--pair-gap) - var(--fig-w)) / 2);
+  }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar { justify-content: center; gap: 16px; }
+  .tb-hero-screen.tb-hero-main[data-state='ready'] > .tb-bar > .tb-btn { flex: 0 1 320px; width: 320px; min-width: 0; }
+
+  .tb-hero-main[data-state='ready'] .tb-live-stage :is(.tb-live-name, .tb-hero-moves, .tb-figure-dock) {
+    inset-block-end: calc(var(--foot) + var(--tb-space) + var(--tb-depth-sm));
+  }
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-hero-moves { width: var(--row-w); max-width: none; height: var(--dock-h); display: block; }
+  .tb-hero-main[data-state='ready'] .tb-moves { gap: 12px; height: 100%; }
+  .tb-hero-main[data-state='ready'] .tb-move { width: auto; max-width: none; height: 100%; padding: 0 12px; gap: 8px; font-size: 17px; }
+  .tb-hero-main[data-state='ready'] .tb-move svg { width: 20px; height: 20px; }
+  .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock--made { width: var(--row-w); height: var(--dock-h); gap: 16px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-btn { gap: 8px; padding: 0 12px; font-size: 17px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-btn svg { width: 20px; height: 20px; }
+
+  .tb-hero-main[data-state='ready'] .tb-live-room { inset: var(--room-top) 0 var(--room-bottom); }
+  .tb-hero-main[data-state='ready'] .tb-slide-open > .tb-live-room { inset-block-end: calc(var(--room-bottom) - var(--foot)); }
+  .tb-hero-main[data-state='ready'] .tb-slide:not([data-slide='drawing']) .tb-live-room {
+    inset-inline: calc(var(--pair-x) + var(--poly) + var(--pair-gap)) auto;
+    width: var(--fig-w);
+  }
+  .tb-hero-main[data-state='ready'] .tb-mini-drawing {
+    --mini-w: var(--poly);
+    inset-inline-start: var(--pair-x);
+    inset-block: calc(var(--room-top) + var(--room-h) / 2) auto;
+    transform: translateY(-50%);
+  }
+  /* The painting's name card stays under the painting, now beside the drawing. */
+  .tb-hero-main[data-state='ready'] .tb-live-stage[data-slide='painting'] .tb-live-name { translate: calc((var(--poly) + var(--pair-gap)) / 2) 0; }
+}
+
 /* Pick a game: two equal cards side by side (brand book: paired things are
    the same size). Each card wears its game's colour (toybox.css --tb-rumble,
    --tb-dance) on its poster and its footer, so the two tell apart at a glance
