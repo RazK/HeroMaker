@@ -20,11 +20,12 @@ const EASE_S = 0.9;
 /** Swaying, the toy faces front and turns at most this far each way (25 degrees), once in SWAY_S seconds. */
 const SWAY = THREE.MathUtils.degToRad(25);
 const SWAY_S = 9;
-const SWAY_SAMPLES = [-1, -0.5, 0, 0.5, 1].map((k) => k * SWAY);
+const SWAY_SAMPLES = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1].map((k) => k * SWAY);
 /** Turned by a drag, it waits this long (ms) and then eases back to the front. */
 const BACK_MS = 2500;
-/** How far (px) the toy keeps from what it must not pass under. */
-const AVOID_MARGIN = 10;
+/** How far (px) the toy keeps from what it must not pass under: the drawing's card is drawn
+ *  tilted and framed, up to about 6px past its layout box each side, and 10px more. */
+const AVOID_MARGIN = 16;
 const SVG = 'http://www.w3.org/2000/svg';
 
 /**
