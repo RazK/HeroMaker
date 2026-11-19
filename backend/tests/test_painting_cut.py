@@ -303,3 +303,33 @@ def test_too_busy_to_cut_serves_the_painting_uncached(db, make_user, make_creati
     assert "immutable" in later.headers["cache-control"]
     with Image.open(io.BytesIO(later.content)) as t:
         assert t.mode == "RGBA"
+
+
+# --- the hero page's painting thumbnail: every kind has one ------------------
+
+@pytest.mark.parametrize("painting, kind", [
+    (lambda: _png(_studio()), cutout.CUT),
+    (lambda: _transparent_png(), cutout.TRANSPARENT),
+    (lambda: _png(_studio(noise=40)), cutout.FRAMED),
+])
+def test_the_plate_paintings_thumbnail_is_there_whatever_its_kind(db, make_user, make_creation, local, client,
+                                                                  painting, kind):
+    """The hero page shows the painting's thumbnail while the full one loads.
+
+    It asked for thumb_cut_rendered.png, which only a painting that was cut
+    could answer: for a transparent or framed one (every new hero) it was a
+    404, and the slide showed a broken picture until the 1.1 MB painting
+    arrived, ~25 s on a slow phone. Both names answer the same picture.
+    """
+    user, creation = _painted_hero(db, make_user, make_creation, local, painting())
+
+    for name in ("thumb_cut_rendered.png", "thumb_rendered.png"):
+        for v in (None, "1a1"):
+            r = _get(client, user, creation, name, v=v)
+            assert r.status_code == 200, f"{name}?v={v} for a {kind} painting"
+            with Image.open(io.BytesIO(r.content)) as t:
+                assert max(t.size) <= max(files_api.THUMBNAIL_SIZE)
+    assert (_get(client, user, creation, "thumb_cut_rendered.png").content
+            == _get(client, user, creation, "thumb_rendered.png").content)
+    db.expire_all()
+    assert CreationResponse.from_creation(db.get(Creation, creation.id)).painting == kind

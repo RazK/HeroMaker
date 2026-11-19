@@ -88,6 +88,13 @@ export type Painting = 'cut' | 'transparent' | 'framed';
 /** The painting to stand on a plate: its cut-out, or the painting itself when it needs none. */
 export const PAINTING_FILE = 'cut_rendered.png';
 
+/**
+ * Its thumbnail: made from the cut when there is one, from the painting when
+ * it needs none. Not thumb_cut_rendered.png, which a painting that needed no
+ * cut has never had. The gallery's tile shows this same file, so it is cached.
+ */
+export const PAINTING_THUMB = 'thumb_rendered.png';
+
 /** Show this hero's painting in a polaroid frame (no confident cut-out)? */
 export const paintingFramed = (h: { painting?: Painting | null } | null | undefined) => h?.painting === 'framed';
 

@@ -2,7 +2,7 @@ import { ActionFigureSlide } from './ActionFigure';
 import { HeroSlide, currentHeroDoor, track } from '../../analytics';
 import { CSSProperties, MutableRefObject, PointerEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync, createPortal } from 'react-dom';
-import { ActionFigure, api, CreationResponse, PAINTING_FILE, paintingFramed } from '../../api/client';
+import { ActionFigure, api, CreationResponse, PAINTING_FILE, PAINTING_THUMB, paintingFramed } from '../../api/client';
 import { heroVrmUrl } from '../../config/play';
 import { Icon, IconName } from './Icon';
 import { Header, NavButton } from './parts';
@@ -237,6 +237,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   };
 
   const paintingFile = painted ? PAINTING_FILE : 'original.jpg';
+  const paintingThumb = painted ? PAINTING_THUMB : 'thumb_original.jpg';
   const framed = painted && paintingFramed(creation);
 
   // The intro waits for each picture before it shows it: never a slide that
@@ -245,7 +246,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   const [loaded, setLoaded] = useState({ drawing: false, painting: false });
   useEffect(() => {
     if (!intro) return;
-    const imgs = ([['drawing', file('thumb_original.jpg')], ['painting', file(`thumb_${paintingFile}`)]] as const).map(([key, url]) => {
+    const imgs = ([['drawing', file('thumb_original.jpg')], ['painting', file(paintingThumb)]] as const).map(([key, url]) => {
       const img = new Image();
       img.onload = img.onerror = () => setLoaded((l) => ({ ...l, [key]: true }));
       img.src = url;
@@ -285,7 +286,7 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // frame and tilt, and under it the tile's name card ("by Maya, 6").
   const nameCard = <TileCaption className="tb-live-name" title={creation.character_name?.trim() || 'Your hero'} line={byLine(creation.name, creation.age)} />;
   const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file('original.jpg')} polaroid />;
-  const paintingPic = <SlidePicture thumb={file(`thumb_${paintingFile}`)} full={file(painted ? PAINTING_FILE : 'original.jpg')} framed={framed} trim={painted && !framed} />;
+  const paintingPic = <SlidePicture thumb={file(paintingThumb)} full={file(paintingFile)} framed={framed} trim={painted && !framed} />;
 
   // The drawing stays in view as a small polaroid on the other slides, and
   // shrinks into it as you leave the drawing (and grows back out of it as you
