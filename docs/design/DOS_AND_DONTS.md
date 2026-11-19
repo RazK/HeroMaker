@@ -125,6 +125,10 @@ PRINCIPLES.md rule, or NEW when only this page (or the brand book) has it.
 | B12 | Put a place (Gallery, My classes) on a switch under the header, and use chips only within a place | A place as the fourth chip, cut off at the edge | "I could miss it. It needs a higher level in the hierarchy." | 2026-10-19 | **NEW** (BB) |
 | B13 | Show "Run a class" only to visitors and teachers. Others become teachers from their account. | A teacher pitch shown to everyone | "if not teacher dont show it. let user become teachers from user profile interface" | 2026-11-15 | 28 |
 | B14 | Make every button a pill, with its icon and its words on one line, on every size | A rounded-rectangle button; an icon stacked above its label | "Rounded corner rectangles, we only use pills for buttons… why do you have the icon and the text in different lines inside the button? That is horrible." | 2026-11-19 | 36 |
+| B15 | Use two button heights only: controls (header, dock) and the bar's buttons | Moves 52px between a 48px header and 64px buttons | "something about this doesn't look good… Maybe it's the spacing between the cream and the purple… Maybe it's the sizes of the buttons. Maybe it's that only one out of four buttons is purple… The buttons are not same size, same height." | 2026-11-19 | 37 |
+| B16 | Give a dock's buttons one width and make the dock as wide as the bar's buttons | Each move its own width; three rows, three widths | (same review) | 2026-11-19 | 38 |
+| B17 | Show "chosen" as light purple with a grape outline, everywhere; solid grape only for the one primary | A dark chosen move beside a purple Play | (same review) | 2026-11-19 | 39 |
+| B18 | Repeat gaps: dock to card edge = card to bar; below the bar = the side margin | 20, 24 and 28px gaps on one screen | (same review) | 2026-11-19 | 40 |
 
 ## 8. Motion and 3D rendering
 

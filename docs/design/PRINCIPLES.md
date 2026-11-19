@@ -120,6 +120,15 @@ they are for.
 36. **Every button is a pill, on one line.** Icon and words sit side by side;
     never a rounded rectangle, never an icon stacked above its label. (Raz, 2026-11-19)
 
+37. **Two sizes of button, never three.** Controls (header buttons and a slide's
+    dock) share one height; the bar's buttons share the other. (Raz, 2026-11-19)
+38. **A row of buttons lines up.** The buttons in a dock have one width, and the
+    dock is exactly as wide as the bar's buttons below it.
+39. **"Chosen" looks the same everywhere:** light purple with a grape outline.
+    Solid grape is only the one primary action.
+40. **Gaps repeat.** Dock to card edge = card to bar; the space below the bar's
+    buttons = the side margin.
+
 The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
 
 ## Before showing Raz
