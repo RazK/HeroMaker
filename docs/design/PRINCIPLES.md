@@ -117,6 +117,9 @@ they are for.
     line.
 35. **No prev/next arrows** on any size: swipe, drag, the dots and the keys.
 
+36. **Every button is a pill, on one line.** Icon and words sit side by side;
+    never a rounded rectangle, never an icon stacked above its label. (Raz, 2026-11-19)
+
 The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
 
 ## Before showing Raz
