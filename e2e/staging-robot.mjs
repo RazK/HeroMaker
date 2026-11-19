@@ -11,6 +11,9 @@
 //   -> the same name from a second phone waits for the teacher, who removes it
 //   -> Gallery shows the live class as one strip, one tap back to it
 //   -> End class -> I run classes off: the switch goes
+//   -> analytics: the run left its events in our own table, every one marked
+//   as a robot's (so in no graph), PostHog was never loaded, and a fresh
+//   browser arriving through ?via=test-fair is recorded with that door
 //
 // It talks to nothing but the public frontend URL, like a person would. No
 // API shortcuts: a step passes only if the UI shows it passed (the class step
@@ -33,7 +36,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
 const DRAWING = path.join(HERE, '..', 'marketing', 'concepts', 'assets', 'pairs', 'crayon-kid-drawing.jpg');
 const BASE_URL = (process.env.BASE_URL || '').replace(/\/$/, '');
-const ALL_STEPS = ['landing', 'gallery', 'signup', 'buy', 'create', 'profile', 'game', 'class'];
+const ALL_STEPS = ['landing', 'gallery', 'signup', 'buy', 'create', 'profile', 'game', 'class', 'analytics'];
 const STEPS = (process.env.STEPS || ALL_STEPS.join(',')).split(',').map((s) => s.trim());
 const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS || 25 * 60 * 1000);
 // DEMO=1 records a video of the same journey at a human pace, with a visible
@@ -295,6 +298,9 @@ const context = await browser.newContext({
 });
 if (DEMO) await context.addInitScript(CURSOR_SCRIPT);
 const page = await context.newPage();
+// Analytics: an automated browser must never load PostHog (the analytics step).
+const posthogRequests = [];
+context.on('request', (r) => { if (/posthog/i.test(new URL(r.url()).hostname) || /\/assets\/posthog-/.test(r.url())) posthogRequests.push(r.url()); });
 const t0 = Date.now();  // the video's clock starts with the page
 // A recording under load drifts tens of seconds from the wall clock, so a
 // mark is also painted INTO the video: an 8x8 square in the bottom-right
@@ -1209,6 +1215,62 @@ try {
       await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
     return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
+  });
+
+  // Analytics (docs/analytics/REQUIREMENTS.md): the run above must have left
+  // its trail in our own events table, marked as a robot's (so it is in no
+  // graph), and must never have loaded PostHog. The robot reads back only its
+  // own browser's events, through the same public address as everything else.
+  await step(page, 'analytics', async () => {
+    const passed = (name) => results.some((r) => r.name === name && r.status === 'passed');
+    const mine = async (p) => {
+      const visitor = await p.evaluate(() => localStorage.getItem('hm_visitor'));
+      if (!visitor) throw new Error('this browser has no analytics id (hm_visitor): the client never ran');
+      const r = await p.request.get(`${BASE_URL}/api/v1/events/mine?visitor=${encodeURIComponent(visitor)}`);
+      if (!r.ok()) throw new Error(`GET /api/v1/events/mine answered ${r.status()}`);
+      return (await r.json()).events;
+    };
+    // The client sends about two seconds after the last event.
+    await page.waitForTimeout(3500);
+    const events = await mine(page);
+    const names = new Set(events.map((e) => e.name));
+    if (events.length === 0) throw new Error('no analytics events were recorded for this run (is ANALYTICS_ENABLED set on this environment?)');
+    const notRobot = events.filter((e) => !e.robot).map((e) => e.name);
+    if (notRobot.length) throw new Error(`the robot's events are not marked as a robot's, so they would be in the graphs: ${[...new Set(notRobot)].join(', ')}`);
+    // What each step that passed must have left behind. The backend's own
+    // events (a purchase, a finished hero) are there too: they join the
+    // visitor the account was seen on.
+    const expected = {
+      landing: ['visit'],
+      signup: ['signin_shown', 'signin_done'],
+      buy: ['credits_shown', 'checkout_started', 'purchase_done'],
+      create: ['make_started', 'photo_chosen', 'make_choice', 'hero_ready'],
+      profile: ['hero_opened', 'hero_slide_viewed'],
+      game: ['game_started'],
+    };
+    const missing = Object.entries(expected)
+      .filter(([name]) => passed(name))
+      .flatMap(([name, wanted]) => wanted.filter((w) => !names.has(w)).map((w) => `${w} (${name})`));
+    if (missing.length) throw new Error(`events missing from the run: ${missing.join(', ')}; recorded: ${[...names].join(', ')}`);
+    if (posthogRequests.length) throw new Error(`the robot loaded PostHog: ${posthogRequests.slice(0, 3).join(', ')}`);
+
+    // A door: a fresh browser arriving through ?via=test-fair is recorded
+    // with that door (and as a robot, so "test-fair" is in no graph either).
+    const doorCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-US' });
+    let door;
+    try {
+      const visitor = await doorCtx.newPage();
+      await visitor.goto(`${BASE_URL}/?via=test-fair`, { waitUntil: 'domcontentloaded' });
+      await visitor.getByRole('button', { name: 'HeroMaker home' }).waitFor();
+      await visitor.waitForTimeout(3500);
+      const seen = await mine(visitor);
+      door = seen.find((e) => e.name === 'visit');
+      if (!door) throw new Error(`a visit through ?via=test-fair recorded no visit: ${JSON.stringify(seen)}`);
+      if (door.door !== 'test-fair' || !door.robot) throw new Error(`a visit through ?via=test-fair was recorded as ${JSON.stringify(door)}`);
+    } finally {
+      await doorCtx.close();
+    }
+    return `${events.length} events of this run recorded, all marked robot (in no graph): ${[...names].join(', ')}; PostHog never loaded; a visit through ?via=test-fair recorded with door "${door.door}" on ${door.device}`;
   });
 } catch {
   exitCode = 1;
