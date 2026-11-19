@@ -62,12 +62,22 @@ own segment without asking anyone anything:
 The first `via` a browser arrives with is kept as its door for later visits too.
 A tag is lowercase letters, digits, `-` and `_`, 40 at most.
 
-One optional question, asked once when someone makes their first hero, two
-taps, skippable (**designed first, built only after Raz approves it**; the
-backend already accepts the answer as `survey_answered`):
+Two optional questions (the WhoFor board Raz approved), in one sheet over the
+"being made" screen of the first hero made in a browser, after it is paid for,
+once per browser, two taps, Skip or Done (`survey_answered`):
 
-- **What's it for?** Just for fun · A gift · A class · An event
-- **Who's drawing?** A kid · A grown-up
+- **What's it for?** Just for fun · A gift · A class · An event (not asked of
+  a visitor who came through a class: it is a class)
+- **Who drew it?** A kid · A grown-up
+
+The answers become that visitor's PostHog person properties (and ride on each
+of their later events); in our own table they are the visitor's
+`survey_answered`.
+
+Before the sign-in sheet, the first time in a browser (the GrownUp board):
+**"Is a grown-up with you?"** Not yet goes back; Yes goes on and is not asked
+again (`adult_confirmed`). The account keeps the time of the first Yes
+(`users.adult_confirmed_at`).
 
 ## Events
 
@@ -98,9 +108,7 @@ Sent by the browser unless marked *backend*. The allow-list is
 | | `print_file_downloaded` | the hero, the format. **The other funnel end** |
 | Share | `share_tapped` | the hero |
 | Class | `class_created`, `class_joined` *(backend)* | |
-
-Waiting for a design Raz approves: `adult_confirmed` ("a grown-up is with me",
-before sign-in).
+| Grown-up | `adult_confirmed` | yes or not yet, before the sign-in sheet |
 
 With `gallery_seen`, `hero_opened` and `hero_slide_viewed`: impressions, opens
 and click-through per hero and per place in the grid, and per hero how many
@@ -149,7 +157,9 @@ and **who's drawing** (once the question exists), **3D provider**, and date.
   dashboard changes nothing here.
 - **No cookies** and nothing in the browser's storage: PostHog keeps its state
   in memory. The id is the same anonymous browser id our own events use.
-- **Nobody is identified**: no person profiles, no name, no email, ever.
+- **Nobody is identified**: no name, no email, never `identify`. The only
+  person profiles are anonymous visitors who answered the two questions, keyed
+  by the anonymous id and holding only those two answers.
 - **What the page says is not sent**: autocapture masks all text and all
   element attributes. Addresses are scrubbed: a claim link's token, a class's
   PIN and every query parameter except `via` and `utm_*` are removed.

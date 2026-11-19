@@ -184,6 +184,31 @@ let mirror: Mirror | null = null;
 export const setMirror = (to: Mirror | null) => { mirror = to; };
 
 /**
+ * What this anonymous visitor told us about themselves: the two questions
+ * while a hero is made ("What's it for?", "Who drew it?"), as fixed words.
+ * Kept in this browser; PostHog gets them as the visitor's person properties
+ * (posthog.ts), and our own table has them as the visitor's survey_answered.
+ */
+const TRAITS_KEY = 'hm_traits';
+export type Traits = { purpose?: string; who?: string };
+type TraitsMirror = (traits: Traits) => void;
+let traitsMirror: TraitsMirror | null = null;
+export const setTraitsMirror = (to: TraitsMirror | null) => { traitsMirror = to; };
+export function visitorTraits(): Traits {
+  try {
+    const t = JSON.parse(read(TRAITS_KEY) || '{}');
+    return t && typeof t === 'object' ? t : {};
+  } catch { return {}; }
+}
+export function setVisitorTraits(traits: Traits): void {
+  try {
+    const all = { ...visitorTraits(), ...traits };
+    write(TRAITS_KEY, JSON.stringify(all));
+    traitsMirror?.(all);
+  } catch { /* never the app's problem */ }
+}
+
+/**
  * Heroes whose name is public (in the public gallery, Editors' choice): for
  * those, and only those, PostHog's copy of an event also carries the hero's
  * name, so its tables read "Super Sizzle" instead of an id. Our own table

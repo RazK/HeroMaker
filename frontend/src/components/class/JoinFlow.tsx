@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { setHeroDoor, track } from '../../analytics';
 import { useScreenTime } from '../../useAnalytics';
+import { WhoForSheet, shouldAskWhoFor } from '../tb/WhoForSheet';
 import { api, ApiError, CreationResponse, paintingFramed } from '../../api/client';
 import { GuestView, studentApi } from '../../api/classes';
 import { FileUpload } from '../FileUpload';
@@ -223,6 +224,7 @@ function MyHero({ me, again, onChange, onNext }: { me: GuestView; again: boolean
   const [creation, setCreation] = useState<CreationResponse | null>(null);
   const [parents, setParents] = useState(false);
   const [seen, setSeen] = useState(!again);
+  const [askWhoFor, setAskWhoFor] = useState(shouldAskWhoFor);
 
   // The pass's own state (approved yet? class over?) and the hero, polled.
   useEffect(() => {
@@ -252,6 +254,8 @@ function MyHero({ me, again, onChange, onNext }: { me: GuestView; again: boolean
         <KidHero creation={creation} name={name} onRetry={async () => onChange(await studentApi.retry())}
           onParents={() => setParents(true)} onNext={onNext} />
         {parents && me.claim_path && <ShowParents name={name} path={me.claim_path} onClose={() => setParents(false)} />}
+        {/* Once per browser, while the hero is made. Not "What's it for?": it is a class. */}
+        {askWhoFor && heroState(creation) === 'making' && <WhoForSheet askPurpose={false} onDone={() => setAskWhoFor(false)} />}
       </>
     );
   }

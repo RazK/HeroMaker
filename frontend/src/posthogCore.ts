@@ -12,7 +12,9 @@
  *   scripts are refused too.
  * - No cookies and nothing in the browser's storage (memory only). The id is
  *   the one our own events use.
- * - Nobody is ever identified: no person profiles, no name, no email.
+ * - Nobody is ever identified: no name, no email, never `identify`. The one
+ *   person profile is an anonymous visitor's two answers (WhoForSheet), and
+ *   only for a visitor who gave them.
  * - What a page says is never sent: text and attributes are masked in
  *   autocapture, and addresses are scrubbed of tokens and codes.
  * - An automated browser (the staging robot) does not load it at all.
@@ -34,6 +36,7 @@ export interface PostHogLike {
   init: (key: string, options: Record<string, unknown>) => unknown;
   capture: (event: string, properties?: Record<string, unknown>) => unknown;
   register: (properties: Record<string, unknown>) => unknown;
+  setPersonProperties: (properties: Record<string, unknown>) => unknown;
 }
 
 const KEY = /^phc_[A-Za-z0-9]{20,80}$/;
@@ -86,8 +89,10 @@ export function initOptions(setting: PostHogSetting, facts: BrowserFacts): Recor
     // id is the one our own events already use.
     persistence: 'memory',
     bootstrap: { distinctID: facts.visitor },
-    // Nobody is identified, ever: events are anonymous, with no person profile.
-    person_profiles: 'never',
+    // Nobody is identified, ever. A person profile is made only for a visitor
+    // who answered the two questions, keyed by the anonymous id and holding
+    // only those answers (setPersonProperties); every other visitor has none.
+    person_profiles: 'identified_only',
     // What people do, not what the page says: clicks, pages, scrolling, heatmaps.
     autocapture: true,
     capture_heatmaps: true,

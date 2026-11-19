@@ -24,7 +24,8 @@ import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/Sty
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
-import { flush, rememberPublicHero, setHeroDoor, takeGalleryPick, track } from './analytics';
+import { door, flush, rememberPublicHero, setHeroDoor, takeGalleryPick, track } from './analytics';
+import { WhoForSheet, shouldAskWhoFor } from './components/tb/WhoForSheet';
 import { useScreenTime } from './useAnalytics';
 import { asUtc } from './components/tb/pipeline';
 import { ADMIN_PATH, CLASS_PATH, HeroFrom, adminPath, classPath, goUp, heroFrom, heroPath, navigate, overlayDepth, prevPath, replaceRoute, routeAt, stepsPath } from './routes';
@@ -134,6 +135,7 @@ function MainApp() {
   const [showNewHero, setShowNewHero] = useState(false);
   const [showWebcamModal, setShowWebcamModal] = useState(false);
   const [showPostUploadActions, setShowPostUploadActions] = useState(false);
+  const [askWhoFor, setAskWhoFor] = useState(false);
   const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean; is_teacher: boolean } | null>(null);
@@ -524,6 +526,9 @@ function MainApp() {
       setPicked(null);
       const fresh = await api.getCreation(creation.id).catch(() => creation);
       openHero(fresh);
+      // The visitor's first hero is being made, and paid for: the two
+      // questions, once per browser (WhoForSheet).
+      if (shouldAskWhoFor()) setAskWhoFor(true);
     } catch (err) {
       unstartedRef.current = creation.id;   // not started after all: still the sheet's to remove
       setError(err instanceof ApiError ? err.message : 'Failed to start pipeline');
@@ -870,6 +875,11 @@ function MainApp() {
           onClose={() => setClassSheet(null)}
           onCreated={(c) => { setClassSheet(null); openClass(c.id); }}
         />
+      )}
+
+      {askWhoFor && view === 'hero' && (
+        // A class visitor is not asked what it is for: it is a class.
+        <WhoForSheet askPurpose={!door()?.startsWith('class-')} onDone={() => setAskWhoFor(false)} />
       )}
 
       {showWebcamModal && (

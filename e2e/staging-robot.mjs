@@ -591,6 +591,22 @@ try {
     await go.click();
     await page.locator('.tb-hero-screen').waitFor({ timeout: 60000 });
     mark('pipeline_start');
+    // The two questions (the WhoFor board): over the first hero being made,
+    // once per browser, after it is paid for. Both are asked here (not a class).
+    const ask = page.getByRole('dialog', { name: 'Two quick questions' });
+    await ask.waitFor({ timeout: 20000 });
+    const asked = await ask.locator('.tb-ask-title').allInnerTexts();
+    if (asked.join(' | ') !== "What's it for? | Who drew it?") throw new Error(`the two questions read [${asked.join(' | ')}]`);
+    await ask.getByRole('button', { name: 'A gift' }).click();
+    await ask.getByRole('button', { name: 'A kid' }).click();
+    const picked = await ask.locator('[aria-pressed="true"]').allInnerTexts();
+    if (picked.join(',') !== 'A gift,A kid') throw new Error(`chosen answers read [${picked.join(', ')}]`);
+    await snap(page, 'who-for');
+    await linger(page, 1500);
+    await ask.getByRole('button', { name: 'Done' }).click();
+    await ask.waitFor({ state: 'detached', timeout: 5000 });
+    const traits = await page.evaluate(() => localStorage.getItem('hm_traits'));
+    if (traits !== '{"purpose":"gift","who":"kid"}') throw new Error(`the answers were kept as ${traits}`);
 
     const deadline = Date.now() + PIPELINE_TIMEOUT_MS;
     let lastLine = '';
@@ -625,7 +641,7 @@ try {
       await page.waitForTimeout(1500);
     }
     mark('ready_end');
-    return `all stages completed; "${heroName || 'hero'}" shown ready to play`;
+    return `the two questions asked over the hero being made, answered A gift / A kid, Done; all stages completed; "${heroName || 'hero'}" shown ready to play`;
   });
 
   await step(page, 'profile', async () => {
@@ -1145,6 +1161,7 @@ try {
     const kidName = 'Robo';
     const kidCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'en-US' });
     let kidReady = '';
+    let kidAsked = '';
     try {
       const kid = await kidCtx.newPage();
       await kid.goto(`${BASE_URL}/join/${pin}`, { waitUntil: 'domcontentloaded' });
@@ -1156,6 +1173,20 @@ try {
       await kid.locator('.cls-make').click();
       await kid.locator('.cls-draw').waitFor({ state: 'detached', timeout: 60000 });
       await snap(kid, 'class-student');
+      // The student's browser is asked too while the hero is made, but only
+      // "Who drew it?": it is a class. With the staging cache the hero can be
+      // ready before the question would show; then there is nothing to ask.
+      const kidAsk = kid.getByRole('dialog', { name: 'Two quick questions' });
+      kidAsked = 'the hero was ready before the question showed';
+      if (await kidAsk.waitFor({ timeout: 15000 }).then(() => true, () => false)) {
+        const titles = await kidAsk.locator('.tb-ask-title').allInnerTexts();
+        if (titles.join(' | ') !== 'Who drew it?') throw new Error(`a student was asked [${titles.join(' | ')}]; a class is not asked what it is for`);
+        await kidAsk.getByRole('button', { name: 'A kid' }).click();
+        await snap(kid, 'class-student-who-drew');
+        await kidAsk.getByRole('button', { name: 'Done' }).click();
+        await kidAsk.waitFor({ state: 'detached', timeout: 5000 });
+        kidAsked = 'asked only "Who drew it?"';
+      }
 
       const tile = page.getByRole('button', { name: new RegExp(`^Open ${kidName}.*'s hero$`) });
       await tile.waitFor({ timeout: 30000 });
@@ -1238,7 +1269,7 @@ try {
       await switchBar.waitFor({ state: 'detached', timeout: 15000 });
       await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
-    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero, ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
+    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero (${kidAsked}), ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
   });
 
   // Analytics (docs/analytics/REQUIREMENTS.md): the run above must have left
@@ -1268,7 +1299,7 @@ try {
       landing: ['visit'],
       signup: ['adult_confirmed', 'signin_shown', 'signin_done'],
       buy: ['credits_shown', 'checkout_started', 'purchase_done'],
-      create: ['make_started', 'photo_chosen', 'make_choice', 'hero_ready'],
+      create: ['make_started', 'photo_chosen', 'make_choice', 'survey_answered', 'hero_ready'],
       profile: ['hero_opened', 'hero_slide_viewed'],
       game: ['game_started'],
     };
