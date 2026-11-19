@@ -16,6 +16,10 @@ python-dotenv>=1.0.0
 # HTTP requests (for Meshy API, OpenAI image download)
 requests>=2.31.0
 
+# PostHog (analytics graphs). Used only when POSTHOG_PROJECT_KEY is set
+# (app/services/analytics.py); imported lazily, so nothing loads without it.
+posthog>=8.0.0,<9
+
 # OpenAI API (for GPT-Image-1 service)
 openai>=1.0.0
 

@@ -79,6 +79,99 @@ def enabled() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# PostHog: where the graphs are. OFF unless a project key is configured.
+# ---------------------------------------------------------------------------
+#
+# Our own table stays the record we hold. PostHog (EU cloud) is the viewing
+# side: funnels, paths, heatmaps. It gets the same named events, under the
+# same anonymous browser id, and never a name or an email: nobody is ever
+# identified to it. There is NO session recording, anywhere.
+#
+# Everything is decided at RUNTIME from the backend's environment, because one
+# build is promoted from staging to production and each has its own PostHog
+# project: the app asks GET /api/v1/analytics/config, and loads posthog-js
+# only when a key comes back. No key (today, everywhere): nothing is loaded
+# and nothing is sent, by the browser or by this module.
+
+POSTHOG_KEY_ENV = "POSTHOG_PROJECT_KEY"
+POSTHOG_HOST_ENV = "POSTHOG_HOST"
+POSTHOG_DEFAULT_HOST = "https://eu.i.posthog.com"
+# A project key is the public, write-only "phc_..." key. Anything else in the
+# variable (a personal API key, a typo) is treated as not configured.
+POSTHOG_KEY_RE = re.compile(r"^phc_[A-Za-z0-9]{20,80}$")
+POSTHOG_HOST_RE = re.compile(r"^https://[a-z0-9.-]+\.posthog\.com$")
+
+
+def posthog_setting() -> Optional[Dict[str, str]]:
+    """{"key", "host"} when analytics is on and a PostHog project key is set; else None."""
+    if not enabled():
+        return None
+    key = os.getenv(POSTHOG_KEY_ENV, "").strip()
+    if not POSTHOG_KEY_RE.match(key):
+        return None
+    host = os.getenv(POSTHOG_HOST_ENV, "").strip().rstrip("/") or POSTHOG_DEFAULT_HOST
+    if not POSTHOG_HOST_RE.match(host):
+        logger.warning("analytics: %s is not a PostHog host; PostHog stays off", POSTHOG_HOST_ENV)
+        return None
+    return {"key": key, "host": host}
+
+
+def client_config() -> Dict[str, Any]:
+    """What the app needs to know at startup (GET /api/v1/analytics/config)."""
+    return {"posthog": posthog_setting()}
+
+
+_posthog_clients: Dict[Tuple[str, str], Any] = {}
+
+
+def _new_posthog_client(key: str, host: str):
+    """The PostHog Python client. Imported here, so nothing of it loads without a key."""
+    from posthog import Posthog
+
+    # disable_geoip: the backend's own address must not become a visitor's place.
+    return Posthog(project_api_key=key, host=host, disable_geoip=True)
+
+
+def _posthog_client():
+    setting = posthog_setting()
+    if setting is None:
+        return None
+    at = (setting["key"], setting["host"])
+    if at not in _posthog_clients:
+        _posthog_clients[at] = _new_posthog_client(*at)
+    return _posthog_clients[at]
+
+
+def _mirror_to_posthog(event: "AnalyticsEvent") -> None:
+    """Send one of the backend's own events to PostHog too. Never raises.
+
+    Only when a key is set. Robots are left out there as they are left out of
+    our own graphs. The event goes under the visitor's anonymous id (or, for
+    an account never seen in a browser, its internal id): no person profile is
+    made, and nothing that names anyone is in it.
+    """
+    try:
+        if event.is_robot:
+            return
+        client = _posthog_client()
+        if client is None:
+            return
+        client.capture(
+            event.name,
+            distinct_id=event.visitor_id or (f"account-{event.user_id}" if event.user_id else "backend"),
+            properties={
+                **(event.props or {}),
+                "door": event.door or "direct",
+                "device": event.device,
+                "source": "server",
+                "$process_person_profile": False,
+            },
+        )
+    except Exception:
+        logger.exception("analytics: could not send %s to PostHog", event.name)
+
+
+# ---------------------------------------------------------------------------
 # The allow-list
 # ---------------------------------------------------------------------------
 
@@ -489,6 +582,7 @@ def record_server(
         )
         db.add(event)
         db.commit()
+        _mirror_to_posthog(event)
         return event
     except Exception:
         try:

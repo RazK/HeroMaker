@@ -6,7 +6,7 @@
  * never throws).
  */
 import { RefObject, useEffect, useRef } from 'react';
-import { GALLERY_ORDER, ScreenName, flush, track } from './analytics';
+import { GALLERY_ORDER, ScreenName, flush, pageShown, track } from './analytics';
 
 /**
  * Time on `screen`: one `screen_viewed` when it is left, and when the page is
@@ -14,6 +14,7 @@ import { GALLERY_ORDER, ScreenName, flush, track } from './analytics';
  */
 export function useScreenTime(screen: ScreenName): void {
   useEffect(() => {
+    pageShown(screen);
     let since = Date.now();
     let showing = document.visibilityState !== 'hidden';
     const say = () => {

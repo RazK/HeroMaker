@@ -46,6 +46,14 @@ async def record_events(
         raise HTTPException(status_code=422, detail=str(exc))
 
 
+@router.get("/analytics/config", include_in_schema=False)
+def analytics_config():
+    """What the app's analytics needs at startup. Today: whether PostHog is
+    configured for this environment (its public project key and host), or
+    null. Decided at runtime, so one build serves staging and production."""
+    return analytics.client_config()
+
+
 @router.get("/events/mine", include_in_schema=False)
 def my_events(visitor: str = Query(...), db: Session = Depends(get_db)):
     """What is stored for this browser's own visitor id (event names only).

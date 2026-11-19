@@ -163,13 +163,47 @@ export function setDoor(tag: unknown): void {
   } catch { /* never the app's problem */ }
 }
 
-const device = (): 'phone' | 'desktop' => {
+export const device = (): 'phone' | 'desktop' => {
   try { return window.matchMedia('(min-width: 900px)').matches ? 'desktop' : 'phone'; } catch { return 'phone'; }
 };
 /** An automated browser (the staging robot): stored, and left out of every graph. */
-const robot = (): boolean => {
+export const robot = (): boolean => {
   try { return navigator.webdriver === true; } catch { return false; }
 };
+
+/**
+ * The second place events go, when there is one: PostHog (posthog.ts), where
+ * the graphs are. It gets the same named events from this one function, so
+ * the two can never disagree about what happened. Nothing is set unless this
+ * environment has a PostHog key.
+ */
+type Mirror = (name: string, props: Record<string, unknown>) => void;
+let mirror: Mirror | null = null;
+export const setMirror = (to: Mirror | null) => { mirror = to; };
+
+/**
+ * Heroes whose name is public (in the public gallery, Editors' choice): for
+ * those, and only those, PostHog's copy of an event also carries the hero's
+ * name, so its tables read "Super Sizzle" instead of an id. Our own table
+ * never holds a name.
+ */
+const publicHeroes = new Map<string, string>();
+export function rememberPublicHero(id: string, name: string | null | undefined): void {
+  if (id && name) publicHeroes.set(id, name);
+}
+
+function mirrored(name: string, props: Record<string, unknown>): void {
+  try {
+    if (!mirror) return;
+    const heroName = typeof props.hero_id === 'string' ? publicHeroes.get(props.hero_id) : undefined;
+    mirror(name, heroName ? { ...props, hero_name: heroName } : props);
+  } catch { /* never the app's problem */ }
+}
+
+/** A screen came into view: PostHog's pageview (time per screen, paths). Not one of our own events. */
+export function pageShown(screen: ScreenName): void {
+  mirrored('$pageview', { screen });
+}
 
 function body(batch: Queued[]): string {
   const now = Date.now();
@@ -231,6 +265,7 @@ export function track<K extends keyof EVENTS>(
     if (last && last.name === event.name && event.at - last.at < 500 && JSON.stringify(last.props) === JSON.stringify(event.props)) return;
     last = event;
     queue.push(event);
+    mirrored(name, event.props);
     write(ACTIVE_KEY, String(Date.now()));
     if (queue.length >= MAX_BATCH) flush();
     else schedule();

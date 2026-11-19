@@ -12,6 +12,7 @@
   "dependencies": {
     "@react-three/drei": "^9.92.7",
     "@react-three/fiber": "^8.15.11",
+    "posthog-js": "^1.451.2",
     "qrcode-generator": "^1.4.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
