@@ -65,7 +65,9 @@ export interface EVENTS {
   photo_taken: Record<string, never>;
   photo_chosen: Record<string, never>;
   make_choice: { choice: 'moving' | 'toy' | 'both' };
-  survey_answered: { purpose: 'fun' | 'gift' | 'class' | 'event' | 'skipped'; who: 'kid' | 'grownup' | 'skipped' };
+  survey_answered: { purpose?: 'fun' | 'gift' | 'class' | 'event' | 'skipped'; who: 'kid' | 'grownup' | 'skipped' };
+  /** "Is a grown-up with you?" before the sign-in sheet. */
+  adult_confirmed: { answer: 'yes' | 'not_yet' };
   signin_shown: Record<string, never>;
   signin_done: { method: 'google' | 'password' | 'signup' };
   credits_shown: Record<string, never>;

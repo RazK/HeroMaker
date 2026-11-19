@@ -1,0 +1,66 @@
+/*
+ * A short question in a sheet (the grown-up check, the two questions while a
+ * hero is made), as on the design canvas (GrownUp, WhoFor boards). It is the
+ * app's one sheet (parts.tsx Sheet), laid out to the boards:
+ *
+ * - Phone: a bottom sheet, the content the phone's width, 20px on the sides
+ *   and below the last button (plus its 6px of pressable depth), 16px
+ *   between parts, corners concentric with the 58px pill buttons inside it
+ *   (29 + 20 = 49px). The buttons stacked, the primary last.
+ * - Desktop: a 600px dialog in the middle, 32px on every side, 24px between
+ *   parts, its buttons 64px pills sharing one row (primary last), corners
+ *   32 + 32 = 64px. No grip.
+ */
+.tb-sheet.tb-ask {
+  gap: 16px;
+  padding: 12px 20px calc(20px + var(--tb-depth) + env(safe-area-inset-bottom, 0px));
+  border-radius: 49px 49px 0 0;
+}
+.tb-ask .tb-sheet-grip { margin-bottom: 0; }
+.tb-ask-title {
+  margin: 0;
+  text-align: center;
+  font-family: var(--tb-font-display);
+  font-weight: 400;
+  font-size: 26px;
+  color: var(--tb-ink);
+  text-wrap: balance;
+}
+.tb-ask-line { margin: -8px 0 0; text-align: center; color: var(--tb-ink-2); font-size: 15px; text-wrap: balance; }
+.tb-ask-btns { display: flex; flex-direction: column; gap: 18px; }
+
+/* An answer: a pill, chosen = light purple with a grape outline. */
+.tb-ask-q { display: flex; flex-direction: column; gap: 14px; }
+.tb-ask-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 4px; }
+.tb-ask-pick {
+  height: 52px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 2.5px solid var(--tb-ink);
+  background: var(--tb-white);
+  box-shadow: 0 4px 0 var(--tb-ink);
+  color: var(--tb-ink);
+  font-family: var(--tb-font-display);
+  font-size: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 80ms ease, box-shadow 80ms ease, background 80ms ease;
+}
+.tb-ask-pick[aria-pressed='true'] { background: #f1edff; border-color: var(--tb-grape); box-shadow: 0 4px 0 var(--tb-grape-deep); }
+.tb-ask-pick:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
+.tb-ask-pick[aria-pressed='true']:active { box-shadow: 0 1px 0 var(--tb-grape-deep); }
+.tb-ask-pick:focus-visible { outline: 3px solid rgba(91, 61, 245, 0.35); outline-offset: 2px; }
+
+@media (min-width: 900px) and (min-height: 600px) {
+  .tb-scrim:not(.tb-scrim--center) > .tb-sheet.tb-ask {
+    max-width: 600px;
+    gap: 24px;
+    padding: 32px 32px calc(32px + var(--tb-depth));
+    border-radius: 64px;
+  }
+  .tb-ask-title { font-size: 32px; }
+  .tb-ask-line { font-size: 18px; }
+  .tb-ask-btns { flex-direction: row; gap: 16px; }
+  .tb-ask-btns > .tb-btn { flex: 1 1 0; width: auto; min-width: 0; box-sizing: border-box; height: 64px; font-size: 21px; }
+  .tb-ask-pick { height: 56px; font-size: 20px; }
+}

@@ -42,6 +42,9 @@ class User(Base):
     school_country = Column(String(60), nullable=True)
     # One of app.services.classes.SCHOOL_TYPES.
     school_type = Column(String(20), nullable=True)
+    # When a grown-up first said "Yes, a grown-up is with me" before signing in
+    # (the app's grown-up check, m021). NULL: never asked, or from before it.
+    adult_confirmed_at = Column(DateTime, nullable=True)
 
     creations = relationship("Creation", back_populates="user")
     

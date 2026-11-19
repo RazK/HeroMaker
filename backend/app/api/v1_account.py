@@ -14,10 +14,15 @@ address.
     GET    /auth/config
     POST   /password/forgot  /password/reset
     GET    PATCH  DELETE  /me
+    POST   /me/adult-confirmed
     GET    /packs      POST /checkout      GET /receipts
     POST   /coupons/redeem
 """
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api import auth, payments
@@ -92,6 +97,34 @@ def get_me(who: Principal = Depends(require(APP)), db: Session = Depends(get_db)
 @router.patch("/me", response_model=UserResponse)
 def update_me(body: UpdateProfileRequest, who: Principal = Depends(require(APP)), db: Session = Depends(get_db)):
     return auth.update_me(body, user=who.user, db=db)
+
+
+class AdultConfirmed(BaseModel):
+    # When the "Yes" was tapped, as the browser saw it. Optional: without it,
+    # now. Only a time between a month ago and now is believed.
+    confirmed_at: Optional[datetime] = None
+
+
+ADULT_CONFIRMED_WINDOW = timedelta(days=30)
+
+
+@router.post("/me/adult-confirmed", response_model=UserResponse)
+def adult_confirmed(body: AdultConfirmed, who: Principal = Depends(require(APP)), db: Session = Depends(get_db)):
+    """A grown-up said they were there before this account signed in (the
+    app's grown-up check). The account keeps the time of the first "Yes"; a
+    later one changes nothing."""
+    user = who.user
+    if user.adult_confirmed_at is None:
+        now = datetime.utcnow()
+        at = body.confirmed_at
+        if at is not None and at.tzinfo is not None:
+            at = at.astimezone(timezone.utc).replace(tzinfo=None)
+        if at is None or at > now or at < now - ADULT_CONFIRMED_WINDOW:
+            at = now
+        user.adult_confirmed_at = at
+        db.commit()
+        db.refresh(user)
+    return UserResponse.from_user(user)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

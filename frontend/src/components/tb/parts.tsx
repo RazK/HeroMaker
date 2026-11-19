@@ -4,13 +4,14 @@ import { useOverlayBack } from '../../routes';
 import '../../styles/toybox.css';
 
 /** A bottom sheet over a dimmed screen. Tapping the dim area closes it. */
-export function Sheet({ title, onClose, children, className = '' }: { title?: string; onClose: () => void; children: ReactNode; className?: string }) {
+/** `label`: the dialog's accessible name when its title is its own (not the sheet's title row). */
+export function Sheet({ title, label, onClose, children, className = '' }: { title?: string; label?: string; onClose: () => void; children: ReactNode; className?: string }) {
   useEscape(onClose);
   // Back (Android's too) closes the sheet, never the screen under it.
   useOverlayBack(true, onClose);
   return (
     <div className="tb-scrim" onClick={onClose}>
-      <div className={`tb-sheet ${className}`} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div className={`tb-sheet ${className}`} role="dialog" aria-modal="true" aria-label={title ?? label} onClick={(e) => e.stopPropagation()}>
         <div className="tb-sheet-grip" />
         {title && <div className="tb-sheet-title">{title}</div>}
         {children}

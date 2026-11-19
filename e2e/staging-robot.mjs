@@ -490,6 +490,20 @@ try {
   await step(page, 'signup', async () => {
     mark('signup_start');
     await page.locator('.header-auth-button').click();
+    // The grown-up check comes first, the first time in a browser (the
+    // GrownUp board): Not yet goes back with no sign-in sheet; asked again,
+    // Yes goes on to it.
+    const grownUp = page.getByRole('dialog', { name: 'Is a grown-up with you?' });
+    await grownUp.waitFor({ timeout: 15000 });
+    if (await page.locator('#username').count()) throw new Error('the sign-in sheet opened before the grown-up check');
+    await snap(page, 'grown-up-check');
+    await linger(page, 1200);
+    await grownUp.getByRole('button', { name: 'Not yet' }).click();
+    await grownUp.waitFor({ state: 'detached', timeout: 5000 });
+    if (await page.locator('#username').count()) throw new Error('"Not yet" opened the sign-in sheet');
+    await page.locator('.header-auth-button').click();
+    await grownUp.getByRole('button', { name: 'Yes' }).click();
+    await page.locator('#username').waitFor({ timeout: 15000 });
     if (LOGIN_AS) {
       await type(page, '#username', user.username);
       await type(page, '#password', user.password);
@@ -507,6 +521,16 @@ try {
     await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
     await linger(page, 2500);
     mark('signup_end');
+    // The account keeps the time a grown-up said Yes.
+    const adult = await page.evaluate(async () => {
+      for (let i = 0; i < 10; i++) {
+        const me = await (await fetch('/api/v1/me', { headers: { Authorization: `Bearer ${localStorage.getItem('heromaker_jwt_token')}` } })).json();
+        if (me.adult_confirmed_at) return me.adult_confirmed_at;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      return null;
+    });
+    if (!adult) throw new Error('the account did not keep the time the grown-up said Yes (adult_confirmed_at)');
     const balance = await creditsShown(page);
     // With no credits, Make a hero goes to Buy credits first, saying why: no
     // photo is taken or uploaded for a hero that cannot be paid for.
@@ -520,7 +544,7 @@ try {
       await page.keyboard.press('Escape');
       await why.waitFor({ state: 'detached', timeout: 5000 });
     }
-    return `${user.username}, balance ${balance}${gate}`;
+    return `grown-up check: Not yet went back, Yes went on, kept on the account (${adult}); ${user.username}, balance ${balance}${gate}`;
   });
 
   await step(page, 'buy', async () => {
@@ -1242,7 +1266,7 @@ try {
     // visitor the account was seen on.
     const expected = {
       landing: ['visit'],
-      signup: ['signin_shown', 'signin_done'],
+      signup: ['adult_confirmed', 'signin_shown', 'signin_done'],
       buy: ['credits_shown', 'checkout_started', 'purchase_done'],
       create: ['make_started', 'photo_chosen', 'make_choice', 'hero_ready'],
       profile: ['hero_opened', 'hero_slide_viewed'],

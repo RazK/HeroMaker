@@ -254,6 +254,8 @@ BROWSER_EVENTS: Dict[str, Dict[str, tuple]] = {
         "purpose": enum("fun", "gift", "class", "event", "skipped"),
         "who": enum("kid", "grownup", "skipped"),
     },
+    # "Is a grown-up with you?" before the sign-in sheet: Yes, or Not yet.
+    "adult_confirmed": {"answer": enum("yes", "not_yet")},
     "signin_shown": {},
     "signin_done": {"method": enum("google", "password", "signup")},
     "credits_shown": {},
