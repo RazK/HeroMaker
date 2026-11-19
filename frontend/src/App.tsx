@@ -24,7 +24,7 @@ import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/Sty
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
-import { flush, setHeroDoor, takeGalleryPick, track } from './analytics';
+import { flush, rememberPublicHero, setHeroDoor, takeGalleryPick, track } from './analytics';
 import { useScreenTime } from './useAnalytics';
 import { asUtc } from './components/tb/pipeline';
 import { ADMIN_PATH, CLASS_PATH, HeroFrom, adminPath, classPath, goUp, heroFrom, heroPath, navigate, overlayDepth, prevPath, replaceRoute, routeAt, stepsPath } from './routes';
@@ -388,10 +388,19 @@ function MainApp() {
     up('/');
   };
 
+  // Analytics: a hero in the public gallery (Editors' choice) has a public
+  // name, the hero's own, never the child's. PostHog's copy of its events may
+  // carry it; a private hero's never does.
+  const notePublicHero = (c: CreationResponse | null) => {
+    if (c && c.featured && !c.in_class) rememberPublicHero(c.id, c.character_name);
+  };
+  useEffect(() => { notePublicHero(creation); }, [creation]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const openHero = (c: CreationResponse, from: HeroFrom = 'gallery') => {
     // An admin looking at an account's hero is not a visitor opening one.
     const door = from === 'admin' ? null : from === 'class' ? 'class' : tab === 'mine' ? 'mine' : 'gallery';
     setHeroDoor(door);
+    notePublicHero(c);
     const place = takeGalleryPick();
     if (door) track('hero_opened', { from: door, hero_id: c.id, ...place });
     setOpenedFrom(from);

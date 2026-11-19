@@ -61,7 +61,8 @@ export default defineConfig(({ mode }) => {
         // over in the background). Pages go network-first below instead; their
         // hashed js/css stay precached.
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
-        globIgnores: ['play/**'],
+        // posthog-*.js: fetched only when PostHog is configured (see chunkFileNames).
+        globIgnores: ['play/**', '**/posthog-*.js'],
         navigateFallback: null,
         runtimeCaching: [
           {
@@ -142,6 +143,13 @@ export default defineConfig(({ mode }) => {
         manualChunks: {
           vendor: ['react', 'react-dom'],
         },
+        // PostHog's library is its own lazy chunk (src/posthog.ts imports it
+        // only when a project key is configured). Named, so the service
+        // worker can leave it out of its precache below: with no key it is
+        // never downloaded at all.
+        chunkFileNames: (chunk) => (
+          chunk.facadeModuleId?.includes('/posthog-js/') ? 'assets/posthog-[hash].js' : 'assets/[name]-[hash].js'
+        ),
       },
     },
   },

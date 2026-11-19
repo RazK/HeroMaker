@@ -741,6 +741,126 @@ def test_migration_makes_the_table_on_a_database_that_predates_it(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# PostHog: off unless a project key is configured
+# ---------------------------------------------------------------------------
+
+PH_KEY = "phc_" + "A1b2C3d4E5" * 4
+
+
+class _FakePostHog:
+    def __init__(self):
+        self.captured = []
+
+    def capture(self, event, **kwargs):
+        self.captured.append((event, kwargs))
+
+
+@pytest.fixture
+def posthog_client(monkeypatch):
+    """Stands in for the PostHog Python client, and counts how often one is made."""
+    made = []
+    fake = _FakePostHog()
+
+    def new(key, host):
+        made.append((key, host))
+        return fake
+
+    monkeypatch.setattr(analytics, "_new_posthog_client", new)
+    monkeypatch.setattr(analytics, "_posthog_clients", {})
+    fake.made = made
+    return fake
+
+
+@pytest.mark.parametrize("key", [None, "", "phx_personal_key_not_a_project_key_0000", "phc_short", "anything"])
+def test_without_a_project_key_nothing_goes_to_posthog(client, db, make_user, store, monkeypatch, posthog_client, key):
+    """No key, or something that is not a project key: the app is told there is
+    no PostHog (so it loads nothing), and the backend makes no client at all."""
+    if key is None:
+        monkeypatch.delenv(analytics.POSTHOG_KEY_ENV, raising=False)
+    else:
+        monkeypatch.setenv(analytics.POSTHOG_KEY_ENV, key)
+    assert client.get("/api/v1/analytics/config").json() == {"posthog": None}
+
+    user = make_user()
+    raw, headers = _order("order-ph-0", user.id)
+    assert client.post("/api/payments/webhook", content=raw, headers=headers).json()["status"] == "ok"
+    assert len(_stored(db, name="purchase_done")) == 1          # our own record is kept
+    assert posthog_client.made == [] and posthog_client.captured == []
+
+
+def test_a_key_alone_is_not_enough_analytics_must_be_on(client, monkeypatch, posthog_client):
+    monkeypatch.setenv(analytics.POSTHOG_KEY_ENV, PH_KEY)
+    monkeypatch.setenv(analytics.ENV_FLAG, "false")
+    assert client.get("/api/v1/analytics/config").json() == {"posthog": None}
+    assert analytics._posthog_client() is None and posthog_client.made == []
+
+
+def test_with_a_key_the_app_is_told_and_the_backends_events_are_sent(client, db, make_user, store, monkeypatch,
+                                                                    posthog_client):
+    monkeypatch.setenv(analytics.POSTHOG_KEY_ENV, PH_KEY)
+    assert client.get("/api/v1/analytics/config").json() == {
+        "posthog": {"key": PH_KEY, "host": "https://eu.i.posthog.com"},
+    }
+    user = make_user()
+    client.post("/api/v1/events", json=_batch([{"name": "checkout_started", "props": {"pack": "maker"}}],
+                                              door="gift-noa-7"), headers=_auth(user))
+    raw, headers = _order("order-ph-1", user.id, pack="maker", total=1500)
+    client.post("/api/payments/webhook", content=raw, headers=headers)
+    client.post("/api/payments/webhook", content=raw, headers=headers)        # redelivered: still one
+
+    assert posthog_client.made == [(PH_KEY, "https://eu.i.posthog.com")]
+    (name, sent), = posthog_client.captured
+    assert name == "purchase_done"
+    # The same anonymous browser id our own events use; never the account's email or name.
+    assert sent["distinct_id"] == VISITOR
+    assert sent["properties"] == {
+        "pack": "maker", "amount_cents": 1500, "test": True,
+        "door": "gift-noa-7", "device": "phone", "source": "server", "$process_person_profile": False,
+    }
+    assert "buyer@example.test" not in json.dumps(sent) and user.email not in json.dumps(sent)
+
+
+def test_robots_and_a_wrong_host_never_reach_posthog(client, db, make_user, store, monkeypatch, posthog_client):
+    monkeypatch.setenv(analytics.POSTHOG_KEY_ENV, PH_KEY)
+    robot = make_user(username="robot_20261119")
+    raw, headers = _order("order-ph-2", robot.id)
+    client.post("/api/payments/webhook", content=raw, headers=headers)
+    assert len(_stored(db, name="purchase_done")) == 1 and posthog_client.captured == []
+
+    monkeypatch.setenv(analytics.POSTHOG_HOST_ENV, "https://posthog.example.com/collect")
+    assert client.get("/api/v1/analytics/config").json() == {"posthog": None}
+    monkeypatch.setenv(analytics.POSTHOG_HOST_ENV, "https://us.i.posthog.com/")
+    assert client.get("/api/v1/analytics/config").json()["posthog"]["host"] == "https://us.i.posthog.com"
+
+
+def test_posthog_failing_never_breaks_the_purchase(client, db, make_user, store, monkeypatch, posthog_client):
+    monkeypatch.setenv(analytics.POSTHOG_KEY_ENV, PH_KEY)
+
+    def down(*_a, **_kw):
+        raise RuntimeError("PostHog is down")
+    monkeypatch.setattr(posthog_client, "capture", down)
+    user = make_user()
+    raw, headers = _order("order-ph-3", user.id)
+    assert client.post("/api/payments/webhook", content=raw, headers=headers).json()["status"] == "ok"
+    assert len(_stored(db, name="purchase_done")) == 1
+
+
+def test_the_real_posthog_client_is_made_without_geoip_and_takes_our_call(monkeypatch):
+    """The stand-in above must match the real client: it is built the way
+    _new_posthog_client builds it, and capture() accepts what we pass."""
+    import inspect
+    from posthog import Posthog
+
+    made = analytics._new_posthog_client(PH_KEY, "https://eu.i.posthog.com")
+    try:
+        assert isinstance(made, Posthog) and made.disable_geoip is True
+        params = inspect.signature(Posthog.capture).parameters
+        assert list(params)[:2] == ["self", "event"]
+    finally:
+        made.shutdown()
+
+
+# ---------------------------------------------------------------------------
 # The admin's CSV of raw events
 # ---------------------------------------------------------------------------
 
