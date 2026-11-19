@@ -9,6 +9,7 @@
  * teacher signed in on the same tablet is never signed out by it.
  */
 import { fetchJson, shrinkPhoto, type Painting } from './client';
+import { setDoor, visitorId } from '../analytics';
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -209,14 +210,20 @@ function studentFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
 export const studentApi = {
   hasPass: () => !!read(PASS_KEY),
   find: async (pin: string) => {
-    const r = await studentFetch<{ title: string; seats_left: number; seconds_left: number; device_token: string; joined: boolean }>(
+    const r = await studentFetch<{ title: string; seats_left: number; seconds_left: number; device_token: string; joined: boolean; door?: string }>(
       `${BASE}/api/v1/class/join/${encodeURIComponent(pin)}`);
     if (r.device_token) write(MARKER_KEY, r.device_token);
+    // A class's link or code is this browser's door (analytics), unless it
+    // already came through another.
+    setDoor(r.door);
     return r;
   },
   join: async (pin: string, firstName: string, age: number | null) => {
-    const r = await studentFetch<GuestView & { pass: string | null; device_token: string }>(
-      `${BASE}/api/v1/class/join`, json({ pin, first_name: firstName, age }));
+    // `visitor` is this browser's anonymous analytics id: it puts the join,
+    // and later the student's hero, in the same funnel as the visit.
+    const r = await studentFetch<GuestView & { pass: string | null; device_token: string; door?: string }>(
+      `${BASE}/api/v1/class/join`, json({ pin, first_name: firstName, age, visitor: visitorId() }));
+    setDoor(r.door);
     if (r.pass) write(PASS_KEY, r.pass);
     if (r.device_token) write(MARKER_KEY, r.device_token);
     return r;

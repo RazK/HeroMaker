@@ -11,6 +11,7 @@ import { isToy } from './things'
 import { Sfx } from './sfx'
 import { Crowd, CROWD_MAX, crowdSources, loadFan } from './crowd'
 import { ARENA, World } from './world'
+import { trackGameEnded } from '../core/track'
 
 /**
  * Robot Rumble: a camera-free arena game starring the player's own hero.
@@ -271,6 +272,7 @@ function finish() {
   const best = readBest()
   const isBest = game.score > best
   if (isBest) writeBest(game.score)
+  trackGameEnded('arena', game.time, game.score)
   app.querySelector('.rr-end-value')!.textContent = game.score.toLocaleString('en-US')
   app.querySelector('.rr-end-eyebrow')!.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
   const s = game.stats

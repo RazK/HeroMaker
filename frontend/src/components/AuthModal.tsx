@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { track } from '../analytics';
 import { api, ApiError } from '../api/client';
 import { Sheet } from './tb/parts';
 import { GoogleSignIn } from './GoogleSignIn';
@@ -22,6 +23,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
   // "Forgot password?" shows only where the backend can actually send email.
   const [canReset, setCanReset] = useState(false);
   useEffect(() => { if (isOpen) api.getAuthConfig().then((c) => setCanReset(c.password_reset)); }, [isOpen]);
+  useEffect(() => { if (isOpen) track('signin_shown'); }, [isOpen]);
   const [resetSent, setResetSent] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -46,8 +48,10 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
       }
       if (mode === 'signup') {
         await api.signup(username, email, password, name, dateOfBirth);
+        track('signin_done', { method: 'signup' });
       } else {
         await api.login(username, password);
+        track('signin_done', { method: 'password' });
       }
       onSuccess();
       handleClose();
@@ -67,6 +71,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, initialMode = 'login', n
     setIsLoading(true);
     try {
       await api.loginWithGoogle(credential);
+      track('signin_done', { method: 'google' });
       onSuccess();
       handleClose();
     } catch (err) {

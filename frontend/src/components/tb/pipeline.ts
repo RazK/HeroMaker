@@ -57,7 +57,7 @@ export function remainingCost(c: CreationResponse): number {
   return c.steps.filter((s) => s.status === 'pending' || s.status === 'failed').reduce((n, s) => n + getStepCost(s.step_name), 0);
 }
 
-function asUtc(t: string): number {
+export function asUtc(t: string): number {
   return new Date(t.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(t) ? t : `${t}Z`).getTime();
 }
 

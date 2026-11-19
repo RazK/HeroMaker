@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { flush, track } from '../analytics';
 import { api, ApiError, CreditPack } from '../api/client';
 import { Icon } from './tb/Icon';
 import { LegalPage, openLegal } from './tb/Legal';
@@ -40,6 +41,7 @@ export function BuyCredits({ isOpen, onClose, note, credits }: BuyCreditsProps) 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    track('credits_shown');
     api.getPacks()
       .then(setPacks)
       .catch(() => setError('Payments are unavailable right now.'));
@@ -54,6 +56,9 @@ export function BuyCredits({ isOpen, onClose, note, credits }: BuyCreditsProps) 
       const back = `${window.location.origin}/?${PURCHASE_RETURN_PARAM}=done`;
       const { checkout_url } = await api.createCheckout(slug, back);
       try { if (credits !== undefined) sessionStorage.setItem(BALANCE_BEFORE, String(credits)); } catch { /* the wait falls back to the first read */ }
+      // The checkout opened. Whether it was paid is the webhook's to say, never the browser's.
+      track('checkout_started', { pack: slug });
+      flush(true);
       window.location.href = checkout_url;
     } catch (err) {
       // 503 (store unconfigured) and 502 (Lemon Squeezy refused) are ours,

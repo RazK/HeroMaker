@@ -24,6 +24,8 @@ import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/Sty
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
+import { flush, track } from './analytics';
+import { asUtc } from './components/tb/pipeline';
 import { ADMIN_PATH, CLASS_PATH, HeroFrom, adminPath, classPath, goUp, heroFrom, heroPath, navigate, overlayDepth, prevPath, replaceRoute, routeAt, stepsPath } from './routes';
 import './styles/toybox.css';
 import './App.css';
@@ -365,7 +367,11 @@ function MainApp() {
     const onPop = () => { if (window.location.pathname !== shownPath.current) showLocationRef.current(); };
     window.addEventListener('popstate', onPop);
     // Opened at a hero's address: read it.
-    if (ROUTE_ON_LOAD && (ROUTE_ON_LOAD.view === 'hero' || ROUTE_ON_LOAD.view === 'steps') && !CLASS_PAID_ON_LOAD) showHero(ROUTE_ON_LOAD.id, ROUTE_ON_LOAD.view);
+    if (ROUTE_ON_LOAD && (ROUTE_ON_LOAD.view === 'hero' || ROUTE_ON_LOAD.view === 'steps') && !CLASS_PAID_ON_LOAD) {
+      // Arrived by a hero's own link (not a reload of a hero opened in the app).
+      if (!prevPath()) track('hero_opened', { from: 'link' });
+      showHero(ROUTE_ON_LOAD.id, ROUTE_ON_LOAD.view);
+    }
     return () => window.removeEventListener('popstate', onPop);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // An in-app Back to `parent`: the browser's Back when that is where it
@@ -379,6 +385,8 @@ function MainApp() {
   };
 
   const openHero = (c: CreationResponse, from: HeroFrom = 'gallery') => {
+    // An admin looking at an account's hero is not a visitor opening one.
+    if (from !== 'admin') track('hero_opened', { from: from === 'class' ? 'class' : tab === 'mine' ? 'mine' : 'gallery' });
     setOpenedFrom(from);
     setCreation(c);
     setError(null);
@@ -402,6 +410,7 @@ function MainApp() {
   const proceedToMakeRef = useRef(proceedToMake);
   proceedToMakeRef.current = proceedToMake;
   const startNewHero = async () => {
+    track('make_started');
     if (!isLoggedIn) {
       makeAfterAuth.current = true;
       window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup', note: 'Then make your hero.' } }));
@@ -489,6 +498,9 @@ function MainApp() {
     unstartedRef.current = null;
     try {
       await api.runPipeline(creation.id, undefined, renderStyle);
+      // "Make it" was pressed and the hero is being made. Today there is one
+      // thing to make; when the toy is offered too, this says which.
+      track('make_choice', { choice: 'moving' });
       window.dispatchEvent(new CustomEvent('creation:refresh-now', { detail: { creationId: creation.id } }));
       await refreshCreditBalance();
       setShowPostUploadActions(false);
@@ -505,6 +517,28 @@ function MainApp() {
       setIsStarting(false);
     }
   };
+
+  // Analytics: the page was hidden or left while the visitor's own hero was
+  // still being made ("left while waiting"), with how long they had waited.
+  // Once per hero per page load; the refs are today's, the listener is set once.
+  const waitingRef = useRef<{ id: string; since: number } | null>(null);
+  const ownsShown = !!creation && !!userInfo && creation.user_id === userInfo.id;
+  waitingRef.current = (view === 'hero' || view === 'steps') && creation && ownsShown && creation.status === 'processing'
+    ? { id: creation.id, since: asUtc(creation.steps?.find((s) => s.started_at)?.started_at ?? creation.created_at) }
+    : null;
+  useEffect(() => {
+    const told = new Set<string>();
+    const onHidden = () => {
+      const w = waitingRef.current;
+      if (document.visibilityState !== 'hidden' || !w || told.has(w.id)) return;
+      told.add(w.id);
+      const minutes = Math.round((Date.now() - w.since) / 60000);
+      track('wait_left', { minutes: Number.isFinite(minutes) ? Math.max(0, Math.min(600, minutes)) : 0 });
+      flush(true);
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    return () => document.removeEventListener('visibilitychange', onHidden);
+  }, []);
 
   const refreshCreation = async () => {
     if (!creation) return;
@@ -792,7 +826,7 @@ function MainApp() {
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) { track('photo_chosen'); handleUpload(f); } }}
         />
       </div>
 
@@ -823,6 +857,7 @@ function MainApp() {
       {showWebcamModal && (
         <FileUpload
           onUpload={(file, characterName) => {
+            track('photo_taken');
             handleUpload(file, characterName);
             setShowWebcamModal(false);
           }}
