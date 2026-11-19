@@ -7,6 +7,9 @@
 //   - no two of these overlap: the header's title and buttons, the dots, any
 //     caption on the slide, every dock control (the name card, the moves, the
 //     toy's controls), the bar's buttons, the drawing's small card;
+//   - every button in the stage's dock (the moves, the toy's Move, 3MF and
+//     make button) is a pill with its icon and its words on one line, no word
+//     cut (Raz: never a rounded rectangle, never the icon above the word);
 //   - no stage arrows;
 //   - Play is the bottom-most button;
 //   - wider than tall, on the drawing and the painting: the name card's
@@ -73,6 +76,24 @@ async function slideProblems(page) {
         if (hit(items[i], items[j])) problems.push(`${items[i].name} overlaps ${items[j].name}`);
       }
     }
+    // Every button in the dock: a pill, its icon and its words on one line, no word cut.
+    document.querySelectorAll('.tb-dock-layer .tb-move, .tb-dock-layer .tb-figure-move, .tb-dock-layer .tb-figure-get, .tb-dock-layer .tb-figure-buy').forEach((el) => {
+      if (!seen(el)) return;
+      const name = `the dock's "${el.textContent.trim().slice(0, 24)}" button`;
+      const r = el.getBoundingClientRect();
+      if (parseFloat(getComputedStyle(el).borderTopLeftRadius) < r.height / 2 - 0.5) problems.push(`${name} is a rounded rectangle, not a pill`);
+      const mids = [...el.querySelectorAll('svg')].map((s) => s.getBoundingClientRect()).map((b) => (b.top + b.bottom) / 2);
+      const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+        if (!node.textContent.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const t of range.getClientRects()) if (t.width > 0.5) mids.push((t.top + t.bottom) / 2);
+        const holder = node.parentElement;
+        if (holder !== el && holder.scrollWidth > holder.clientWidth) problems.push(`${name} has a word cut short`);
+      }
+      if (mids.some((m) => Math.abs(m - (r.top + r.bottom) / 2) > 4)) problems.push(`${name} does not have its icon and its words on one line`);
+    });
     if (document.querySelector('.tb-carousel-arrow')) problems.push('the stage has arrows');
 
     const play = document.querySelector('.tb-hero-screen .tb-play');
