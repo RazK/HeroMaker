@@ -388,7 +388,6 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay, sway = false, 
 
   const ball = useMemo(() => new THREE.Vector3(), []);
   const corner = useMemo(() => new THREE.Vector3(), []);
-  const ticks = useRef(0);
   const socket = useMemo(() => new THREE.Vector3(), []);
   const still = useMemo(() => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   const frame = useRef<THREE.Group>(null);
@@ -467,7 +466,9 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay, sway = false, 
       place(s.value);
     }
     // The framing follows: as big as fits for how far apart they are now.
-    if (avoid && ticks.current % 15 === 0) fitClear(camera, size);
+    // Every frame (cheap unless the layout moved): a slow device must not
+    // show the toy unfitted for seconds after it lands on the slide.
+    if (avoid) fitClear(camera, size);
     const v = Math.min(1, Math.max(0, s.value));
     const scale = together * clear.current.together + (apartScale * clear.current.apart - together * clear.current.together) * v;
     if (frame.current) {
@@ -488,12 +489,14 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay, sway = false, 
     // The whole toy (where a drag turns it) and each part's box (what must
     // stay clear of the drawing's card: hero-layout.mjs checks them).
     const host = overlay?.current?.parentElement;
-    if (host && ++ticks.current % 6 === 0) {
+    if (host) {
       const each = boxes(camera, size);
       const clamp = (v: number, hi: number) => Math.round(Math.min(hi, Math.max(0, v)));
       const fit = ([l, t, r, b]: number[]) => `${clamp(l, size.width)},${clamp(t, size.height)},${clamp(r, size.width)},${clamp(b, size.height)}`;
       host.dataset.toyBounds = fit([Math.min(...each.map((e) => e[0])), Math.min(...each.map((e) => e[1])), Math.max(...each.map((e) => e[2])), Math.max(...each.map((e) => e[3]))]);
       host.dataset.toyParts = each.map(fit).join(';');
+      // What the toy was last fitted to (the layout check waits for it).
+      host.dataset.toyFit = clear.current.key;
     }
     if (!arrowPaths.current.length) return;
     // The arrows show as the pieces come apart, wiggling.

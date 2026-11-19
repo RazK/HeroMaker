@@ -191,6 +191,9 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
     const landed = await page.waitForFunction((k) => document.querySelector('.tb-live-stage')?.getAttribute('data-slide') === k, slides[i], { timeout: 5000 })
       .then(() => true, () => false);
     await page.waitForTimeout(settle);
+    // The toy is fitted clear of the drawing's card once it knows where the card
+    // is (PartsViewer's data-toy-fit): on a slow machine that takes a few frames.
+    if (slides[i] === 'figure') await toyFitted(page);
     const got = await slideProblems(page);
     // A dot goes straight to its own slide.
     if (!landed) got.problems.unshift(`the dot for "${slides[i]}" landed on "${got.slide}"`);
@@ -205,6 +208,14 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
     await page.waitForTimeout(settle);
   }
   return out;
+}
+
+/** Wait (up to 15 s) until the toy, if there is one, has been fitted to a known drawing's card. */
+async function toyFitted(page) {
+  await page.waitForFunction(() => {
+    const toy = document.querySelector('.tb-slide[data-slide="figure"] .tb-parts-stage[data-toy-parts]');
+    return !toy || (!!toy.dataset.toyFit && !toy.dataset.toyFit.startsWith('none'));
+  }, null, { timeout: 15000, polling: 200 }).catch(() => {});
 }
 
 /**
