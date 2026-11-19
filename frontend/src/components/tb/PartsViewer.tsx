@@ -304,6 +304,8 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
   }, [parts, tinted, look, root, scene]);
 
   const ball = useMemo(() => new THREE.Vector3(), []);
+  const corner = useMemo(() => new THREE.Vector3(), []);
+  const ticks = useRef(0);
   const socket = useMemo(() => new THREE.Vector3(), []);
   const still = useMemo(() => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   const frame = useRef<THREE.Group>(null);
@@ -321,6 +323,28 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
     }
     // The framing follows: as big as fits for how far apart they are now.
     frame.current?.scale.setScalar(together + (apartScale - together) * Math.min(1, Math.max(0, s.value)));
+    // Where the toy is on screen (its parts' boxes, projected, within the
+    // canvas), for the layout check: nothing may cover it (hero-layout.mjs).
+    const host = overlay?.current?.parentElement;
+    if (host && ++ticks.current % 6 === 0) {
+      let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+      for (const p of parts) {
+        for (const m of [p.mesh, ...p.pieces]) {
+          const g = m.geometry;
+          if (!g.boundingBox) g.computeBoundingBox();
+          const bb = g.boundingBox!;
+          for (let i = 0; i < 8; i++) {
+            corner.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z)
+              .applyMatrix4(m.matrixWorld).project(camera);
+            const x = (corner.x + 1) / 2 * size.width;
+            const y = (1 - corner.y) / 2 * size.height;
+            l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
+          }
+        }
+      }
+      const clamp = (v: number, hi: number) => Math.round(Math.min(hi, Math.max(0, v)));
+      host.dataset.toyBounds = `${clamp(l, size.width)},${clamp(t, size.height)},${clamp(r, size.width)},${clamp(b, size.height)}`;
+    }
     if (!arrowPaths.current.length) return;
     // The arrows show as the pieces come apart, wiggling.
     const seen = THREE.MathUtils.smoothstep(s.value, 0.6, 0.95);
