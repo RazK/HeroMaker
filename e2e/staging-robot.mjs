@@ -278,8 +278,15 @@ async function payOnLemonSqueezy(page, email, { marks: marking = true } = {}) {
     await snap(page, 'checkout-paid');
     await linger(page, 2500);
     if (marking) mark('paid');
-    await page.getByRole('button', { name: /^continue/i }).or(page.getByRole('link', { name: /^continue/i })).first().click();
-    await page.waitForURL((u) => u.toString().startsWith(BASE_URL), { timeout: 60000 });
+    // The visible Continue (a phone-sized page has more than one), pressed
+    // again if the first press did not take us back.
+    const back = (u) => u.toString().startsWith(BASE_URL);
+    for (let attempt = 1; attempt <= 3 && !back(new URL(page.url())); attempt++) {
+      await page.getByRole('button', { name: /^continue/i }).or(page.getByRole('link', { name: /^continue/i }))
+        .filter({ visible: true }).first().click({ timeout: 15000 }).catch(() => {});
+      await page.waitForURL(back, { timeout: attempt === 3 ? 60000 : 20000 }).catch(() => {});
+    }
+    if (!back(new URL(page.url()))) throw new Error(`Continue did not come back from checkout: still at ${page.url().slice(0, 80)}`);
   }
 }
 
