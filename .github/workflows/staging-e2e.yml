@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       steps:
-        description: 'Comma-separated subset (landing,gallery,signup,buy,create,profile,game,class). Empty = all.'
+        description: 'Comma-separated subset (landing,gallery,signup,buy,create,profile,game,class,analytics). Empty = all.'
         required: false
         default: ''
       login_as:
