@@ -3,6 +3,8 @@ import { api, CreationResponse, paintingFramed } from '../../api/client';
 import { HeroTile, SkeletonTile, TileGrid, byLine, makingLine, makingPct } from './HeroTile';
 import { Icon } from './Icon';
 import { STEP_UI, currentStep, heroName, heroState, stepProgress } from './pipeline';
+import { pickedFromGallery } from '../../analytics';
+import { useGallerySeen } from '../../useAnalytics';
 import './Gallery.css';
 
 /** The gallery's tabs: the chips. */
@@ -175,6 +177,8 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
   // the first paint, so it never visibly jumps. Until then the scroll is not
   // recorded: a short list's clamped scroll must not overwrite the memory.
   const ready = isClasses ? !!classes?.ready : !!creations;
+  // Analytics: which heroes of this list were really on screen, said once as it is left.
+  useGallerySeen(rootRef, `${place}:${key}`, ready && !isClasses, creations?.length ?? 0);
   const restoredFor = useRef<Place | null>(null);
   useLayoutEffect(() => {
     const list = rootRef.current?.closest<HTMLElement>('.tb-screen-body');
@@ -294,8 +298,8 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
       {creations && shown.length > 0 && (
         <TileGrid>
           {shown.map((c, i) => (
-            <div key={c.id} className={`tb-tile-wrap${leaving.has(c.id) ? ' tb-tile-wrap--leaving' : ''}`}>
-              <Tile creation={c} index={i} eager={i < EAGER_TILES} onClick={() => onSelect(c)} />
+            <div key={c.id} className={`tb-tile-wrap${leaving.has(c.id) ? ' tb-tile-wrap--leaving' : ''}`} data-hero={c.id} data-pos={i}>
+              <Tile creation={c} index={i} eager={i < EAGER_TILES} onClick={() => { pickedFromGallery(i); onSelect(c); }} />
               {isAdmin && c.status === 'completed' && !c.in_class && (
                 <StarToggle on={!!c.featured} busy={pending.has(c.id)} onToggle={() => toggleStar(c)} />
               )}

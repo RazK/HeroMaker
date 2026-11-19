@@ -184,6 +184,31 @@ def test_an_admin_makes_it_free_and_a_signed_out_visitor_sees_it(client, db, mak
     assert len(hi3d.created) == 1
 
 
+def test_a_finished_split_is_one_toy_made_in_the_owners_funnel(client, db, make_user, owner, hero, hi3d, monkeypatch):
+    """Analytics: the toy branch of the funnel. Said by the backend when the
+    split has completed, once per hero, however many times it is read."""
+    from app.models import AnalyticsEvent
+    from app.services import analytics
+
+    monkeypatch.setenv(analytics.ENV_FLAG, "true")
+    admin = make_user(is_admin=True)
+    url = f"/api/v1/heroes/{hero.id}/action-figure"
+    client.post(url, headers=_jwt(admin))
+    assert client.get(url, headers=_jwt(admin)).json()["status"] in ("pending", "in_progress")
+    assert db.query(AnalyticsEvent).filter_by(name="toy_made").count() == 0   # not made yet
+
+    hi3d.task = {"state": "success", "url": "https://hi3d/parts.glb", "cover_url": "https://hi3d/cover.png"}
+    for reader in (admin, owner, admin):
+        assert client.get(url, headers=_jwt(reader)).json()["status"] == "succeeded"
+    client.get(f"/api/v1/heroes/{hero.id}/print-split", headers=_jwt(admin))   # the admin's own view of it
+
+    db.expire_all()
+    made = db.query(AnalyticsEvent).filter_by(name="toy_made").all()
+    assert len(made) == 1
+    assert made[0].props == {"provider": "hi3d"} and made[0].source == "server"
+    assert made[0].user_id == owner.id and made[0].ref == f"toy:{hero.id}"
+
+
 def test_a_non_admin_cannot_make_one(client, db, make_user, owner, hero, hi3d):
     url = f"/api/v1/heroes/{hero.id}/action-figure"
     assert client.post(url, headers=_jwt(owner)).status_code == 403

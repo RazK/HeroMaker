@@ -1,4 +1,5 @@
-import { lazy, ReactNode, Suspense, useEffect, useState } from 'react';
+import { lazy, ReactNode, Suspense, useEffect, useRef, useState } from 'react';
+import { track } from '../../analytics';
 import { createPortal } from 'react-dom';
 import { ActionFigure, api, ApiError } from '../../api/client';
 import { Icon } from './Icon';
@@ -42,6 +43,8 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
   const [error, setError] = useState<string | null>(null);
   const [apart, setApart] = useState(0.35);
   const [moving, setMoving] = useState(true);
+  // Analytics: the pieces were pulled apart (once per look at this toy).
+  const pulled = useRef(false);
 
   useEffect(() => {
     if (initial) return;
@@ -106,11 +109,13 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
           )}
           <label className="tb-figure-slider" onPointerDown={(e) => e.stopPropagation()} title="Show the pieces">
             <Icon name="expand" size={18} />
-            <input type="range" aria-label="Show the pieces" min={0} max={1} step={0.01} value={apart} onChange={(e) => setApart(Number(e.target.value))} />
+            <input type="range" aria-label="Show the pieces" min={0} max={1} step={0.01} value={apart}
+              onChange={(e) => { if (!pulled.current) { pulled.current = true; track('take_apart_tapped', { hero_id: heroId }); } setApart(Number(e.target.value)); }} />
           </label>
           {figure.files?.parts_3mf && (
             <a className="tb-btn tb-btn--secondary tb-btn--sm tb-figure-get" href={figure.files.parts_3mf}
-              download={`${heroName}-action-figure.3mf`} aria-label="Download for a 3D printer (.3mf)">
+              download={`${heroName}-action-figure.3mf`} aria-label="Download for a 3D printer (.3mf)"
+              onClick={() => track('print_file_downloaded', { hero_id: heroId, format: '3mf' })}>
               <Icon name="download" size={20} />.3mf
             </a>
           )}

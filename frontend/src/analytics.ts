@@ -41,9 +41,26 @@ const FLUSH_AFTER_MS = 2000;
 const MAX_BATCH = 40;
 
 /** Every event the browser may send, with the properties it may carry. */
+export type HeroDoor = 'gallery' | 'mine' | 'class' | 'link';
+export type HeroSlide = 'drawing' | 'painting' | '3d' | 'toy';
+/** The app's screens (the backend's SCREENS). */
+export type ScreenName =
+  | 'gallery' | 'classes' | 'hero' | 'steps' | 'class' | 'join' | 'claim' | 'admin' | 'reset'
+  | 'privacy' | 'terms' | 'refunds' | 'developers';
+
 export interface EVENTS {
   visit: { returning: boolean };
-  hero_opened: { from: 'gallery' | 'mine' | 'class' | 'link' };
+  /** A hero opened; from a gallery, with its place in the grid and the ordering in use. */
+  hero_opened: { from: HeroDoor; hero_id?: string; position?: number; order?: string };
+  /** A slide of a hero the visitor landed on: per hero, who saw what. */
+  hero_slide_viewed: { hero_id: string; slide: HeroSlide; from: HeroDoor };
+  /**
+   * Every hero that was really on screen in one gallery visit, in the order
+   * seen, with its place in the grid: the impressions. Said once, on leaving.
+   */
+  gallery_seen: { hero_ids: string[]; positions: number[]; order: string; max_scroll_pct: number };
+  /** Time on a screen, said as it is left (or the page is hidden). */
+  screen_viewed: { screen: ScreenName; seconds: number };
   make_started: Record<string, never>;
   photo_taken: Record<string, never>;
   photo_chosen: Record<string, never>;
@@ -54,11 +71,45 @@ export interface EVENTS {
   credits_shown: Record<string, never>;
   checkout_started: { pack: string };
   wait_left: { minutes: number };
-  move_tapped: { move: string };
-  game_started: { game: string };
+  move_tapped: { move: string; hero_id?: string };
+  game_started: { game: string; hero_id?: string };
   game_ended: { game: string; seconds: number; score: number };
-  share_tapped: Record<string, never>;
+  share_tapped: { hero_id?: string };
+  /** The toy branch: the pieces pulled apart, and the print file downloaded. */
+  take_apart_tapped: { hero_id: string };
+  print_file_downloaded: { hero_id: string; format: '3mf' | 'glb' | 'stl' };
 }
+
+/**
+ * How the hero on screen was reached, for the events its own page sends
+ * (its slides). `null`: not a visitor's view (an admin looking at an
+ * account), so its slides are not counted. Unset: by its own link.
+ */
+/**
+ * The seam for experiments, and no more: which variant of each experiment
+ * this browser is in (experiment key -> variant, short tags), sent with every
+ * batch. Empty today: there is no experiment logic yet.
+ */
+export const variants: Record<string, string> = {};
+
+/** The ordering the gallery shows its heroes in. A later test can name another. */
+export const GALLERY_ORDER = 'default';
+
+/**
+ * The tile a hero was opened from, noted by the gallery as it is tapped and
+ * taken once by the `hero_opened` that follows.
+ */
+let picked: { position: number; order: string } | null = null;
+export const pickedFromGallery = (position: number) => { picked = { position, order: GALLERY_ORDER }; };
+export const takeGalleryPick = (): { position?: number; order?: string } => {
+  const p = picked;
+  picked = null;
+  return p ?? {};
+};
+
+let heroDoor: HeroDoor | null = 'link';
+export const setHeroDoor = (from: HeroDoor | null) => { heroDoor = from; };
+export const currentHeroDoor = (): HeroDoor | null => heroDoor;
 
 type Queued = { name: string; props: Record<string, unknown>; at: number };
 
@@ -127,6 +178,7 @@ function body(batch: Queued[]): string {
     door: door(),
     device: device(),
     robot: robot(),
+    ...(Object.keys(variants).length > 0 ? { variants } : {}),
     events: batch.map((e) => ({ name: e.name, props: e.props, ago: Math.max(0, Math.round((now - e.at) / 1000)) })),
   });
 }

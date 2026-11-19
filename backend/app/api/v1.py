@@ -509,7 +509,7 @@ def get_print_split(hero_id: str, request: Request,
 
     creation = _live_hero(db, hero_id)
     # An owner's paid split ending badly is refunded whoever reads it first.
-    state = action_figure.settle(db, creation, print_split.refresh(creation))
+    state = action_figure.refresh(db, creation)
     return print_split.view(creation, api_heroes.base_url(request), state)
 
 

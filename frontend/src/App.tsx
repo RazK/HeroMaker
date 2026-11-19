@@ -24,7 +24,8 @@ import { StylePicker, useRenderStyles, DEFAULT_STYLE } from './components/tb/Sty
 import { useCreationPolling } from './hooks/useCreationPolling';
 import { api, CreationResponse, ApiError, getAuthToken } from './api/client';
 import { loadStepConfig, getTotalCost } from './config/steps';
-import { flush, track } from './analytics';
+import { flush, setHeroDoor, takeGalleryPick, track } from './analytics';
+import { useScreenTime } from './useAnalytics';
 import { asUtc } from './components/tb/pipeline';
 import { ADMIN_PATH, CLASS_PATH, HeroFrom, adminPath, classPath, goUp, heroFrom, heroPath, navigate, overlayDepth, prevPath, replaceRoute, routeAt, stepsPath } from './routes';
 import './styles/toybox.css';
@@ -369,7 +370,10 @@ function MainApp() {
     // Opened at a hero's address: read it.
     if (ROUTE_ON_LOAD && (ROUTE_ON_LOAD.view === 'hero' || ROUTE_ON_LOAD.view === 'steps') && !CLASS_PAID_ON_LOAD) {
       // Arrived by a hero's own link (not a reload of a hero opened in the app).
-      if (!prevPath()) track('hero_opened', { from: 'link' });
+      if (!prevPath()) track('hero_opened', { from: 'link', hero_id: ROUTE_ON_LOAD.id });
+      // A reload of a hero opened in the app keeps how it was reached.
+      const was = heroFrom();
+      setHeroDoor(!prevPath() ? 'link' : was === 'admin' ? null : was === 'class' ? 'class' : 'gallery');
       showHero(ROUTE_ON_LOAD.id, ROUTE_ON_LOAD.view);
     }
     return () => window.removeEventListener('popstate', onPop);
@@ -386,7 +390,10 @@ function MainApp() {
 
   const openHero = (c: CreationResponse, from: HeroFrom = 'gallery') => {
     // An admin looking at an account's hero is not a visitor opening one.
-    if (from !== 'admin') track('hero_opened', { from: from === 'class' ? 'class' : tab === 'mine' ? 'mine' : 'gallery' });
+    const door = from === 'admin' ? null : from === 'class' ? 'class' : tab === 'mine' ? 'mine' : 'gallery';
+    setHeroDoor(door);
+    const place = takeGalleryPick();
+    if (door) track('hero_opened', { from: door, hero_id: c.id, ...place });
     setOpenedFrom(from);
     setCreation(c);
     setError(null);
@@ -554,6 +561,8 @@ function MainApp() {
   const isTeacher = !!userInfo?.is_teacher;
   const shownSection: Section = isTeacher || !authChecked ? section : 'gallery';
   const onClassesTab = shownSection === 'classes';
+  // Analytics: how long each screen is looked at.
+  useScreenTime(view === 'gallery' ? (onClassesTab ? 'classes' : 'gallery') : view);
   // A teacher's classes: read when they sign in, kept fresh while My classes
   // shows, and now and then from the gallery, for the switch's live dot.
   const myClasses = useMyClasses(isTeacher, view === 'gallery' ? (onClassesTab ? 10000 : 60000) : false);

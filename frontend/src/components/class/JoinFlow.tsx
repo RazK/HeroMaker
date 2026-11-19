@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { track } from '../../analytics';
+import { setHeroDoor, track } from '../../analytics';
+import { useScreenTime } from '../../useAnalytics';
 import { api, ApiError, CreationResponse, paintingFramed } from '../../api/client';
 import { GuestView, studentApi } from '../../api/classes';
 import { FileUpload } from '../FileUpload';
@@ -27,6 +28,9 @@ const FULL_POLL_MS = 4000;
  * the same hero, and a second try is refused kindly.
  */
 export function JoinFlow({ initialPin }: { initialPin: string }) {
+  // Analytics: time on the class pages; a hero seen here was reached through a class.
+  useScreenTime('join');
+  useEffect(() => { setHeroDoor('class'); }, []);
   const [step, setStep] = useState<Step>(initialPin.length === 6 ? 'loading' : studentApi.hasPass() ? 'loading' : 'pin');
   const [pin, setPin] = useState(initialPin);
   const [title, setTitle] = useState('');
@@ -466,7 +470,7 @@ function ShowParents({ name, path, onClose }: { name: string; path: string; onCl
   const url = `${window.location.origin}${path}`;
   const [copied, setCopied] = useState(false);
   const send = async () => {
-    track('share_tapped');
+    track('share_tapped', {});
     try {
       if (navigator.share) { await navigator.share({ title: `${name}’s hero`, url }); return; }
     } catch { /* fall back to copying */ }
