@@ -135,15 +135,20 @@ async function slideProblems(page) {
     }
 
     // Wider than tall, the name card is the picture's label: centred under it.
+    // On a laptop the painting stands beside the drawing's card as a centred
+    // pair (the approved boards), and the name card is under the pair.
     if (innerWidth > innerHeight && (slide === 'drawing' || slide === 'painting')) {
       const card = [...document.querySelectorAll('.tb-dock-layer .tb-live-name')].find(seen);
       const pic = slide === 'drawing'
         ? document.querySelector('.tb-one-drawing')
         : document.querySelector('.tb-slide[data-slide="painting"] .tb-slide-figure') || document.querySelector('.tb-slide[data-slide="painting"] .tb-slide-pic');
+      // (The dock row is centred on the card there, so that is the pair's centre.)
+      const paired = slide === 'painting' && innerHeight >= 560;
       if (!card) problems.push('no name card');
       else if (pic) {
         const c = card.getBoundingClientRect();
-        const p = pic.getBoundingClientRect();
+        const one = pic.getBoundingClientRect();
+        const p = paired ? { left: sb.left, right: sb.right, bottom: one.bottom } : one;
         const dx = (c.left + c.right) / 2 - (p.left + p.right) / 2;
         if (Math.abs(dx) > 2) problems.push(`the name card is ${Math.round(dx)}px off the picture's centre`);
         if (c.top < p.bottom) problems.push(`the name card's top (${Math.round(c.top)}) is above the picture's bottom (${Math.round(p.bottom)})`);
