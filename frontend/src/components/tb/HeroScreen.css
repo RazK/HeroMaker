@@ -396,8 +396,9 @@
     inset-block: calc(var(--room-top) + var(--room-h) / 2) auto;
     transform: translateY(-50%);
   }
-  /* The painting's name card stays under the painting, now beside the drawing. */
-  .tb-hero-main[data-state='ready'] .tb-live-stage[data-slide='painting'] .tb-live-name { translate: calc((var(--poly) + var(--pair-gap)) / 2) 0; }
+  /* The name card stays where it is between the drawing and the painting (one
+     card for both): centred in the dock row, so under the painting and the
+     drawing's card, which stand as a centred pair. */
 }
 
 /* Pick a game: two equal cards side by side (brand book: paired things are
