@@ -89,6 +89,8 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
   const done = figure?.status === 'succeeded' && figure.files?.parts;
   if (done) {
     const url = figure.files!.parts_view || figure.files!.parts!;
+    // The drawing's card (HeroLive's corner card, where the drawing rests): the toy never passes under it.
+    const drawingCard = () => document.querySelector<HTMLElement>('.tb-mini-drawing img')?.getBoundingClientRect() ?? null;
     const takeApart = () => {
       if (!apart && !pulled.current) { pulled.current = true; track('take_apart_tapped', { hero_id: heroId }); }
       setApart(!apart);
@@ -98,7 +100,7 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
         <div className="tb-live-room tb-figure-room">
           <PartsBoundary fallback={<PartsFallback preview={figure.files?.preview} alt={`${heroName}, the action figure`} />}>
             <Suspense fallback={<div className="tb-figure-wait"><div className="tb-ring" style={{ ['--p' as string]: '25%' }}><span>…</span></div></div>}>
-              <PartsStage url={url} apart={apart ? 1 : 0} ease arrows spin />
+              <PartsStage url={url} apart={apart ? 1 : 0} ease arrows sway avoid={drawingCard} />
             </Suspense>
           </PartsBoundary>
         </div>
