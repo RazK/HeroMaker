@@ -36,6 +36,7 @@ with ``is_robot`` and left out of every graph (analytics_report.py).
 Recording never breaks the product: ``record_server`` and the helpers built on
 it catch everything and log.
 """
+import json
 import logging
 import os
 import re
@@ -497,6 +498,41 @@ def hero_failed(db: Session, creation_id: str, step_name: str, code: Optional[st
         },
         user_id=user_id, visitor_id=visitor_id, door=door, ref=f"hero:{creation_id}",
     )
+
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+
+EXPORT_COLUMNS = ("id", "created_at", "name", "visitor_id", "user_id", "door", "device",
+                  "is_robot", "source", "ref", "props")
+
+
+def export_rows(db: Session, since: Optional[datetime] = None, until: Optional[datetime] = None,
+                include_robots: bool = False):
+    """The raw events, oldest first, one list per row in EXPORT_COLUMNS order:
+    for the admin's CSV, and anything the graphs do not show. Robots are left
+    out unless asked for. Read in pages, so a long history does not sit in memory."""
+    query = db.query(AnalyticsEvent)
+    if since is not None:
+        query = query.filter(AnalyticsEvent.created_at >= since)
+    if until is not None:
+        query = query.filter(AnalyticsEvent.created_at < until)
+    if not include_robots:
+        query = query.filter(AnalyticsEvent.is_robot.is_(False))
+    last_id = 0
+    while True:
+        page = query.filter(AnalyticsEvent.id > last_id).order_by(AnalyticsEvent.id.asc()).limit(2000).all()
+        if not page:
+            return
+        for e in page:
+            yield [
+                e.id, e.created_at.isoformat(timespec="seconds") if e.created_at else "", e.name,
+                e.visitor_id or "", e.user_id or "", e.door or "", e.device or "",
+                "1" if e.is_robot else "0", e.source, e.ref or "",
+                json.dumps(e.props or {}, sort_keys=True, separators=(",", ":")),
+            ]
+        last_id = page[-1].id
 
 
 def is_last_step(step_name: str) -> bool:

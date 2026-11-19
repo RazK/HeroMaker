@@ -1,6 +1,10 @@
 """Admin API endpoints for managing users and coupons."""
+import csv
+import io
+from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import ClassRoom, User, Coupon
@@ -519,3 +523,44 @@ def admin_delete_coupon(
     db.commit()
     
     return {"message": "Coupon deleted successfully"}
+
+
+# ============ Analytics ============
+
+@router.get("/analytics/events.csv")
+def analytics_events_csv(
+    since: Optional[date] = Query(None, alias="from", description="First day (UTC), e.g. 2026-11-01."),
+    until: Optional[date] = Query(None, alias="to", description="Last day (UTC), included."),
+    include_robots: bool = Query(False, description="Also the staging robot's and test accounts' events."),
+    admin: User = Depends(require_admin),
+):
+    """Every analytics event as CSV, oldest first (docs/analytics/REQUIREMENTS.md).
+    No personal data is in it, because none is in the table. Graphs live in
+    PostHog; this is the raw record we hold ourselves."""
+    from app.database import SessionLocal
+    from app.services import analytics
+
+    start = datetime.combine(since, time.min) if since else None
+    end = datetime.combine(until, time.min) + timedelta(days=1) if until else None
+
+    def lines():
+        # Its own session: the request's is closed before a streamed body ends.
+        db = SessionLocal()
+        try:
+            out = io.StringIO()
+            writer = csv.writer(out)
+            writer.writerow(analytics.EXPORT_COLUMNS)
+            for row in analytics.export_rows(db, start, end, include_robots):
+                writer.writerow(row)
+                if out.tell() > 64_000:
+                    yield out.getvalue()
+                    out.seek(0)
+                    out.truncate(0)
+            yield out.getvalue()
+        finally:
+            db.close()
+
+    return StreamingResponse(
+        lines(), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="heromaker-events.csv"', "Cache-Control": "no-store"},
+    )
