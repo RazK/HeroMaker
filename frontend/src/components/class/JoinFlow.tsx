@@ -13,6 +13,7 @@ import { PinDigits, Qr } from './parts';
 import { useOverlayBack } from '../../routes';
 import '../tb/HeroScreen.css';
 import './class.css';
+import { SafeImg } from '../tb/Picture';
 
 export const JOIN_PATH = '/join';
 
@@ -289,7 +290,7 @@ function AlreadyMade({ me, onSee }: { me: GuestView; onSee: () => void }) {
       <KidHeader title={me.class.title} />
       <div className="tb-screen-body">
         <div className="cls-moment">
-          <div className="cls-moment-art cls-moment-art--sun"><img className={framed ? 'cls-moment-img--framed' : undefined} src={art} alt={`${me.guest.first_name}’s hero`} /></div>
+          <div className="cls-moment-art cls-moment-art--sun"><SafeImg className={framed ? 'cls-moment-img--framed' : undefined} src={art} alt={`${me.guest.first_name}’s hero`} /></div>
           <div className="cls-kid-title">You already made your hero!</div>
           <div className="tb-muted">One hero each. Yours is great!</div>
         </div>
