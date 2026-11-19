@@ -657,3 +657,56 @@ def test_migration_makes_the_table_on_a_database_that_predates_it(tmp_path):
     s.add(AnalyticsEvent(name="visit", visitor_id=VISITOR, props={}))
     s.commit()
     assert s.query(AnalyticsEvent).count() == 1
+
+
+# ---------------------------------------------------------------------------
+# The admin's CSV of raw events
+# ---------------------------------------------------------------------------
+
+def _csv(response):
+    import csv as csv_module
+    return list(csv_module.reader(io.StringIO(response.text)))
+
+
+def _names(client, admin, query=""):
+    return [row[2] for row in _csv(client.get(f"/api/v1/admin/analytics/events.csv?{query}", headers=_auth(admin)))[1:]]
+
+
+def test_only_an_admin_gets_the_csv(client, make_user):
+    assert client.get("/api/v1/admin/analytics/events.csv").status_code == 401
+    assert client.get("/api/v1/admin/analytics/events.csv", headers=_auth(make_user())).status_code == 403
+
+
+def test_the_csv_is_every_event_without_the_robots(client, db, make_user):
+    admin = make_user(is_admin=True)
+    client.post("/api/v1/events", json=_batch(
+        [{"name": "visit", "props": {"returning": False}}, {"name": "make_started"}], door="fair-telaviv-nov"))
+    client.post("/api/v1/events", json=_batch([{"name": "visit"}], visitor=OTHER, robot=True))
+
+    r = client.get("/api/v1/admin/analytics/events.csv", headers=_auth(admin))
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    header, *rows = _csv(r)
+    assert tuple(header) == analytics.EXPORT_COLUMNS
+    assert [row[2] for row in rows] == ["visit", "make_started"]
+    visit = dict(zip(header, rows[0]))
+    assert visit["visitor_id"] == VISITOR and visit["door"] == "fair-telaviv-nov" and visit["device"] == "phone"
+    assert visit["is_robot"] == "0" and visit["source"] == "browser"
+    assert json.loads(visit["props"]) == {"returning": False}
+
+    assert _names(client, admin, "include_robots=true") == ["visit", "make_started", "visit"]
+
+
+def test_the_csv_can_be_cut_to_days(client, db, make_user):
+    from datetime import datetime, timedelta
+    admin = make_user(is_admin=True)
+    for days_ago, name in ((10, "visit"), (3, "make_started"), (0, "photo_taken")):
+        db.add(AnalyticsEvent(name=name, visitor_id=VISITOR, props={},
+                              created_at=datetime.utcnow() - timedelta(days=days_ago)))
+    db.commit()
+
+    def day(n):
+        return (datetime.utcnow() - timedelta(days=n)).date().isoformat()
+
+    assert _names(client, admin, f"from={day(5)}") == ["make_started", "photo_taken"]
+    assert _names(client, admin, f"to={day(5)}") == ["visit"]
+    assert _names(client, admin, f"from={day(3)}&to={day(3)}") == ["make_started"]
