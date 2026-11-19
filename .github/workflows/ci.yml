@@ -30,6 +30,7 @@ jobs:
       vrm-converter: ${{ steps.filter.outputs.vrm-converter }}
       backend-image: ${{ steps.filter.outputs.backend-image }}
       frontend-image: ${{ steps.filter.outputs.frontend-image }}
+      product-docs: ${{ steps.filter.outputs.product-docs }}
     steps:
       # No checkout: on pull_request the filter asks the GitHub API for the
       # changed files. A change to this workflow runs every check, so editing
@@ -65,6 +66,14 @@ jobs:
               - 'frontend/.dockerignore'
               - 'frontend/nginx.conf'
               - 'frontend/start-nginx.sh'
+            # The product knowledge base, and the code whose flag keys it
+            # must account for (docs/product/README.md).
+            product-docs:
+              - *ci
+              - 'docs/product/**'
+              - 'frontend/src/**'
+              - 'games/*/src/**'
+              - 'devops/scripts/*product_docs*'
 
   # The backend's unit suite (backend/tests). No network, no API keys. Postgres
   # runs alongside so the one test that needs it — the ledger's SELECT ... FOR
@@ -210,10 +219,25 @@ jobs:
           push: false
           cache-from: type=gha
 
+  # Every feature-flag key in the app's code has an experiment file, every
+  # experiment names hypotheses that exist, and every header is well formed
+  # (docs/product/experiments/README.md). Standard library only.
+  product-docs:
+    needs: changes
+    if: needs.changes.outputs.product-docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the product docs and the flag keys in the code
+        run: python3 devops/scripts/product_docs_check.py
+      - name: Test the check
+        run: python3 devops/scripts/test_product_docs_check.py
+
   # The one status check to require. Skipped jobs (nothing of theirs changed)
   # pass; a failed or cancelled one fails it.
   summary:
-    needs: [changes, backend-tests, frontend-build, game-build, backend-image, frontend-image, vrm-converter-image]
+    needs: [changes, backend-tests, frontend-build, game-build, backend-image, frontend-image, vrm-converter-image, product-docs]
     if: always()
     runs-on: ubuntu-latest
     steps:
