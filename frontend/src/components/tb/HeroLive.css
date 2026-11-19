@@ -248,26 +248,39 @@
    screen's edge). The buttons' depth sits under the box, as the name card's
    16px does. */
 .tb-moves {
-  --gap: 10px;
+  --gap: 6px;
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: var(--gap);
   height: 100%;
 }
+/* Every button is a pill with its icon and its word on one line (Raz): never
+   a rounded rectangle, never the icon above the word, on any size. Upright,
+   four share the dock's width, so the letters and the icon are small. */
 .tb-move {
   flex: 1 1 0;
   min-width: 0;
   max-width: calc((100% - 3 * var(--gap)) / 4);
-  height: 100%;
+  height: 44px;
   padding: 0 4px;
-  flex-direction: column;
-  gap: 2px;
-  border-radius: 20px;
-  font-size: 15px;
+  gap: 4px;
+  font-size: 14px;
   line-height: 18px;
   pointer-events: auto;
 }
-.tb-move span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tb-move svg { width: 18px; height: 18px; }
+.tb-move span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* A narrow phone (360px): a little smaller again, so no word is cut. */
+@media (max-width: 374px) {
+  .tb-moves { --gap: 4px; }
+  .tb-move { padding: 0 3px; gap: 3px; font-size: 13px; }
+  .tb-move svg { width: 16px; height: 16px; }
+}
+@media (max-width: 339px) {
+  .tb-move { padding: 0 2px; gap: 2px; border-width: 2px; font-size: 12px; }
+  .tb-move svg { width: 14px; height: 14px; }
+}
 /* A few moves (a parent's first look): they share the row equally. */
 .tb-moves--few .tb-move { max-width: none; }
 .tb-move[aria-pressed='true'],
@@ -525,6 +538,13 @@
   .tb-figure-dock--made > .tb-figure-get:not(:focus-visible) { box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink); }
   .tb-figure-dock--made > .tb-figure-get:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
 }
+/* A narrow phone (360px): the two pills a little narrower, still one size,
+   so the slider between them keeps a track worth dragging. */
+@media (max-width: 374px) {
+  .tb-figure-dock--made > .tb-figure-move,
+  .tb-figure-dock--made > .tb-figure-get { min-width: 84px; padding: 0 10px; gap: 4px; }
+}
+@media (max-width: 339px) { .tb-figure-slider > svg { display: none; } }
 .tb-figure-dock--made { padding-inline-start: 8px; gap: 8px; }
 .tb-figure-slider { gap: 6px; color: var(--tb-ink); }
 /* The parts turn by themselves (a drag on the stage is a swipe). */
