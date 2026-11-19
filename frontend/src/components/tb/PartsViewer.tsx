@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { spreadPlan } from './partsSpread';
+import { ARROW_COLOURS, curl } from './partsArrows';
 import { loadStage, StageModule } from './stage';
 
 /** Colours to tell the parts apart: the plates, then the sun and grape. */
@@ -14,6 +15,9 @@ const CAMERA_Z = 2.6;
 const CAMERA_FOV = 40;
 /** The share of the view the parts may fill when pulled fully apart. */
 const FILL = 0.94;
+/** How long taking the toy apart (or putting it together) takes, in seconds, when eased. */
+const EASE_S = 0.9;
+const SVG = 'http://www.w3.org/2000/svg';
 
 /**
  * A hero cut into printable parts (backend print_split.py), in 3D: `apart`
@@ -21,13 +25,20 @@ const FILL = 0.94;
  * up, an arm the way it points, the body still), `tinted` colours each part
  * its own, and `moving` swings the arms and legs about their joints, the way the
  * printed toy moves (only when `jointed`: the parts were cut with joints).
+ * `ease` glides to a new `apart` instead of jumping (the hero page's Take
+ * apart button), and `arrows` draws a curly arrow from each piece's ball to
+ * the socket it clicks into while the pieces are apart.
  * Used by the admin split sheet (PrintSplit.tsx) and the hero page's action
  * figure slide (ActionFigure.tsx). Its own chunk: three's React bindings load
  * only when parts are shown.
  */
-export function PartsStage({ url, apart, tinted = false, spin = false, jointed = false, moving = false }: {
+export function PartsStage({ url, apart, tinted = false, spin = false, jointed = false, moving = false, ease = false, arrows = false }: {
   url: string;
   apart: number;
+  /** Glide to a new `apart`, rather than jump (a slider jumps). */
+  ease?: boolean;
+  /** Arrows from each piece's ball to its socket, while apart. */
+  arrows?: boolean;
   tinted?: boolean;
   /** Turn slowly by itself instead of by dragging: on a carousel slide a
    *  drag is a swipe (HeroLive), as it is over the live hero. */
@@ -45,7 +56,8 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
     loadStage().then((m) => { if (alive) setLook(typeof m.applyLook === 'function' ? m : false); }, () => { if (alive) setLook(false); });
     return () => { alive = false; };
   }, []);
-  return (
+  const overlay = useRef<SVGSVGElement>(null);
+  const canvas = (
     <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }} dpr={[1, 2]}>
       {look && <HeroLook look={look} />}
       {/* The hero stage module did not load: plain light, so the parts still show. */}
@@ -55,12 +67,21 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
         <directionalLight position={[-3, 1, -2]} intensity={1} />
       </>)}
       <Suspense fallback={<Html center><div className="tb-ring tb-parts-loading" style={{ ['--p' as string]: '25%' }}><span>…</span></div></Html>}>
-        <Turntable on={spin}><Parts url={url} apart={apart} tinted={tinted} moving={jointed && moving} look={look || null} /></Turntable>
+        <Turntable on={spin}><Parts url={url} apart={apart} ease={ease} tinted={tinted} moving={jointed && moving} look={look || null} overlay={arrows ? overlay : null} /></Turntable>
       </Suspense>
       {/* Zoom out only: the parts are framed to fit pulled fully apart, so a
           pinch never crops them at the stage's edges. */}
       {!spin && <OrbitControls enablePan={false} minDistance={CAMERA_Z} maxDistance={6} />}
     </Canvas>
+  );
+  if (!arrows) return canvas;
+  // The arrows: an SVG over the canvas, its paths written every frame from the
+  // joints projected to the screen (Parts), so they stay on the turning pieces.
+  return (
+    <div className="tb-parts-stage">
+      {canvas}
+      <svg ref={overlay} className="tb-parts-arrows" aria-hidden="true" />
+    </div>
   );
 }
 
@@ -95,6 +116,9 @@ interface Part {
   out: THREE.Vector3;
   limb: Limb;
   material: THREE.Material | THREE.Material[];
+  /** The part this one clicks into (-1: it is the body), and where: its socket, in that part's pivot space. */
+  parent: number;
+  socket: THREE.Vector3 | null;
 }
 
 /**
@@ -159,7 +183,10 @@ function fitScale(half: number, round: number, aspect: number): number {
 }
 
 /** The split model, centred and sized, each part moved out along its joint by `apart`. */
-function Parts({ url, apart, tinted, moving, look }: { url: string; apart: number; tinted: boolean; moving: boolean; look: StageModule | null }) {
+function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
+  url: string; apart: number; ease: boolean; tinted: boolean; moving: boolean; look: StageModule | null;
+  overlay: { current: SVGSVGElement | null } | null;
+}) {
   const gltf = useLoader(GLTFLoader, url);
   const scene = useThree((s) => s.scene);
   const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
@@ -205,7 +232,13 @@ function Parts({ url, apart, tinted, moving, look }: { url: string; apart: numbe
       pivot.attach(mesh);
       // Pulling apart moves the pivot (and so the part) along its joint, in the parent's units.
       const out = parent.worldToLocal(at.clone().add(move)).sub(joint);
-      return { mesh, pivot, pieces: [], pieceMaterials: [], home: joint.clone(), out, limb: limbs[i], material: mesh.material };
+      return { mesh, pivot, pieces: [], pieceMaterials: [], home: joint.clone(), out, limb: limbs[i], material: mesh.material,
+        parent: plan.parent[i], socket: null };
+    });
+    // Each socket, where the part's ball clicks in, held in the space of the
+    // part it is on, so it travels with that part.
+    list.forEach((p, i) => {
+      if (p.parent >= 0) p.socket = list[p.parent].pivot.worldToLocal(new THREE.Vector3(...plan.joint[i]));
     });
     pieces.forEach((piece) => {
       const owner = ownerOf(new THREE.Box3().setFromObject(piece), boxes, limbs, /_male\b/i.test(piece.name));
@@ -224,16 +257,77 @@ function Parts({ url, apart, tinted, moving, look }: { url: string; apart: numbe
     return () => tints.current.forEach((m) => m.dispose());
   }, [parts]);
 
+  // How far apart the pieces are now: `apart` at once, or (eased) on its way there.
+  const shown = useRef({ value: apart, from: apart, to: apart, at: -1 });
+  const place = (value: number) => parts.forEach((p) => p.pivot.position.copy(p.home).addScaledVector(p.out, value));
+  useEffect(() => {
+    const s = shown.current;
+    if (!ease) { s.value = s.from = s.to = apart; place(apart); return; }
+    s.from = s.value; s.to = apart; s.at = -1;  // starts on the next frame
+  }, [parts, apart, ease]);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { place(shown.current.value); }, [parts]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The arrows' paths, one group per piece that clicks into another.
+  const arrowPaths = useRef<{ part: number; group: SVGGElement; line: SVGPathElement; head: SVGPathElement }[]>([]);
+  useEffect(() => {
+    const svg = overlay?.current;
+    if (!svg) return;
+    arrowPaths.current = parts.flatMap((p, i) => {
+      if (p.parent < 0 || !p.socket) return [];
+      const group = document.createElementNS(SVG, 'g');
+      const line = document.createElementNS(SVG, 'path');
+      const head = document.createElementNS(SVG, 'path');
+      group.style.opacity = '0';
+      group.append(line, head);
+      svg.append(group);
+      return [{ part: i, group, line, head }];
+    });
+    arrowPaths.current.forEach((a, k) => { a.group.style.stroke = ARROW_COLOURS[k % ARROW_COLOURS.length]; });
+    return () => { arrowPaths.current.forEach((a) => a.group.remove()); arrowPaths.current = []; };
+  }, [parts, overlay]);
+
   useEffect(() => {
     parts.forEach((p, i) => {
-      p.pivot.position.copy(p.home).addScaledVector(p.out, apart);
       p.mesh.material = tinted ? tints.current[i] : p.material;
       p.pieces.forEach((piece, k) => { piece.material = tinted ? tints.current[i] : p.pieceMaterials[k]; });
     });
     // The hero's finish on whatever is shown: a provider's file often says
     // "metal" by leaving metalness out (glTF's default is 1), drawn dark and flat.
     look?.finishMaterials({ THREE }, root, scene);
-  }, [parts, apart, tinted, look, root, scene]);
+  }, [parts, tinted, look, root, scene]);
+
+  const ball = useMemo(() => new THREE.Vector3(), []);
+  const socket = useMemo(() => new THREE.Vector3(), []);
+  const still = useMemo(() => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  useFrame(({ clock, camera, size }) => {
+    // Taking apart: an ease in and out, from wherever it was.
+    const s = shown.current;
+    if (s.value !== s.to) {
+      if (s.at < 0) s.at = clock.elapsedTime;
+      const k = still ? 1 : Math.min(1, (clock.elapsedTime - s.at) / EASE_S);
+      const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
+      s.value = k >= 1 ? s.to : s.from + (s.to - s.from) * e;
+      place(s.value);
+    }
+    if (!arrowPaths.current.length) return;
+    // The arrows show as the pieces come apart, wiggling.
+    const seen = THREE.MathUtils.smoothstep(s.value, 0.6, 0.95);
+    const screen = (v: THREE.Vector3): [number, number] => {
+      v.project(camera);
+      return [(v.x + 1) / 2 * size.width, (1 - v.y) / 2 * size.height];
+    };
+    arrowPaths.current.forEach((a, k) => {
+      const p = parts[a.part];
+      a.group.style.opacity = String(seen);
+      if (seen <= 0) return;
+      p.pivot.getWorldPosition(ball);
+      parts[p.parent].pivot.localToWorld(socket.copy(p.socket!));
+      const wiggle = still ? 0 : 0.12 * Math.sin(clock.elapsedTime * 4.2 + k * 1.7);
+      const c = curl(screen(ball), screen(socket), k % 2 ? -1 : 1, wiggle);
+      a.line.setAttribute('d', c ? c.line : '');
+      a.head.setAttribute('d', c ? c.head : '');
+    });
+  });
 
   // The toy's moves: the arms swing down from the T-pose and up again, one
   // after the other, and the legs step, each about its own joint centre.

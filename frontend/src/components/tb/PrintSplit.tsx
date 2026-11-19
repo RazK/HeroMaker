@@ -14,7 +14,12 @@ const POLL_MS = 3000;
  * Start it, watch it, then turn the parts in 3D, pull them apart, and take
  * the 3MF to a slicer.
  */
-export function PrintSplitSheet({ creation, onClose }: { creation: CreationResponse; onClose: () => void }) {
+export function PrintSplitSheet({ creation, onClose, again: startAgain = false }: {
+  creation: CreationResponse;
+  onClose: () => void;
+  /** Open on the options for a new split (the ⋯ menu's "make the toy again"). */
+  again?: boolean;
+}) {
   const [split, setSplit] = useState<PrintSplit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<'hi3d' | 'meshy'>('hi3d');
@@ -26,7 +31,7 @@ export function PrintSplitSheet({ creation, onClose }: { creation: CreationRespo
   const [busy, setBusy] = useState(false);
   const [apart, setApart] = useState(0.35);
   const [tinted, setTinted] = useState(false);
-  const [again, setAgain] = useState(false);
+  const [again, setAgain] = useState(startAgain);
   const [moving, setMoving] = useState(false);
 
   const running = split?.status === 'pending' || split?.status === 'in_progress';

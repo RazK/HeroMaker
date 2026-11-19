@@ -13,6 +13,9 @@ const PATHS: Record<string, JSX.Element> = {
   close: <><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>,
   // Enlarge: the polaroid opens the drawing full screen.
   expand: <><path d="M14 4h6v6" /><path d="M20 4l-6 6" /><path d="M10 20H4v-6" /><path d="M4 20l6-6" /></>,
+  // The toy: its pieces pulled out from the middle, and pushed back in.
+  apart: <><path d="M9 12H3" /><path d="M6 9l-3 3 3 3" /><path d="M15 12h6" /><path d="M18 9l3 3-3 3" /><path d="M12 4v16" /></>,
+  together: <><path d="M3 12h6" /><path d="M6 9l3 3-3 3" /><path d="M21 12h-6" /><path d="M18 9l-3 3 3 3" /></>,
   plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
   minus: <path d="M5 12h14" />,
   // An eye struck through: taken out of sight (an admin removing a hero).

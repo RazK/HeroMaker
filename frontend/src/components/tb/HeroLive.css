@@ -503,50 +503,53 @@
    3MF once made. The button's own depth sits inside the box. */
 .tb-live-stage .tb-figure-buy { z-index: 2; padding: 0 20px; box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
 .tb-figure-buy-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Made: two equal pills, icon and words on one line, as wide together as
+   the card's inside (the "Hero · toy" board): Take apart, which turns into
+   Put together and shows chosen while the toy is apart, and Print file, the
+   3MF. Controls are the header buttons' height, outline and depth. Their
+   depth ends one space above the card's edge, the space from the card to
+   the bar below it. */
 .tb-figure-dock--made {
   z-index: 2;
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 12px;
-  padding: 0 8px 0 16px;
   box-sizing: border-box;
-  border-radius: 20px;
-  background: var(--tb-white);
 }
-.tb-figure-slider { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; font-weight: 800; font-size: 15px; }
-.tb-figure-slider input { flex: 1; min-width: 0; height: 44px; accent-color: var(--tb-grape); touch-action: none; }
-/* Move and the 3MF are one size (Raz: "the 3MF button ... needs to be the
-   same size as the move"): the same box, the same letters, the same icon. */
-.tb-figure-dock--made > .tb-figure-move,
-.tb-figure-dock--made > .tb-figure-get {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  box-sizing: border-box;
-  height: 44px;
-  min-width: 96px;
-  padding: 0 14px;
-  font-size: 14px;
+.tb-live-stage .tb-figure-dock--made {
+  width: calc(100% - 32px);
+  height: var(--tb-header-ctl);
 }
-.tb-figure-dock--made > :is(.tb-figure-move, .tb-figure-get) svg { width: 18px; height: 18px; flex-shrink: 0; }
-/* Upright, the 3MF sits in the dock's white box: the small outline and depth
-   (the header's), so its depth stays inside the box. */
-@media (orientation: portrait) {
-  .tb-figure-dock--made > .tb-figure-get { border-width: 2px; }
-  .tb-figure-dock--made > .tb-figure-get:not(:focus-visible) { box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink); }
-  .tb-figure-dock--made > .tb-figure-get:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
+.tb-figure-dock--made > .tb-figure-btn {
+  height: 100%;
+  min-width: 0;
+  padding: 0 8px;
+  gap: 7px;
+  border-width: 2px;
+  font-size: 16px;
 }
-/* A narrow phone (360px): the two pills a little narrower, still one size,
-   so the slider between them keeps a track worth dragging. */
-@media (max-width: 374px) {
-  .tb-figure-dock--made > .tb-figure-move,
-  .tb-figure-dock--made > .tb-figure-get { min-width: 84px; padding: 0 10px; gap: 4px; }
+.tb-figure-dock--made > .tb-figure-btn:not(:focus-visible) { box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-ink); }
+.tb-figure-dock--made > .tb-figure-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tb-ink); }
+.tb-figure-dock--made > .tb-figure-btn svg { width: 18px; height: 18px; }
+.tb-figure-dock--made > .tb-figure-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tb-figure-dock--made > .tb-figure-btn[aria-pressed='true'] { background: var(--tb-chosen); border-color: var(--tb-grape); color: var(--tb-ink); }
+.tb-figure-dock--made > .tb-figure-btn[aria-pressed='true']:not(:focus-visible) { box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
+/* The arrows of the toy taken apart (PartsViewer): drawn over its canvas. */
+.tb-parts-stage { position: relative; width: 100%; height: 100%; }
+.tb-parts-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  fill: none;
+  stroke-width: 3.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-@media (max-width: 339px) { .tb-figure-slider > svg { display: none; } }
-.tb-figure-dock--made { padding-inline-start: 8px; gap: 8px; }
-.tb-figure-slider { gap: 6px; color: var(--tb-ink); }
+.tb-parts-arrows g { transition: opacity 120ms linear; }
 /* The parts turn by themselves (a drag on the stage is a swipe). */
 .tb-figure-room canvas { display: block; }
 .tb-figure-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }

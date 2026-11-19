@@ -41,8 +41,8 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
   const [figure, setFigure] = useState<ActionFigure | null>(initial ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apart, setApart] = useState(0.35);
-  const [moving, setMoving] = useState(true);
+  // Taken apart: the pieces move out along their joints, with arrows to where each clicks in.
+  const [apart, setApart] = useState(false);
   // Analytics: the pieces were pulled apart (once per look at this toy).
   const pulled = useRef(false);
 
@@ -89,34 +89,30 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
   const done = figure?.status === 'succeeded' && figure.files?.parts;
   if (done) {
     const url = figure.files!.parts_view || figure.files!.parts!;
-    // Hi3D cut it with joints: the arms and legs turn about them (PartsViewer).
-    const jointed = figure.provider === 'hi3d' && !!figure.joint && figure.joint !== 'none';
+    const takeApart = () => {
+      if (!apart && !pulled.current) { pulled.current = true; track('take_apart_tapped', { hero_id: heroId }); }
+      setApart(!apart);
+    };
     return (
       <>
         <div className="tb-live-room tb-figure-room">
           <PartsBoundary fallback={<PartsFallback preview={figure.files?.preview} alt={`${heroName}, the action figure`} />}>
             <Suspense fallback={<div className="tb-figure-wait"><div className="tb-ring" style={{ ['--p' as string]: '25%' }}><span>…</span></div></div>}>
-              <PartsStage url={url} apart={apart} spin jointed={jointed} moving={moving} />
+              <PartsStage url={url} apart={apart ? 1 : 0} ease arrows spin />
             </Suspense>
           </PartsBoundary>
         </div>
+        {/* Two equal pills, icon and words on one line (the "Hero · toy" board).
+            Making it again and the parts' .glb are in the hero's ⋯ menu. */}
         {inDock(<div className="tb-figure-dock tb-figure-dock--made">
-          {/* A drag on the slider is the slider's, not a swipe of the carousel. */}
-          {jointed && (
-            <button type="button" className={`tb-chip tb-figure-move${moving ? ' tb-chip--on' : ''}`} aria-pressed={moving} onClick={() => setMoving(!moving)}>
-              <Icon name="dance" size={18} />Move
-            </button>
-          )}
-          <label className="tb-figure-slider" onPointerDown={(e) => e.stopPropagation()} title="Show the pieces">
-            <Icon name="expand" size={18} />
-            <input type="range" aria-label="Show the pieces" min={0} max={1} step={0.01} value={apart}
-              onChange={(e) => { if (!pulled.current) { pulled.current = true; track('take_apart_tapped', { hero_id: heroId }); } setApart(Number(e.target.value)); }} />
-          </label>
+          <button type="button" className="tb-btn tb-btn--secondary tb-figure-btn tb-figure-apart" aria-pressed={apart} onClick={takeApart}>
+            <Icon name={apart ? 'together' : 'apart'} size={18} /><span>{apart ? 'Put together' : 'Take apart'}</span>
+          </button>
           {figure.files?.parts_3mf && (
-            <a className="tb-btn tb-btn--secondary tb-btn--sm tb-figure-get" href={figure.files.parts_3mf}
-              download={`${heroName}-action-figure.3mf`} aria-label="Download for a 3D printer (.3mf)"
+            <a className="tb-btn tb-btn--secondary tb-figure-btn tb-figure-get" href={figure.files.parts_3mf}
+              download={`${heroName}-action-figure.3mf`} aria-label="Print file: download for a 3D printer (.3mf)"
               onClick={() => track('print_file_downloaded', { hero_id: heroId, format: '3mf' })}>
-              <Icon name="download" size={20} />.3mf
+              <Icon name="download" size={18} /><span>Print file</span>
             </a>
           )}
         </div>)}

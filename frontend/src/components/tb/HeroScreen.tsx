@@ -49,7 +49,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const supporting = isLoggedIn && isAdmin && creation.user_id !== currentUserId;
   const backLabel = props.fromClass ? 'Back to class' : props.fromAdmin ? 'Back to user' : 'Back to heroes';
   const name = heroName(creation);
-  const [sheet, setSheet] = useState<'more' | 'rename' | 'artist' | 'delete' | 'again' | 'games' | 'details' | 'split' | null>(null);
+  const [sheet, setSheet] = useState<'more' | 'rename' | 'artist' | 'delete' | 'again' | 'games' | 'details' | 'split' | 'split-again' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
@@ -63,6 +63,7 @@ export function HeroScreen(props: HeroScreenProps) {
     return () => { alive = false; };
   }, [figureReady, creation.id, isLoggedIn, isAdmin, props.fromClass]);
   const showFigure = !!figure && (figure.status === 'succeeded' || figure.can_make);
+  const toyMade = figure?.status === 'succeeded';
   const shown = useRef<(StepProgress & { key: string }) | null>(null);
   useFitScreen();
 
@@ -121,6 +122,15 @@ export function HeroScreen(props: HeroScreenProps) {
     }
   };
   const downloadVrm = () => api.downloadFile(creation.id, 'avatar.vrm', creation.user_id).catch(() => setError('Download failed'));
+  // A file the API already linked (the toy's parts): the browser saves it.
+  const downloadUrl = (url: string, file: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file;
+    document.body.append(a);
+    a.click();
+    a.remove();
+  };
 
   // Share sends the hero's own link: whoever opens it (grandma, signed out)
   // sees the hero move. The picture goes along only where the platform takes
@@ -185,8 +195,13 @@ export function HeroScreen(props: HeroScreenProps) {
       ready && <SheetRow key="vrm" icon="download" label="Download 3D file" trail=".vrm" onClick={downloadVrm} />,
       // The per-step admin view is a debugging tool, not designed for users.
       isAdmin && <SheetRow key="steps" icon="grid" label="Admin: every step" onClick={() => { setSheet(null); props.onShowSteps(); }} />,
-      // Meshy's Auto Split, cut into printable parts: a preview, admins only (it spends Meshy credits).
-      isAdmin && ready && <SheetRow key="split" icon="cube" label="Admin: make a printable toy" onClick={() => setSheet('split')} />,
+      // The toy's parts as one file, for a 3D app (the toy slide keeps only Print file).
+      toyMade && figure?.files?.parts && <SheetRow key="toy-glb" icon="download" label="Download toy parts" trail=".glb" onClick={() => { setSheet(null); downloadUrl(figure.files!.parts!, `${name}-toy-parts.glb`); }} />,
+      // Cutting it into printable parts spends a provider's credits: admins only.
+      // Made: make it again (the split sheet's options); not made: make one.
+      isAdmin && ready && (toyMade
+        ? <SheetRow key="split" icon="redo" label="Admin: make the toy again" onClick={() => setSheet('split-again')} />
+        : <SheetRow key="split" icon="cube" label="Admin: make a printable toy" onClick={() => setSheet('split')} />),
       isAdmin && ready && !creation.in_class && (
         <SheetRow
           key="featured"
@@ -368,7 +383,7 @@ export function HeroScreen(props: HeroScreenProps) {
         </Sheet>
       )}
       {sheet === 'details' && step && <ErrorDetailsSheet step={step} onClose={() => setSheet(null)} />}
-      {sheet === 'split' && <Suspense fallback={null}><PrintSplitSheet creation={creation} onClose={() => setSheet(null)} /></Suspense>}
+      {(sheet === 'split' || sheet === 'split-again') && <Suspense fallback={null}><PrintSplitSheet creation={creation} again={sheet === 'split-again'} onClose={() => setSheet(null)} /></Suspense>}
       {(sheet === 'rename' || sheet === 'artist') && <RenameSheet creation={creation} focus={sheet === 'artist' ? 'artist' : 'hero'} onClose={() => setSheet(null)} onSaved={props.onRefresh} />}
       {sheet === 'again' && (
         // Money confirms first (brand book); primary last.
