@@ -348,6 +348,14 @@ async def serve_file(user_id: str, creation_id: str, filename: str, v: Optional[
 
     storage = get_storage()
 
+    # The plate painting's thumbnail is thumb_rendered.png: made from the cut
+    # when there is one, from the painting when it needs none. Asked for as
+    # the thumbnail of cut_rendered.png it used to look for a cut that a
+    # transparent or framed painting never has, and answer 404: a broken
+    # picture on the hero page until the full painting arrived.
+    if filename == THUMB_PREFIX + painting_cut.CUT_FILE:
+        filename = painting_cut.THUMB_FILE
+
     # Handle thumbnail and optimized-copy requests
     is_thumbnail = filename.startswith(THUMB_PREFIX)
     is_optimized = (not is_thumbnail and filename.startswith(OPT_PREFIX)
