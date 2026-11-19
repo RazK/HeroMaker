@@ -449,7 +449,8 @@
 .tb-mini-drawing {
   --tb-pol-pad: 4px;
   --tb-pol-radius: 8px;
-  --mini-w: clamp(72px, min(32cqw, 34cqh), 150px);
+  /* The board's size (92px across on a 390px phone). */
+  --mini-w: clamp(72px, min(26cqw, 30cqh), 150px);
   position: absolute;
   z-index: 3;
   inset-inline-start: 16px;
@@ -554,15 +555,12 @@
 .tb-parts-arrows g { transition: opacity 120ms linear; }
 /* The parts turn by themselves (a drag on the stage is a swipe). */
 .tb-figure-room canvas { display: block; }
-/* Upright, the drawing's card stands in the stage's bottom-start corner, over
-   the dock. The toy turns and comes apart, so it gets the part of the card
-   over the drawing's card, never the corner: nothing passes under the card
-   (Raz: nothing overlaps). The card's height is at most 1.3 of its width
-   (.tb-mini-drawing img), plus its frame, and a space clear of it. */
+/* Upright, the toy fills the card from under the dots to the dock (the
+   "Hero · toy" board). It faces front and sways, and PartsViewer keeps every
+   piece clear of the drawing's card in the bottom-start corner, shrinking a
+   hero only as much as that needs (Raz: nothing overlaps). */
 @media (orientation: portrait) {
-  .tb-hero-main .tb-figure-room {
-    inset-block-end: calc(var(--tb-dock-clear) + 1.3 * clamp(72px, min(32cqw, 34cqh), 150px) + 2 * 4px + 16px);
-  }
+  .tb-hero-main .tb-figure-room { inset-block-start: 40px; }
 }
 .tb-figure-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 /* Locked: the painting, as on its own slide, and a tag over its top. */

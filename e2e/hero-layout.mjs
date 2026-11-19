@@ -16,8 +16,8 @@
 //     apart the toy still passes all of the above and draws its arrows;
 //   - a laptop or bigger: the dock inside the card, and under it only the
 //     bar's two buttons;
-//   - the drawing's card never covers the toy: the toy's parts, projected
-//     to the screen (PartsViewer's data-toy-bounds), clear of the card;
+//   - the drawing's card never covers the toy: each of its parts, projected
+//     to the screen (PartsViewer's data-toy-parts), clear of the card;
 //   - no stage arrows;
 //   - Play is the bottom-most button;
 //   - wider than tall, on the drawing and the painting: the name card's
@@ -127,15 +127,19 @@ async function slideProblems(page) {
       problems.push(`the toy's buttons are not one size (${pair.map((b) => `${Math.round(b.width)}x${Math.round(b.height)}`).join(', ')})`);
     }
     // The drawing's card never covers the toy (together, apart, turning).
-    const toy = document.querySelector('.tb-slide[data-slide="figure"] .tb-parts-stage[data-toy-bounds]');
+    // Each of the toy's parts (its box, projected: PartsViewer's data-toy-parts).
+    const toy = document.querySelector('.tb-slide[data-slide="figure"] .tb-parts-stage[data-toy-parts]');
     const pol = document.querySelector('.tb-one-drawing');
     if (slide === 'figure' && toy && pol && seen(pol) && seen(toy)) {
-      const [l, t, r, b] = toy.dataset.toyBounds.split(',').map(Number);
       const host = toy.getBoundingClientRect();
-      const z = { l: host.left + l, t: host.top + t, r: host.left + r, b: host.top + b };
       const d = pol.getBoundingClientRect();
-      if (hit(z, { l: d.left, t: d.top, r: d.right, b: d.bottom })) {
-        problems.push(`the drawing's card covers the toy (toy ${Math.round(z.l)},${Math.round(z.t)}-${Math.round(z.r)},${Math.round(z.b)}; card ${Math.round(d.left)},${Math.round(d.top)}-${Math.round(d.right)},${Math.round(d.bottom)})`);
+      for (const part of toy.dataset.toyParts.split(';')) {
+        const [l, t, r, b] = part.split(',').map(Number);
+        const z = { l: host.left + l, t: host.top + t, r: host.left + r, b: host.top + b };
+        if (hit(z, { l: d.left, t: d.top, r: d.right, b: d.bottom })) {
+          problems.push(`the drawing's card covers a piece of the toy (piece ${Math.round(z.l)},${Math.round(z.t)}-${Math.round(z.r)},${Math.round(z.b)}; card ${Math.round(d.left)},${Math.round(d.top)}-${Math.round(d.right)},${Math.round(d.bottom)})`);
+          break;
+        }
       }
     }
     if (document.querySelector('.tb-carousel-arrow')) problems.push('the stage has arrows');

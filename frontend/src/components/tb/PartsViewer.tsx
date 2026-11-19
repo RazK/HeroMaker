@@ -1,4 +1,4 @@
-import { ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { PointerEvent, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -17,6 +17,14 @@ const CAMERA_FOV = 40;
 const FILL = 0.94;
 /** How long taking the toy apart (or putting it together) takes, in seconds, when eased. */
 const EASE_S = 0.9;
+/** Swaying, the toy faces front and turns at most this far each way (25 degrees), once in SWAY_S seconds. */
+const SWAY = THREE.MathUtils.degToRad(25);
+const SWAY_S = 9;
+const SWAY_SAMPLES = [-1, -0.5, 0, 0.5, 1].map((k) => k * SWAY);
+/** Turned by a drag, it waits this long (ms) and then eases back to the front. */
+const BACK_MS = 2500;
+/** How far (px) the toy keeps from what it must not pass under. */
+const AVOID_MARGIN = 10;
 const SVG = 'http://www.w3.org/2000/svg';
 
 /**
@@ -32,9 +40,15 @@ const SVG = 'http://www.w3.org/2000/svg';
  * figure slide (ActionFigure.tsx). Its own chunk: three's React bindings load
  * only when parts are shown.
  */
-export function PartsStage({ url, apart, tinted = false, spin = false, jointed = false, moving = false, ease = false, arrows = false }: {
+export function PartsStage({ url, apart, tinted = false, spin = false, jointed = false, moving = false, ease = false, arrows = false, sway = false, avoid }: {
   url: string;
   apart: number;
+  /** Face the front and sway gently, like a toy on a shelf (the hero page's
+   *  toy slide). A drag on the toy turns it, and it eases back. */
+  sway?: boolean;
+  /** A box on the screen the toy must never pass under (the drawing's card):
+   *  the toy is drawn as large as it can be while clear of it. */
+  avoid?: () => DOMRect | null;
   /** Glide to a new `apart`, rather than jump (a slider jumps). */
   ease?: boolean;
   /** Arrows from each piece's ball to its socket, while apart. */
@@ -57,6 +71,37 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
     return () => { alive = false; };
   }, []);
   const overlay = useRef<SVGSVGElement>(null);
+  // A drag that starts on the toy turns it (and is not a swipe of the carousel).
+  const turn = useRef({ user: 0, dragging: false, x: 0, released: -1e9 });
+  const onToy = (e: PointerEvent<HTMLDivElement>) => {
+    const b = e.currentTarget.dataset.toyBounds?.split(',').map(Number);
+    if (!b) return false;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    return x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
+  };
+  const drag = sway ? {
+    onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+      if (!onToy(e)) return;
+      e.stopPropagation();
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ }
+      turn.current.dragging = true;
+      turn.current.x = e.clientX;
+    },
+    onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
+      if (!turn.current.dragging) return;
+      e.stopPropagation();
+      turn.current.user += (e.clientX - turn.current.x) * 0.012;
+      turn.current.x = e.clientX;
+    },
+    onPointerUp: (e: PointerEvent<HTMLDivElement>) => {
+      if (!turn.current.dragging) return;
+      e.stopPropagation();
+      turn.current.dragging = false;
+      turn.current.released = performance.now();
+    },
+  } : {};
   const canvas = (
     <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }} dpr={[1, 2]}>
       {look && <HeroLook look={look} />}
@@ -67,18 +112,19 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
         <directionalLight position={[-3, 1, -2]} intensity={1} />
       </>)}
       <Suspense fallback={<Html center><div className="tb-ring tb-parts-loading" style={{ ['--p' as string]: '25%' }}><span>…</span></div></Html>}>
-        <Turntable on={spin}><Parts url={url} apart={apart} ease={ease} tinted={tinted} moving={jointed && moving} look={look || null} overlay={arrows ? overlay : null} /></Turntable>
+        <Turntable on={spin}><Parts url={url} apart={apart} ease={ease} tinted={tinted} moving={jointed && moving} look={look || null}
+          overlay={arrows || sway ? overlay : null} sway={sway} turn={turn} avoid={avoid} /></Turntable>
       </Suspense>
       {/* Zoom out only: the parts are framed to fit pulled fully apart, so a
           pinch never crops them at the stage's edges. */}
       {!spin && <OrbitControls enablePan={false} minDistance={CAMERA_Z} maxDistance={6} />}
     </Canvas>
   );
-  if (!arrows) return canvas;
+  if (!arrows && !sway) return canvas;
   // The arrows: an SVG over the canvas, its paths written every frame from the
   // joints projected to the screen (Parts), so they stay on the turning pieces.
   return (
-    <div className="tb-parts-stage">
+    <div className="tb-parts-stage" {...drag} onPointerCancel={drag.onPointerUp}>
       {canvas}
       <svg ref={overlay} className="tb-parts-arrows" aria-hidden="true" />
     </div>
@@ -182,15 +228,46 @@ function fitScale(half: number, round: number, aspect: number): number {
   return Math.min(tall, wide);
 }
 
+/**
+ * The same for a toy that sways (SWAY each way) rather than turns all the way:
+ * `wide` how far it reaches sideways at its widest sway, `deep` how far towards
+ * the camera.
+ */
+function fitSway(half: number, wide: number, deep: number, aspect: number): number {
+  const t = FILL * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2));
+  const tall = (t * CAMERA_Z) / (half + t * deep);
+  const across = (t * aspect * CAMERA_Z) / (wide + t * aspect * deep);
+  return Math.min(tall, across);
+}
+
+/** How far points (x, z about the middle) reach sideways and towards the camera, swaying. */
+function swayReach(points: [number, number][]): { wide: number; deep: number } {
+  let wide = 1e-6;
+  let deep = 1e-6;
+  for (const a of SWAY_SAMPLES) {
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    for (const [x, z] of points) {
+      wide = Math.max(wide, Math.abs(x * c + z * s));
+      deep = Math.max(deep, Math.abs(-x * s + z * c));
+    }
+  }
+  return { wide, deep };
+}
+
 /** The split model, centred and sized, each part moved out along its joint by `apart`. */
-function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
+function Parts({ url, apart, ease, tinted, moving, look, overlay, sway = false, turn, avoid }: {
   url: string; apart: number; ease: boolean; tinted: boolean; moving: boolean; look: StageModule | null;
   overlay: { current: SVGSVGElement | null } | null;
+  sway?: boolean;
+  turn?: { current: { user: number; dragging: boolean; released: number } };
+  avoid?: () => DOMRect | null;
 }) {
   const gltf = useLoader(GLTFLoader, url);
   const scene = useThree((s) => s.scene);
   const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
-  const { root, parts, half, round, halfTogether, roundTogether } = useMemo(() => {
+  const gl = useThree((s) => s.gl);
+  const { root, parts, half, round, halfTogether, roundTogether, reachTogether, reachApart } = useMemo(() => {
     const root = gltf.scene.clone(true);
     root.updateMatrixWorld(true);
     const center = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
@@ -216,6 +293,8 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
     let round = 1e-6;
     let halfTogether = 1e-6;
     let roundTogether = 1e-6;
+    const flatTogether: [number, number][] = [];
+    const flatApart: [number, number][] = [];
     const list: Part[] = meshes.map((mesh, i) => {
       const parent = mesh.parent!;
       const at = new THREE.Vector3(...plan.joint[i]);
@@ -226,9 +305,12 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
         if (!far) halfTogether = Math.max(halfTogether, Math.abs(p.y));
       }
       for (const x of [boxes[i].min.x, boxes[i].max.x]) for (const z of [boxes[i].min.z, boxes[i].max.z]) for (const far of [0, 1]) {
-        const r = Math.hypot(x + far * move.x - center.x, z + far * move.z - center.z);
+        const px = x + far * move.x - center.x;
+        const pz = z + far * move.z - center.z;
+        const r = Math.hypot(px, pz);
         round = Math.max(round, r);
-        if (!far) roundTogether = Math.max(roundTogether, r);
+        flatApart.push([px, pz]);
+        if (!far) { roundTogether = Math.max(roundTogether, r); flatTogether.push([px, pz]); }
       }
       // The joint, in the parent's space: a pivot stands there and the part hangs off it.
       const joint = parent.worldToLocal(at.clone());
@@ -255,7 +337,7 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
       list[owner].pieceMaterials.push(piece.material);
     });
     root.position.copy(center).negate();
-    return { root, parts: list, half, round, halfTogether, roundTogether };
+    return { root, parts: list, half, round, halfTogether, roundTogether, reachTogether: swayReach(flatTogether), reachApart: swayReach(flatApart) };
   }, [gltf]);
 
   const tints = useRef<THREE.Material[]>([]);
@@ -309,9 +391,71 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
   const socket = useMemo(() => new THREE.Vector3(), []);
   const still = useMemo(() => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   const frame = useRef<THREE.Group>(null);
-  const together = fitScale(halfTogether, roundTogether, aspect);
-  const apartScale = fitScale(half, round, aspect);
-  useFrame(({ clock, camera, size }) => {
+  // Swaying, it is framed for its sway, not a full turn: larger.
+  const together = sway ? fitSway(halfTogether, reachTogether.wide, reachTogether.deep, aspect) : fitScale(halfTogether, roundTogether, aspect);
+  const apartScale = sway ? fitSway(half, reachApart.wide, reachApart.deep, aspect) : fitScale(half, round, aspect);
+  // Swaying, it stands at the top of its room when the room is taller than it
+  // needs (a phone: the width limits it), so what is left is at the bottom,
+  // where the drawing's card stands.
+  const top = FILL * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2)) * CAMERA_Z;
+  const lift = (scale: number, value: number) => (sway ? Math.max(0, top - scale * (halfTogether + (half - halfTogether) * value)) : 0);
+  // As large as it can be while clear of `avoid`: a share of its framing,
+  // together and apart, found once per layout by trying the sway's extremes.
+  const clear = useRef({ key: '', together: 1, apart: 1 });
+  // Each mesh's own points, a few hundred of them: projected, they give where
+  // it really is on screen (its 3D box's corners reach well past a leg).
+  const samples = useMemo(() => parts.flatMap((p) => [p.mesh, ...p.pieces]).map((m) => {
+    const at = m.geometry.getAttribute('position');
+    const step = Math.max(1, Math.floor(at.count / 400));
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < at.count; i += step) pts.push(new THREE.Vector3().fromBufferAttribute(at, i));
+    return { mesh: m, pts };
+  }), [parts]);
+  const boxes = (camera: THREE.Camera, size: { width: number; height: number }) => samples.map(({ mesh, pts }) => {
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (const v of pts) {
+      corner.copy(v).applyMatrix4(mesh.matrixWorld).project(camera);
+      const x = (corner.x + 1) / 2 * size.width;
+      const y = (1 - corner.y) / 2 * size.height;
+      l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
+    }
+    return [l, t, r, b] as [number, number, number, number];
+  });
+  const fitClear = (camera: THREE.Camera, size: { width: number; height: number }) => {
+    const a = avoid?.();
+    const c = gl.domElement.getBoundingClientRect();
+    const zone = a && a.width > 0 && a.height > 0
+      ? { l: a.left - c.left - AVOID_MARGIN, t: a.top - c.top - AVOID_MARGIN, r: a.right - c.left + AVOID_MARGIN, b: a.bottom - c.top + AVOID_MARGIN }
+      : null;
+    const key = zone ? [zone.l, zone.t, zone.r, zone.b, size.width, size.height].map(Math.round).join(',') : `none ${size.width}x${size.height}`;
+    if (key === clear.current.key || !frame.current) return;
+    clear.current.key = key;
+    if (!zone) { clear.current.together = clear.current.apart = 1; return; }
+    const g = frame.current;
+    const saved = { value: shown.current.value, rot: g.rotation.y, y: g.position.y, scale: g.scale.x };
+    const solve = (value: number, fit: number) => {
+      place(value);
+      for (let k = 1; k > 0.3; k -= 0.02) {
+        g.scale.setScalar(fit * k);
+        g.position.y = lift(fit * k, value);
+        const hit = SWAY_SAMPLES.some((angle) => {
+          g.rotation.y = angle;
+          g.updateWorldMatrix(true, true);
+          return boxes(camera, size).some(([l, t, r, b]) => l < zone.r && r > zone.l && t < zone.b && b > zone.t);
+        });
+        if (!hit) return k;
+      }
+      return 0.3;
+    };
+    clear.current.together = solve(0, together);
+    clear.current.apart = solve(1, apartScale);
+    place(saved.value);
+    g.rotation.y = saved.rot;
+    g.position.y = saved.y;
+    g.scale.setScalar(saved.scale);
+    g.updateWorldMatrix(true, true);
+  };
+  useFrame(({ clock, camera, size }, dt) => {
     // Taking apart: an ease in and out, from wherever it was.
     const s = shown.current;
     if (s.value !== s.to) {
@@ -322,28 +466,33 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay }: {
       place(s.value);
     }
     // The framing follows: as big as fits for how far apart they are now.
-    frame.current?.scale.setScalar(together + (apartScale - together) * Math.min(1, Math.max(0, s.value)));
+    if (avoid && ticks.current % 15 === 0) fitClear(camera, size);
+    const v = Math.min(1, Math.max(0, s.value));
+    const scale = together * clear.current.together + (apartScale * clear.current.apart - together * clear.current.together) * v;
+    if (frame.current) {
+      frame.current.scale.setScalar(scale);
+      frame.current.position.y = lift(scale, v);
+      // Swaying at the front, plus however a drag turned it, easing back.
+      if (sway && turn) {
+        const tr = turn.current;
+        if (!tr.dragging && performance.now() - tr.released > BACK_MS) {
+          const wrapped = Math.atan2(Math.sin(tr.user), Math.cos(tr.user));
+          tr.user = THREE.MathUtils.damp(wrapped, 0, 2.5, dt);
+        }
+        frame.current.rotation.y = (still ? 0 : SWAY * Math.sin((2 * Math.PI * clock.elapsedTime) / SWAY_S)) + tr.user;
+      }
+    }
     // Where the toy is on screen (its parts' boxes, projected, within the
     // canvas), for the layout check: nothing may cover it (hero-layout.mjs).
+    // The whole toy (where a drag turns it) and each part's box (what must
+    // stay clear of the drawing's card: hero-layout.mjs checks them).
     const host = overlay?.current?.parentElement;
     if (host && ++ticks.current % 6 === 0) {
-      let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
-      for (const p of parts) {
-        for (const m of [p.mesh, ...p.pieces]) {
-          const g = m.geometry;
-          if (!g.boundingBox) g.computeBoundingBox();
-          const bb = g.boundingBox!;
-          for (let i = 0; i < 8; i++) {
-            corner.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z)
-              .applyMatrix4(m.matrixWorld).project(camera);
-            const x = (corner.x + 1) / 2 * size.width;
-            const y = (1 - corner.y) / 2 * size.height;
-            l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
-          }
-        }
-      }
+      const each = boxes(camera, size);
       const clamp = (v: number, hi: number) => Math.round(Math.min(hi, Math.max(0, v)));
-      host.dataset.toyBounds = `${clamp(l, size.width)},${clamp(t, size.height)},${clamp(r, size.width)},${clamp(b, size.height)}`;
+      const fit = ([l, t, r, b]: number[]) => `${clamp(l, size.width)},${clamp(t, size.height)},${clamp(r, size.width)},${clamp(b, size.height)}`;
+      host.dataset.toyBounds = fit([Math.min(...each.map((e) => e[0])), Math.min(...each.map((e) => e[1])), Math.max(...each.map((e) => e[2])), Math.max(...each.map((e) => e[3]))]);
+      host.dataset.toyParts = each.map(fit).join(';');
     }
     if (!arrowPaths.current.length) return;
     // The arrows show as the pieces come apart, wiggling.
