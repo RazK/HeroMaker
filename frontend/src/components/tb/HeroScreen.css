@@ -263,27 +263,15 @@
   .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock {
     width: min(460px, calc(100% - 2 * var(--foot-side)));
   }
-  /* The toy's controls, made: the foot's own parts, like the moves, never a
-     white panel floating over the frame (Raz: "elements override each
-     other"). Move a pill like a move, the slider bare on the cream, the 3MF
-     an outlined button, all one foot button tall. */
+  /* The toy's two pills, made: where the moves are, as tall as they are, in a
+     row as wide as the bar's two buttons in the design (656px). */
   .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock--made {
-    width: min(620px, calc(100% - 2 * var(--foot-side)));
+    width: min(656px, calc(100% - 2 * var(--foot-side)));
     height: var(--foot-btn);
-    padding: 0;
-    gap: var(--tb-space);
-    border-radius: 0;
-    background: none;
+    gap: 16px;
   }
-  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-move,
-  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-get {
-    height: var(--foot-btn);
-    min-width: 120px;
-    padding: 0 22px;
-    gap: 8px;
-    font-size: 18px;
-  }
-  .tb-hero-main[data-state='ready'] .tb-figure-slider { gap: 10px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-btn { gap: 10px; padding: 0 16px; font-size: 18px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-btn svg { width: 22px; height: 22px; }
   .tb-hero-main[data-state='ready'] .tb-figure-room { inset: var(--room-top) 0 calc(var(--foot) + var(--tb-space)); }
 
   /* The drawing's small card: in the card's bottom-start corner, a space in
@@ -337,8 +325,8 @@
   .tb-hero-main[data-state='ready'] .tb-move { width: auto; min-width: 0; padding: 0 12px; gap: 6px; font-size: 15px; }
   .tb-hero-main[data-state='ready'] .tb-moves { gap: 6px; }
   .tb-hero-main[data-state='ready'] .tb-live-stage .tb-figure-dock--made { width: calc(100% - 2 * var(--foot-side)); gap: 8px; }
-  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-move,
-  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-get { min-width: 96px; padding: 0 12px; font-size: 15px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-btn { gap: 6px; padding: 0 10px; font-size: 15px; }
+  .tb-hero-main[data-state='ready'] .tb-figure-dock--made > .tb-figure-btn svg { width: 18px; height: 18px; }
   .tb-hero-main[data-state='ready'] .tb-move svg { width: 18px; height: 18px; }
   .tb-hero-main[data-state='ready'] .tb-mini-drawing {
     --mini-w: clamp(72px, 22cqh, 120px);

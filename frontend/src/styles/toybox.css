@@ -21,6 +21,9 @@ html { font-synthesis: none; }
   --tb-grape: #5b3df5;
   --tb-grape-deep: #3a22b8;
   --tb-grape-text: #4b2fe0;
+  /* Chosen (a pressed toggle, a picked option): this fill, a grape outline
+     and grape depth. Solid grape is only ever the one primary action. */
+  --tb-chosen: #d9d0ff;
   --tb-sun: #ffc233;
   --tb-sun-deep: #d99a00;
   --tb-ink: #231942;

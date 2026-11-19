@@ -10,6 +10,10 @@
 //   - every button in the stage's dock (the moves, the toy's Move, 3MF and
 //     make button) is a pill with its icon and its words on one line, no word
 //     cut (Raz: never a rounded rectangle, never the icon above the word);
+//   - nothing touches the screen's edges or the card's: each thing is inside
+//     the card or outside it, at least 4px clear either way;
+//   - the toy's two buttons (Take apart, Print file) are one size, and taken
+//     apart the toy still passes all of the above and draws its arrows;
 //   - no stage arrows;
 //   - Play is the bottom-most button;
 //   - wider than tall, on the drawing and the painting: the name card's
@@ -61,7 +65,7 @@ async function slideProblems(page) {
     const dots = [...document.querySelectorAll('.tb-carousel-dot')].map((d) => d.getBoundingClientRect());
     if (dots.length) items.push({ name: 'the dots', l: Math.min(...dots.map((d) => d.left)), t: Math.min(...dots.map((d) => d.top)), r: Math.max(...dots.map((d) => d.right)), b: Math.max(...dots.map((d) => d.bottom)) });
     document.querySelectorAll('.tb-live-stage .tb-figure-tag, .tb-live-stage .tb-slide-status').forEach((el) => seen(el) && add(`the caption "${el.textContent.trim()}"`, el));
-    document.querySelectorAll('.tb-dock-layer .tb-live-name, .tb-dock-layer .tb-move, .tb-dock-layer .tb-figure-move, .tb-dock-layer .tb-figure-slider, .tb-dock-layer .tb-figure-get, .tb-dock-layer .tb-figure-buy')
+    document.querySelectorAll('.tb-dock-layer .tb-live-name, .tb-dock-layer .tb-move, .tb-dock-layer .tb-figure-btn, .tb-dock-layer .tb-figure-buy')
       .forEach((el) => seen(el) && add(`dock ${el.className.split(' ').find((c) => /^tb-(live-name|move|figure-)/.test(c))} "${el.textContent.trim().slice(0, 24)}"`, el));
     document.querySelectorAll('.tb-hero-screen > .tb-bar .tb-btn').forEach((el) => seen(el) && add(`bar "${el.textContent.trim()}"`, el));
     if (slide !== 'drawing') {
@@ -77,7 +81,7 @@ async function slideProblems(page) {
       }
     }
     // Every button in the dock: a pill, its icon and its words on one line, no word cut.
-    document.querySelectorAll('.tb-dock-layer .tb-move, .tb-dock-layer .tb-figure-move, .tb-dock-layer .tb-figure-get, .tb-dock-layer .tb-figure-buy').forEach((el) => {
+    document.querySelectorAll('.tb-dock-layer .tb-move, .tb-dock-layer .tb-figure-btn, .tb-dock-layer .tb-figure-buy').forEach((el) => {
       if (!seen(el)) return;
       const name = `the dock's "${el.textContent.trim().slice(0, 24)}" button`;
       const r = el.getBoundingClientRect();
@@ -94,6 +98,23 @@ async function slideProblems(page) {
       }
       if (mids.some((m) => Math.abs(m - (r.top + r.bottom) / 2) > 4)) problems.push(`${name} does not have its icon and its words on one line`);
     });
+    // Nothing touches an edge: the screen's, or the card's (inside it or
+    // outside it, 4px clear). Wider than tall the card is the stage less the
+    // foot under it (its ::before paints it).
+    const CLEAR = 4;
+    const before = getComputedStyle(stage, '::before');
+    const card = { l: sb.left, t: sb.top, r: sb.right, b: sb.bottom - (before.content !== 'none' ? parseFloat(before.bottom) || 0 : 0) };
+    for (const it of items) {
+      if (it.l < CLEAR || it.t < CLEAR || it.r > innerWidth - CLEAR || it.b > innerHeight - CLEAR) problems.push(`${it.name} touches the screen's edge`);
+      const inside = it.l >= card.l + CLEAR && it.r <= card.r - CLEAR && it.t >= card.t + CLEAR && it.b <= card.b - CLEAR;
+      const outside = it.r <= card.l - CLEAR || it.l >= card.r + CLEAR || it.b <= card.t - CLEAR || it.t >= card.b + CLEAR;
+      if (!inside && !outside) problems.push(`${it.name} touches the card's edge`);
+    }
+    // The toy's buttons: one size.
+    const pair = [...document.querySelectorAll('.tb-dock-layer .tb-figure-btn')].filter(seen).map((el) => el.getBoundingClientRect());
+    if (pair.length > 1 && pair.some((b) => Math.abs(b.width - pair[0].width) > 1 || Math.abs(b.height - pair[0].height) > 1)) {
+      problems.push(`the toy's buttons are not one size (${pair.map((b) => `${Math.round(b.width)}x${Math.round(b.height)}`).join(', ')})`);
+    }
     if (document.querySelector('.tb-carousel-arrow')) problems.push('the stage has arrows');
 
     const play = document.querySelector('.tb-hero-screen .tb-play');
@@ -142,12 +163,41 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
     // A dot goes straight to its own slide.
     if (!landed) got.problems.unshift(`the dot for "${slides[i]}" landed on "${got.slide}"`);
     out.push(got);
+    if (slides[i] === 'figure') {
+      const apart = await toyApart(page);
+      if (apart) out.push(apart);
+    }
   }
   if (start >= 0) {
     await page.locator('.tb-carousel-dot').nth(start).click();
     await page.waitForTimeout(settle);
   }
   return out;
+}
+
+/**
+ * The toy taken apart: Take apart, then the same rules, its arrows drawn, and
+ * Put together again. Null when the toy is not made (no Take apart button).
+ */
+async function toyApart(page) {
+  const button = page.locator('.tb-dock-layer .tb-figure-apart');
+  if (!(await button.count()) || !(await button.isVisible())) return null;
+  // The parts are in: their canvas, and no loading ring.
+  await page.waitForFunction(() => !!document.querySelector('.tb-figure-room canvas') && !document.querySelector('.tb-parts-loading'), null, { timeout: 120000 })
+    .catch(() => {});
+  await button.click();
+  await page.waitForTimeout(2200);
+  const got = await slideProblems(page);
+  got.slide = 'figure taken apart';
+  if ((await button.getAttribute('aria-pressed')) !== 'true' || !/Put together/.test(await button.textContent())) {
+    got.problems.push('Take apart did not turn into a chosen "Put together"');
+  }
+  const arrows = await page.evaluate(() => [...document.querySelectorAll('.tb-parts-arrows g')]
+    .filter((g) => +getComputedStyle(g).opacity > 0.9 && (g.querySelector('path')?.getAttribute('d') || '').length > 10).length);
+  if (!arrows) got.problems.push('taken apart, the toy draws no arrows');
+  await button.click();
+  await page.waitForTimeout(1500);
+  return got;
 }
 
 async function main() {

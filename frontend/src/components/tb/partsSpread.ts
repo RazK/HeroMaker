@@ -49,8 +49,8 @@ const LEAN = 0.3;
 const LEAN_FROM = 0.1;
 const LEAN_FULL = 0.3;
 /** Fully apart, a piece has moved this share of its own length, plus this share of the figure's size. */
-const TRAVEL_LENGTH = 0.25;
-const TRAVEL_STEP = 0.06;
+const TRAVEL_LENGTH = 0.4;
+const TRAVEL_STEP = 0.1;
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
