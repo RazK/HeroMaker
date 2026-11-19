@@ -14,6 +14,9 @@
  * The types below are the module's contract (games/hero-moves/src/herostage.ts).
  */
 
+import type * as THREE from 'three';
+import type { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+
 export interface HeroStageInstance {
   showSculpt(url: string): Promise<void>;
   showHero(url: string): Promise<void>;
@@ -33,6 +36,11 @@ export interface StageModule {
   prepareHero(url: string): Promise<void>;
   prepareSculpt(url: string): Promise<void>;
   HeroStage: new (container: HTMLElement, events?: { onPlaying?: (id: string | null) => void }) => HeroStageInstance;
+  /** Light `scene` and set up `renderer` as the hero page does (games/hero-moves/src/look.ts),
+   *  with the caller's own three.js. Returns a function that takes it away again. */
+  applyLook(parts: { THREE: typeof THREE; RoomEnvironment: typeof RoomEnvironment }, renderer: THREE.WebGLRenderer, scene: THREE.Scene): () => void;
+  /** Give every material under `root` the hero's finish (matte, not metal, both sides). */
+  finishMaterials(parts: { THREE: typeof THREE }, root: THREE.Object3D, scene?: THREE.Scene): void;
 }
 
 export const STAGE_MODULE_URL = '/play/herostage.js';

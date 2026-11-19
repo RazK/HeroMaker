@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm'
 import { Rig } from './rig'
+import { finishMaterials } from '../look'
 
 /**
  * A loaded, grounded, front-facing hero. Deliberately knows nothing about
@@ -191,14 +192,9 @@ function heroFromGltf(gltf: Gltf, opts: { outline?: boolean }): Hero {
     const mesh = obj as THREE.Mesh
     if (!mesh.isMesh) return
     mesh.castShadow = true
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    for (const m of mats) {
-      const std = m as THREE.MeshStandardMaterial
-      if (std.isMeshStandardMaterial) { std.roughness = 0.92; std.metalness = 0 }
-      // Kid drawings often have thin flat bits (capes, wings) with no back face.
-      m.side = THREE.DoubleSide
-    }
   })
+  // The hero's finish: matte, never metal, both sides drawn (look.ts).
+  finishMaterials({ THREE }, vrm.scene)
 
   const rig = new Rig(vrm)
 

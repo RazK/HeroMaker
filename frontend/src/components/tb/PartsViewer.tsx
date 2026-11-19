@@ -1,9 +1,11 @@
-import { ReactNode, Suspense, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { spreadPlan } from './partsSpread';
+import { loadStage, StageModule } from './stage';
 
 /** Colours to tell the parts apart: the plates, then the sun and grape. */
 const PART_TINTS = ['#e9e3ff', '#ffe9a8', '#cff5ea', '#ffdcc7', '#d6ecff', '#ffd6e7', '#ffc233', '#5b3df5'];
@@ -35,13 +37,25 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
   /** Swing the arms and legs about their joint centres. */
   moving?: boolean;
 }) {
+  // The hero page's light (games/hero-moves/src/look.ts), from the hero
+  // stage module the hero page loads anyway: the toy is lit like its hero.
+  const [look, setLook] = useState<StageModule | null | false>(null);
+  useEffect(() => {
+    let alive = true;
+    loadStage().then((m) => { if (alive) setLook(typeof m.applyLook === 'function' ? m : false); }, () => { if (alive) setLook(false); });
+    return () => { alive = false; };
+  }, []);
   return (
     <Canvas camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }} dpr={[1, 2]}>
-      <hemisphereLight args={['#ffffff', '#b9aee0', 2.2]} />
-      <directionalLight position={[2, 3, 4]} intensity={2.4} />
-      <directionalLight position={[-3, 1, -2]} intensity={1} />
+      {look && <HeroLook look={look} />}
+      {/* The hero stage module did not load: plain light, so the parts still show. */}
+      {look === false && (<>
+        <hemisphereLight args={['#ffffff', '#b9aee0', 2.2]} />
+        <directionalLight position={[2, 3, 4]} intensity={2.4} />
+        <directionalLight position={[-3, 1, -2]} intensity={1} />
+      </>)}
       <Suspense fallback={<Html center><div className="tb-ring tb-parts-loading" style={{ ['--p' as string]: '25%' }}><span>…</span></div></Html>}>
-        <Turntable on={spin}><Parts url={url} apart={apart} tinted={tinted} moving={jointed && moving} /></Turntable>
+        <Turntable on={spin}><Parts url={url} apart={apart} tinted={tinted} moving={jointed && moving} look={look || null} /></Turntable>
       </Suspense>
       {/* Zoom out only: the parts are framed to fit pulled fully apart, so a
           pinch never crops them at the stage's edges. */}
@@ -51,6 +65,14 @@ export function PartsStage({ url, apart, tinted = false, spin = false, jointed =
 }
 
 export default PartsStage;
+
+/** The hero page's lights, room, tone mapping and exposure, on this canvas. */
+function HeroLook({ look }: { look: StageModule }) {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => look.applyLook({ THREE, RoomEnvironment }, gl, scene), [look, gl, scene]);
+  return null;
+}
 
 /** A slow turn, one round in about 14 s, so every side of the parts shows. */
 function Turntable({ on, children }: { on: boolean; children: ReactNode }) {
@@ -137,8 +159,9 @@ function fitScale(half: number, round: number, aspect: number): number {
 }
 
 /** The split model, centred and sized, each part moved out along its joint by `apart`. */
-function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tinted: boolean; moving: boolean }) {
+function Parts({ url, apart, tinted, moving, look }: { url: string; apart: number; tinted: boolean; moving: boolean; look: StageModule | null }) {
   const gltf = useLoader(GLTFLoader, url);
+  const scene = useThree((s) => s.scene);
   const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
   const { root, parts, half, round } = useMemo(() => {
     const root = gltf.scene.clone(true);
@@ -207,7 +230,10 @@ function Parts({ url, apart, tinted, moving }: { url: string; apart: number; tin
       p.mesh.material = tinted ? tints.current[i] : p.material;
       p.pieces.forEach((piece, k) => { piece.material = tinted ? tints.current[i] : p.pieceMaterials[k]; });
     });
-  }, [parts, apart, tinted]);
+    // The hero's finish on whatever is shown: a provider's file often says
+    // "metal" by leaving metalness out (glTF's default is 1), drawn dark and flat.
+    look?.finishMaterials({ THREE }, root, scene);
+  }, [parts, apart, tinted, look, root, scene]);
 
   // The toy's moves: the arms swing down from the T-pose and up again, one
   // after the other, and the legs step, each about its own joint centre.
