@@ -48,6 +48,10 @@ export function Landing({ onMakeHero, onRunClass, busy, onButtonsShown }: Landin
       <div className="tb-landing-text">
         <h1 className="tb-landing-title">{LINES.map((l) => <span key={l}>{l} </span>)}</h1>
         <div className="tb-landing-acts tb-landing-acts--side" ref={sideRef}>
+          {/* A phone on its side has both, stacked, beside the pictures; a desktop only Make a hero. */}
+          <button type="button" className="tb-btn tb-btn--secondary tb-landing-class tb-landing-class--side" onClick={onRunClass}>
+            <Icon name="school" />Run a class
+          </button>
           <button type="button" className="tb-btn tb-btn--primary tb-landing-make" disabled={busy} onClick={onMakeHero}>
             <Icon name="camera" />Make a hero
           </button>
