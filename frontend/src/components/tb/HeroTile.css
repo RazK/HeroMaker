@@ -10,6 +10,12 @@
    looks exactly as it did. */
 .tb-tiles { container: tb-tiles / inline-size; min-width: 0; }
 .tb-tiles-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+/* A phone on its side: enough columns that a whole tile fits between the
+   header and the bar (Raz: the pictures "don't fit the screen, they're cut"). */
+@media (orientation: landscape) and (max-height: 599px) and (min-width: 600px) {
+  .tb-tiles-grid { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 12px !important; }
+  .tb-tile:not(.tb-tile--mini) { height: 212px !important; }
+}
 @container tb-tiles (min-width: 680px) {
   .tb-tiles-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
   .tb-tile:not(.tb-tile--mini) { height: 280px; }

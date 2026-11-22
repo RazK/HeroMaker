@@ -52,7 +52,7 @@
 .tb-landing-cap--2 { grid-column: 3; justify-self: center; }
 .tb-landing-cap--3 { grid-column: 5; justify-self: end; }
 
-.tb-landing-acts--side { display: none; }
+.tb-landing-acts--side, .tb-landing-class--side { display: none; }
 .tb-landing-acts--below { margin-top: 6px; }
 
 .tb-landing-gallery { margin: 8px 0 0; font-family: var(--tb-font-display); font-weight: 400; font-size: 24px; text-align: center; color: var(--tb-ink); }
@@ -74,15 +74,21 @@
   .tb-landing-gallery { font-size: 32px; text-align: start; margin-top: 0; }
 }
 
-/* A phone on its side: the row keeps a phone's size, so the buttons and the
-   gallery's start still show under it. */
-@media (orientation: landscape) and (max-height: 599px) {
-  .tb-landing-story { width: min(100%, 440px); align-self: center; }
-  /* The buttons as wide as the row of pictures and a control's height, so
-     they don't outweigh it (Raz: "the buttons are too big"); the bar's,
-     once scrolled, the same. */
-  .tb-landing-acts--below { width: min(100%, 440px); align-self: center; }
-  .tb-landing-acts--below .tb-btn,
+/* A phone on its side: the desktop's layout, smaller (Raz: "if it's on its
+   side, maybe the buttons should go to the side like on desktop"). */
+@media (orientation: landscape) and (max-height: 599px) and (min-width: 600px) {
+  .tb-landing { flex-direction: row; align-items: center; gap: 24px; padding: 0 0 8px; }
+  .tb-landing-text { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; flex: 0 0 auto; display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+  .tb-landing-title { font-size: 30px; line-height: 1.08; }
+  .tb-landing-title span { display: block; }
+  .tb-landing-acts--side { display: flex; flex-direction: column; gap: 12px; }
+  .tb-landing-acts--side .tb-btn { height: var(--tb-btn-sm-h); font-size: 17px; padding: 0 16px; }
+  .tb-landing-class--side { display: inline-flex; }
+  .tb-landing-story { flex: 1 1 auto; min-width: 0; max-width: 440px; margin-inline: auto; }
+  .tb-landing-cap { display: none; }
+  .tb-landing-acts--below { display: none; }
+  .tb-landing-gallery { text-align: start; margin-top: 0; }
+  /* The bar, once scrolled past: the same two at a control's height. */
   .tb-screen--app > .tb-bar .tb-btn { height: var(--tb-btn-sm-h); font-size: 17px; padding: 0 16px; }
   .tb-screen--app > .tb-bar .tb-bar-row { width: min(100%, 440px); align-self: center; }
 }
