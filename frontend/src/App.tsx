@@ -10,6 +10,7 @@ import { Terms } from './components/tb/Terms';
 import { Refunds } from './components/tb/Refunds';
 import { Developers } from './components/tb/Developers';
 import { LEGAL_OPEN_EVENT, LEGAL_PATHS, LegalPage, legalPageAt, openLegal } from './components/tb/Legal';
+import { Landing } from './components/tb/Landing';
 import { Gallery, Filter, Section, forgetGallery, galleryTabs, hadSwitch, rememberSection, rememberTab, rememberedSection, rememberedTab, resetGalleryScroll } from './components/tb/Gallery';
 import { Segmented } from './components/tb/Segmented';
 import { LiveStrip, MyClasses, NewClassFlow, hasLiveClass, useMyClasses } from './components/class/MyClasses';
@@ -140,6 +141,9 @@ function MainApp() {
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean; is_teacher: boolean } | null>(null);
   const [galleryKey, setGalleryKey] = useState(0);
+  // Signed out: whether the landing's own Run a class / Make a hero are on screen
+  // (then the bar is empty; scrolled past them, they are in the bar).
+  const [landingActsShown, setLandingActsShown] = useState(false);
   const renderStyles = useRenderStyles();
   const [renderStyle, setRenderStyle] = useState<string>(DEFAULT_STYLE);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -643,6 +647,11 @@ function MainApp() {
     if (openedFrom === 'admin' && userInfo?.is_admin) { up(prev?.startsWith(ADMIN_PATH) ? prev : adminPath(adminUser)); return; }
     up('/');
   };
+  // The way in for a teacher or a party host: sign up, then My classes.
+  const runClass = () => {
+    setClassesIntent(true);
+    window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup', note: 'Then make your first class.' } }));
+  };
   const appHeader = (
     <Header
       left={(
@@ -790,17 +799,7 @@ function MainApp() {
         {notices}
         <div className="tb-screen-body">
           {!isLoggedIn && (
-            <section className="tb-intro">
-              <h2 className="tb-intro-title">Draw it. <br />We make it a real hero.</h2>
-              <p className="tb-muted">Snap any drawing. Minutes later, it’s a 3D hero that moves.</p>
-              {/* The way in for a teacher or a party host: sign up, then My classes. */}
-              <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-intro-classes" onClick={() => {
-                setClassesIntent(true);
-                window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup', note: 'Then make your first class.' } }));
-              }}>
-                <Icon name="school" />Run a class
-              </button>
-            </section>
+            <Landing onMakeHero={startNewHero} onRunClass={runClass} busy={isUploading} onButtonsShown={setLandingActsShown} />
           )}
           <Gallery
             key={galleryKey}
@@ -818,13 +817,24 @@ function MainApp() {
           />
           {footer()}
         </div>
-        <div className="tb-bar">
+        <div className={`tb-bar${!isLoggedIn && landingActsShown ? ' tb-bar--away' : ''}`}>
           {onClassesTab ? (
             // A class running now has the screen's grape action (Open class), so New class steps back.
             <button type="button" className={`tb-btn tb-btn--${hasLiveClass(myClasses.classes) ? 'secondary' : 'primary'} tb-btn--full cls-new-class`}
               onClick={() => setClassSheet('new')}>
               <Icon name="plus" />New class
             </button>
+          ) : !isLoggedIn ? (
+            // Signed out, the landing's own two buttons stand above the
+            // gallery; scrolled past them, the same two are here.
+            <div className="tb-bar-row">
+              <button type="button" className="tb-btn tb-btn--secondary tb-run-class" onClick={runClass}>
+                <Icon name="school" />Run a class
+              </button>
+              <button type="button" className="tb-btn tb-btn--primary tb-new-hero" disabled={isUploading} onClick={startNewHero}>
+                <Icon name="camera" />{isUploading ? 'Uploading…' : 'Make a hero'}
+              </button>
+            </div>
           ) : (
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-new-hero" disabled={isUploading} onClick={startNewHero}>
               <Icon name="camera" />{isUploading ? 'Uploading…' : 'Make a hero'}
