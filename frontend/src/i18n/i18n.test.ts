@@ -33,11 +33,12 @@ test('every locale parses, and has no key the source lacks', () => {
 test('the share video says it in each language, never needing the child gender', () => {
   const he = createTranslator('he-IL', files);
   assert.equal(he.meta.dir, 'rtl');
-  assert.equal(he.t('shareVideo.f1.title', { child: 'דן' }), 'תראו את הציור של דן');
-  assert.equal(he.t('shareVideo.f1.title', { child: 'מאיה', childGender: 'female' }), 'תראו מה מאיה ציירה');
-  assert.equal(he.t('shareVideo.f1.title'), 'תראו את הציור הזה');
+  assert.equal(he.t('shareVideo.f1.title', { child: 'דן' }), 'הציור של דן…');
+  assert.equal(he.t('shareVideo.f1.title', { child: 'דן', childGender: 'male' }), 'דן צייר משהו…');
+  assert.equal(he.t('shareVideo.f1.title', { child: 'מאיה', childGender: 'female' }), 'מאיה ציירה משהו…');
+  assert.equal(he.t('shareVideo.f1.title'), 'תראו את הציור הזה…');
   const en = createTranslator('en-US', files);
-  assert.equal(en.t('shareVideo.f1.title', { child: 'Dan' }), 'Dan drew this!');
+  assert.equal(en.t('shareVideo.f1.title', { child: 'Dan' }), 'Dan drew something…');
   assert.equal(en.t('shareSheet.title', { hero: 'Violet Volt' }), 'Share Violet Volt');
   assert.equal(en.t('no.such.key'), 'no.such.key');
 });
