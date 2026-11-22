@@ -457,9 +457,23 @@ try {
     if (ours.equals(theirs)) throw new Error(`staging's installed app uses production's icon (${icon})`);
     const tag = await page.evaluate(() => getComputedStyle(document.querySelector('.tb-logo'), '::after').content);
     if (!/staging/i.test(tag)) throw new Error(`no STAGING tag on the logo (${tag})`);
+    // The promise above the gallery (Landing.tsx): its three pictures load,
+    // its own buttons are on screen and the bar is away; scrolled past them,
+    // Make a hero is in the bar.
+    await page.locator('.tb-landing').waitFor({ timeout: 15000 });
+    const pics = await page.$$eval('.tb-landing-pic img', (imgs) => imgs.map((i) => (i.complete && i.naturalWidth > 0 ? '' : i.src)));
+    await page.waitForFunction(() => [...document.querySelectorAll('.tb-landing-pic img')].every((i) => i.complete && i.naturalWidth > 0), null, { timeout: 15000 })
+      .catch(() => { throw new Error(`landing pictures did not load: ${pics.filter(Boolean).join(', ')}`); });
+    if (!(await page.locator('.tb-landing-make:visible').count())) throw new Error('the landing shows no Make a hero');
+    await page.locator('.tb-bar--away').waitFor({ state: 'attached', timeout: 5000 })
+      .catch(() => { throw new Error('the bar shows under the landing\'s own buttons'); });
+    await page.locator('.tb-screen-body').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    await page.locator('.tb-new-hero').waitFor({ state: 'visible', timeout: 5000 })
+      .catch(() => { throw new Error('scrolled past the landing, Make a hero is not in the bar'); });
+    await page.locator('.tb-screen-body').evaluate((el) => { el.scrollTop = 0; });
     await linger(page, 3500);
     mark('landing');
-    return `HTTP ${res.status()}, looks like staging ("${manifest.short_name}", own icon)`;
+    return `HTTP ${res.status()}, looks like staging ("${manifest.short_name}", own icon); the landing's 3 pictures loaded, its buttons on screen and the bar away, then in the bar once scrolled`;
   });
 
   await step(page, 'gallery', async () => {

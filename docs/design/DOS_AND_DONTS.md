@@ -146,6 +146,8 @@ PRINCIPLES.md rule, or NEW when only this page (or the brand book) has it.
 | M10 | Prove the toy works: animate its pieces assembling and rotating on ball joints | Static parts with unclear joints | "show me like an animation of the parts being assembled and rotated so that I can actually believe you"; "You need to use the sphere joins, ball joins" | 2026-11-13, 2026-11-14 | **NEW** |
 | M11 | Mirror the screen in camera games (raise your right arm and the hero raises the arm on the same side of the screen) | A mirrored camera beside an unmirrored hero | (paraphrased) he raised one arm and the hero raised the other | 2026-10-18 | **NEW** |
 | M12 | Keep game scenes inside their world (fans in a grandstand behind the court, drawings pinned on the wall) and never let players hit other kids' heroes | A fan standing outside the court; punching kids' heroes | "strained outside the boundaries"; "hitting the other kids' drawings, which is bad" | 2026-10-18, 2026-10-19 | **NEW** |
+| M13 | Draw an arrow between two steps as a straight line with a sine wave travelling along it, tail to head, the ends still; grape | A curly arrow with a loop; a wiggle; a curve plus a wave | "the arrows are overdone... a curve but no curl"; "breathing... a sine animation that moves along the arrow"; "it's weird that it's curved and also has the sine" | 2026-11-22 | 41 |
+| M14 | Centre an arrow on what you see on both sides, across and down (the painting's middle, the edges of the polaroid and of the hero) | Centring it on the boxes around the pictures | "the arrow is still too high"; "too close on both sides to the painting in the middle" | 2026-11-22 | 42 |
 
 ## 9. Navigation and placement
 
@@ -157,6 +159,8 @@ PRINCIPLES.md rule, or NEW when only this page (or the brand book) has it.
 | N4 | Make "How it was made" reachable for every hero, by a labelled way in | Creation steps hidden behind the owner's menu | "where do I see the creation steps? I wanted to show off the drawing to 3D phases" | 2026-10-04 | **NEW** |
 | N5 | Make the full-screen drawing part of the app (polaroid, cream) | A dark-scrim viewer with a Drawing/Hero toggle | "It doesn't look like part of the app… this preview of 2 steps. It's confusing" | 2026-10-20 | 5 (partly) |
 | N6 | Show each person only what is theirs (the class strip for teachers, the admin rows for admins) | Everyone sees every tool | "if not teacher dont show it" | 2026-11-15 | 28 |
+| N7 | Open the signed-out gallery with the promise on one phone screen: the three pictures in a row, each sentence under its own picture, the two buttons, and the start of the gallery | One stacked step per screen ("too empty"); a zigzag or a cross-fade ("not attractive or interesting enough") | "put the images on top and the text under them, between them and the buttons"; "maybe all the sentences in the same row?"; "so the start of the gallery shows at the bottom" | 2026-11-22 | 43 |
+| N8 | Show the landing's buttons above the gallery; once scrolled past, the same buttons are in the bar | A bar under buttons that are already on screen | "the buttons as a CTA above the gallery, and when you scroll down they move to the bottom" | 2026-11-22 | 43 |
 
 ## 10. Process and review
 

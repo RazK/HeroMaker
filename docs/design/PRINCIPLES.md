@@ -129,6 +129,16 @@ they are for.
 40. **Gaps repeat.** Dock to card edge = card to bar; the space below the bar's
     buttons = the side margin.
 
+41. **An arrow between two steps is a straight line a sine wave travels along,**
+    tail to head, its ends still, in grape. No loops, no curve under the wave.
+    (Raz, 2026-11-22)
+42. **Centre on what you see,** not on the box around it: an arrow sits halfway
+    between the visible edges on both sides, and level with the middle of the
+    picture beside it. Measure it.
+43. **The landing fits one phone screen:** the three pictures in a row, each
+    sentence under its own picture, the two buttons, then the gallery starting.
+    Scrolled past the buttons, the same two are in the bar. (Raz, 2026-11-22)
+
 The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
 
 ## Before showing Raz
