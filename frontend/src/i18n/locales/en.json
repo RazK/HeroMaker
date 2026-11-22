@@ -1,0 +1,12 @@
+{
+  "$meta": { "name": "English", "dir": "ltr", "font": "Barriecito" },
+  "shareVideo.f1.title": "{hasChild, select, yes {{child} drew this!} other {Look at this drawing!}}",
+  "shareVideo.f2.title": "And then…",
+  "shareVideo.f3.poof": "Poof!",
+  "shareVideo.f4.title": "It came alive!",
+  "shareVideo.f5.madeWith": "Made with",
+  "shareSheet.title": "Share {hero}",
+  "shareSheet.childName": "Your child's first name (optional)",
+  "shareSheet.save": "Save video",
+  "shareSheet.whatsapp": "WhatsApp"
+}
