@@ -138,6 +138,11 @@ they are for.
 43. **The landing fits one phone screen:** the three pictures in a row, each
     sentence under its own picture, the two buttons, then the gallery starting.
     Scrolled past the buttons, the same two are in the bar. (Raz, 2026-11-22)
+44. **A phone on its side copies the desktop,** scaled to the screen: same parts,
+    same places, no layout of its own, under a lower header (32px controls)
+    so the headline reads clearly bigger than the logo. Whatever scrolls fits a
+    whole item between the header and the bar. (Raz, 2026-11-22: "just copy
+    the desktop")
 
 The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
 
