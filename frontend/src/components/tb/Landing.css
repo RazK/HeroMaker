@@ -78,5 +78,11 @@
    gallery's start still show under it. */
 @media (orientation: landscape) and (max-height: 599px) {
   .tb-landing-story { width: min(100%, 440px); align-self: center; }
-  .tb-landing-acts--below { width: min(100%, 560px); align-self: center; }
+  /* The buttons as wide as the row of pictures and a control's height, so
+     they don't outweigh it (Raz: "the buttons are too big"); the bar's,
+     once scrolled, the same. */
+  .tb-landing-acts--below { width: min(100%, 440px); align-self: center; }
+  .tb-landing-acts--below .tb-btn,
+  .tb-screen--app > .tb-bar .tb-btn { height: var(--tb-btn-sm-h); font-size: 17px; padding: 0 16px; }
+  .tb-screen--app > .tb-bar .tb-bar-row { width: min(100%, 440px); align-self: center; }
 }
