@@ -13,6 +13,8 @@
   margin-inline: calc(-1 * var(--tb-gutter));
   padding-inline: var(--tb-gutter);
   scroll-padding-inline: var(--tb-gutter);
+  /* Room for the chips' depth: the row scrolls sideways and would cut it. */
+  padding-block-end: var(--tb-depth-sm);
   scrollbar-width: none;
   overscroll-behavior-x: contain;
 }
@@ -77,3 +79,5 @@
 .tb-empty-art { width: 160px; height: 160px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--tb-grape); margin-bottom: 8px; }
 .tb-empty-art svg { width: 76px; height: 76px; }
 @media (max-height: 700px) { .tb-empty-art { width: 120px; height: 120px; } .tb-empty-art svg { width: 56px; height: 56px; } }
+/* A phone on its side: the empty state stands whole above the bar. */
+@media (orientation: landscape) and (max-height: 599px) { .tb-empty { padding: 8px 0; gap: 6px; } .tb-empty-art { width: 72px; height: 72px; margin-bottom: 4px; } .tb-empty-art svg { width: 36px; height: 36px; } }

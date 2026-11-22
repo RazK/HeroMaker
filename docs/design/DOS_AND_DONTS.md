@@ -129,6 +129,7 @@ PRINCIPLES.md rule, or NEW when only this page (or the brand book) has it.
 | B16 | Give a dock's buttons one width and make the dock as wide as the bar's buttons | Each move its own width; three rows, three widths | (same review) | 2026-11-19 | 38 |
 | B17 | Show "chosen" as light purple with a grape outline, everywhere; solid grape only for the one primary | A dark chosen move beside a purple Play | (same review) | 2026-11-19 | 39 |
 | B18 | Repeat gaps: dock to card edge = card to bar; below the bar = the side margin | 20, 24 and 28px gaps on one screen | (same review) | 2026-11-19 | 40 |
+| B19 | Give every chip the same depth (light; grape when chosen), and leave the row room for it | A chosen chip with depth beside flat ones, its depth cut by the row | "something's not right with the Editors' choice button" | 2026-11-22 | 33, 39 |
 
 ## 8. Motion and 3D rendering
 
@@ -161,7 +162,7 @@ PRINCIPLES.md rule, or NEW when only this page (or the brand book) has it.
 | N6 | Show each person only what is theirs (the class strip for teachers, the admin rows for admins) | Everyone sees every tool | "if not teacher dont show it" | 2026-11-15 | 28 |
 | N7 | Open the signed-out gallery with the promise on one phone screen: the three pictures in a row, each sentence under its own picture, the two buttons, and the start of the gallery | One stacked step per screen ("too empty"); a zigzag or a cross-fade ("not attractive or interesting enough") | "put the images on top and the text under them, between them and the buttons"; "maybe all the sentences in the same row?"; "so the start of the gallery shows at the bottom" | 2026-11-22 | 43 |
 | N8 | Show the landing's buttons above the gallery; once scrolled past, the same buttons are in the bar | A bar under buttons that are already on screen | "the buttons as a CTA above the gallery, and when you scroll down they move to the bottom" | 2026-11-22 | 43 |
-| N9 | On a phone on its side, copy the desktop layout, scaled to the screen; size the gallery so one whole tile fits between the header and the bar | A layout of its own for landscape (empty space, small pictures, big buttons); tiles taller than the screen | "just copy the desktop"; "how much empty white you made here"; "the pictures don't fit the screen, they're cut" | 2026-11-22 | 44 |
+| N9 | On a phone on its side, copy the desktop layout, scaled to the screen, under a lower header (32px controls); size the gallery so one whole tile fits between the header and the bar | A layout of its own for landscape (empty space, small pictures, big buttons); a header as tall as the phone's; tiles taller than the screen | "just copy the desktop"; "how much empty white you made here"; "the logo's text and the text under it look connected, sloppily"; "the pictures don't fit the screen, they're cut" | 2026-11-22 | 44 |
 
 ## 10. Process and review
 
