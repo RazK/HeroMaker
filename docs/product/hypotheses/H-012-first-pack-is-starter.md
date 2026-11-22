@@ -18,7 +18,7 @@ duration: "1 to 2 weeks of campaign"
 impact: 3
 uncertainty: 3
 priority: 9
-experiments: [E-003]
+experiments: [E-003, E-007]
 ---
 
 # H-012: First-time buyers pick the smallest pack

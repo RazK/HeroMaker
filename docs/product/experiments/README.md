@@ -3,11 +3,44 @@
 One file per experiment: `E-NNN-<slug>.md`. The method is in
 [`../README.md`](../README.md). **Nothing here is run without Raz's yes.**
 
-| Id | Experiment | Status | Tests |
-|---|---|---|---|
-| [E-001](E-001-gallery-order.md) | Gallery order: today's vs shuffled per visitor | draft | H-006, H-007 |
-| [E-002](E-002-campaign-doors.md) | The first campaign, one door per audience | draft | H-001, H-002, H-003, H-024, H-038 |
-| [E-003](E-003-first-pack-offer.md) | A one-hero offer on the Buy sheet | draft | H-012, H-013 |
+## Run order
+
+**One A/B at a time**, so no two tests change the same visitor's funnel. The
+funnel observation by door keeps running underneath all of them.
+
+1. **[E-002](E-002-campaign-doors.md) the campaign doors.** First: it is the
+   baseline every other test is read against, and needs no code.
+2. **[E-006](E-006-free-painting.md) free painting, pay for the 3D hero.** The
+   biggest possible move in first purchases, and so in CAC.
+3. Then by expected impact on CAC and LTV:
+   1. [E-004](E-004-ad-video.md) ad video (CAC; fast, no code; needs Raz's OK for his face)
+   2. [E-005](E-005-landing-first.md) landing first vs gallery (conversion at the top, every visitor)
+   3. [E-008](E-008-ready-email.md) ready email (time to value, LTV; skip if H-015's baseline is already 70%)
+   4. [E-003](E-003-first-pack-offer.md) $2 one-hero offer (first purchase; after E-006, which changes the same moment)
+   5. [E-009](E-009-second-hero-half-price.md) second hero half price (LTV; too slow as an A/B today)
+   6. [E-010](E-010-share-credits.md) share gives both sides credits (referral CAC; needs G-6 first; too slow today)
+   7. [E-007](E-007-best-value-badge.md) Best value badge (AOV; too slow today)
+   8. [E-001](E-001-gallery-order.md) gallery order (no direct money)
+
+Planning arithmetic behind every duration (**assumptions, not
+measurements**): during a campaign 200 visits a day, 15% start a hero (30), 2%
+of visits buy (about 4), about 5 heroes made, half of them left during the
+wait (2 to 3), about 1 shared. E-007, E-009 and E-010 break the six-week rule
+at these numbers and say so; they wait for more sales or run as one offer per
+period.
+
+| Id | Experiment | Lever | Status | Tests |
+|---|---|---|---|---|
+| [E-001](E-001-gallery-order.md) | Gallery order: today's vs shuffled per visitor | conversion | draft | H-006, H-007 |
+| [E-002](E-002-campaign-doors.md) | The first campaign, one door per audience | CAC | draft | H-001, H-002, H-003, H-024, H-038 |
+| [E-003](E-003-first-pack-offer.md) | A one-hero offer on the Buy sheet | conversion | draft | H-012, H-013 |
+| [E-004](E-004-ad-video.md) | Ad video: Violet dancing vs Raz waving with Violet copying | CAC | draft | H-039, H-001 |
+| [E-005](E-005-landing-first.md) | Landing section first vs straight to the gallery | conversion | draft | H-040 |
+| [E-006](E-006-free-painting.md) | Pay before the painting vs see your painting free | conversion, CAC | draft | H-041 |
+| [E-007](E-007-best-value-badge.md) | Best value badge on the $15 pack vs the $40 pack | AOV | draft | H-042, H-012 |
+| [E-008](E-008-ready-email.md) | Wait screen as today vs an email when the hero is ready | time to value, LTV | draft | H-043, H-015 |
+| [E-009](E-009-second-hero-half-price.md) | Second hero half price after the first | LTV | draft | H-044, H-021 |
+| [E-010](E-010-share-credits.md) | Plain share vs share gives both sides credits | CAC (referral) | draft | H-045, H-023 |
 
 ## Status
 
@@ -57,6 +90,7 @@ Copy this into `E-NNN-<slug>.md`:
 id: E-NNN
 title: "<the question, short>"
 status: draft
+lever: "<the funnel lever it moves: CAC, conversion, AOV, LTV or time to value>"
 hypotheses: [H-NNN]
 flag_key: <slug, or none>
 variants: [<control>, <treatment>]

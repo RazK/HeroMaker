@@ -2,6 +2,7 @@
 id: E-001
 title: "Gallery order: today's vs shuffled per visitor"
 status: draft
+lever: "conversion (gallery to hero_opened to make_started)"
 hypotheses: [H-006, H-007]
 flag_key: gallery-order
 variants: [default, shuffle]

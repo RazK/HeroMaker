@@ -18,7 +18,7 @@ duration: "30 to 60 days after the first 50 purchases"
 impact: 5
 uncertainty: 4
 priority: 20
-experiments: []
+experiments: [E-009]
 ---
 
 # H-021: Buyers make a second hero and buy again

@@ -2,6 +2,7 @@
 id: E-003
 title: "A one-hero offer on the Buy sheet"
 status: draft
+lever: "conversion (first purchase) and revenue per Buy sheet"
 hypotheses: [H-012, H-013]
 flag_key: first-pack
 variants: [packs, single]

@@ -18,7 +18,7 @@ duration: "2 days at campaign traffic (200 visits a day); 10 days without one"
 impact: 5
 uncertainty: 4
 priority: 20
-experiments: [E-002]
+experiments: [E-002, E-004]
 ---
 
 # H-001: Ad visitors start making a hero
