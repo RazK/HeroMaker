@@ -115,7 +115,7 @@ class Mimic {
 
   node(b: VRMHumanBoneName) { return this.hero.vrm.humanoid.getNormalizedBoneNode(b) }
 
-  async load(vrmUrl: string, pose: PoseFile, opts: { sigma?: number; view?: [number, number]; travel?: number; legs?: boolean; armSpread?: number } = {}) {
+  async load(vrmUrl: string, pose: PoseFile, opts: { sigma?: number; view?: [number, number]; travel?: number; legs?: boolean; armSpread?: number; shadow?: number } = {}) {
     this.hero = await parseHero(await (await fetch(vrmUrl)).arrayBuffer())
     this.scene.add(this.hero.root)
     const { world, image } = prepare(pose, opts.sigma ?? 1.6)
@@ -172,7 +172,8 @@ class Mimic {
     this.camera.position.set(0, midY, dist)
     this.camera.lookAt(0, midY, 0)
     this.camera.updateProjectionMatrix()
-    this.shadow.scale.setScalar(Math.max(0.5, Math.max(this.hero.width, this.heroHeight * 0.5) * 1.1))
+    // On a transparent render the shadow must fade out well inside the frame, or its cut edge shows.
+    this.shadow.scale.setScalar(Math.max(0.5, Math.max(this.hero.width, this.heroHeight * 0.5) * 1.1) * (opts.shadow ?? 1))
     return { frames: world.length, fps: pose.fps, height: this.heroHeight }
   }
 
