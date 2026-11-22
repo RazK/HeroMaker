@@ -115,12 +115,15 @@ class Mimic {
 
   node(b: VRMHumanBoneName) { return this.hero.vrm.humanoid.getNormalizedBoneNode(b) }
 
-  async load(vrmUrl: string, pose: PoseFile, opts: { sigma?: number; frameTop?: number; frameBottom?: number; travel?: number } = {}) {
+  async load(vrmUrl: string, pose: PoseFile, opts: { sigma?: number; view?: [number, number]; travel?: number; legs?: boolean; armSpread?: number } = {}) {
     this.hero = await parseHero(await (await fetch(vrmUrl)).arrayBuffer())
     this.scene.add(this.hero.root)
     const { world, image } = prepare(pose, opts.sigma ?? 1.6)
     this.world = world; this.image = image
     if (opts.travel !== undefined) this.travel = opts.travel
+    this.legs = opts.legs ?? true
+    if (opts.armSpread !== undefined) this.armSpread = opts.armSpread
+    if (!this.legs) this.travel = 0
     this.heroHeight = this.hero.height
 
     // Rest: every normalized bone at identity is the T-pose.
@@ -156,12 +159,16 @@ class Mimic {
     const hipY = (f0[L.lHip][1] + f0[L.rHip][1]) / 2
     this.personHeight = Math.max(0.1, (Math.max(f0[L.lAnkle][1], f0[L.rAnkle][1]) - hipY) * 2.1)
 
-    // Frame the hero like the person: whole body, a little air above and below.
-    const top = opts.frameTop ?? 0.12, bottom = opts.frameBottom ?? 0.1
-    const span = this.heroHeight / (1 - top - bottom)
+    // The floor: where the lower ankle sits while she stands, early in the clip.
+    const ank = image.slice(0, 8).map((f) => Math.max(f[L.lAnkle][1], f[L.rAnkle][1])).sort((a, b) => a - b)
+    this.floorY = ank[Math.floor(ank.length / 2)]
+
+    // Frame a slice of the hero, in hero heights: whole body by default.
+    const [y0, y1] = (opts.view ?? [-0.1, 1.12]).map((f) => f * this.heroHeight)
+    const span = y1 - y0
     const fov = THREE.MathUtils.degToRad(this.camera.fov)
     const dist = span / 2 / Math.tan(fov / 2)
-    const midY = this.heroHeight / 2 + (top - bottom) * span / 2
+    const midY = (y0 + y1) / 2
     this.camera.position.set(0, midY, dist)
     this.camera.lookAt(0, midY, 0)
     this.camera.updateProjectionMatrix()
@@ -221,18 +228,37 @@ class Mimic {
 
     const seg = (a: number, b: number) => P[b].clone().sub(P[a])
     const handDir = (wr: number, ix: number, pk: number) => mid(ix, pk).sub(P[wr])
-    this.aim('leftUpperArm', seg(L.lSh, L.lEl), chestQ)
-    this.aim('leftLowerArm', seg(L.lEl, L.lWr), chestQ)
+    // A hero's head is often a third of her height and her arms are short, so an
+    // arm raised the way a child raises hers goes through it. Above the
+    // shoulder, open the arm out sideways (in the chest's frame) until it clears.
+    const clearHead = (d: V, out: number) => {
+      const inv = chestQ.clone().invert()
+      const local = d.clone().normalize().applyQuaternion(inv)
+      if (local.y > 0) {
+        local.x = out * Math.max(Math.abs(local.x), 0.15) * (1 + this.armSpread * local.y)
+        local.normalize()
+      }
+      return local.applyQuaternion(chestQ)
+    }
+    const lUp = clearHead(seg(L.lSh, L.lEl), 1), rUp = clearHead(seg(L.rSh, L.rEl), -1)
+    // Forearms keep their angle to the upper arm, so the hand still waves.
+    const fore = (upRaw: V, upNew: V, d: V) => d.clone().applyQuaternion(new THREE.Quaternion().setFromUnitVectors(upRaw.clone().normalize(), upNew))
+    const lFore = clearHead(fore(seg(L.lSh, L.lEl), lUp, seg(L.lEl, L.lWr)), 1)
+    const rFore = clearHead(fore(seg(L.rSh, L.rEl), rUp, seg(L.rEl, L.rWr)), -1)
+    this.aim('leftUpperArm', lUp, chestQ)
+    this.aim('leftLowerArm', lFore, chestQ)
     this.aim('leftHand', handDir(L.lWr, L.lIndex, L.lPinky), chestQ)
-    this.aim('rightUpperArm', seg(L.rSh, L.rEl), chestQ)
-    this.aim('rightLowerArm', seg(L.rEl, L.rWr), chestQ)
+    this.aim('rightUpperArm', rUp, chestQ)
+    this.aim('rightLowerArm', rFore, chestQ)
     this.aim('rightHand', handDir(L.rWr, L.rIndex, L.rPinky), chestQ)
+    if (this.legs) {
     this.aim('leftUpperLeg', seg(L.lHip, L.lKnee), hipsQ)
     this.aim('leftLowerLeg', seg(L.lKnee, L.lAnkle), hipsQ)
     this.aim('leftFoot', seg(L.lHeel, L.lToe), hipsQ)
     this.aim('rightUpperLeg', seg(L.rHip, L.rKnee), hipsQ)
     this.aim('rightLowerLeg', seg(L.rKnee, L.rAnkle), hipsQ)
     this.aim('rightFoot', seg(L.rHeel, L.rToe), hipsQ)
+    }
 
     this.hero.vrm.update(0)
     this.hero.root.updateMatrixWorld(true)
@@ -241,18 +267,32 @@ class Mimic {
     const fy = (b: VRMHumanBoneName) => this.node(b)?.getWorldPosition(v()).y ?? 0
     const footMin = Math.min(fy('leftToes') || fy('leftFoot'), fy('rightToes') || fy('rightFoot'), fy('leftFoot'), fy('rightFoot'))
     // The loader grounded the rest mesh at y = 0; keep the lower foot joint at its rest height.
-    const lift = this.restFootY - footMin
     const im = this.image[Math.min(i, this.image.length - 1)]
+    // Off the floor when both her feet are: the higher of the two ankles above
+    // the standing floor line, smoothed over five frames, in hero heights.
+    let air = 0
+    if (this.legs) {
+      let acc = 0, n = 0
+      for (let k = -2; k <= 2; k++) {
+        const f = this.image[Math.min(this.image.length - 1, Math.max(0, i + k))]
+        acc += Math.max(f[L.lAnkle][1], f[L.rAnkle][1]); n++
+      }
+      air = Math.max(0, (this.floorY - acc / n) / this.personHeight * this.heroHeight - this.heroHeight * 0.01)
+    }
+    const lift = (this.legs ? this.restFootY - footMin : 0) + air
     const hipX = (im[L.lHip][0] + im[L.rHip][0]) / 2
     const dx = (hipX - this.hip0.x) / this.personHeight * this.heroHeight * this.travel
     this.hero.root.position.set(dx, lift, 0)
     this.hero.root.updateMatrixWorld(true)
     this.shadow.position.x = dx
-    const air = Math.max(0, lift)
     ;(this.shadow.material as THREE.MeshBasicMaterial).opacity = Math.max(0.4, 1 - air / (this.heroHeight * 0.3))
   }
 
   restFootY = 0
+  floorY = 1
+  legs = true
+  /** How far a raised arm opens out to clear the head (0 = exactly as she does it). */
+  armSpread = 1.2
 
   render(): string {
     this.renderer.render(this.scene, this.camera)
