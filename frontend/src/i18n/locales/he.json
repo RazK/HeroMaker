@@ -1,5 +1,5 @@
 {
-  "$meta": { "name": "עברית", "dir": "rtl", "font": "Fredoka" },
+  "$meta": { "name": "עברית", "dir": "rtl", "font": "Secular One" },
   "shareVideo.f1.title": "{hasChild, select, yes {{childGender, select, female {תראו מה {child} ציירה} male {תראו מה {child} צייר} other {תראו את הציור של {child}}}} other {תראו את הציור הזה}}",
   "shareVideo.f2.title": "ואז…",
   "shareVideo.f3.poof": "פוף!",
