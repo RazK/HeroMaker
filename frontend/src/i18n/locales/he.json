@@ -1,0 +1,16 @@
+{
+  "$meta": {
+    "name": "עברית",
+    "dir": "rtl",
+    "font": "Amatic SC"
+  },
+  "shareVideo.f1.title": "{hasChild, select, yes {{childGender, select, female {{child} ציירה משהו…} male {{child} צייר משהו…} other {הציור של {child}…}}} other {תראו את הציור הזה…}}",
+  "shareVideo.f2.title": "רגע… מה קורה פה?!",
+  "shareVideo.f3.poof": "פוף!",
+  "shareVideo.f4.title": "הציור התעורר לחיים!",
+  "shareSheet.title": "לשתף את {hero}",
+  "shareSheet.childName": "השם הפרטי של הילד/ה (לא חובה)",
+  "shareSheet.save": "שמירת הסרטון",
+  "shareSheet.whatsapp": "וואטסאפ",
+  "shareVideo.f5.cta": "בואו לשחק!"
+}
