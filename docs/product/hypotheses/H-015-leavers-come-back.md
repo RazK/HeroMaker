@@ -18,7 +18,7 @@ duration: "1 week of campaign"
 impact: 5
 uncertainty: 4
 priority: 20
-experiments: []
+experiments: [E-008]
 ---
 
 # H-015: People who leave the wait come back for their hero

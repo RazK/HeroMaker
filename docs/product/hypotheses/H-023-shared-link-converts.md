@@ -18,7 +18,7 @@ duration: "depends on H-022; likely 4+ weeks"
 impact: 4
 uncertainty: 4
 priority: 16
-experiments: []
+experiments: [E-010]
 ---
 
 # H-023: A shared hero brings a new maker

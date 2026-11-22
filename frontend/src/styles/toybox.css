@@ -250,6 +250,10 @@ h1, h2, h3, h4 {
   font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
+  /* Pressable, so it has depth; the chosen one's is grape. Both the same
+     height, so a row of chips sits on one line (Raz: "something's not right
+     with the Editors' choice button"). */
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-line);
 }
 /* Chosen, as everywhere (--tb-chosen): never ink, never solid grape. */
 .tb-chip--on { background: var(--tb-chosen); border-color: var(--tb-grape); color: var(--tb-ink); box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
@@ -840,3 +844,12 @@ html { overscroll-behavior-y: contain; }
 .tb-ptr-dot--spin { animation: tb-ptr-spin 700ms linear infinite; }
 @keyframes tb-ptr-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .tb-ptr-dot--spin { animation: none; } }
+
+/* A phone on its side has about 390px of height: the header gives it back.
+   Smaller controls and logo, less padding above, so the content (the
+   landing's headline, a gallery tile, a hero's stage) gets the room and the
+   headline reads clearly bigger than the logo. */
+@media (orientation: landscape) and (max-height: 599px) {
+  .tb-header { --tb-header-ctl: 32px; padding-top: 8px; }
+}
+

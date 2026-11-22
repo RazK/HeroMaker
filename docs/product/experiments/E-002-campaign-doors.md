@@ -2,6 +2,7 @@
 id: E-002
 title: "The first campaign, one door per audience"
 status: draft
+lever: "CAC (cost per buyer, by door)"
 hypotheses: [H-001, H-002, H-003, H-024, H-038]
 flag_key: none
 variants: [ad-family, ad-gift, ad-birthday, ad-teacher]
