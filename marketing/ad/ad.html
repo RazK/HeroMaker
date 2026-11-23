@@ -63,11 +63,14 @@ const lerp = (a, b, k) => a + (b - a) * k
 const box = (el, x, y, w, h) => Object.assign(el.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' })
 
 const DRAW_N = +(q.get('drawN') || 1), DRAW_FPS = 24
-const CLIP_N = 81, CLIP_FPS = 16
+const CLIP_N = +(q.get('clipN') || 81), CLIP_FPS = 16
 const pad4 = (i) => String(i).padStart(4, '0')
 
 // Beats (s): 1 the drawing draws itself, 2 into the row + painting, 3 alive + call, 4 row + button.
-const B = { b1: 0, b2: 3.5, b3: 5.0, b4: 10.0, end: 12.0 }
+// Raz: every beat holds at least 2.5 s after its transition. Beat 3 lasts as
+// long as the child's clip.
+const B = { b1: 0, b2: 4.2, b3: 7.4 }
+B.b4 = B.b3 + CLIP_N / CLIP_FPS; B.end = B.b4 + 3.6
 const DRAW_SPEED = (DRAW_N / DRAW_FPS) / (B.b2 - 0.3)   // the whole draw-on fits beat 1
 
 // Where each step lives. 4:5: a row of three 280 px slots and two 96 px arrows,
