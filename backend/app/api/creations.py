@@ -540,7 +540,7 @@ def start_pipeline(
         finally:
             db_session.close()
 
-    # Create pipeline task (no individual step timeout - each step has its own)
-    # Use a long timeout for the entire pipeline (e.g., 2 hours)
+    # Each step keeps its own timeout inside run_pipeline (app/config/steps.py);
+    # this 2-hour limit on the whole run is only a backstop.
     task_manager.create_task(creation_id, PIPELINE_KEY, run_pipeline_task(), timeout=7200)
     return from_step or get_all_step_names()[0]

@@ -137,6 +137,11 @@ class MeshyClient:
         waited_from = None
         rate_retries = 0
         while True:
+            # Checked before every try, including the first and each one after
+            # a wait: a step cancelled or timed out meanwhile must not create
+            # (and pay for) a task, nor keep polling one.
+            if self._abandoned.is_set():
+                raise MeshyAPIError("Meshy request abandoned: the step was cancelled or timed out")
             try:
                 return self._request_once(method, endpoint, **kwargs)
             except MeshyQueueFull as full:

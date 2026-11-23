@@ -576,12 +576,17 @@ async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
         flag_modified(step, "metadata_json")
         db.commit()
 
-        # Poll and download (sync call)
+        # Poll and download (sync call). A timeout or cancel here must stop
+        # the polling thread too, or it polls Meshy for up to an hour more.
         with _get_file_path_for_processing(creation_id, user_id, "model.glb", "w") as output_path:
-            await loop.run_in_executor(
-                None,
-                lambda: execute_meshy_3d_sync(task_id, output_path, step, db, client)
-            )
+            try:
+                await loop.run_in_executor(
+                    None,
+                    lambda: execute_meshy_3d_sync(task_id, output_path, step, db, client)
+                )
+            except asyncio.CancelledError:
+                client.abandon()
+                raise
 
     await _cache_save(cache, ["model.glb"], {"meshy_3d_task_id": task_id})
 
@@ -900,6 +905,24 @@ def clear_stale_failures(creation_id: str, steps_to_run: List[str], db: Session)
         db.commit()
 
 
+def _fail_if_timed_out(creation_id: str, step_name: str, timeout) -> bool:
+    """Fail and refund a step whose time ran out inside a pipeline run."""
+    from app.services.task_manager import fail_timed_out_step
+
+    session = SessionLocal()
+    try:
+        step = session.query(CreationStep).filter(
+            CreationStep.creation_id == creation_id,
+            CreationStep.step_name == step_name,
+        ).first()
+        return step is not None and fail_timed_out_step(session, step, timeout)
+    except Exception as e:
+        logger.error(f"[{creation_id}] Error failing timed-out step {step_name}: {e}")
+        return False
+    finally:
+        session.close()
+
+
 async def run_pipeline(
     creation_id: str,
     user_id: str,
@@ -931,8 +954,15 @@ async def run_pipeline(
     clear_stale_failures(creation_id, steps_to_run, db)
 
     for step_name in steps_to_run:
+        timeout = (get_step_by_name(step_name) or {}).get("timeout")
         try:
-            result = await execute_step(creation_id, user_id, step_name, db, mock_creation_id)
+            # Each step keeps its own timeout here too (app/config/steps.py).
+            # The run as a whole has only a 2-hour backstop, so without this a
+            # stuck provider held a paid hero for up to two hours.
+            result = await asyncio.wait_for(
+                execute_step(creation_id, user_id, step_name, db, mock_creation_id),
+                timeout,
+            )
             
             # Check for cancellation or failure
             if result.get("status") == "cancelled":
@@ -943,6 +973,20 @@ async def run_pipeline(
                 logger.info(f"[{creation_id}] Pipeline stopped: step {step_name} did not complete")
                 return {"status": "failed", "failed_step": step_name}
                 
+        except asyncio.TimeoutError as e:
+            # wait_for cancelled the step. The CancelledError it raised inside
+            # execute_step is a BaseException, so that function's refund never
+            # ran: fail and refund the step here, in a session of its own (the
+            # step's worker thread may still hold this one for a moment).
+            # If the step raised TimeoutError itself, execute_step has already
+            # failed and refunded it, and this finds it no longer processing.
+            _fail_if_timed_out(creation_id, step_name, timeout)
+            db.expire_all()   # the step changed in another session
+            logger.error(
+                f"[{creation_id}] Pipeline stopped at step {step_name}; "
+                f"later steps not run: timed out after {timeout}s"
+            )
+            return {"status": "failed", "failed_step": step_name, "error": str(e) or "timed out"}
         except Exception as e:
             # execute_step has already marked the step failed and refunded it.
             # Stop here: nothing after it has an input to work from.
