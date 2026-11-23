@@ -49,6 +49,25 @@ Fill a row only when the asset exists and the stage is really done. The blob
 ids / staging creation ids go here so every agent (ads, prints, demos) uses
 the same files.
 
+## Recommended: Elad's sample heroes (Nir, 2026-11-23)
+
+Raz, 2026-11-23: the framed drawings at the TLV museum event were **samples drawn by Elad**,
+an adult on the team. They are not children's drawings, so they are clean to use with
+Elad's OK. That OK is not yet recorded in writing.
+
+![Elad's samples](cast_elad.png)
+
+| # | Hero (production) | Drawing | Painting | 3D / rig | Toy, 8 cm full colour | Note |
+|---|---|---|---|---|---|---|
+| 1 | Bouncy Blue Bandit | crayon, Elad's hand | yes | bends cleanly | ₪118 | the framed "robot" and the hero on the tablet in Raz's photo |
+| 2 | SuperBear2 | crayon, Elad's hand | yes | bends cleanly | ₪157 | the framed pink bear |
+| 3 | Yummy Bear | crayon, Elad's hand | yes | bends cleanly | ₪225 (₪151 at 7 cm) | chunky, so the dearest toy |
+| 4 | Super Sam | pencil, credited to Elad by full name | yes | bends cleanly | ₪92 | a different style from the others; the chest "S" looks like Superman's |
+
+**Not clean: Violet Volt (cast #1).** Her drawing is the production hero "SuperGirl", a
+real child's (age 12). She needs a parent's consent before any ad or print, like every
+other child's hero.
+
 ## Candidates (Nir, 2026-11-23): Raz picks three
 
 Not the cast yet. Each needs Raz's pick and its rights cleared. Stage verdicts, cards and
