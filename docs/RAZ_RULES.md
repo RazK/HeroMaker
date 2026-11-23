@@ -67,3 +67,21 @@ Each rule has the date it was set.
   (standing)
 - **Staging never looks like production** (its own icon, a STAGING tag).
   (standing)
+
+## Demo delivery (every demo, and the overnight sprint) — 2026-11-23
+
+- A sprint ends in a **demo video (or videos), not text.**
+- **One video per flow.** Show **happy flows and not-so-happy flows.**
+- Real UI, **recorded on staging** — the real features, merged first.
+- **Real speed. Never sped up.** He must follow every moment.
+- To explain a step: a **full-screen text-only slide** — enough time to read,
+  not more (he has no patience) — then the clip of that step.
+- **Review it many times** with all the context Raz gave; **the team reviews it
+  too**; iterate until you believe he is satisfied. Never show half-baked work.
+- **The delivery message, this exact shape:**
+  1. "Good morning, Raz." (or the fitting greeting).
+  2. A short **numbered list** of the features shipped. No bragging. Short.
+  3. **One line per team member:** what they contributed.
+  4. **The videos**, one per flow (happy and not-happy).
+  5. **One link** to the live staging the videos were recorded on.
+- All ready features **merge to staging first**, robot green, before the video.
