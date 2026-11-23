@@ -132,9 +132,22 @@ except Exception as e:
     logger.error(f"Failed to run migrations, refusing to start: {e}")
     raise SystemExit(1)
 
+# A leaked admin account must never be usable (app/services/security_guards.py).
+# A failure here is logged, not fatal: the guard runs again on the next boot.
+try:
+    from app.database import SessionLocal
+    from app.services.security_guards import disarm_leaked_debug_admin
+    _db = SessionLocal()
+    try:
+        disarm_leaked_debug_admin(_db)
+    finally:
+        _db.close()
+except Exception as e:
+    logger.error(f"SECURITY: the leaked-debug-admin guard did not run: {e}")
+
 # Import routers after lifespan is defined (but before app creation)
 # This avoids circular imports since routers import get_task_manager from task_manager module
-from app.api import files, health, admin, payments, classes, v1, v1_account, mcp, events, share_card
+from app.api import files, health, admin, payments, payments_sandbox, classes, v1, v1_account, mcp, events, share_card
 from app.utils.public_cors import PublicCORS
 
 app = FastAPI(title="HeroMaker API", lifespan=lifespan)
@@ -158,6 +171,8 @@ app.add_middleware(PublicCORS)
 # webhook, which the store is configured to call at /api/payments/webhook.
 app.include_router(files.router, prefix="/api/files", tags=["files"])
 app.include_router(payments.router, prefix="/api/payments", tags=["payments"])
+# grow_sandbox's fake hosted checkout: 404 unless the sandbox is armed (never in production).
+app.include_router(payments_sandbox.router, prefix="/api/payments/sandbox", tags=["payments"])
 app.include_router(health.router, tags=["health"])
 app.include_router(v1.router, prefix="/api/v1", tags=["public API v1"])
 app.include_router(share_card.router, prefix="/api/v1", tags=["link previews"])

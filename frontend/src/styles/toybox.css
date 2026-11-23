@@ -180,13 +180,6 @@ h1, h2, h3, h4 {
 }
 .tb-btn--secondary:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-ink); }
 
-.tb-btn--sun {
-  background: var(--tb-sun);
-  color: var(--tb-ink);
-  box-shadow: 0 6px 0 #c98a00;
-}
-.tb-btn--sun:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #c98a00; }
-
 .tb-btn--danger {
   background: var(--tb-red);
   color: var(--tb-white);

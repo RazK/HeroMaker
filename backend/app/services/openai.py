@@ -740,6 +740,10 @@ HERO_NAME_RESPONSE_FORMAT = {
 
 # Straight, curly and angle quotes. All are dropped from a name.
 _QUOTES = "\"'`‘’‚‛“”„‟«»‹›"
+# The one apostrophe a name keeps: inside a word, written typographically.
+APOSTROPHE = "’"
+_KEEP = "\x00"
+_INNER_APOSTROPHE = re.compile(r"(?<=[^\W\d_])['’ʼ`](?=[^\W\d_])")
 
 
 def hero_name_cache_version() -> dict:
@@ -756,15 +760,23 @@ def sanitize_hero_name(raw) -> Optional[str]:
     """
     Make whatever the model said safe to show as a hero's name, or None.
 
-    Trimmed; quotes, emoji, digits and other symbols removed (letters, spaces
-    and inner hyphens survive); at most HERO_NAME_MAX_WORDS words and
-    HERO_NAME_MAX_CHARS characters, cut at a word boundary where possible.
+    Trimmed; quotes, emoji, digits and other symbols removed (letters, spaces,
+    inner hyphens and inner apostrophes survive); at most HERO_NAME_MAX_WORDS
+    words and HERO_NAME_MAX_CHARS characters, cut at a word boundary where
+    possible.
+
+    An apostrophe between two letters is part of the word ("I Don’t",
+    "O’Toole") and is kept, as ’. Until 2026-11-23 it became a space: a hero
+    the model named "I don't" was shown as "I don t".
     """
     if not isinstance(raw, str):
         return None
-    text = unicodedata.normalize("NFKC", raw)
+    text = unicodedata.normalize("NFKC", raw).replace(_KEEP, " ")
+    # Held as a placeholder while the quotes around the name are removed.
+    text = _INNER_APOSTROPHE.sub(_KEEP, text)
     text = "".join(" " if ch in _QUOTES else ch for ch in text)
-    text = "".join(ch if (ch.isalpha() or ch in " -") else " " for ch in text)
+    text = "".join(ch if (ch.isalpha() or ch in " -" + _KEEP) else " " for ch in text)
+    text = text.replace(_KEEP, APOSTROPHE)
     words = [re.sub(r"-{2,}", "-", w.strip("-")) for w in text.split()]
     words = [w for w in words if w][:HERO_NAME_MAX_WORDS]
     while len(words) > 1 and len(" ".join(words)) > HERO_NAME_MAX_CHARS:
@@ -792,46 +804,45 @@ def _hero_name_image_data_url(image_bytes: bytes) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
 
 
-def suggest_hero_name(image_bytes: bytes, usage: Optional[UsageContext] = None) -> Optional[str]:
-    """
-    Ask HERO_NAME_MODEL for a name for the character in this drawing.
+def _ask_vision(image_bytes: bytes, usage: Optional[UsageContext], *, operation: str,
+                model: str, prompt: str, detail: str, response_format: dict,
+                max_tokens: int, temperature: float, timeout_s: float,
+                answer_metadata=None) -> str:
+    """One small vision question about a drawing; the answer's text.
 
-    Returns the sanitized name, or None if the answer had nothing usable in
-    it. RAISES on a missing key, an unreadable image, a timeout or any API
-    error: the caller (hero_naming.name_creation) turns every failure into
-    "no name" and logs it.
-
-    Every call that reaches OpenAI writes one usage_event (provider "openai",
-    operation pricing.OP_OPENAI_HERO_NAME), costed from the token counts the
-    response reports.
+    The drawing goes as a small JPEG. RAISES on a missing key, an unreadable
+    image (before any request, so it costs nothing), a timeout or an API error.
+    Every call that reaches OpenAI writes one usage_event under `operation`,
+    costed from the token counts the response reports (naming and
+    classification use the same model and list rates). `answer_metadata`, if
+    given, adds fields about the answer to that usage_event.
     """
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not set")
 
     data_url = _hero_name_image_data_url(image_bytes)
-    client = OpenAI(api_key=OPENAI_API_KEY, timeout=HERO_NAME_TIMEOUT_S, max_retries=0)
+    client = OpenAI(api_key=OPENAI_API_KEY, timeout=timeout_s, max_retries=0)
 
     with usage_service.track(
         usage,
         pricing.PROVIDER_OPENAI,
-        pricing.OP_OPENAI_HERO_NAME,
+        operation,
         quantity=1,
-        metadata={"model": HERO_NAME_MODEL, "detail": HERO_NAME_IMAGE_DETAIL},
+        metadata={"model": model, "detail": detail},
     ) as call:
         response = client.chat.completions.create(
-            model=HERO_NAME_MODEL,
+            model=model,
             messages=[{
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": HERO_NAME_PROMPT},
-                    {"type": "image_url",
-                     "image_url": {"url": data_url, "detail": HERO_NAME_IMAGE_DETAIL}},
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url, "detail": detail}},
                 ],
             }],
-            response_format=HERO_NAME_RESPONSE_FORMAT,
-            max_completion_tokens=40,
-            temperature=0.9,
-            timeout=HERO_NAME_TIMEOUT_S,
+            response_format=response_format,
+            max_completion_tokens=max_tokens,
+            temperature=temperature,
+            timeout=timeout_s,
         )
         call.provider_ref = getattr(response, "_request_id", None) or getattr(response, "id", None)
         tokens = getattr(response, "usage", None)
@@ -843,8 +854,31 @@ def suggest_hero_name(image_bytes: bytes, usage: Optional[UsageContext] = None) 
             call.cost_usd_micros = pricing.hero_name_cost_usd_micros(
                 prompt_tokens, completion_tokens
             )
+        if answer_metadata:
+            call.metadata.update(answer_metadata(response.choices[0].message.content or ""))
+    return response.choices[0].message.content or ""
 
-    content = response.choices[0].message.content or ""
+
+def suggest_hero_name(image_bytes: bytes, usage: Optional[UsageContext] = None) -> Optional[str]:
+    """
+    Ask HERO_NAME_MODEL for a name for the character in this drawing.
+
+    Returns the sanitized name, or None if the answer had nothing usable in
+    it. RAISES on a missing key, an unreadable image, a timeout or any API
+    error: the caller (hero_naming.name_creation) turns every failure into
+    "no name" and logs it. Usage is recorded as OP_OPENAI_HERO_NAME.
+    """
+    content = _ask_vision(
+        image_bytes, usage,
+        operation=pricing.OP_OPENAI_HERO_NAME,
+        model=HERO_NAME_MODEL,
+        prompt=HERO_NAME_PROMPT,
+        detail=HERO_NAME_IMAGE_DETAIL,
+        response_format=HERO_NAME_RESPONSE_FORMAT,
+        max_tokens=40,
+        temperature=0.9,
+        timeout_s=HERO_NAME_TIMEOUT_S,
+    )
     try:
         raw = json.loads(content).get("name")
     except (ValueError, AttributeError):
@@ -925,55 +959,22 @@ def classify_input(image_bytes: bytes, usage: Optional[UsageContext] = None) -> 
 
     Returns one of INPUT_KINDS. RAISES on a missing key, an unreadable image, a
     timeout or an API error: the caller (input_kind.kind_for_creation) turns
-    every failure into INPUT_KIND_DRAWING and logs it. An unreadable image is
-    caught before any request is made, so it costs nothing.
-
-    Every call that reaches OpenAI writes one usage_event (provider "openai",
-    operation pricing.OP_OPENAI_INPUT_KIND), costed from its token counts.
+    every failure into INPUT_KIND_DRAWING and logs it. Usage is recorded as
+    OP_OPENAI_INPUT_KIND.
     """
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY not set")
-
-    # The naming call's shrink: a small JPEG, "low" detail.
-    data_url = _hero_name_image_data_url(image_bytes)
-    client = OpenAI(api_key=OPENAI_API_KEY, timeout=INPUT_KIND_TIMEOUT_S, max_retries=0)
-
-    with usage_service.track(
-        usage,
-        pricing.PROVIDER_OPENAI,
-        pricing.OP_OPENAI_INPUT_KIND,
-        quantity=1,
-        metadata={"model": INPUT_KIND_MODEL, "detail": INPUT_KIND_IMAGE_DETAIL},
-    ) as call:
-        response = client.chat.completions.create(
-            model=INPUT_KIND_MODEL,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": INPUT_KIND_PROMPT},
-                    {"type": "image_url",
-                     "image_url": {"url": data_url, "detail": INPUT_KIND_IMAGE_DETAIL}},
-                ],
-            }],
-            response_format=INPUT_KIND_RESPONSE_FORMAT,
-            max_completion_tokens=20,
-            temperature=0,
-            timeout=INPUT_KIND_TIMEOUT_S,
-        )
-        call.provider_ref = getattr(response, "_request_id", None) or getattr(response, "id", None)
-        tokens = getattr(response, "usage", None)
-        if tokens is not None:
-            prompt_tokens = int(getattr(tokens, "prompt_tokens", 0) or 0)
-            completion_tokens = int(getattr(tokens, "completion_tokens", 0) or 0)
-            call.metadata["prompt_tokens"] = prompt_tokens
-            call.metadata["completion_tokens"] = completion_tokens
-            # Same model, same list rates as the naming call.
-            call.cost_usd_micros = pricing.hero_name_cost_usd_micros(
-                prompt_tokens, completion_tokens
-            )
-        kind = parse_input_kind(response.choices[0].message.content or "")
-        call.metadata["kind"] = kind
-
+    content = _ask_vision(
+        image_bytes, usage,
+        operation=pricing.OP_OPENAI_INPUT_KIND,
+        model=INPUT_KIND_MODEL,
+        prompt=INPUT_KIND_PROMPT,
+        detail=INPUT_KIND_IMAGE_DETAIL,
+        response_format=INPUT_KIND_RESPONSE_FORMAT,
+        max_tokens=20,
+        temperature=0,
+        timeout_s=INPUT_KIND_TIMEOUT_S,
+        answer_metadata=lambda c: {"kind": parse_input_kind(c)},
+    )
+    kind = parse_input_kind(content)
     logger.info("Input classified as %r", kind)
     return kind
 

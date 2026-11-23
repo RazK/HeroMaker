@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError, ApiKeyInfo } from '../api/client';
 import { openLegal } from './tb/Legal';
 import { Icon } from './tb/Icon';
-import { Dialog, NavButton, Sheet } from './tb/parts';
+import { ConfirmDialog, NavButton, Sheet } from './tb/parts';
 import './ApiKeysSheet.css';
 
 type Made = ApiKeyInfo & { key: string; webhook_secret: string };
@@ -166,14 +166,9 @@ export function ApiKeysSheet({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       {revoking && (
-        <Dialog label="Revoke key" onClose={() => setRevoking(null)}>
-          <div className="tb-h2" dir="auto">Revoke {revoking.name}?</div>
-          <div className="tb-muted">Apps using it stop working. This can't be undone.</div>
-          <div className="tb-stack">
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setRevoking(null)}>Keep it</button>
-            <button type="button" className="tb-btn tb-btn--danger tb-btn--full" disabled={busy} onClick={() => revoke(revoking)}><Icon name="trash" />{busy ? 'Revoking…' : 'Revoke'}</button>
-          </div>
-        </Dialog>
+        <ConfirmDialog label="Revoke key" title={`Revoke ${revoking.name}?`} titleDir="auto"
+          line="Apps using it stop working. This can't be undone." onClose={() => setRevoking(null)}
+          action={<><Icon name="trash" />{busy ? 'Revoking…' : 'Revoke'}</>} busy={busy} onAction={() => revoke(revoking)} />
       )}
     </Sheet>
   );

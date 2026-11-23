@@ -105,14 +105,16 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
 
       # At .venv/ because the tests run the backend's scripts as a user would,
       # with .venv/bin/python (see CLAUDE.md).
       - name: Install backend dependencies
         run: |
           python -m venv .venv
-          .venv/bin/pip install --quiet -r backend/requirements.txt
+          .venv/bin/pip install --quiet -r backend/requirements-dev.txt
 
       - name: Run backend tests
         working-directory: backend
@@ -211,6 +213,16 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      # The service's own tests (fake Blender, stand-in bpy): seconds, and
+      # they fail before the slow image build does.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Converter tests
+        working-directory: vrm-converter-service
+        run: |
+          pip install -r requirements.txt httpx pytest
+          python -m pytest -q tests
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v5
         with:

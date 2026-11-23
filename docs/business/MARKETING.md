@@ -33,7 +33,7 @@ no question asked (`docs/analytics/REQUIREMENTS.md`).
 | Asset | Where | Note |
 |---|---|---|
 | Violet: drawing → painting → dancing 3D | the landing page design | the main ad |
-| Raz waving, Violet copies him | `docs/assets/kalidoface_demo.gif` | strongest proof it moves with you; **needs Raz's OK, his face shows** |
+| Raz waving, Violet copies him | `docs/assets/kalidoface_demo.webp` | strongest proof it moves with you; **needs Raz's OK, his face shows** |
 | Violet as a toy, taken apart | the toy view | for the gift ad, once the toy is on sale |
 | Violet in Robot Rumble | short clip, made 2026-11-22 | for a "play" ad |
 

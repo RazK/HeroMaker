@@ -309,7 +309,7 @@
    (being made, failed, a class's hero) gets the same column. A ready hero's
    own page in a landscape window is the full frame (HeroScreen.css). */
 @media (min-width: 900px) and (min-height: 600px) {
-  .tb-hero-screen { max-width: 720px; }
+  .tb-hero-screen:not(.tb-hero-main) { max-width: 720px; }
 }
 
 /* A class's hero on a phone on its side: the stage on one side, its moves
@@ -317,13 +317,13 @@
    one row there), the primary still the last button. The hero's own page
    lays itself out wider (HeroScreen.css, .tb-hero-main). */
 @media (orientation: landscape) and (max-height: 559px) {
-  .tb-hero-screen[data-state='ready'] {
+  .tb-hero-screen:not(.tb-hero-main)[data-state='ready'] {
     grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas: 'head head' 'body .' 'body bar';
   }
-  .tb-hero-screen[data-state='ready'] > .tb-header { grid-area: head; }
-  .tb-hero-screen[data-state='ready'] > .tb-screen-body { grid-area: body; }
-  .tb-hero-screen[data-state='ready'] > .tb-bar { grid-area: bar; }
+  .tb-hero-screen:not(.tb-hero-main)[data-state='ready'] > .tb-header { grid-area: head; }
+  .tb-hero-screen:not(.tb-hero-main)[data-state='ready'] > .tb-screen-body { grid-area: body; }
+  .tb-hero-screen:not(.tb-hero-main)[data-state='ready'] > .tb-bar { grid-area: bar; }
 }
 
 /* ---------- The drawing or the painting, full screen ---------- */
@@ -548,7 +548,7 @@
   overflow: visible;
   pointer-events: none;
   fill: none;
-  stroke-width: 3.5px;
+  stroke-width: 2.5px;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -559,9 +559,6 @@
    "Hero · toy" board). It faces front and sways, and PartsViewer keeps every
    piece clear of the drawing's card in the bottom-start corner, shrinking a
    hero only as much as that needs (Raz: nothing overlaps). */
-@media (orientation: portrait) {
-  .tb-hero-main .tb-figure-room { inset-block-start: 40px; }
-}
 .tb-figure-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 /* Locked: the painting, as on its own slide, and a tag over its top. */
 .tb-figure-teaser { position: absolute; inset: 0; }

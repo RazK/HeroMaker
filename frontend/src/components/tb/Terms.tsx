@@ -28,10 +28,10 @@ export function Terms({ onBack }: { onBack: () => void }) {
       <h2>What you buy</h2>
       <ul>
         <li>Credits, in one-time packs. No subscription.</li>
-        <li>Starter: $5 for 30 credits. Maker: $15 for 100. Studio: $40 for 300.</li>
+        <li>One hero: ₪10. Family: ₪39 for five heroes.</li>
         <li>One hero costs 10 credits.</li>
-        <li>Teachers can buy class seats at a teacher price: $1.25 a seat, plus $0.50 an order. One seat is one hero for one child, used in that class only.</li>
-        <li>Prices are in US dollars and shown before you pay.</li>
+        <li>Teachers can buy class seats: ₪10 a seat, at least 10 seats an order. One seat is one hero for one child, used in that class only.</li>
+        <li>Prices are in Israeli shekels (₪) and shown before you pay.</li>
         <li>We may change prices, packs and how many credits a hero costs. A change never touches an order already paid.</li>
       </ul>
       <p>Lemon Squeezy is the merchant of record: it takes the payment, handles tax and sends the invoice. Its buyer terms apply to the purchase too.</p>

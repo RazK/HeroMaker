@@ -11,6 +11,7 @@ from app.database import SessionLocal
 from app.models import CreationStep
 from app.services.credits import refund_last_step_charge
 from app.services import analytics, step_errors
+from app.services.creation_steps import find_step
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,39 @@ PIPELINE_KEY = "pipeline"
 
 # Global TaskManager instance (set in main.py lifespan)
 _task_manager: Optional['TaskManager'] = None
+
+
+def fail_timed_out_step(db, step: CreationStep, timeout_seconds) -> bool:
+    """Mark a step that ran out of time failed, give its credits back, and
+    report the hero failed. Returns False if the step was no longer running.
+
+    Both ways a step can time out end here: a single step run under
+    TaskManager, and a step inside a full pipeline run (pipeline.run_pipeline).
+    The step was charged before the provider was called. Timing out cancels the
+    step's task, and CancelledError inherits from BaseException, so it never
+    reaches the `except Exception` refund in pipeline.execute_step: this is the
+    only place a timed-out step is made whole.
+    """
+    if step.status != "processing":
+        return False
+    creation_id = step.creation_id
+    step_errors.mark_failed(
+        step, f"Step timed out after {timeout_seconds} seconds",
+        code=step_errors.PROVIDER_BUSY,
+    )
+    db.commit()
+    logger.info(f"[{creation_id}] Marked step {step.step_name} as failed (timeout)")
+    refund = refund_last_step_charge(
+        db, creation_id, step.step_name,
+        note=f"{step.step_name} timed out after {timeout_seconds}s",
+    )
+    if refund is not None:
+        step_errors.note_refund(step, refund)
+        db.commit()
+    # The same reason the refund is here: a timeout never reaches
+    # execute_step's handler.
+    analytics.hero_failed(db, creation_id, step.step_name, step_errors.PROVIDER_BUSY)
+    return True
 
 
 class TaskManager:
@@ -92,33 +126,9 @@ class TaskManager:
                                 CreationStep.status == "processing"
                             ).first()
                         else:
-                            step = db.query(CreationStep).filter(
-                                CreationStep.creation_id == creation_id,
-                                CreationStep.step_name == step_name
-                            ).first()
-                        if step and step.status == "processing":
-                            step_errors.mark_failed(
-                                step, f"Step timed out after {timeout_seconds} seconds",
-                                code=step_errors.PROVIDER_BUSY,
-                            )
-                            db.commit()
-                            logger.info(f"[{creation_id}] Marked step {step.step_name} as failed (timeout)")
-                            # The step was charged before the provider was
-                            # called. Cancelling the task raises CancelledError,
-                            # which inherits from BaseException and so never
-                            # reaches the `except Exception` refund in
-                            # pipeline.execute_step - this is the only place a
-                            # timed-out step can be made whole.
-                            refund = refund_last_step_charge(
-                                db, creation_id, step.step_name,
-                                note=f"{step.step_name} timed out after {timeout_seconds}s",
-                            )
-                            if refund is not None:
-                                step_errors.note_refund(step, refund)
-                                db.commit()
-                            # The same reason the refund is here: a timeout
-                            # never reaches execute_step's handler.
-                            analytics.hero_failed(db, creation_id, step.step_name, step_errors.PROVIDER_BUSY)
+                            step = find_step(db, creation_id, step_name)
+                        if step is not None:
+                            fail_timed_out_step(db, step, timeout_seconds)
                     except Exception as e:
                         logger.error(f"[{creation_id}] Error marking timed-out step as failed: {e}")
                     finally:

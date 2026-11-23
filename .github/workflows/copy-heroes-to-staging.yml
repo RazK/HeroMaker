@@ -1,0 +1,69 @@
+name: Copy heroes to staging
+
+# Copies chosen PRODUCTION heroes (database rows + files) into staging, under a
+# staging owner, for demos and robot tests (backend/scripts/copy_heroes_to_staging.py).
+# Production's database and bucket are only READ. Each run needs Raz's yes for
+# those heroes (CLAUDE.md: the two databases stay separate).
+# First approved run: 2026-11-23, Elad's sample heroes for the poster cast.
+
+on:
+  workflow_dispatch:
+    inputs:
+      heroes:
+        description: 'Production creation ids, comma-separated'
+        required: true
+      owner:
+        description: 'Staging user id that will own the copies'
+        required: true
+      dry_run:
+        description: 'Report what would be copied; write nothing'
+        type: boolean
+        default: true
+
+jobs:
+  config:
+    uses: ./.github/workflows/railway-config.yml
+
+  copy:
+    needs: config
+    runs-on: ubuntu-latest
+    env:
+      BACKEND: ${{ needs.config.outputs.backend }}
+      STAGING: ${{ needs.config.outputs.staging }}
+      PRODUCTION: ${{ needs.config.outputs.production }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install boto3 psycopg2-binary
+      - run: npm install -g @railway/cli
+      - name: Read both databases and buckets from Railway (masked)
+        env:
+          PROD_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          STAGING_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+        run: |
+          set -euo pipefail
+          read_vars() { RAILWAY_TOKEN="$1" railway variables --service "$2" --environment "$3" --json; }
+          src=$(read_vars "$PROD_TOKEN" "$BACKEND" "$PRODUCTION")
+          dst=$(read_vars "$STAGING_TOKEN" "$BACKEND" "$STAGING")
+          pdb=$(read_vars "$PROD_TOKEN" Postgres "$PRODUCTION" | jq -r '.DATABASE_PUBLIC_URL // empty')
+          sdb=$(read_vars "$STAGING_TOKEN" Postgres "$STAGING" | jq -r '.DATABASE_PUBLIC_URL // empty')
+          emit() { local name=$1 value=$2; [ -n "$value" ] || { echo "::error::$name is empty"; exit 1; }; echo "::add-mask::$value"; echo "$name=$value" >> "$GITHUB_ENV"; }
+          for k in ACCESS_KEY_ID SECRET_ACCESS_KEY BUCKET ENDPOINT; do
+            emit "SRC_$k" "$(jq -r ".S3_$k // empty" <<<"$src")"
+            emit "DST_$k" "$(jq -r ".S3_$k // empty" <<<"$dst")"
+          done
+          echo "SRC_REGION=$(jq -r '.S3_REGION // "auto"' <<<"$src")" >> "$GITHUB_ENV"
+          echo "DST_REGION=$(jq -r '.S3_REGION // "auto"' <<<"$dst")" >> "$GITHUB_ENV"
+          emit PROD_DB "$pdb"
+          emit STAGING_DB "$sdb"
+      - name: Copy
+        env:
+          HEROES: ${{ inputs.heroes }}
+          OWNER: ${{ inputs.owner }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          args=(--prod-db "$PROD_DB" --staging-db "$STAGING_DB" --hero "$HEROES" --owner "$OWNER")
+          [ "$DRY" = "true" ] && args+=(--dry-run)
+          python backend/scripts/copy_heroes_to_staging.py "${args[@]}"

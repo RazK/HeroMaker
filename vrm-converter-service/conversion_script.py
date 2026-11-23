@@ -14,6 +14,12 @@ def enable_vrm_addon():
         except:
             pass  # Addon might already be enabled
 
+def fail(message):
+    """Stop with a non-zero exit, so the service reports the failure instead of
+    shipping a broken or missing VRM."""
+    print(f"Error: {message}")
+    sys.exit(1)
+
 def clean_scene():
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete()
@@ -198,6 +204,7 @@ def map_vrm_bones(armature):
                 print(f"         Blender VRM addon requires this bone - conversion will likely fail")
             else:
                 print(f"Info: Optional bone '{mixamo_name}' ({vrm_name}) not found - VRM spec allows fallback")
+    return True
 
 def main():
     # Enable VRM addon first (needed for containerized Blender)
@@ -208,12 +215,10 @@ def main():
     if "--" in argv:
         argv = argv[argv.index("--") + 1:]
     else:
-        print("Usage: blender ... -- input.glb output.vrm [thumbnail.png]")
-        return
+        fail("Usage: blender ... -- input.glb output.vrm [thumbnail.png]")
 
     if len(argv) < 2:
-        print("Error: Input and Output paths required.")
-        return
+        fail("Input and Output paths required.")
 
     input_path = argv[0]
     output_path = argv[1]
@@ -230,8 +235,7 @@ def main():
     
     armature = find_armature()
     if not armature:
-        print("Error: No armature found.")
-        return
+        fail("No armature found.")
 
     # Select everything
     bpy.ops.object.select_all(action='SELECT')
@@ -250,7 +254,10 @@ def main():
     
     # 4. Map Bones
     print("Mapping VRM Bones...")
-    map_vrm_bones(armature)
+    if not map_vrm_bones(armature):
+        # Exporting anyway (ignore_warning=True) wrote a VRM with no humanoid:
+        # a "successful" hero that cannot be animated.
+        fail("VRM bone mapping failed; not exporting a VRM without a humanoid.")
     
     # 5. Set thumbnail if provided
     if thumbnail_path:
@@ -332,6 +339,7 @@ def main():
         # The VRM addon may fail silently if required bones are missing
         # even though the spec says they're optional
         print("Note: VRM addon may require 'chest' bone despite VRM spec allowing it to be optional")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

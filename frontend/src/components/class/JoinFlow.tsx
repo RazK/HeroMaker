@@ -357,7 +357,7 @@ function Draw({ me, onMade }: { me: GuestView; onMade: (v: GuestView) => void })
         <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-snap" onClick={() => { started(); setWebcam(true); }}><Icon name="camera" />Take a photo</button>
       </div>
       <input ref={picker} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) pick(f, 'photo_chosen'); e.target.value = ''; }} />
-      {webcam && <FileUpload showWebcamOnMount onClose={() => setWebcam(false)} onUpload={(f) => { setWebcam(false); pick(f, 'photo_taken'); }} />}
+      {webcam && <FileUpload onClose={() => setWebcam(false)} onUpload={(f) => { setWebcam(false); pick(f, 'photo_taken'); }} />}
       {file && (
         <Sheet title="Make this hero?" onClose={() => { if (!busy) { setFile(null); setPreview(null); } }} className="post-upload-actions-modal">
           {preview && <div className="tb-upload-preview"><img src={preview} alt="Your drawing" /></div>}

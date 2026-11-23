@@ -26,6 +26,7 @@ from app.services.task_manager import PIPELINE_KEY
 from app.services import openai as openai_service
 from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
+from app.services.creation_steps import find_step
 
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,20 @@ def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
     )
 
 
+def _own_creation(db: Session, creation_id: str, user: User, action: str) -> Creation:
+    """The live creation `user` may act on (theirs, or any for an admin).
+
+    404 if there is none; 403 "You don't have permission to <action>" if it
+    belongs to someone else.
+    """
+    creation = _live_creation(db, creation_id)
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
+    if not user.is_admin and creation.user_id != user.id:
+        raise HTTPException(status_code=403, detail=f"You don't have permission to {action}")
+    return creation
+
+
 def update_creation(
         creation_id: str,
         update_data: CreationRequest,
@@ -68,13 +83,7 @@ def update_creation(
         user: User,
 ):
     """Update a creation's metadata (character_name, name, age)."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to update this creation")
+    creation = _own_creation(db, creation_id, user, "update this creation")
 
     # Apply provided fields only
     update_dict = update_data.model_dump(exclude_unset=True)
@@ -170,13 +179,7 @@ def delete_creation(
         task_manager
 ):
     """Delete a creation and its files. Cancels all running tasks."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions (users can only delete their own creations, unless admin)
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to delete this creation")
+    creation = _own_creation(db, creation_id, user, "delete this creation")
     
     # Cancel all running tasks for this creation
     cancelled = task_manager.cancel_all_tasks_for_creation(creation_id)
@@ -284,25 +287,16 @@ async def cancel_step(
         task_manager
 ):
     """Cancel a running step."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to cancel this step")
+    creation = _own_creation(db, creation_id, user, "cancel this step")
     
     # Find the step
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
+    step = find_step(db, creation_id, step_name)
     
     if not step:
         raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
     
     # Check if already cancelled
-    if step.status == "failed" and step.error_message == "Step cancelled by user":
+    if step_errors.is_cancelled(step):
         return {
             "message": f"Step {step_name} is already cancelled",
             "creation_id": creation_id,
@@ -353,13 +347,7 @@ async def run_step(
         task_manager
 ):
     """Run a single step independently. Handles retry automatically."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to run this step")
+    creation = _own_creation(db, creation_id, user, "run this step")
     
     # Validate step_name exists
     step_config = get_step_by_name(step_name)
@@ -371,10 +359,7 @@ async def run_step(
         raise HTTPException(status_code=400, detail="Step is already running")
     
     # Get step to check current status
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
+    step = find_step(db, creation_id, step_name)
     
     if not step:
         raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
@@ -408,10 +393,7 @@ async def run_step(
                 # Validation error (e.g., input file not found, insufficient credits)
                 # Mark step as failed since execute_step didn't get to mark it
                 try:
-                    step = db_session.query(CreationStep).filter(
-                        CreationStep.creation_id == creation_id,
-                        CreationStep.step_name == step_name
-                    ).first()
+                    step = find_step(db_session, creation_id, step_name)
                     if step and step.status != "failed":
                         step_errors.mark_failed(step, e)
                         db_session.commit()
@@ -423,10 +405,7 @@ async def run_step(
             # Other errors - execute_step should have marked as failed, but double-check
             error_msg = str(e)
             try:
-                step = db_session.query(CreationStep).filter(
-                    CreationStep.creation_id == creation_id,
-                    CreationStep.step_name == step_name
-                ).first()
+                step = find_step(db_session, creation_id, step_name)
                 if step and step.status != "failed":
                     step_errors.mark_failed(step, e)
                     db_session.commit()
@@ -540,7 +519,7 @@ def start_pipeline(
         finally:
             db_session.close()
 
-    # Create pipeline task (no individual step timeout - each step has its own)
-    # Use a long timeout for the entire pipeline (e.g., 2 hours)
+    # Each step keeps its own timeout inside run_pipeline (app/config/steps.py);
+    # this 2-hour limit on the whole run is only a backstop.
     task_manager.create_task(creation_id, PIPELINE_KEY, run_pipeline_task(), timeout=7200)
     return from_step or get_all_step_names()[0]

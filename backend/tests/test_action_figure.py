@@ -223,3 +223,55 @@ def test_before_it_is_made_a_visitor_sees_nothing(client, make_user, hero, hi3d)
     client.post(url, headers=_jwt(make_user(is_admin=True)))  # running now
     running = client.get(url).json()
     assert running["status"] == "none" and running["files"]["parts"] is None and running["progress"] == 0
+
+
+def _link_expired(monkeypatch, glb=None):
+    """Hi3D's result link answers 403 (expired) until `glb` is set."""
+    import requests
+    served = {"glb": glb}
+
+    def download(url):
+        if served["glb"] is None:
+            response = requests.Response()
+            response.status_code = 403
+            raise requests.HTTPError("403 Forbidden: Request has expired", response=response)
+        return served["glb"]
+
+    monkeypatch.setattr(print_split, "_download", download)
+    return served
+
+
+def test_an_expired_result_link_fails_the_split_and_refunds_once(for_sale, client, db, owner, hero, hi3d,
+                                                                 monkeypatch):
+    """Hi3D's result link lasts an hour. Once it has expired every read used to
+    be a 500, the split stayed in progress for ever and was never refunded."""
+    url = f"/api/v1/heroes/{hero.id}/action-figure"
+    client.post(url, headers=_jwt(owner))
+    _link_expired(monkeypatch)
+    hi3d.task = {"state": "success", "url": "https://hi3d/parts.glb"}
+
+    for _ in range(print_split.DOWNLOAD_TRIES - 1):
+        r = client.get(url, headers=_jwt(owner))
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "in_progress"   # tried again on the next read
+    assert _balance(db, owner) == 20 - ACTION_FIGURE_CREDITS
+
+    body = client.get(url, headers=_jwt(owner)).json()
+    assert body["status"] == "failed" and "credits are back" in body["error"]
+    assert _balance(db, owner) == 20
+    client.get(url, headers=_jwt(owner))  # read again: no second refund
+    assert _balance(db, owner) == 20
+
+
+def test_a_result_that_downloads_on_a_later_read_is_kept(for_sale, client, db, owner, hero, hi3d, monkeypatch):
+    """A broken download is not the end: the next read asks Hi3D again."""
+    url = f"/api/v1/heroes/{hero.id}/action-figure"
+    client.post(url, headers=_jwt(owner))
+    served = _link_expired(monkeypatch)
+    hi3d.task = {"state": "success", "url": "https://hi3d/parts.glb"}
+
+    assert client.get(url, headers=_jwt(owner)).json()["status"] == "in_progress"
+    served["glb"] = _two_part_glb()        # a fresh link, or the network is back
+    done = client.get(url, headers=_jwt(owner)).json()
+    assert done["status"] == "succeeded" and done["files"]["parts"]
+    assert _balance(db, owner) == 20 - ACTION_FIGURE_CREDITS

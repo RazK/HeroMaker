@@ -280,3 +280,19 @@ def test_hi3d_client_books_its_price_and_sends_a_character_split(db, monkeypatch
                     "mesh_url": "https://s3/model.glb"}
     event = db.query(UsageEvent).filter_by(provider_ref="split_1").one()
     assert event.provider == pricing.PROVIDER_HI3D and event.cost_usd_micros == 400_000
+
+
+def test_a_split_that_failed_before_it_had_a_task_can_still_be_read(client, make_user, hero):
+    """A state left by the old remesh path: FAILED, task_id null. Every read
+    of that hero's toy was a 500, so its toy slide never showed."""
+    import json
+    state = {"task_id": None, "remesh_task_id": "r-1", "stage": "remesh", "status": "FAILED",
+             "progress": 30, "mode": "auto", "error": "Meshy refused the split", "files": []}
+    get_storage().upload_file(hero.user_id, hero.id, print_split.STATE_FILE, json.dumps(state).encode(),
+                              content_type="application/json")
+    admin = _jwt(make_user(is_admin=True))
+
+    r = client.get(f"/api/v1/heroes/{hero.id}/print-split", headers=admin)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "failed"
+    assert client.get(f"/api/v1/heroes/{hero.id}/action-figure", headers=admin).status_code == 200

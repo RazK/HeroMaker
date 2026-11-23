@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import ApiHero, ApiKey, Creation, User
-from app.services import api_heroes, api_keys
+from app.services import api_heroes, api_keys, free_painting
 from app.services.principal import ADMIN, APP, HEROES, Principal, optional, require
 from app.services.credits import get_balance
 from app.services.task_manager import get_task_manager
@@ -233,7 +233,10 @@ def start_api_hero(db: Session, who: Principal, data: bytes, body: CreateHero, b
     style = _checked_style(body.style)
     if key is not None:
         api_keys.check_daily_limit(db, key)
-    if body.start:
+    if body.start and (key is not None or not free_painting.eligible(db, who.user_id)):
+        # In the app, an account due its free painting starts with no
+        # credits; the hero pauses after the painting until it pays
+        # (services/free_painting.py). Never through an API key.
         _require_credits(db, who, api_heroes.hero_cost())
     owner = who.user
     creation = create_with_drawing(
@@ -427,7 +430,11 @@ async def start_hero(hero_id: str, request: Request, body: Optional[StartHero] =
             raise _error(400, f"from_stage must be one of: {', '.join(STAGE_STEP)}")
         from_step = STAGE_STEP[body.from_stage]
     style = _checked_style(body.style)
-    if not who.can(ADMIN):
+    # A first painting due free (in the app, never an API key) starts with no
+    # credits; the hero pauses after it until paid (services/free_painting.py).
+    due_free = (who.api_key is None and free_painting.STEP in steps_from(from_step)
+                and free_painting.eligible(db, who.user_id))
+    if not who.can(ADMIN) and not due_free:
         _require_credits(db, who, calculate_steps_cost(steps_from(from_step)))
     if who.api_key is not None:
         api_keys.check_daily_limit(db, who.api_key)

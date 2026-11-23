@@ -48,17 +48,6 @@ class User(Base):
 
     creations = relationship("Creation", back_populates="user")
     
-    def calculate_age(self) -> Optional[int]:
-        """Calculate age from date_of_birth."""
-        if not self.date_of_birth:
-            return None
-        today = date.today()
-        age = today.year - self.date_of_birth.year
-        # Adjust if birthday hasn't occurred this year
-        if (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day):
-            age -= 1
-        return age
-
 class Creation(Base):
     __tablename__ = "creations"
 
@@ -412,6 +401,49 @@ class Payment(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     user = relationship("User")
+
+
+CHECKOUT_ORDER_STATUSES = ("pending", "paid", "failed")
+
+
+class CheckoutOrder(Base):
+    """
+    One checkout we opened, written BEFORE the buyer is sent to pay.
+
+    Lemon Squeezy carried the order's facts in its own custom data and the
+    webhook re-checked them. A provider whose callback tells us only "order X,
+    transaction Y, sum Z" (Grow, and our own grow_sandbox) needs the facts to
+    be OURS: the callback names this row, and what it bought (product, class,
+    seats, credits) and what it must cost (amount_minor) are read from here,
+    never from the callback. See app/api/payments.py, handle_grow_callback.
+
+    amount_minor is in the currency's own cents (agorot for ILS).
+    transaction_id is the provider's, set once when the order is paid; it is
+    UNIQUE, and a second transaction for a paid order grants nothing.
+
+    `user_id` is not a foreign key, like analytics_events.user_id: the record
+    of an order must not block an account's deletion. m022_checkout_orders.
+    """
+    __tablename__ = "checkout_orders"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    provider = Column(String(20), nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
+    # "pack" or "class_seats"
+    kind = Column(String(20), nullable=False)
+    # The pack's slug, or "class_seats".
+    product = Column(String(40), nullable=False)
+    class_id = Column(String, nullable=True, index=True)
+    seats = Column(Integer, nullable=True)
+    credits = Column(Integer, nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    currency = Column(String(3), nullable=False)
+    status = Column(String(10), nullable=False, default="pending", index=True)
+    transaction_id = Column(String, nullable=True, unique=True)
+    redirect_url = Column(Text, nullable=True)
+    metadata_json = Column(JSONVariant, default=dict, name="metadata")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 class PasswordResetToken(Base):

@@ -70,7 +70,6 @@ export interface School {
 
 /** The children's ages, picked on the class sheet (backend AGE_BANDS). */
 export const AGE_BANDS = ['3-4', '5-6', '7-8', '9-10', '11+'] as const;
-export const agesLabel = (ages: string) => `Ages ${ages.replace('-', '–')}`;
 
 export interface ClassView {
   id: string;
@@ -101,10 +100,20 @@ export interface SeatPrice {
   order_cents: number;
   seat_cents: number;
   max_seats: number;
+  /** The smallest paid order (Grow: 10 seats); absent means 1. */
+  min_seats?: number;
+  /** "ILS" (the cents are agorot), or absent for Lemon Squeezy's US dollars. */
+  currency?: string;
+  /** One seat's price as the backend writes it, e.g. "₪10". */
+  seat_display?: string;
 }
 
 export const seatsCents = (p: SeatPrice, seats: number) => p.order_cents + p.seat_cents * seats;
-export const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+export { priceText } from './price';
+
+/** The fewest seats a paid order may have (the backend answers 400 below it). */
+export const minPaidSeats = (p: SeatPrice | null) => Math.max(1, p?.min_seats ?? 1);
 
 export interface SeatsCheckout {
   checkout_url: string;

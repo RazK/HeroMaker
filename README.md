@@ -2,7 +2,7 @@
 
 AI-powered character creation pipeline that transforms 2D images into 3D VRM avatars.
 
-![HeroMaker Pipeline](docs/assets/pipeline_demo.gif)
+![HeroMaker Pipeline](docs/assets/pipeline_demo.webp)
 
 > Transform drawings into animated 3D characters in minutes
 
@@ -67,21 +67,20 @@ That's it! The API is now available at `http://localhost:8000`.
 ## Features
 
 ### 🎨 Complete Pipeline
-![Pipeline Demo](docs/assets/pipeline_demo.gif)
+![Pipeline Demo](docs/assets/pipeline_demo.webp)
 - Complete end-to-end pipeline execution
 - Automatic step-by-step processing
 - Real-time progress tracking
 - Complete pipeline in ~6 minutes
 
 ### 🎭 3D Model Viewer & Pose Animation
-![3D Model & Pose Demo](docs/assets/kalidoface_demo.gif)
+![3D Model & Pose Demo](docs/assets/kalidoface_demo.webp)
 - Interactive 3D model preview
 - Real-time pose animation from webcam
 - Rotate, zoom, and inspect models
 - Live facial tracking and body pose detection
 
 ### 📦 Creation Gallery
-![Gallery Demo](docs/assets/gallery_demo.gif)
 - Browse all your creations
 - Quick access to completed avatars
 - Download VRM files

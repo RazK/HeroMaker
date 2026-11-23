@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flush, track } from '../../analytics';
 import qrcode from 'qrcode-generator';
 import { api, ApiError, paintingFramed } from '../../api/client';
-import { HeroSummary, SeatsCheckout, Student, dollars } from '../../api/classes';
+import { HeroSummary, SeatsCheckout, Student, priceText } from '../../api/classes';
 import { STEP_UI } from '../tb/pipeline';
 import { HeroTile, TileArt, makingLine, makingPct } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
@@ -235,9 +235,10 @@ export function seatsBeforeCheckout(classId: string): number {
   }
 }
 
-export function PaySeatsDialog({ seats, cents, title, seatsBefore, open, onClose }: {
+export function PaySeatsDialog({ seats, cents, currency, title, seatsBefore, open, onClose }: {
   seats: number;
   cents: number;
+  currency?: string;
   title: string;
   seatsBefore: number;
   open: () => Promise<SeatsCheckout>;
@@ -245,7 +246,7 @@ export function PaySeatsDialog({ seats, cents, title, seatsBefore, open, onClose
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const price = dollars(cents);
+  const price = priceText(cents, currency);
   const go = async () => {
     setBusy(true);
     setError(null);

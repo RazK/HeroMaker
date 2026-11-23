@@ -131,7 +131,10 @@ export class World {
     // squares are what make running read as running: the floor visibly
     // slides under a camera that follows the hero.
     const W = ARENA.maxX - ARENA.minX + 0.6
-    const D = ARENA.maxZ - ARENA.minZ + 1.6
+    // The mat runs on past the front edge, under the camera, so a sheet
+    // over the stage's foot covers more mat, never the room's bare floor.
+    const FRONT = 4
+    const D = ARENA.maxZ - ARENA.minZ + 1.6 + FRONT
     const hex = (c: number) => '#' + c.toString(16).padStart(6, '0')
     const mat = canvasTexture(512, 512, (g) => {
       const cols = [[PAL.lilac, PAL.cream], [PAL.cream, PAL.butter]]
@@ -153,7 +156,7 @@ export class World {
       new THREE.BoxGeometry(W, 0.16, D),
       [edge, edge, new THREE.MeshStandardMaterial({ map: mat, roughness: 0.95 }), edge, edge, edge],
     )
-    floor.position.set((ARENA.minX + ARENA.maxX) / 2, -0.08, (ARENA.minZ + ARENA.maxZ) / 2 - 0.5)
+    floor.position.set((ARENA.minX + ARENA.maxX) / 2, -0.08, (ARENA.minZ + ARENA.maxZ) / 2 - 0.5 + FRONT / 2)
     s.add(floor)
 
     // The room around the mat: a warm wooden floor.

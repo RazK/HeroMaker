@@ -212,7 +212,10 @@ PROVIDERS = pricing.PROVIDERS + (MOCK_PROVIDER,)
 
 
 def _pack_slugs() -> tuple:
-    return tuple(p["slug"] for p in packs_config.get_packs()) + (packs_config.CLASS_SEATS_SLUG,)
+    # Dollar packs (Lemon Squeezy), shekel products (Grow), and class seats.
+    return (tuple(p["slug"] for p in packs_config.get_packs())
+            + tuple(p["slug"] for p in packs_config.get_ils_products())
+            + (packs_config.CLASS_SEATS_SLUG,))
 
 
 # The app's screens (frontend/src/App.tsx's views, the class pages).

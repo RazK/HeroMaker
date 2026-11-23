@@ -89,8 +89,6 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
   const done = figure?.status === 'succeeded' && figure.files?.parts;
   if (done) {
     const url = figure.files!.parts_view || figure.files!.parts!;
-    // The drawing's card (HeroLive's corner card, where the drawing rests): the toy never passes under it.
-    const drawingCard = () => document.querySelector<HTMLElement>('.tb-mini-drawing img')?.getBoundingClientRect() ?? null;
     const takeApart = () => {
       if (!apart && !pulled.current) { pulled.current = true; track('take_apart_tapped', { hero_id: heroId }); }
       setApart(!apart);
@@ -100,7 +98,9 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
         <div className="tb-live-room tb-figure-room">
           <PartsBoundary fallback={<PartsFallback preview={figure.files?.preview} alt={`${heroName}, the action figure`} />}>
             <Suspense fallback={<div className="tb-figure-wait"><div className="tb-ring" style={{ ['--p' as string]: '25%' }}><span>…</span></div></div>}>
-              <PartsStage url={url} apart={apart ? 1 : 0} ease arrows sway avoid={drawingCard} />
+              {/* Centred in the card like every slide's picture; the name card and
+                  the toy's controls are laid over the card (Raz, 2026-11-22). */}
+              <PartsStage url={url} apart={apart ? 1 : 0} ease arrows sway />
             </Suspense>
           </PartsBoundary>
         </div>
@@ -152,7 +152,7 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
       </div>
       {inDock(
         <button type="button" className="tb-btn tb-btn--primary tb-btn--with-trail tb-figure-dock tb-figure-buy" disabled={busy} onClick={buy}>
-          <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : price === undefined ? 'Make the action figure' : 'Make it a toy'}</span>
+          <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : price === undefined ? 'Make the toy' : 'Make it a toy'}</span>
           <span className="tb-btn-trail">{price === undefined ? 'Admin' : `${price} credits`}</span>
         </button>,
       )}

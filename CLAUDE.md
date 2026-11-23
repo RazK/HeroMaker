@@ -45,8 +45,11 @@ clones this repo):
   every new idea from Raz. Steer him when an idea does not bring money.
 - **`weekly-review`**: the Sunday 5 lines, from real numbers only.
 - **`pilot-notes`**: plan and write up Schneider, classes and other pilots.
+- **`sprint`**: the 3-day sprint cadence (`docs/ops/CADENCE.md`): daily sync,
+  kickoff, review with a working staging demo, retro. The PM conducts it.
 - **`team-handoff`**: who is who (names are session titles: Gidi · Payments,
-  Maya · Design, Nir · 3D), how agents message each other, how to report to Raz.
+  Maya · Design, Liran · Dev, Nir · 3D, Tom · Content), how agents message each
+  other, how to report to Raz.
 
 ## Design: read docs/design/PRINCIPLES.md, then BRANDBOOK.md, before any UI work
 
@@ -177,6 +180,16 @@ open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
 
+### Changing a production variable redeploys unreleased code
+
+On Railway, changing a service's variable **redeploys it from the latest
+commit of its branch**, not from the image already running. On 2026-11-22 a
+variable change on the production backend put `main` (staging's unreleased
+code) on production for ten minutes, until the old build was redeployed by
+id. So, for production: set variables with `skipDeploys`, then redeploy the
+**running** deployment by its id. Any production variable change still needs
+Raz's yes.
+
 ## Staging never looks like production (Raz's rule)
 
 Staging has its own app icon (a dark tile with a yellow STAGING band), its own
@@ -257,8 +270,9 @@ workflow that hard-codes one. See `docs/deployment/cicd.md`.
 `games/PLAYBOOK.md` before building one — it records the asset's constraints
 (22 bones, no fingers, no blendshapes, wildly varying proportions), the
 publishing constraints, what a 2D pose tracker can and cannot read on these
-avatars, and the process rules that came out of building them. `games/hero-dash`
-is parked; `games/README.md` says why and lists what to reuse from it.
+avatars, and the process rules that came out of building them. Hero Dash
+is parked (its code is on the `archive/hero-dash` branch); `games/README.md` says
+why and where its reusable parts live now.
 
 ### Two capabilities worth knowing about before you build anything
 

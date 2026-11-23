@@ -65,6 +65,8 @@ const BALANCE_BEFORE_CHECKOUT = PURCHASE_ON_LOAD ? balanceBeforeCheckout() : und
 const CLASS_PAID_ON_LOAD = new URLSearchParams(window.location.search).get(CLASS_PAID_PARAM);
 // The screen this address is (routes.ts): a hero, a class, the admin console.
 const ROUTE_ON_LOAD = routeAt(window.location.pathname);
+/** Opened as `/?make=1`: start making a hero (the shared game's last button). */
+const MAKE_ON_LOAD = ROUTE_ON_LOAD?.view === 'gallery' && new URLSearchParams(window.location.search).get('make') === '1';
 
 function App() {
   const pin = joinPin();
@@ -139,6 +141,12 @@ function MainApp() {
   const [askWhoFor, setAskWhoFor] = useState(false);
   const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
+  // Pay after the reveal (backend services/free_painting.py): this account's
+  // first painting needs no credits. A ref too, so a check made right after a
+  // re-read sees the new answer.
+  const [freePainting, setFreePainting] = useState(false);
+  const freePaintingRef = useRef(false);
+  const setFree = (on: boolean) => { freePaintingRef.current = on; setFreePainting(on); };
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean; is_teacher: boolean } | null>(null);
   const [galleryKey, setGalleryKey] = useState(0);
   // Signed out: whether the landing's own Run a class / Make a hero are on screen
@@ -177,6 +185,7 @@ function MainApp() {
     const wantsClasses = !!token && intendsClasses();
     if (!token) {
       setCreditBalance(undefined);
+      setFree(false);
       setUserInfo(null);
       setAuthChecked(true);
       return undefined;
@@ -192,12 +201,14 @@ function MainApp() {
         if (user.is_teacher) setSection('classes');
       }
       setCreditBalance(user.credits);
+      setFree(!!user.free_painting);
       setUserInfo({ id: user.id, is_admin: user.is_admin, is_teacher: !!user.is_teacher });
       window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
       setAuthChecked(true);
       return user.credits;
     } catch {
       setCreditBalance(undefined);
+      setFree(false);
       setUserInfo(null);
     }
     setAuthChecked(true);
@@ -422,7 +433,8 @@ function MainApp() {
   // credits first, before any photo is taken or uploaded (Raz: "why you let
   // me start making hero even though I don't have credits"). The balance is
   // re-read before saying no, so a stale copy never turns anyone away.
-  const enoughForHero = (b: number | undefined) => b === undefined || pipelineCost <= 0 || b >= pipelineCost;
+  const enoughForHero = (b: number | undefined) =>
+    b === undefined || pipelineCost <= 0 || b >= pipelineCost || freePaintingRef.current;
   // With the balance read: the New hero sheet, or Buy credits first.
   const proceedToMake = (balance: number | undefined) => {
     if (enoughForHero(balance)) { setShowNewHero(true); return; }
@@ -445,6 +457,18 @@ function MainApp() {
     }
     proceedToMake(await refreshCreditBalance());
   };
+  // `/?make=1`: the way in from the end of a shared game ("Make a hero from my
+  // drawing"). Once we know who is looking, it does what Make a hero does:
+  // sign-up first when signed out (make_started fires there, as always).
+  const makeOnLoad = useRef(MAKE_ON_LOAD);
+  const startNewHeroRef = useRef(startNewHero);
+  startNewHeroRef.current = startNewHero;
+  useEffect(() => {
+    if (!makeOnLoad.current || !authChecked) return;
+    makeOnLoad.current = false;
+    replaceRoute('/');
+    void startNewHeroRef.current();
+  }, [authChecked]);
 
   const discardUnstarted = (keepalive = false) => {
     const id = unstartedRef.current;
@@ -607,7 +631,7 @@ function MainApp() {
   const shouldPoll = view !== 'gallery' && creation && (hasProcessingStep || creation.status === 'pending');
   useCreationPolling(shouldPoll ? creation.id : null, (updated) => setCreation(updated));
 
-  const short = creditBalance !== undefined && pipelineCost > creditBalance;
+  const short = !freePainting && creditBalance !== undefined && pipelineCost > creditBalance;
   const notices = (
     <>
       {purchaseNotice && <div className="tb-notice app-purchase-notice" role="status"><Icon name="coin" />{purchaseNotice}</div>}
@@ -652,6 +676,10 @@ function MainApp() {
     setClassesIntent(true);
     window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup', note: 'Then make your first class.' } }));
   };
+  // The account controls of the site's header: on the gallery, and on a
+  // hero's page (Raz: "the logo and everything in the header stay with us
+  // across the site").
+  const headerAuth = <HeaderAuth onOpenAdmin={() => openAdmin()} onClassesMode={(on) => { if (on) setSection('classes'); else leaveClasses(); }} />;
   const appHeader = (
     <Header
       left={(
@@ -660,7 +688,7 @@ function MainApp() {
           <span>HeroMaker</span>
         </button>
       )}
-      right={<HeaderAuth onOpenAdmin={() => openAdmin()} onClassesMode={(on) => { if (on) setSection('classes'); else leaveClasses(); }} />}
+      right={headerAuth}
     />
   );
   const footer = (extra?: JSX.Element) => (
@@ -706,6 +734,9 @@ function MainApp() {
   };
 
   let screen;
+  // A screen whose header carries the account controls mounts HeaderAuth
+  // itself; the hidden one below would open every dialog twice.
+  let ownAuth = view === 'gallery';
   if (view === 'claim' && claim) {
     screen = (
       <ClaimScreen
@@ -764,6 +795,7 @@ function MainApp() {
       />
     );
   } else if ((view === 'hero' || view === 'steps') && creation) {
+    ownAuth = true;
     screen = (
       <HeroScreen
         creation={creation}
@@ -772,6 +804,8 @@ function MainApp() {
         isAdmin={userInfo?.is_admin ?? false}
         creditBalance={creditBalance}
         onBack={backFromHero}
+        onHome={goHome}
+        headerAuth={headerAuth}
         onRefresh={refreshCreation}
         onDeleted={backFromHero}
         onShowSteps={() => { go(stepsPath(creation.id)); setView('steps'); }}
@@ -850,7 +884,7 @@ function MainApp() {
       {screen}
       {/* Off the gallery the account controls are hidden, but its dialogs
           (buy credits, sign-in) must stay mounted for any screen to open. */}
-      {view !== 'gallery' && <HeaderAuth controls={false} />}
+      {!ownAuth && <HeaderAuth controls={false} />}
       {view !== 'gallery' && <div className="tb-toasts">{notices}</div>}
 
       {/* Always mounted, so "Photos" can open it from the sheet. */}
@@ -894,16 +928,13 @@ function MainApp() {
 
       {showWebcamModal && (
         <FileUpload
-          onUpload={(file, characterName) => {
+          onUpload={(file) => {
             track('photo_taken');
-            handleUpload(file, characterName);
+            handleUpload(file);
             setShowWebcamModal(false);
           }}
           disabled={isUploading}
-          showWebcamOnMount={true}
           onClose={() => setShowWebcamModal(false)}
-          creditBalance={creditBalance}
-          creationCost={pipelineCost}
         />
       )}
 
@@ -926,7 +957,7 @@ function MainApp() {
             ) : (
               <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail post-upload-action-primary" disabled={isStarting} onClick={handleStartPipeline}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="play" />{isStarting ? 'Starting…' : 'Make my hero'}</span>
-                {pipelineCost > 0 && <span className="tb-btn-trail"><Icon name="coin" size={18} />{pipelineCost} credits</span>}
+                {pipelineCost > 0 && !freePainting && <span className="tb-btn-trail"><Icon name="coin" size={18} />{pipelineCost} credits</span>}
               </button>
             )}
           </div>

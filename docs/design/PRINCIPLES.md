@@ -1,5 +1,25 @@
 # Raz's principles
 
+## The gate: before ANY screenshot reaches Raz
+
+Raz has had to repeat these five more than any others. Look at the picture you
+are about to send and answer each one, out loud, in your notes. One "no" and it
+does not go out.
+
+1. **Nothing twice.** Every word, name, title and picture appears once on the
+   screen. The game's name in the header is not repeated in the sheet; the
+   drawing on the wall is not repeated as a polaroid; the child's name in the
+   sentence is not repeated as a caption beside it. (18, 45)
+2. **Two fonts at most:** the display face for one title, the body face for
+   everything else. No eyebrows, no capitals labels, no third style. (24)
+3. **One axis.** Everything lines up on one centre or one edge; measure it.
+   Nothing sits a few pixels off. (9, 41, 42)
+4. **No dead space.** No empty band at the top or bottom, no small picture in a
+   big card, no gap that does not separate two things. (10, 26)
+5. **Least text.** Could a line go? Then it goes. Context first, then how, in
+   two lines at most. (24, 25)
+
+
 Read this before any UI, UX or copy work, every time. These are the rules Raz has
 had to repeat. Breaking one is a bug, not a style choice. `BRANDBOOK.md` holds the
 tokens, components and measurements that carry them out; this page says what
@@ -115,7 +135,8 @@ they are for.
     panels are information only.
 34. **Hints show once,** the first time, inside the card; never as a standing
     line.
-35. **No prev/next arrows** on any size: swipe, drag, the dots and the keys.
+35. **No prev/next arrows** on any size: swipe, drag, the dots (on the hero's
+    page, its chapters) and the keys.
 
 36. **Every button is a pill, on one line.** Icon and words sit side by side;
     never a rounded rectangle, never an icon stacked above its label. (Raz, 2026-11-19)
@@ -143,6 +164,45 @@ they are for.
     so the headline reads clearly bigger than the logo. Whatever scrolls fits a
     whole item between the header and the bar. (Raz, 2026-11-22: "just copy
     the desktop")
+45. **Say a thing once, in the place that explains it.** A name, a title or a
+    drawing already on screen is never echoed nearby in another form (a caption,
+    an eyebrow, a polaroid). Pick the one place that says it best. (Raz,
+    2026-11-23: "why is Robot Rumble there twice, in a different font each
+    time" and "do we need the name in the text and on the card?")
+46. **The child is named.** The artist's first name and age are shown wherever
+    the drawing is credited, the shared game included: "Maya, 6, drew this hero
+    on paper." They were asked for in order to be shown. Never in analytics.
+    (Raz, 2026-11-23)
+
+## The hero's page (Raz, 2026-11-22: "proposal A")
+
+47. **The site's header goes everywhere.** The hero's page keeps the gallery's
+    header: the logo (home), the credits and the account, or Sign in ("the
+    logo and everything in the header stay with us across the site"). A
+    desktop adds Back before the logo and **Make your own** (a header-sized
+    secondary) before the credits; a phone has neither (the logo and the
+    system's Back go back).
+48. **The picture is centred; the rest is laid over it.** The stage card is the
+    bottom layer and the slide's picture is centred in it, across and down, by
+    its own outline (the live 3D hero is framed by where it stands, every
+    frame). Nothing reserves room in the card. Over it, never pushing it: the
+    hero's name card at the bottom start (the gallery's white card, "by Maya,
+    7"), the slide's own controls (the moves, the toy's) at the bottom end in
+    one column rising upward, each as wide as the widest word, and the owner's
+    ⋯ at the top end. Each sits equally far in from both edges it is near.
+49. **Chapters replace the dots.** One tile per slide (Drawing, Painting, 3D
+    hero, Toy), its picture and its name; the one in view is chosen. A tap
+    goes there; swipe, drag and the arrow keys still work. A desktop has them
+    as a 2x2 grid in a column beside the card; a phone as one row under it.
+50. **The hero's own actions at the foot:** Share (secondary) and Play
+    (primary), side by side, one width, Play last. Share is out of the ⋯; the
+    ⋯ is shown only when it holds something for this viewer.
+51. **A desktop's card runs down to the bottom margin:** no empty band under
+    it; the side column's buttons end level with the card's bottom.
+52. **The 3D hero is lit like a toy in a studio:** a soft warm key from the
+    front left above, a fill from the right, a gentle rim from behind; faces
+    clearly lit, colours as the painting has them, no hard shadow. A hero that
+    arrives lit from within (its texture as full emissive) is not drawn flat.
 
 The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
 

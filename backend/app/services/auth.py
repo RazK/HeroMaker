@@ -9,10 +9,6 @@ from app.database import get_db
 from app.models import User
 from app.config.settings import get_jwt_secret_key, JWT_ALGORITHM, JWT_EXPIRATION_HOURS
 
-# Debug user constant for V2 (kept for backward compatibility during migration)
-DEBUG_USER_ID = "debug-user-uuid"
-DEBUG_USER_EMAIL = "debug@heromaker.local"
-
 # HTTP Bearer token security scheme
 security = HTTPBearer(auto_error=False)
 
@@ -90,40 +86,6 @@ def get_current_user(
         )
     
     # Get user from database
-    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return user
-
-
-def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: Session = Depends(get_db)
-) -> Optional[User]:
-    """
-    Get the current authenticated user from JWT token if provided.
-    Returns None if no token (for public endpoints).
-    Raises 401 only if token is provided but invalid.
-    """
-    if not credentials:
-        return None
-    
-    # Token provided - validate it
-    token = credentials.credentials
-    user_id = verify_access_token(token)
-    
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
     user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if user is None:
         raise HTTPException(

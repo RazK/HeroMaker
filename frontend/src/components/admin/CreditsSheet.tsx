@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { Icon } from '../tb/Icon';
-import { Dialog, Sheet } from '../tb/parts';
+import { ConfirmDialog, Sheet } from '../tb/parts';
 
 export type CreditsMode = 'give' | 'take';
 
@@ -98,16 +98,11 @@ export function CreditsSheet({ user, mode, onClose, onDone }: {
         </div>
       </Sheet>
       {confirming && (
-        <Dialog label={mode === 'give' ? `Give ${n} credits?` : `Take back ${n} credits?`} onClose={() => setConfirming(false)}>
-          <div className="tb-h2">{mode === 'give' ? `Give ${who} ${n} credits?` : `Take ${n} credits from ${who}?`}</div>
-          <div className="tb-muted">New balance: {after}.</div>
-          <div className="tb-stack">
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setConfirming(false)}>Cancel</button>
-            <button type="button" className={`tb-btn ${mode === 'give' ? 'tb-btn--primary' : 'tb-btn--danger'} tb-btn--full`} disabled={busy} onClick={save}>
-              <Icon name="check" />{mode === 'give' ? 'Give' : 'Take back'}
-            </button>
-          </div>
-        </Dialog>
+        <ConfirmDialog label={mode === 'give' ? `Give ${n} credits?` : `Take back ${n} credits?`}
+          title={mode === 'give' ? `Give ${who} ${n} credits?` : `Take ${n} credits from ${who}?`}
+          line={<>New balance: {after}.</>} keep="Cancel" onClose={() => setConfirming(false)}
+          tone={mode === 'give' ? 'primary' : 'danger'} busy={busy} onAction={save}
+          action={<><Icon name="check" />{mode === 'give' ? 'Give' : 'Take back'}</>} />
       )}
     </>
   );

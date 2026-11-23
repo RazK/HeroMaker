@@ -37,6 +37,11 @@ A sheet of tally marks, one row per hour: heroes started, heroes finished,
 children who left before the painting, QR cards taken, "how do I keep it",
 "how much", "can I print it".
 
+The toy table (display only: two Violets, one-piece and jointed, no price):
+"can I get one like that?", which toy a child picks up first (jointed or
+statue), and that child's age band (4-6, 7-9, 10-12). This reads H-046 and
+gives a first look at H-037.
+
 ## Before (checklist)
 
 - [ ] 26 Nov: payments Live on production (Gidi).

@@ -429,7 +429,7 @@ class SeatsMoved(Exception):
 
 
 def grant_bought_seats(db: Session, classroom: ClassRoom, seats: int, order_id: str,
-                       metadata: Optional[dict] = None) -> Tuple[object, bool]:
+                       metadata: Optional[dict] = None, ref: Optional[str] = None) -> Tuple[object, bool]:
     """Put `seats` paid seats on the class: their credits on its wallet and
     the seat count up by `seats`, in ONE transaction.
 
@@ -437,6 +437,9 @@ def grant_bought_seats(db: Session, classroom: ClassRoom, seats: int, order_id: 
     order id, so a second delivery of the same order finds the first row and
     changes nothing (and, the seat update living inside the same transaction,
     the seats cannot be added twice either). Returns (ledger row, granted now).
+
+    `ref` overrides that key for a provider that keys on something else
+    (grow_sandbox: its transaction id). Default: the Lemon Squeezy order ref.
     """
     seats = int(seats)
     if seats < 1:
@@ -450,7 +453,7 @@ def grant_bought_seats(db: Session, classroom: ClassRoom, seats: int, order_id: 
 
     tx = ledger.post(
         db=db, user_id=classroom.wallet_user_id, delta=credits, reason="purchase",
-        external_ref=order_ref(order_id), in_transaction=add,
+        external_ref=ref or order_ref(order_id), in_transaction=add,
         metadata={**(metadata or {}), "class_id": class_id, "seats": seats, "nonce": nonce},
     )
     granted = (tx.metadata_json or {}).get("nonce") == nonce
