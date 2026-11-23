@@ -14,4 +14,15 @@ One entry per 3-day sprint (`CADENCE.md`). Newest first. The PM writes it.
 
 ## Log
 
-(The first sprint is opened at the next kickoff.)
+## Sprint 1 — 2026-11-23 to 2026-11-25
+
+- **Goal:** The sister's money path, proven on staging — first painting free → pay ₪10 to bring the hero to life (or ₪10/seat, min 10, for a class) → receipt. So the moment Raz finishes the real Grow setup, a teacher can pay for real.
+- **Commitments** (each shows a working staging demo at the day-2 review):
+  - **Gidi (Payments):** (1) FREE_PAINTING on in staging, pay-after-the-reveal proven on the real `pipeline.execute_step` path (0 credits → free painting → NOT_ENOUGH_CREDITS pause → buy ₪10 in Grow sandbox → finish); (2) the sister's Grow + Morning do-list for Raz (only the steps he must do). Demo: a staging run/link of that flow.
+  - **Liran (Dev):** (1) the share→make→pay funnel green on staging, robot kept green; (2) build Maya's "Bring it to life" screen + wire the toy fake-door event (`toy_ship_tapped`). Demo: a staging link where a shared hero link → make → pay works, green robot.
+  - **Maya (Design):** (1) Raz's approval on the ready screens, built on staging with Liran; (2) design the "Bring it to life" pay-after-the-reveal screen + the toy fake-door. Demo: approved screens live on staging; the two designs sent to Raz.
+  - **Nir (3D):** (1) the toy cost→price table in `docs/toy/` (per method: cost, time, price for ≥50% margin); (2) after Raz's 3 cast picks + copy-yes, the 3 cast heroes dancing/flipping on staging. Demo: the table; the 3 heroes on a staging link.
+  - **Tom (Content):** the family film first full cut on the pages build (free HF quota), one money moment + one CTA. Demo: the film playing at razk.github.io/HeroMaker.
+- **Context at kickoff:** staging green end to end (money path in Grow sandbox, make-a-hero, hero page). Shipped since the previous day: security guard for the leaked debug admin (#317), apostrophe fix (#320), shekel prices (#319), first-painting view ~70× faster (#328), dead-code/binary cleanup (#301–#308, #315, #330, #331), children's names off the public README (#327), robot-on-every-deploy (#310), two robot fixes for the new hero-page layout (#326, #332).
+- **Review:** _(day 2, 2026-11-25)_
+- **Retro:** _(day 2)_
