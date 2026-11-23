@@ -11,7 +11,7 @@ Asked for by Nir · 3D (Phase 1, step 3; H-034/H-036).
   your door · ₪149". Then the honest line: "We don't make these yet. Thanks
   for telling us you'd like one: it helps us decide." One button, OK. It
   collects nothing.
-- **Analytics:** toy_interest_tapped {hero_id}, one per tap.
+- **Analytics:** toy_ship_tapped {hero_id} (HYPOTHESES.md G-8), one per tap.
 - **Picture:** the print preview where one exists (Violet,
   docs/toy/violet_toy_preview.png). For every other hero, its painting on the
   same grey plate, until print previews exist.
