@@ -22,7 +22,28 @@ Raz, 2026-11-23: a toy must cost at most ₪80-120 to print; nobody pays more th
 | 10 cm, every triangle painted (AMS) | ≈ 25 h | 272 g (214 g) | 959 | ≈ ₪110, one toy per printer per day |
 | 12 cm ball-joint action figure (Hi3D split), one colour, 0.2 mm | 6.1 h | 68 g | 0 (≈6 if each part has its own colour, printed part by part) | ≈ ₪25 + assembly |
 
-## Is the toy a business? Cost and price per toy
+## If a third party prints it (Raz, 2026-11-23: plan as a service first)
+
+8 cm Violet: 26 cm³ solid. Prices before shipping, ₪3.7 per $. Researched online on
+2026-11-23; nothing has been ordered.
+
+| Way | Who | Price per toy | How we know |
+|---|---|---|---|
+| **Full colour resin (prints the texture itself)** | **JLC3DP, China** | **₪73** (10 cm: ₪142) | their quote page: $0.58/g at 1.3 g/cm³; same price for 1, 10 or 50; 72 h build |
+| Full colour nylon (HP Jet Fusion type) | JLC3DP | ₪81 | same; 14-16 days |
+| One colour PLA | JLC3DP | ₪11 | same |
+| One colour PLA | Reznikov Engineering, Israel | ~₪100 incl. VAT | their published examples (30 g = ₪94-110) |
+| 5-colour PLA | a maker in Israel | ~₪400 (estimate: 176 g with purge at Reznikov's rate) | no shop publishes multi-colour prices |
+| Head in colour, body in bands | a maker in Israel | ~₪260 (estimate: 101 g) | same |
+| Full colour, sold to the public | Chibime, Israel | ₪229 per figure | their site |
+
+- **Full colour from JLC3DP is the cheapest and the best-looking**: no palette, no paint.
+- Unknown: the cost of shipping to Israel. JLC reported Middle East delays in March 2026
+  and the buyer pays import VAT. One test order would answer both.
+- To reach a 50% margin at ₪150, the print must cost about ₪50: a **7 cm** toy (~₪49)
+  or a hollow 8 cm one (JLC charges by weight; not checked yet).
+
+## Is the toy a business? Cost and price per toy (our own printer)
 
 Price for 50% margin = 2 x (making + packing and post). Making includes 15% for failed
 prints. Packing and post is **₪25, an assumption** (box ₪5 + registered small parcel

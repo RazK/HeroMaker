@@ -1,0 +1,43 @@
+<!doctype html><html><body style="margin:0">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
+// Pose a rigged hero and bake it into a static textured mesh.
+// pose = {BoneName: [axis 'x'|'y'|'z' (WORLD), degrees], ...}, applied parent-first.
+window.bake = async (url, pose) => {
+  const g = await new Promise(r => new GLTFLoader().load(url, r));
+  const root = g.scene; root.updateMatrixWorld(true);
+  let skinned; root.traverse(o => { if (o.isSkinnedMesh) skinned = o; });
+  const bones = {}; skinned.skeleton.bones.forEach(b => bones[b.name] = b);
+  const order = ['Hips','Spine02','Spine01','Spine','neck','Head','LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm','LeftHand','RightHand','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg','LeftFoot','RightFoot'];
+  const info = {};
+  for (const name of order) {
+    if (!pose[name] || !bones[name]) continue;
+    const b = bones[name]; root.updateMatrixWorld(true);
+    const [axis, deg] = pose[name];
+    const ax = new THREE.Vector3(axis==='x'?1:0, axis==='y'?1:0, axis==='z'?1:0);
+    const qw = new THREE.Quaternion().setFromAxisAngle(ax, THREE.MathUtils.degToRad(deg));
+    const pw = new THREE.Quaternion(); b.parent.getWorldQuaternion(pw);
+    const bw = new THREE.Quaternion(); b.getWorldQuaternion(bw);
+    b.quaternion.copy(pw.clone().invert().multiply(qw).multiply(bw));
+  }
+  root.updateMatrixWorld(true); skinned.skeleton.update();
+  for (const n of Object.keys(bones)) { const p = new THREE.Vector3(); bones[n].getWorldPosition(p); info[n] = p.toArray(); }
+  const geo = skinned.geometry, pos = geo.attributes.position, out = new Float32Array(pos.count * 3), v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); skinned.applyBoneTransform(i, v); v.applyMatrix4(skinned.matrixWorld); out.set([v.x, v.y, v.z], i * 3); }
+  const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, dom = new Array(pos.count);
+  for (let i = 0; i < pos.count; i++) { let best = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } } dom[i] = skinned.skeleton.bones[best].name; }
+  info.__dominant = dom; info.__positions = Array.from(out);
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.BufferAttribute(out, 3));
+  sg.setAttribute('uv', geo.attributes.uv.clone());
+  sg.setIndex(geo.index.clone()); sg.computeVertexNormals();
+  const mesh = new THREE.Mesh(sg, skinned.material); const sc = new THREE.Scene(); sc.add(mesh);
+  const bin = await new GLTFExporter().parseAsync(sc, { binary: true });
+  const b64 = btoa(new Uint8Array(bin).reduce((s, c) => s + String.fromCharCode(c), ''));
+  return { glb: b64, bones: info };
+};
+window.ready = true;
+</script></body></html>
