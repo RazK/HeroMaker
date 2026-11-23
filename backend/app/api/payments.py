@@ -6,6 +6,7 @@ In the order money moves through them:
     GET  /api/v1/packs            what we sell, public, no prices invented here
     POST /api/v1/checkout         signed-in user asks for a checkout URL
     POST /api/payments/webhook    Lemon Squeezy tells us they paid -> credits
+    POST /api/payments/grow/notify  Grow's callback: stored UNVERIFIED, grants nothing
     GET  /api/v1/receipts         signed-in user's own purchase history
 
 The client calls are served by app/api/v1_account.py, which calls the
@@ -31,9 +32,9 @@ from sqlalchemy.orm import Session
 
 from app.config import packs as packs_config
 from app.database import get_db
-from app.models import ClassRoom, Payment, User
+from app.models import ClassRoom, GrowNotification, Payment, User
 from app.services import classes as class_service
-from app.services import analytics, ledger, lemonsqueezy
+from app.services import analytics, grow, ledger, lemonsqueezy
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +328,49 @@ def _pack_paid_for(event: dict, claimed_slug: str) -> Optional[dict]:
     if priced is None:
         priced = event["total_usd_micros"]
     return pack if priced >= pack["price_usd_micros"] - 10_000 else None
+
+
+# --------------------------------------------------------------------------
+# Grow's callback: heard, kept, and NOT believed
+# --------------------------------------------------------------------------
+
+@router.post("/grow/notify")
+async def grow_notify(request: Request, db: Session = Depends(get_db)):
+    """
+    Grow's server callback to `notifyUrl` (form-encoded). Stored as
+    unverified evidence; answers 200; grants NOTHING.
+
+    TODO(grow): before any credit moves for a Grow payment, two pieces are
+    missing, and both are asked of Grow's API team (docs/launch/READINESS.md):
+      1. VERIFY the callback: a signature Grow documents, or a server-side
+         lookup of the transaction by id against Grow's API. The form itself,
+         custom fields included, is anyone's word.
+      2. Call approveTransaction, which Grow requires after a callback.
+    Then credit through ledger.record_purchase with an `external_ref` keyed on
+    Grow's transaction id (the replay guard), by what Grow says was paid and
+    never by cField values, exactly as the Lemon Squeezy webhook does.
+    """
+    try:
+        form = await request.form()
+    except Exception as exc:  # a body that is not a form at all
+        logger.warning("Unreadable Grow callback: %s", exc)
+        return {"status": "ignored", "verified": False, "credits_granted": 0}
+
+    fields = grow.sanitize_callback(form)
+    row = GrowNotification(
+        process_id=grow.callback_field(form, "processId"),
+        transaction_id=grow.callback_field(form, "transactionId"),
+        fields=fields,
+        verified=False,
+    )
+    db.add(row)
+    db.commit()
+    # Field names and harmless values only (sanitize_callback): no card data.
+    logger.warning(
+        "Grow callback %s stored UNVERIFIED (process %s, transaction %s); nothing granted. Fields: %s",
+        row.id, row.process_id, row.transaction_id, fields,
+    )
+    return {"status": "received", "verified": False, "credits_granted": 0}
 
 
 # --------------------------------------------------------------------------

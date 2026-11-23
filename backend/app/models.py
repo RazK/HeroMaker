@@ -414,6 +414,34 @@ class Payment(Base):
     user = relationship("User")
 
 
+class GrowNotification(Base):
+    """
+    One server callback from Grow (formerly Meshulam), kept exactly as
+    UNVERIFIED evidence. Nothing reads these rows to grant credits.
+
+    Grow's public docs do not say how a callback to `notifyUrl` is
+    authenticated, so anyone who learns the URL can post one. Until that is
+    known (a signature, or a server-side lookup of the transaction), a row
+    here proves nothing: `verified` stays False and no credits move
+    (app/api/payments.py, grow_notify).
+
+    `fields` holds the form as received, with every value we do not know to be
+    harmless withheld (app/services/grow.py, sanitize_callback): no card data,
+    no names, no phone numbers.
+
+    The custom fields (cField1..9) are kept, but they are not proof of
+    anything: whoever opened the payment page chose them.
+    """
+    __tablename__ = "grow_notifications"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    received_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    process_id = Column(String(200), nullable=True, index=True)
+    transaction_id = Column(String(200), nullable=True, index=True)
+    fields = Column(JSONVariant, nullable=False, default=dict)
+    verified = Column(Boolean, nullable=False, default=False)
+
+
 class PasswordResetToken(Base):
     """
     One "forgot password" link. Single use, expires after an hour.

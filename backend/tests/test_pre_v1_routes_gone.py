@@ -2,8 +2,9 @@
 
 What stays outside /api/v1 is not a client's API: the files (their URLs are in
 every hero), health and version, the MCP server, and Lemon Squeezy's webhook,
-which the store is configured to call at /api/payments/webhook. Removing that
-one would lose every purchase silently, so it is checked here too.
+which the store is configured to call at /api/payments/webhook (and Grow's
+callback at /api/payments/grow/notify). Removing the webhook would lose every
+purchase silently, so it is checked here too.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -57,7 +58,10 @@ def test_no_old_route_is_mounted():
     paths = set(app.openapi()["paths"])
     assert "/api/v1/heroes" in paths     # the listing is the app's whole surface
     assert not [p for p in paths if p.startswith(old)]
-    assert [p for p in paths if p.startswith("/api/payments")] == ["/api/payments/webhook"]
+    assert sorted(p for p in paths if p.startswith("/api/payments")) == [
+        "/api/payments/grow/notify",  # Grow's callback (stored unverified, grants nothing)
+        "/api/payments/webhook",
+    ]
 
 
 def test_the_lemon_squeezy_webhook_is_still_there(monkeypatch):
