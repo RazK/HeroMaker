@@ -1,7 +1,7 @@
 import { KeyboardEvent, ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { ActionFigure, api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
+import { ActionFigure, api, ApiError, CreationResponse, CreationStepResponse, getAuthToken } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
-import { arenaUrl, playUrl } from '../../config/play';
+import { arenaUrl, canPlay, playUrl } from '../../config/play';
 import { heroLink, leaveFromOverlay } from '../../routes';
 import { flush, track } from '../../analytics';
 import { HeroLive } from './HeroLive';
@@ -38,6 +38,15 @@ interface HeroScreenProps {
  * in every state (HeroLive): the drawing, the painting and the hero, built up
  * as each is made; ready, the hero is live in 3D, with its moves under it.
  */
+/**
+ * Opened by a shared link (`?via=share`, as Share writes it). A family who
+ * gets a hero in WhatsApp goes straight into Robot Rumble with it: the game
+ * says who drew it and, after a round, how to make their own (Raz,
+ * 2026-11-23). The link stays the hero's page, so its preview card and the
+ * share door (analytics) are unchanged; crawlers run no script.
+ */
+const SHARE_ARRIVAL = new URLSearchParams(window.location.search).get('via') === 'share';
+
 export function HeroScreen(props: HeroScreenProps) {
   const { creation, isLoggedIn, currentUserId, isAdmin, creditBalance } = props;
   const state = heroState(creation);
@@ -64,6 +73,18 @@ export function HeroScreen(props: HeroScreenProps) {
   }, [figureReady, creation.id, isLoggedIn, isAdmin, props.fromClass]);
   const showFigure = !!figure && (figure.status === 'succeeded' || figure.can_make);
   const toyMade = figure?.status === 'succeeded';
+  // A share's visitor (never the owner, a teacher or support) is sent into
+  // the game, once, as soon as we know who is looking and the hero can play.
+  const sentToGame = useRef(false);
+  useEffect(() => {
+    if (!SHARE_ARRIVAL || sentToGame.current) return;
+    if (getAuthToken() && !currentUserId) return; // still reading who this is
+    if (owns || props.fromClass || props.fromAdmin || !canPlay(creation)) return;
+    sentToGame.current = true;
+    track('game_started', { game: 'arena', hero_id: creation.id });
+    flush(true);
+    window.location.replace(`${arenaUrl(creation)}&via=share`);
+  }, [owns, currentUserId, creation, props.fromClass, props.fromAdmin]);
   const shown = useRef<(StepProgress & { key: string }) | null>(null);
   useFitScreen();
 
