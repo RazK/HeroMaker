@@ -128,3 +128,30 @@ of the rail?
   stay inside it. Keep it bottom-left, clear of the rail and of Violet's feet.
 - Run the 5-point gate again on every keyframe. Send me both sizes before
   anything goes to Raz.
+
+## v3 keyframes: option A, portrait call (Tom, for Maya)
+
+9:16, beats 1–4:
+
+![9:16](img/ad01-v3-keys-9x16.jpg)
+
+4:5, beats 1–4:
+
+![4:5](img/ad01-v3-keys-4x5.jpg)
+
+**Gate.** 1 nothing twice: pass. 2 two fonts: pass (Barriecito; Nunito on the
+button). 3 one axis: pass (9:16 beat 4: each picture-and-sentence pair is
+centred on the axis; the sentences start on one edge). 5 least text: pass.
+4 no dead space: pass inside the visual band. Below y 1488 the band is empty by
+the grid, except for the call window.
+
+**Three things for Maya to judge:**
+1. Instagram puts the username and the post caption over the bottom-left, at
+   about y 1500–1850, which is exactly where the 9:16 call window sits. Move it
+   to bottom-centre, under Violet's feet (x 408–672)?
+2. The painting's cut-out reads smaller than the polaroid beside it. Its arms
+   are spread, so "contain" fits it by width. Size it so the figure is as tall
+   as the drawing inside the polaroid?
+3. In 4:5 beat 2, for about 1.5 s, the row leaves the lower ~40% of the band
+   empty until the end card fills it. Accept, or make the row's pictures larger
+   in that beat only?

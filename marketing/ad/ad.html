@@ -29,7 +29,7 @@
   .arrow { color: var(--grape); overflow: visible; }
   #call { border-radius: 32px; overflow: hidden; box-shadow: 0 16px 40px rgba(35, 25, 66, .22); }
   #call img { position: absolute; display: block; }
-  .sent { width: 280px; text-align: center; font-family: Barriecito, sans-serif; font-size: 46px; line-height: 1; }
+  .sent { text-align: center; white-space: nowrap; font-family: Barriecito, sans-serif; font-size: 46px; line-height: 1; }
   #btn { left: 290px; width: 500px; height: 124px; border-radius: 999px; background: var(--grape); color: var(--white); box-shadow: 0 10px 0 var(--grape-deep); display: flex; align-items: center; justify-content: center; font-family: Nunito, sans-serif; font-weight: 800; font-size: 54px; }
 </style>
 </head>
@@ -70,13 +70,45 @@ const pad4 = (i) => String(i).padStart(4, '0')
 const B = { b1: 0, b2: 3.5, b3: 5.0, b4: 10.0, end: 12.0 }
 const DRAW_SPEED = (DRAW_N / DRAW_FPS) / (B.b2 - 0.3)   // the whole draw-on fits beat 1
 
-// The row: three 280 px slots and two 96 px arrows, centred on the axis,
-// at the top of the visual band (above the rail's y 900).
+// Where each step lives. 4:5: a row of three 280 px slots and two 96 px arrows,
+// centred in the visual band. 9:16 (Maya, option A): a column on the axis,
+// top to bottom, arrows pointing down, filling y 528-1488 and clear of the rail.
 const SLOT = 280, ARW = 96
-const rowX = (W - (3 * SLOT + 2 * ARW)) / 2
-const rowY = Y(560)
-const slotX = (i) => rowX + i * (SLOT + ARW)
-const arrowX = (i) => rowX + SLOT + i * (SLOT + ARW)
+const POL_R = 1.1                       // a polaroid is 10% taller than wide
+let L
+if (FEED) {
+  const rowX = (W - (3 * SLOT + 2 * ARW)) / 2
+  const cy = (Y(528) + Y(1488)) / 2 - 40       // the row and its sentences, centred
+  const top = cy - SLOT * POL_R / 2
+  const sx = (i) => rowX + i * (SLOT + ARW)
+  L = {
+    slot: [0, 1, 2].map((i) => [sx(i), top, SLOT, SLOT * POL_R]),
+    arrow: [0, 1].map((i) => [rowX + SLOT + i * (SLOT + ARW) + 10, top + SLOT * POL_R / 2 - 22, ARW - 20, 44, 0]),
+    sent: [0, 1, 2].map((i) => [sx(i), top + SLOT * POL_R + 24, SLOT, 50, 'center']),
+    btnY: top + SLOT * POL_R + 24 + 50 + 64,
+  }
+} else {
+  // 300 + 64 + 260 + 64 + 260 = 948 of the band's 960, centred in it.
+  const hs = [300, 64, 260, 64, 260], gap = (960 - hs.reduce((a, b) => a + b)) / 2
+  let y = 528 + gap
+  const ys = hs.map((h) => { const v = y; y += h; return v })
+  const pic = (i, h) => [(W - h / POL_R) / 2, ys[i], h / POL_R, h]
+  L = {
+    slot: [pic(0, 300), pic(2, 260), pic(4, 260)],
+    arrow: [1, 3].map((i) => [W / 2 - 38, ys[i] + 6, 76, 52, 90]),
+    sent: [],
+    btnY: 0,
+  }
+  // Beat 4: each picture with its sentence beside it; the pair is centred on the axis.
+  const PW = 230, TW = 400, G = 32, x0 = (W - (PW + G + TW)) / 2
+  const rows = [0, 1, 2].map((i) => 528 + 40 + i * 300)
+  L.end = {
+    slot: rows.map((ry) => [x0, ry, PW, PW * POL_R]),
+    sent: rows.map((ry) => [x0 + PW + G, ry + PW * POL_R / 2 - 30, TW, 60, 'left']),
+    btnY: 528 + 40 + 3 * 300 + 24,
+  }
+}
+const lerpBox = (a, b, k) => a.map((v, i) => (typeof v === 'number' ? lerp(v, b[i], k) : v))
 
 // Wavy arrow paths (the landing's: a straight line a sine wave travels along).
 const wave = (phase) => {
@@ -99,15 +131,16 @@ window.__ad = {
     $('cap').textContent = cap
     Object.assign($('cap').style, { top: Y(312) + 'px', height: Y(168) + 'px', fontSize: (FEED ? 96 : 112) + 'px' })
 
-    // ---- the polaroid: one element, big in beat 1, then slot 1 --------------
-    // 740 px wide: the widest that stays clear of the rail on the axis.
-    const big = { w: 740, x: (W - 740) / 2 }
-    const bigH = big.w * 1.1
-    big.y = Y(528) + (Y(1488) - Y(528) - bigH) / 2
-    if (FEED) { big.w = 600; big.x = (W - 600) / 2; big.y = Y(528) + (Y(1488) - Y(528) - 600 * 1.1) / 2 }
+    const k4 = ease((t - B.b4) / 0.6)
+    const atEnd = t >= B.b4
+    const slots = !FEED && atEnd ? L.slot.map((r, i) => lerpBox(r, L.end.slot[i], k4)) : L.slot
+
+    // ---- the polaroid: one element, big in beat 1, then its place in the steps
+    // 740 px wide in 9:16: the widest that stays clear of the rail on the axis.
+    const bw = FEED ? 600 : 740, bh = bw * POL_R
+    const big = [(W - bw) / 2, Y(528) + (Y(1488) - Y(528) - bh) / 2, bw, bh]
     const k2 = ease((t - B.b2) / 0.7)
-    const pw = lerp(big.w, SLOT, k2), ph = pw * 1.1
-    const px = lerp(big.x, slotX(0), k2), py = lerp(big.y, rowY, k2)
+    const [px, py, pw, ph] = lerpBox(big, slots[0], k2)
     box($('pol'), px, py, pw, ph)
     $('pol').style.transform = `rotate(${lerp(-3, -4, k2)}deg)`
     const padP = pw * 0.045
@@ -117,57 +150,60 @@ window.__ad = {
     waits.push(img($('drawon'), `assets/drawon/${pad4(di)}.png`))
 
     // ---- beat 2: arrows and the painting's cut-out --------------------------
-    const rowOn = t >= B.b2
-    const rowFade = t < B.b4 ? 1 - ease((t - B.b3) / 0.6) : ease((t - B.b4) / 0.4)   // fades as Violet grows, back for the end
-    const showRow = rowOn && (t < B.b3 + 0.6 || t >= B.b4)
-    $('pol').style.opacity = t < B.b3 ? 1 : rowFade
+    const stepsFade = t < B.b4 ? 1 - ease((t - B.b3) / 0.6) : k4   // out as Violet grows, back at the end
+    const showSteps = t >= B.b2 && (t < B.b3 + 0.6 || atEnd)
+    $('pol').style.opacity = t < B.b3 ? 1 : stepsFade
     const a1 = ease((t - B.b2 - 0.5) / 0.4), pa = ease((t - B.b2 - 0.8) / 0.35), a2 = ease((t - B.b2 - 1.1) / 0.4)
-    for (const [id, i, k] of [['a1', 0, a1], ['a2', 1, a2]]) {
-      const el = $(id)
-      box(el, arrowX(i) + 10, rowY + SLOT * 1.1 / 2 - 22, ARW - 20, 44)
-      el.style.opacity = showRow ? (t >= B.b4 ? rowFade : k * rowFade) : 0
+    ;[['a1', 0, a1], ['a2', 1, a2]].forEach(([id, i, k]) => {
+      const el = $(id), [ax, ay, aw, ah, rot] = L.arrow[i]
+      box(el, ax, ay, aw, ah)
+      el.style.transform = `rotate(${rot}deg)`
+      // 9:16's last step drops the arrows: the pairs read top to bottom on their own.
+      el.style.opacity = !showSteps ? 0 : atEnd ? (FEED ? k4 : 1 - k4) : k * stepsFade
       el.querySelector('path').setAttribute('d', wave(t * 2 * Math.PI / 1.6 + i * Math.PI))
-    }
-    box($('painted'), slotX(1), rowY + (SLOT * 1.1 - SLOT) / 2, SLOT, SLOT)
-    $('painted').style.opacity = showRow ? (t >= B.b4 ? rowFade : pa * rowFade) : 0
-    $('painted').style.transform = `scale(${t >= B.b4 ? 1 : 0.85 + 0.15 * pa})`
+    })
+    const [qx, qy, qw, qh] = slots[1]
+    box($('painted'), qx, qy + (qh - qw) / 2, qw, qw)
+    $('painted').style.opacity = showSteps ? (atEnd ? stepsFade : pa * stepsFade) : 0
+    $('painted').style.transform = `scale(${atEnd ? 1 : 0.85 + 0.15 * pa})`
 
-    // ---- beat 3: Violet grows out of slot 3; the call has its own place -----
+    // ---- beat 3: Violet grows out of the third step; the call has its own place
     const k3 = ease((t - B.b3) / 0.8)
     const fi = Math.min(CLIP_N - 1, Math.max(0, Math.floor((t - B.b3) * CLIP_FPS)))
     const vRatio = 520 / 760
-    let vh = lerp(SLOT * 1.1, Y(1488) - Y(528), k3), vw = vh * vRatio
-    let vx = lerp(slotX(2) + (SLOT - SLOT * 1.1 * vRatio) / 2, (W - vw) / 2, k3), vy = lerp(rowY, Y(528), k3)
-    if (FEED) { vh = lerp(SLOT * 1.1, Y(1488) - Y(528), k3); vw = vh * vRatio; vx = lerp(slotX(2), W / 4 - vw / 2, k3) }
-    box($('violet'), vx, vy, vw, vh)
+    const bandH = Y(1488) - Y(528)
+    const vFull = FEED ? [W / 4 - bandH * vRatio / 2, Y(528), bandH * vRatio, bandH] : [(W - bandH * vRatio) / 2, Y(528), bandH * vRatio, bandH]
+    const s3 = L.slot[2], vFrom = [s3[0] + (s3[2] - s3[3] * vRatio) / 2, s3[1], s3[3] * vRatio, s3[3]]
+    box($('violet'), ...lerpBox(vFrom, vFull, k3))
     $('violet').style.opacity = t >= B.b3 && t < B.b4 + 0.4 ? (t < B.b4 ? 1 : 1 - ease((t - B.b4) / 0.4)) : 0
     if (t >= B.b3 && t < B.b4 + 0.4) waits.push(img($('violet'), `assets/violet/${pad4(fi)}.png`))
-    // 9:16: bottom-left, x 64-448, y 1560-1824. 4:5: the right half, beside Violet.
-    const cw = FEED ? 400 : 384, ch = FEED ? 400 * 832 / 560 * 0.78 : 264
-    const cx = FEED ? W * 3 / 4 - cw / 2 : 64, cy = FEED ? Y(528) + (Y(1488) - Y(528) - ch) / 2 : 1560
+    // 9:16: portrait 264x384, bottom-left, under Violet's feet and clear of the rail.
+    // 4:5: the right half, beside Violet.
+    const cw = FEED ? 400 : 264, ch = FEED ? 400 * 832 / 560 * 0.78 : 384
+    const cx = FEED ? W * 3 / 4 - cw / 2 : 64, cy = FEED ? Y(528) + (bandH - ch) / 2 : 1920 - 36 - 384
     box($('call'), cx, cy, cw, ch)
     const kc = ease((t - B.b3 - 0.3) / 0.4)
     $('call').style.opacity = t < B.b4 ? kc : 1 - ease((t - B.b4) / 0.4)
     $('call').style.transform = `scale(${0.9 + 0.1 * kc})`
-    // The girl's portrait clip fills the window, cropped to her head and arms.
-    const gw = cw, gh = cw * 832 / 560
-    box($('girl'), 0, -(gh - ch) * 0.18, gw, gh)
+    const gh = cw * 832 / 560
+    box($('girl'), 0, -(gh - ch) * 0.18, cw, gh)
     if (t >= B.b3 - 0.1 && t < B.b4 + 0.4) waits.push(img($('girl'), `assets/girl/${pad4(fi + 1)}.jpg`))
 
-    // ---- beat 4: the complete row, the sentences once, Make a hero ----------
-    const k4 = ease((t - B.b4) / 0.5)
-    box($('vrow'), slotX(2), rowY, SLOT, SLOT * 1.1)
-    $('vrow').style.opacity = t >= B.b4 ? k4 : 0
-    if (t >= B.b4) waits.push(img($('vrow'), `assets/violet/${pad4(CLIP_N - 1)}.png`))
-    if (t >= B.b4) $('pol').style.opacity = k4
+    // ---- beat 4: every step, the sentences once, Make a hero ----------------
+    box($('vrow'), ...(FEED ? L.slot[2] : L.end.slot[2]))
+    $('vrow').style.opacity = atEnd ? k4 : 0
+    if (atEnd) waits.push(img($('vrow'), `assets/violet/${pad4(CLIP_N - 1)}.png`))
+    if (atEnd) $('pol').style.opacity = 1
+    const sents = FEED ? L.sent : L.end.sent
     ;['s1', 's2', 's3'].forEach((id, i) => {
-      box($(id), slotX(i), rowY + SLOT * 1.1 + 24, SLOT, 50)
-      $(id).style.opacity = t >= B.b4 ? ease((t - B.b4 - 0.2 - i * 0.12) / 0.4) : 0
+      const [sx, sy, sw, sh, al] = sents[i]
+      box($(id), sx, sy, sw, sh)
+      Object.assign($(id).style, { textAlign: al, fontSize: (FEED ? 46 : 60) + 'px', lineHeight: sh + 'px' })
+      $(id).style.opacity = atEnd ? ease((t - B.b4 - 0.3 - i * 0.12) / 0.4) : 0
     })
-    const by = rowY + SLOT * 1.1 + 24 + 50 + (FEED ? 64 : 96)
-    $('btn').style.top = by + 'px'
-    $('btn').style.opacity = t >= B.b4 ? ease((t - B.b4 - 0.6) / 0.4) : 0
-    $('btn').style.transform = `scale(${t >= B.b4 ? 0.92 + 0.08 * ease((t - B.b4 - 0.6) / 0.4) : 1})`
+    $('btn').style.top = (FEED ? L.btnY : L.end.btnY) + 'px'
+    $('btn').style.opacity = atEnd ? ease((t - B.b4 - 0.7) / 0.4) : 0
+    $('btn').style.transform = `scale(${atEnd ? 0.92 + 0.08 * ease((t - B.b4 - 0.7) / 0.4) : 1})`
     await Promise.all(waits)
   },
 }
