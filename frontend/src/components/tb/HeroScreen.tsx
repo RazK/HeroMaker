@@ -163,7 +163,9 @@ export function HeroScreen(props: HeroScreenProps) {
   }, [copied]);
   const share = async () => {
     track('share_tapped', { hero_id: creation.id });
-    const url = heroLink(creation.id);
+    // `?via=share` makes the visits a share brings their own door (G-6), so a
+    // share can be followed to a purchase. It carries no one's name.
+    const url = `${heroLink(creation.id)}?via=share`;
     const title = name;
     const text = `Meet ${name}! Tap to see it move.`;
     if (navigator.share) {
