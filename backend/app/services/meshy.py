@@ -63,6 +63,12 @@ RATE_LIMIT_MAX_WAIT_SECONDS = 30
 # One ERROR line an alert can match when the wait runs out: the plan is too
 # small for the traffic.
 QUEUE_ALERT_MARKER = "PROVIDER_QUEUE_FULL"
+# Every request and download gets a timeout: (connect, read) seconds. Without
+# one, a connection that opens and then never answers blocks its worker thread
+# for ever. The step's own timeout cannot help: cancelling an asyncio task does
+# not stop the thread it is waiting on. The read timeout is the longest silence
+# between two bytes, not the whole transfer, so a large model still downloads.
+HTTP_TIMEOUT = (15, 120)
 
 
 def raise_if_out_of_credits(status_code, message: str) -> None:
@@ -162,6 +168,7 @@ class MeshyClient:
         url = f"{self.BASE_URL}{endpoint}"
         
         try:
+            kwargs.setdefault("timeout", HTTP_TIMEOUT)
             response = requests.request(method, url, headers=self.headers, **kwargs)
             response.raise_for_status()
             return response.json()
@@ -636,15 +643,18 @@ class MeshyClient:
         Returns:
             Path to downloaded file
         """
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(output_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        
+        try:
+            response = requests.get(url, stream=True, timeout=HTTP_TIMEOUT)
+            response.raise_for_status()
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(output_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        except requests.exceptions.RequestException as e:
+            raise MeshyAPIError(f"Download failed: {e}") from e
+
         return output_path
 
 
