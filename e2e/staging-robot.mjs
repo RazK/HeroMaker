@@ -938,7 +938,8 @@ try {
     // robot's own size, a big desktop and a phone, then back.
     let layoutSizes = '';
     if (!DEMO) {
-      const sizes = [VIEW, { width: 1920, height: 1080 }, { width: 390, height: 844 }];
+      // 360: the narrowest common Android phone (a label cut there once: "Make the action figu").
+      const sizes = [VIEW, { width: 1920, height: 1080 }, { width: 390, height: 844 }, { width: 360, height: 780 }];
       for (const size of sizes) {
         await page.setViewportSize(size);
         await page.waitForTimeout(800);
@@ -957,7 +958,7 @@ try {
     if (!DEMO && TOY_HERO && TOY_HERO !== 'none') {
       const toy = await context.newPage();
       try {
-        for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+        for (const size of [{ width: 360, height: 780 }, { width: 390, height: 844 }, { width: 1280, height: 900 }]) {
           await toy.setViewportSize(size);
           await toy.goto(`${BASE_URL}/hero/${TOY_HERO}`, { waitUntil: 'load' });
           await toy.waitForFunction(() => {
