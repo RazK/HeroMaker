@@ -11,6 +11,7 @@ from app.database import SessionLocal
 from app.models import CreationStep
 from app.services.credits import refund_last_step_charge
 from app.services import analytics, step_errors
+from app.services.creation_steps import find_step
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +126,7 @@ class TaskManager:
                                 CreationStep.status == "processing"
                             ).first()
                         else:
-                            step = db.query(CreationStep).filter(
-                                CreationStep.creation_id == creation_id,
-                                CreationStep.step_name == step_name
-                            ).first()
+                            step = find_step(db, creation_id, step_name)
                         if step is not None:
                             fail_timed_out_step(db, step, timeout_seconds)
                     except Exception as e:
