@@ -432,7 +432,10 @@ def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict
     # Each split overwrites the same names: the task id in the URL keeps a
     # browser from showing the previous split's file, and the colour repair's
     # number keeps it from showing the file as it was before the repair.
-    stamp = f"?v={state['task_id'][:12]}"
+    # A split that failed before Meshy gave it a task has no task id (one
+    # such state, from the old remesh path, made every read of its hero's toy
+    # a 500): it has no files either, so any stamp will do.
+    stamp = f"?v={(state.get('task_id') or '')[:12]}"
     if (state.get("colours") or {}).get("v"):
         stamp += f".c{state['colours']['v']}"
 
