@@ -72,6 +72,20 @@ Each rule has the date it was set.
 
 - A sprint ends in a **demo video (or videos), not text.**
 - **One video per flow.** Show **happy flows and not-so-happy flows.**
+- **Flows follow the business-plan personas** (`docs/design/USER_STORIES.md`,
+  `docs/product/MONEY_MOMENTS.md`): one journey per persona, each with its happy
+  path and its not-happy path.
+  - **Visitor** — a shared link → sees the magic → starts their own. Not-happy:
+    a hero still being made.
+  - **Parent (the buyer)** — makes a hero → the reveal (the painting) → pays to
+    bring it to life → the 3D hero. Not-happy: out of credits → the "Bring it to
+    life" screen (never a failure).
+  - **Kid** — makes the hero move → plays a game → shows family (share).
+    Not-happy: a calm error, "try again".
+  - **Teacher** — runs a class with a code, kids make heroes with no account →
+    pays for seats. Not-happy: not enough seats.
+  - **Collector** — turns the hero into a printable toy (take-apart, print
+    file): the keepsake.
 - Real UI, **recorded on staging** — the real features, merged first.
 - **Real speed. Never sped up.** He must follow every moment.
 - To explain a step: a **full-screen text-only slide** — enough time to read,
