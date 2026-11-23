@@ -61,3 +61,20 @@ Violet's staging hero page at 16 fps), `end/` (drawing, painting cut-out,
 Violet), and the clips' frame folders. The first cut uses stills where the clip
 is not made yet; each night's free-quota clips replace them: F5 (the split)
 first, then F4 (the gasp) and F6 (Mom).
+
+## Demo videos (Tom makes all of them; Raz's format, 2026-11-23)
+
+A full-screen caption slide says what is coming ("To bring it to life, pay
+₪10"), then about 5 s of the real screen recording of that step, at **real
+speed**: trimmed, never sped up. 3 or 4 steps, 30 s at most. Toy Box look.
+
+Source: the staging robot's DEMO=1 recording (`demo.webm` in the CI artifact
+`staging-robot`). Each step's moment is painted into the video's corner as a
+coloured square (`MARK_ORDER` in `e2e/staging-robot.mjs`); read it back to find
+the seconds, then look at a 1 fps contact sheet before choosing the cut.
+
+```bash
+marketing/demo/make-demo.sh demo.webm marketing/demo/cut.money-path.json out.mp4 33.0:3.6 36.9:2.8 50.3:5.2 88.4:6.0
+```
+The slides and cards come from `marketing/film/film.html` (kinds `slide` and
+`screen`). First one: the money path, robot run 114, 26 s.

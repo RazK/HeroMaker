@@ -13,6 +13,8 @@
        screen {src(video frames dir), n, fps, crop:[x,y,w,h]}  the real app, on a card
        split  {top:{dir,n,fps,ext}, bottom:{...}}   Violet on top, Maya under, one move
        end    {}                                    the three steps and Make a hero
+       slide  {title, step, note}                   a full-screen caption (demo videos)
+       screen also takes "scale" (share of the height, default 0.62)
      Rules: Raz's timing (each beat holds 2.5 s or more, crossfades 0.4 s), text
      only in the top band, nothing in the bottom 20% (Maya's look rules). -->
 <link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Nunito:wght@800&display=swap" rel="stylesheet">
@@ -27,6 +29,8 @@
   .card { position: absolute; border-radius: 48px; overflow: hidden; box-shadow: 0 24px 60px rgba(35, 25, 66, .25); background: var(--lilac); }
   .btn { position: absolute; border-radius: 999px; background: var(--grape); color: var(--white); box-shadow: 0 10px 0 var(--grape-deep); display: flex; align-items: center; justify-content: center; font-family: Nunito, sans-serif; font-weight: 800; }
   .sent { position: absolute; font-family: Barriecito, sans-serif; color: var(--ink); white-space: nowrap; }
+  .slide-title { position: absolute; left: 8%; right: 8%; text-align: center; font-family: Barriecito, sans-serif; color: var(--ink); line-height: 1.12; text-wrap: balance; }
+  .slide-note { position: absolute; left: 0; right: 0; text-align: center; font-family: Nunito, sans-serif; font-weight: 800; color: #5c5578; }
 </style>
 </head>
 <body>
@@ -66,6 +70,12 @@ function build() {
     if (seg.kind === 'split') {
       L.style.background = 'var(--lilac)'
       seg.topImg = el('img', '', L); seg.botImg = el('img', '', L)
+    }
+    if (seg.kind === 'slide') {
+      L.style.background = 'var(--cream)'
+      if (seg.step) { seg.stepEl = el('div', 'sent', L); seg.stepEl.textContent = seg.step; seg.stepEl.style.color = 'var(--grape)' }
+      seg.titleEl = el('div', 'slide-title', L); seg.titleEl.textContent = seg.title
+      if (seg.note) { seg.noteEl = el('div', 'slide-note', L); seg.noteEl.textContent = seg.note }
     }
     if (seg.kind === 'end') {
       L.style.background = 'var(--cream)'
@@ -113,8 +123,8 @@ window.__film = {
       }
       if (s.kind === 'screen') {
         // The real app on a phone-sized card, centred in the visual band.
-        const [cx, cy, cw, ch] = s.crop, ch2 = H * 0.62, cw2 = ch2 * cw / ch
-        Object.assign(s.card.style, { left: (W - cw2) / 2 + 'px', top: H * 0.2 + 'px', width: cw2 + 'px', height: ch2 + 'px' })
+        const [cx, cy, cw, ch] = s.crop, ch2 = H * (s.scale || 0.62), cw2 = ch2 * cw / ch
+        Object.assign(s.card.style, { left: (W - cw2) / 2 + 'px', top: (s.scale ? (H - ch2) / 2 : H * 0.2) + 'px', width: cw2 + 'px', height: ch2 + 'px' })
         waits.push(img(s.img, frameOf(s, t, s)))
         const sc = cw2 / cw
         Object.assign(s.img.style, { left: -cx * sc + 'px', top: -cy * sc + 'px', width: s.vw * sc + 'px', height: s.vh * sc + 'px' })
@@ -129,6 +139,12 @@ window.__film = {
         Object.assign(s.topImg.style, { left: (W - vw) / 2 + 'px', top: top - (vh - half) * 0.6 + 'px', width: vw + 'px', height: vh + 'px' })
         const bw = W, bh = W * s.bottom.ih / s.bottom.iw, bhCrop = half
         Object.assign(s.botImg.style, { left: '0px', top: top + half + (bhCrop - bh) * (s.bottom.fy ?? 0.4) + 'px', width: bw + 'px', height: bh + 'px', clipPath: `inset(${-(bhCrop - bh) * (s.bottom.fy ?? 0.4)}px 0 ${bh + (bhCrop - bh) * (s.bottom.fy ?? 0.4) - bhCrop}px 0)` })
+      }
+      if (s.kind === 'slide') {
+        const fs = W * 0.085
+        Object.assign(s.titleEl.style, { top: H * 0.42 + 'px', fontSize: fs + 'px', transform: `translateY(${(1 - ease((t - s.t0) / 0.5)) * 24}px)` })
+        if (s.stepEl) Object.assign(s.stepEl.style, { left: 0, right: 0, textAlign: 'center', top: H * 0.32 + 'px', fontSize: W * 0.05 + 'px' })
+        if (s.noteEl) Object.assign(s.noteEl.style, { top: H * 0.9 + 'px', fontSize: W * 0.03 + 'px' })
       }
       if (s.kind === 'end') {
         const RH = W * 0.3, rows = [0, 1, 2].map((i) => H * 0.2 + i * (RH + 24))

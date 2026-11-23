@@ -1,0 +1,105 @@
+{
+ "name": "money-path-demo",
+ "segments": [
+  {
+   "kind": "slide",
+   "step": "1 of 4",
+   "title": "A parent makes a hero, with no credits",
+   "note": "Staging \u00b7 robot run 114 \u00b7 23 Nov \u00b7 real speed",
+   "dur": 2.4
+  },
+  {
+   "kind": "screen",
+   "dir": "assets/c1",
+   "ext": "png",
+   "n": 86,
+   "fps": 24,
+   "from": 1,
+   "vw": 540,
+   "vh": 1170,
+   "crop": [
+    0,
+    0,
+    540,
+    1170
+   ],
+   "scale": 0.86,
+   "dur": 4.0
+  },
+  {
+   "kind": "slide",
+   "step": "2 of 4",
+   "title": "The first painting is free",
+   "note": "Staging \u00b7 robot run 114 \u00b7 23 Nov \u00b7 real speed",
+   "dur": 2.4
+  },
+  {
+   "kind": "screen",
+   "dir": "assets/c2",
+   "ext": "png",
+   "n": 68,
+   "fps": 24,
+   "from": 1,
+   "vw": 540,
+   "vh": 1170,
+   "crop": [
+    0,
+    0,
+    540,
+    1170
+   ],
+   "scale": 0.86,
+   "dur": 3.1999999999999997
+  },
+  {
+   "kind": "slide",
+   "step": "3 of 4",
+   "title": "To bring it to life, pay \u20aa10",
+   "note": "Staging \u00b7 robot run 114 \u00b7 23 Nov \u00b7 real speed",
+   "dur": 2.4
+  },
+  {
+   "kind": "screen",
+   "dir": "assets/c3",
+   "ext": "png",
+   "n": 125,
+   "fps": 24,
+   "from": 1,
+   "vw": 540,
+   "vh": 1170,
+   "crop": [
+    0,
+    0,
+    540,
+    1170
+   ],
+   "scale": 0.86,
+   "dur": 5.6000000000000005
+  },
+  {
+   "kind": "slide",
+   "step": "4 of 4",
+   "title": "Their hero comes alive",
+   "note": "Staging \u00b7 robot run 114 \u00b7 23 Nov \u00b7 real speed",
+   "dur": 2.4
+  },
+  {
+   "kind": "screen",
+   "dir": "assets/c4",
+   "ext": "png",
+   "n": 144,
+   "fps": 24,
+   "from": 1,
+   "vw": 540,
+   "vh": 1170,
+   "crop": [
+    0,
+    0,
+    540,
+    1170
+   ],
+   "scale": 0.86,
+   "dur": 6.4
+  }
+ ]
+}
