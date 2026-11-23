@@ -157,6 +157,8 @@ async function slideProblems(page) {
     if (chapters.map((c) => c.dataset.chapter).join(',') !== keys.join(',')) problems.push(`the chapters are ${chapters.map((c) => c.dataset.chapter).join(',')}, the slides ${keys.join(',')}`);
     const chosen = chapters.filter((c) => c.getAttribute('aria-current') === 'true').map((c) => c.dataset.chapter);
     if (chosen.join() !== slide) problems.push(`the chosen chapter is "${chosen.join()}" on the ${slide}`);
+    // The one in view is the card: its own tile is not shown beside it (Raz, 2026-11-23).
+    chapters.forEach((c) => { if (c.getAttribute('aria-current') === 'true' && seen(c)) problems.push(`the chapter "${c.dataset.chapter}" repeats the card beside it`); });
     chapters.forEach((c) => {
       const l = c.querySelector('.tb-chapter-label');
       if (l && l.scrollWidth > l.clientWidth + 0.5) problems.push(`the chapter "${l.textContent}" has its name cut short`);

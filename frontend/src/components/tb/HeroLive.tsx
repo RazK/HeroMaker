@@ -360,7 +360,9 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       return (
         <Dock dragging={dragging} layers={[
           { key: 'name', o: 1, node: pageName },
-          ...(movesRow ? [{ key: 'moves', o: hero, node: movesRow }] : []),
+          // Only once the 3D hero is on the stage and can move: never greyed out
+          // over the painting that stands in while it loads (Raz, 2026-11-23).
+          ...(movesRow && movesReady && shown ? [{ key: 'moves', o: hero, node: movesRow }] : []),
           ...(live && figure ? [{ key: 'figure', o: fig, node: null, ref: setFigureDock }] : []),
           ...(page.more ? [{ key: 'more', o: 1, node: page.more }] : []),
         ]} />
@@ -382,7 +384,9 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           // come in. --o-draw: the drawing's share alone (a wide screen shows
           // it on the drawing only; the painting's corner is the small card's).
           { key: 'name', o: 1 - cardOut, vars: { '--o-draw': String(Math.round(Math.max(0, 2 * near('drawing') - 1) * 1000) / 1000) }, node: nameCard },
-          ...(movesRow ? [{ key: 'moves', o: hero, node: movesRow }] : []),
+          // Only once the 3D hero is on the stage and can move: never greyed out
+          // over the painting that stands in while it loads (Raz, 2026-11-23).
+          ...(movesRow && movesReady && shown ? [{ key: 'moves', o: hero, node: movesRow }] : []),
           ...(live && figure ? [{ key: 'figure', o: fig, node: null, ref: setFigureDock }] : []),
         ]} />
       </>

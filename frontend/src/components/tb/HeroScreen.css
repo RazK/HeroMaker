@@ -440,3 +440,13 @@
   .tb-games { --poster-h: clamp(120px, calc(100dvh - 196px), 320px); grid-template-columns: repeat(2, auto); justify-content: center; }
   .tb-game-pic { width: auto; height: var(--poster-h); }
 }
+
+/* The chapters show the OTHER chapters: the one in view is the card itself,
+   and a tile of it beside the card is a duplicate (Raz, 2026-11-23). On a
+   desktop the others stand in one column beside the card. */
+.tb-hero-main .tb-chapter[aria-current='true'] { display: none; }
+.tb-hero-main .tb-chapters { grid-template-columns: repeat(calc(var(--n, 4) - 1), minmax(0, 1fr)); }
+@media (orientation: landscape) {
+  .tb-hero-main[data-state='ready'] .tb-chapters { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
+  .tb-hero-main[data-state='ready'] .tb-chapters > :nth-child(3) { grid-column: auto; }
+}
