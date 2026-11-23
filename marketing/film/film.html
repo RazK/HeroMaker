@@ -131,14 +131,30 @@ window.__film = {
       }
       if (s.kind === 'split') {
         // Maya's rule: 9:16 stacks Violet on top and Maya under, one move, one height.
+        if (s.layout === 'side') {
+          // Maya on the left, Violet copying her on the right: two big columns, one height,
+          // inside the safe band (text above, nothing in the bottom 20%).
+          const G = W * 0.03, cw = (W - 3 * G) / 2, ch = Math.min(cw * (s.aspect || 1.8), H * 0.62), y = H * 0.15 + (H * 0.65 - ch) / 2
+          waits.push(img(s.topImg, frameOf(s, t, s.top)), img(s.botImg, frameOf(s, t, s.bottom)))
+          Object.assign(s.botImg.style, { left: G + 'px', top: y + 'px', width: cw + 'px', height: ch + 'px', objectFit: 'cover', borderRadius: '32px', clipPath: 'none' })
+          const vh = ch / (s.top.fig || 0.85), vw = vh * s.top.iw / s.top.ih
+          Object.assign(s.topImg.style, { left: 2 * G + cw + (cw - vw) / 2 + 'px', top: y - (vh - ch) * 0.6 + 'px', width: vw + 'px', height: vh + 'px' })
+        } else {
         const half = (H * 0.8 - H * 0.18) / 2
         const top = H * 0.18
         waits.push(img(s.topImg, frameOf(s, t, s.top)), img(s.botImg, frameOf(s, t, s.bottom)))
         // Violet's render frame has air above and below her: size it by the figure (85% of the frame).
         const vh = half / (s.top.fig || 0.85), vw = vh * s.top.iw / s.top.ih
         Object.assign(s.topImg.style, { left: (W - vw) / 2 + 'px', top: top - (vh - half) * 0.6 + 'px', width: vw + 'px', height: vh + 'px' })
+        if (s.bottom.fit === 'contain') {
+          // The whole body, at the same height as Violet's figure (one move, one height).
+          const bh = half, bw = bh * s.bottom.iw / s.bottom.ih
+          Object.assign(s.botImg.style, { left: (W - bw) / 2 + 'px', top: top + half + 'px', width: bw + 'px', height: bh + 'px', clipPath: 'none', borderRadius: '32px' })
+        } else {
         const bw = W, bh = W * s.bottom.ih / s.bottom.iw, bhCrop = half
         Object.assign(s.botImg.style, { left: '0px', top: top + half + (bhCrop - bh) * (s.bottom.fy ?? 0.4) + 'px', width: bw + 'px', height: bh + 'px', clipPath: `inset(${-(bhCrop - bh) * (s.bottom.fy ?? 0.4)}px 0 ${bh + (bhCrop - bh) * (s.bottom.fy ?? 0.4) - bhCrop}px 0)` })
+        }
+        }
       }
       if (s.kind === 'slide') {
         const fs = W * 0.085

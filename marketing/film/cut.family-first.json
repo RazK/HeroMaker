@@ -89,26 +89,27 @@
   },
   {
    "kind": "split",
-   "dur": 5.0,
+   "dur": 10.4,
    "caption": "It comes alive!",
    "top": {
-    "dir": "assets/old_violet",
+    "dir": "assets/f5_violet",
     "ext": "png",
-    "n": 81,
+    "n": 161,
     "fps": 16,
     "iw": 520,
     "ih": 760
    },
    "bottom": {
-    "dir": "assets/old_maya",
+    "dir": "assets/f5_maya",
     "ext": "jpg",
-    "n": 81,
+    "n": 161,
     "fps": 16,
     "from": 1,
     "iw": 560,
     "ih": 832,
     "fy": 0.3
-   }
+   },
+   "layout": "side"
   },
   {
    "kind": "still",
