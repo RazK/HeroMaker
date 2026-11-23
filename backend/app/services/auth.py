@@ -9,10 +9,6 @@ from app.database import get_db
 from app.models import User
 from app.config.settings import get_jwt_secret_key, JWT_ALGORITHM, JWT_EXPIRATION_HOURS
 
-# Debug user constant for V2 (kept for backward compatibility during migration)
-DEBUG_USER_ID = "debug-user-uuid"
-DEBUG_USER_EMAIL = "debug@heromaker.local"
-
 # HTTP Bearer token security scheme
 security = HTTPBearer(auto_error=False)
 
