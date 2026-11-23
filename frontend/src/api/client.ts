@@ -367,6 +367,11 @@ const STAGE_OF: Record<string, string> = {
 };
 
 const V1 = `${API_BASE_URL}/api/v1`;
+/** A new session: keep its token and tell the app (HeaderAuth, App) it is signed in. */
+const signedIn = (token: string) => {
+  setAuthToken(token);
+  window.dispatchEvent(new CustomEvent('auth:login'));
+};
 const json = (method: string, body?: unknown): RequestInit => ({
   method,
   headers: { 'Content-Type': 'application/json' },
@@ -467,9 +472,6 @@ export const api = {
     return version ? `${url}?v=${encodeURIComponent(version)}` : url;
   },
 
-  /**
-   * Update creation character name
-   */
   /** Rename a hero and say who drew it, in one save. */
   async updateHero(creationId: string, fields: { character_name?: string; name?: string; age?: number | null }): Promise<CreationResponse> {
     const body: Record<string, unknown> = {};
@@ -477,22 +479,6 @@ export const api = {
     if (fields.name !== undefined) body.artist_name = fields.name.trim();
     if (fields.age !== undefined) body.artist_age = fields.age;
     return fromV1(await fetchJson<V1Hero>(`${V1}/heroes/${creationId}`, json('PATCH', body)));
-  },
-
-  async updateCharacterName(creationId: string, characterName: string): Promise<CreationResponse> {
-    return api.updateHero(creationId, { character_name: characterName });
-  },
-
-  async updateNameAndAge(creationId: string, name: string, age: number | null): Promise<CreationResponse> {
-    return api.updateHero(creationId, { name, age });
-  },
-
-  async updateName(creationId: string, name: string): Promise<CreationResponse> {
-    return api.updateHero(creationId, { name });
-  },
-
-  async updateAge(creationId: string, age: number | null): Promise<CreationResponse> {
-    return api.updateHero(creationId, { age });
   },
 
   /**
@@ -574,16 +560,9 @@ export const api = {
     console.log('[API] signup:', { username, email, name });
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
       `${V1}/signup`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password, name, date_of_birth: dateOfBirth, is_teacher: isTeacher }),
-      }
+      json('POST', { username, email, password, name, date_of_birth: dateOfBirth, is_teacher: isTeacher })
     );
-    setAuthToken(result.access_token);
-    window.dispatchEvent(new CustomEvent('auth:login'));
+    signedIn(result.access_token);
     console.log('[API] signup success');
     return result;
   },
@@ -592,16 +571,9 @@ export const api = {
     console.log('[API] login:', { username });
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
       `${V1}/login`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      }
+      json('POST', { username, password })
     );
-    setAuthToken(result.access_token);
-    window.dispatchEvent(new CustomEvent('auth:login'));
+    signedIn(result.access_token);
     console.log('[API] login success');
     return result;
   },
@@ -615,38 +587,22 @@ export const api = {
 
   /** Always resolves the same way whether or not the account exists. */
   async forgotPassword(email: string): Promise<void> {
-    await fetchJson(`${V1}/password/forgot`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
+    await fetchJson(`${V1}/password/forgot`, json('POST', { email }));
   },
 
   /** Sets the new password and signs in, exactly like login. */
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    const result = await fetchJson<{ access_token: string }>(`${V1}/password/reset`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, new_password: newPassword }),
-    });
-    setAuthToken(result.access_token);
-    window.dispatchEvent(new CustomEvent('auth:login'));
+    const result = await fetchJson<{ access_token: string }>(`${V1}/password/reset`, json('POST', { token, new_password: newPassword }));
+    signedIn(result.access_token);
   },
 
   /** Sign in or up with a Google Identity Services ID token. */
   async loginWithGoogle(credential: string): Promise<{ access_token: string; user: any }> {
     const result = await fetchJson<{ access_token: string; token_type: string; user: any }>(
       `${V1}/login/google`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ credential }),
-      }
+      json('POST', { credential })
     );
-    setAuthToken(result.access_token);
-    window.dispatchEvent(new CustomEvent('auth:login'));
+    signedIn(result.access_token);
     console.log('[API] google login success');
     return result;
   },
@@ -671,11 +627,7 @@ export const api = {
    * On success the token is dropped and `auth:account-deleted` is announced.
    */
   async deleteAccount(confirm: string): Promise<void> {
-    await fetchJson<void>(`${V1}/me`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirm }),
-    });
+    await fetchJson<void>(`${V1}/me`, json('DELETE', { confirm }));
     clearAuthToken();
     window.dispatchEvent(new CustomEvent('auth:account-deleted'));
     window.dispatchEvent(new CustomEvent('auth:logout'));
@@ -694,11 +646,7 @@ export const api = {
 
   /** A new key: the answer is the only time `key` and `webhook_secret` are shown. */
   async createApiKey(body: NewApiKey): Promise<ApiKeyInfo & { key: string; webhook_secret: string }> {
-    return fetchJson(`${API_BASE_URL}/api/v1/keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    return fetchJson(`${API_BASE_URL}/api/v1/keys`, json('POST', body));
   },
 
   async revokeApiKey(id: string): Promise<void> {
@@ -717,13 +665,7 @@ export const api = {
     console.log('[API] redeemCoupon:', { code });
     const result = await fetchJson<{ success: boolean; message: string; credits_added: number; new_balance: number }>(
       `${V1}/coupons/redeem`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      }
+      json('POST', { code })
     );
     console.log('[API] redeemCoupon success:', result);
     return result;
@@ -749,20 +691,7 @@ export const api = {
    * webhook, never by anything the browser reports.
    */
   async createCheckout(pack: string, redirectUrl: string): Promise<{ checkout_url: string; test_mode: boolean }> {
-    return fetchJson<{ checkout_url: string; test_mode: boolean }>(`${V1}/checkout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pack, redirect_url: redirectUrl }),
-    });
-  },
-
-  /**
-   * Get the credit cost for running steps
-   */
-  async getCreationCost(steps?: string[]): Promise<{ cost: number }> {
-    const est = await fetchJson<{ stages: Array<{ step: string; cost_credits: number }>; cost_credits: number }>(`${V1}/estimates`);
-    if (!steps || steps.length === 0) return { cost: est.cost_credits };
-    return { cost: est.stages.filter((s) => steps.includes(s.step)).reduce((n, s) => n + s.cost_credits, 0) };
+    return fetchJson<{ checkout_url: string; test_mode: boolean }>(`${V1}/checkout`, json('POST', { pack, redirect_url: redirectUrl }));
   },
 
   /**
@@ -798,13 +727,7 @@ export const api = {
     console.log('[API] updateProfile:', { ...data, current_password: data.current_password ? '***' : undefined, new_password: data.new_password ? '***' : undefined });
     const result = await fetchJson<any>(
       `${V1}/me`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      }
+      json('PATCH', data)
     );
     console.log('[API] updateProfile success');
     return result;
@@ -812,11 +735,7 @@ export const api = {
 
   /** A grown-up said Yes before this account signed in: the account keeps the (first) time. */
   async confirmAdult(confirmedAt: string): Promise<void> {
-    await fetchJson<unknown>(`${V1}/me/adult-confirmed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmed_at: confirmedAt }),
-    });
+    await fetchJson<unknown>(`${V1}/me/adult-confirmed`, json('POST', { confirmed_at: confirmedAt }));
   },
 
   /**
@@ -842,11 +761,7 @@ export const api = {
       console.log('[API] admin.updateUser:', { userId, data });
       const result = await fetchJson<AdminUserResponse>(
         `${API_BASE_URL}/api/v1/admin/users/${userId}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }
+        json('PATCH', data)
       );
       console.log('[API] admin.updateUser success');
       return result;
@@ -873,11 +788,7 @@ export const api = {
     },
 
     removeHero(creationId: string, reason: RemovalReason, note: string): Promise<AdminAction> {
-      return fetchJson<AdminAction>(`${API_BASE_URL}/api/v1/admin/creations/${creationId}/remove`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, note }),
-      });
+      return fetchJson<AdminAction>(`${API_BASE_URL}/api/v1/admin/creations/${creationId}/remove`, json('POST', { reason, note }));
     },
 
     restoreHero(creationId: string): Promise<AdminAction> {
@@ -886,11 +797,7 @@ export const api = {
 
     /** Give (amount > 0) or take back (amount < 0) credits. The note is required. */
     changeCredits(userId: string, amount: number, note: string): Promise<{ credits: number; action: AdminAction }> {
-      return fetchJson<{ credits: number; action: AdminAction }>(`${API_BASE_URL}/api/v1/admin/users/${userId}/credits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, note }),
-      });
+      return fetchJson<{ credits: number; action: AdminAction }>(`${API_BASE_URL}/api/v1/admin/users/${userId}/credits`, json('POST', { amount, note }));
     },
 
     // Coupons
@@ -911,11 +818,7 @@ export const api = {
       console.log('[API] admin.createCoupon:', { code: data.code, credit_amount: data.credit_amount });
       const result = await fetchJson<AdminCouponResponse>(
         `${API_BASE_URL}/api/v1/admin/coupons`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }
+        json('POST', data)
       );
       console.log('[API] admin.createCoupon success');
       return result;
@@ -925,11 +828,7 @@ export const api = {
       console.log('[API] admin.updateCoupon:', { couponId, data });
       const result = await fetchJson<AdminCouponResponse>(
         `${API_BASE_URL}/api/v1/admin/coupons/${couponId}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }
+        json('PATCH', data)
       );
       console.log('[API] admin.updateCoupon success');
       return result;
@@ -963,19 +862,11 @@ export const api = {
     },
 
     createRecurring(data: { name: string; amount_usd: number; started_on?: string }): Promise<RecurringExpense> {
-      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/v1/admin/money/recurring`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/v1/admin/money/recurring`, json('POST', data));
     },
 
     updateRecurring(id: string, data: { name?: string; amount_usd?: number; started_on?: string; is_active?: boolean }): Promise<RecurringExpense> {
-      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/v1/admin/money/recurring/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      return fetchJson<RecurringExpense>(`${API_BASE_URL}/api/v1/admin/money/recurring/${id}`, json('PATCH', data));
     },
 
     deleteRecurring(id: string): Promise<void> {
