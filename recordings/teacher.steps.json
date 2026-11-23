@@ -1,0 +1,24 @@
+{
+ "flow": "teacher",
+ "file": "teacher.mp4",
+ "source": "staging robot run #123 (steps landing,signup,class; demo), the teacher's phone; bottom 24 px robot marker strip cropped",
+ "viewport": "540x1146 (robot phone frame)",
+ "speed": "real, never sped up",
+ "steps": [
+  { "step": "landing (skip: setup)", "at": 0 },
+  { "step": "sign up (skip: setup)", "at": 6 },
+  { "step": "Classes tab: Your first class", "at": 17 },
+  { "step": "school, then a new class: 10 students", "at": 19 },
+  { "step": "Pay ₪100 for 10 seats?", "at": 23 },
+  { "step": "TEST checkout: ₪100 for 10 class seats, Pay", "at": 25 },
+  { "step": "Thanks! Your seats are in", "at": 27 },
+  { "step": "the class is live: QR code + join code", "at": 28 },
+  { "step": "the live strip on the gallery leads back to the class", "at": 31 },
+  { "step": "a student joins: their hero appears on the board", "at": 35 },
+  { "step": "the student's hero being made (painting, 3D) — usable for the visitor not-happy 'still being made' beat", "at": 36 },
+  { "step": "the student's hero, live in 3D, moving", "at": 50 },
+  { "step": "back to the class board", "at": 63 },
+  { "step": "End the class?", "at": 66 },
+  { "step": "end", "at": 68.7 }
+ ]
+}
