@@ -44,7 +44,8 @@ const HERO_NAME = OWN_HERO ? OWN_NAME : (params.get('name') || SAMPLE.replace(/_
 const OWN_DRAWING = OWN_HERO ? OWN_HERO.replace(/[^/?#]+(\?.*)?$/, 'thumb_original.jpg') : null
 /**
  * Opened from a shared link (?via=share): the family has no context yet, so
- * the start sheet says what this is before how to play (Raz, 2026-11-23).
+ * the start sheet says who drew this hero, then how to play, in two lines.
+ * The drawing itself hangs on the wall behind the hero, once (Raz, 2026-11-23).
  */
 const SHARED = params.get('via') === 'share' && !!OWN_DRAWING
 
@@ -75,14 +76,10 @@ app.innerHTML = `
     </div>
     <div class="tb-bar rr-bar">
       <div class="rr-card rr-card--start tb-panel">
-        ${SHARED ? `<div class="rr-story">
-          <span class="rr-story-pol"><img src="${esc(OWN_DRAWING!)}" alt="The drawing"><span class="rr-story-artist"></span></span>
-          <div class="rr-story-text">
-            <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
-            <div class="rr-story-line"><span class="rr-story-who">A kid</span> drew this on paper.<br>Now it’s alive. Come play!</div>
-          </div>
-        </div>` : `<div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>`}
-        <div class="rr-line">Bop the robots before they reach the toys!</div>
+        <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
+        ${SHARED
+          ? `<div class="rr-line"><span class="rr-story-who">A kid</span> drew this hero on paper.<br>Now it’s alive. Help it bop the robots!</div>`
+          : '<div class="rr-line">Bop the robots before they reach the toys!</div>'}
         <div class="rr-start-slot"></div>
       </div>
       <div class="rr-card rr-card--end tb-panel">
@@ -124,11 +121,7 @@ const artistReady: Promise<void> = (async () => {
   const who = ARTIST.age ? `${ARTIST.name}, ${ARTIST.age},` : ARTIST.name
   const whoEl = app.querySelector('.rr-story-who')
   if (whoEl) whoEl.textContent = who
-  const cap = app.querySelector('.rr-story-artist')
-  if (cap) cap.textContent = ARTIST.age ? `${ARTIST.name}, ${ARTIST.age}` : ARTIST.name
 })()
-// A drawing that does not load leaves the words alone, not a broken image.
-app.querySelector('.rr-story-pol img')?.addEventListener('error', (e) => (e.target as HTMLElement).closest('.rr-story-pol')?.remove())
 const startBtn = tbButton('Start', { icon: 'play' })
 startBtn.classList.add('rr-start')
 startBtn.disabled = true
