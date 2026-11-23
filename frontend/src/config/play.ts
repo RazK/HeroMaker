@@ -1,7 +1,7 @@
 import { CreationResponse } from '../api/client';
 import { heroPath } from '../routes';
 
-type HeroRef = Pick<CreationResponse, 'id' | 'user_id' | 'character_name' | 'name'>;
+type HeroRef = Pick<CreationResponse, 'id' | 'user_id' | 'character_name'>;
 
 /**
  * The hero's VRM as every 3D view loads it: the web-optimized copy the backend
@@ -35,7 +35,10 @@ export function arenaUrl(creation: HeroRef): string {
 
 /** ?back= is the hero's own page: where the game's Back goes when it has no history to go back through (a new tab). */
 function gameUrl(page: string, creation: HeroRef): string {
-  const name = creation.character_name || creation.name || 'Your hero';
+  // The hero's own name only. `creation.name` is who DREW it (often a child's
+  // first name), and this URL travels: it is in the address bar, the history
+  // and, once a game is shared, in a family's WhatsApp group.
+  const name = creation.character_name || 'Your hero';
   return `/play/${page}?vrm=${encodeURIComponent(heroVrmUrl(creation))}&name=${encodeURIComponent(name)}&back=${encodeURIComponent(heroPath(creation.id))}`;
 }
 
