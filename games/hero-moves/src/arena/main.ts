@@ -76,10 +76,10 @@ app.innerHTML = `
     <div class="tb-bar rr-bar">
       <div class="rr-card rr-card--start tb-panel">
         ${SHARED ? `<div class="rr-story">
-          <span class="rr-story-pol"><img src="${esc(OWN_DRAWING!)}" alt="The drawing"></span>
+          <span class="rr-story-pol"><img src="${esc(OWN_DRAWING!)}" alt="The drawing"><span class="rr-story-artist"></span></span>
           <div class="rr-story-text">
             <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
-            <div class="rr-story-line">A kid drew this on paper.<br>Now it’s alive. Come play!</div>
+            <div class="rr-story-line"><span class="rr-story-who">A kid</span> drew this on paper.<br>Now it’s alive. Come play!</div>
           </div>
         </div>` : `<div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>`}
         <div class="rr-line">Bop the robots before they reach the toys!</div>
@@ -108,6 +108,25 @@ const timerValue = app.querySelector<HTMLElement>('.rr-timer-value')!
 // the sheet grip. Primary last, as in every bottom bar of the app.
 app.querySelector('.rr-back-slot')!.append(tbNav('back', 'Back to your hero', goBack))
 for (const card of app.querySelectorAll('.rr-card')) card.prepend(tbGrip())
+// Who drew it: the hero's public card says the child's first name and age
+// (Raz: "we asked for them so we would show them").
+let ARTIST: { name: string; age: number | null } | null = null
+const artistReady: Promise<void> = (async () => {
+  const id = OWN_HERO ? /\/api\/files\/[^/]+\/([^/]+)\//.exec(new URL(OWN_HERO).pathname)?.[1] : null
+  if (!id) return
+  try {
+    const r = await fetch(`/api/v1/heroes/${id}`, { headers: { Accept: 'application/json' } })
+    const a = r.ok ? ((await r.json()) as { artist?: { name?: string | null; age?: number | null } }).artist : null
+    const first = (a?.name ?? '').trim().split(/\s+/)[0]
+    if (first) ARTIST = { name: first, age: a?.age ?? null }
+  } catch { /* "A kid" stays */ }
+  if (!ARTIST) return
+  const who = ARTIST.age ? `${ARTIST.name}, ${ARTIST.age},` : ARTIST.name
+  const whoEl = app.querySelector('.rr-story-who')
+  if (whoEl) whoEl.textContent = who
+  const cap = app.querySelector('.rr-story-artist')
+  if (cap) cap.textContent = ARTIST.age ? `${ARTIST.name}, ${ARTIST.age}` : ARTIST.name
+})()
 // A drawing that does not load leaves the words alone, not a broken image.
 app.querySelector('.rr-story-pol img')?.addEventListener('error', (e) => (e.target as HTMLElement).closest('.rr-story-pol')?.remove())
 const startBtn = tbButton('Start', { icon: 'play' })
@@ -452,7 +471,7 @@ function setProgress(f: number) {
     ;(window as unknown as { __ready?: unknown; __moves?: number }).__moves = loaded
     // The child's own drawing: the biggest card on the wall, right behind
     // their hero (Raz: "it's important that they see the original drawing").
-    if (OWN_DRAWING) void crowd.board.hangStar(OWN_DRAWING)
+    if (OWN_DRAWING) void artistReady.then(() => crowd.board.hangStar(OWN_DRAWING, ARTIST?.name, ARTIST?.age))
     ;(window as unknown as { __ready?: unknown }).__ready = true
     // The crowd: other heroes cheering from the stands, one after another
     // behind the player's. The game never waits for them, and plays the same

@@ -196,7 +196,7 @@ export class Pinboard {
    * the proof of the whole product: this toy was that drawing.
    */
   star: THREE.Group | null = null
-  async hangStar(url: string): Promise<boolean> {
+  async hangStar(url: string, artist?: string | null, age?: number | null): Promise<boolean> {
     if (this.star) return false
     const [img] = await Promise.all([loadImage(url), displayFont()])
     if (!img || !img.naturalWidth) return false
@@ -206,7 +206,7 @@ export class Pinboard {
     const shadow = new THREE.Mesh(this.shadowGeo, new THREE.MeshBasicMaterial({ map: cardShadow(), transparent: true, depthWrite: false }))
     shadow.position.set(0.02, -0.03, -0.01)
     card.add(shadow)
-    const face = new THREE.Mesh(this.cardGeo, new THREE.MeshStandardMaterial({ map: paintCard(img, null, null, 2), roughness: 0.85, transparent: true, alphaTest: 0.5 }))
+    const face = new THREE.Mesh(this.cardGeo, new THREE.MeshStandardMaterial({ map: paintCard(img, artist, age, 2), roughness: 0.85, transparent: true, alphaTest: 0.5 }))
     face.name = 'drawing'
     card.add(face)
     this.root.add(card)
