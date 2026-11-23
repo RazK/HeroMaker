@@ -52,6 +52,11 @@ CODES = (
 # endpoint, so it is not reworded here.
 CANCELLED_MESSAGE = "Step cancelled by user"
 
+
+def is_cancelled(step) -> bool:
+    """A step its user cancelled: failed, with exactly CANCELLED_MESSAGE."""
+    return step.status == "failed" and step.error_message == CANCELLED_MESSAGE
+
 REFUND_KEY = "credits_refunded"
 
 

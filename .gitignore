@@ -108,3 +108,6 @@ marketing/concepts/assets/models.data.js
 # ARE committed, so this staging directory is not - it would be the same
 # images twice, with two places to change them.
 marketing/photos/pairs/
+
+# Screenshots marketing/concepts/audit.mjs writes; made again on every run.
+marketing/concepts/concept-*.png

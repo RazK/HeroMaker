@@ -23,6 +23,13 @@ from app.utils.storage import LocalFileStorage
 
 # --- pictures -----------------------------------------------------------------
 
+# The algorithm's own tests below use 512 px paintings. The route tests (what
+# is stored, served, cached and replaced) only need a painting the algorithm
+# cuts: a 256 px one keeps every assertion and spends a quarter of the time
+# encoding WebP, which was most of this file's 45 s.
+ROUTE_SIZE = 256
+
+
 def _studio(size=512, figure=True, noise=0.0, seed=1):
     """A toy on a light studio sweep: vignette, contact shadow, outlined figure."""
     rng = np.random.default_rng(seed)
@@ -166,7 +173,7 @@ def _get(client, user, creation, name, v=None):
 
 
 def test_the_original_is_never_modified_and_the_cut_is_derived(db, make_user, make_creation, local, client):
-    painting = _png(_studio())
+    painting = _png(_studio(ROUTE_SIZE))
     user, creation = _painted_hero(db, make_user, make_creation, local, painting)
 
     thumb = _get(client, user, creation, "thumb_rendered.png")
@@ -178,7 +185,7 @@ def test_the_original_is_never_modified_and_the_cut_is_derived(db, make_user, ma
     full = _get(client, user, creation, "cut_rendered.png")
     assert full.status_code == 200
     with Image.open(io.BytesIO(full.content)) as c:
-        assert c.mode == "RGBA" and c.size == (512, 512) and c.getpixel((2, 2))[3] == 0
+        assert c.mode == "RGBA" and c.size == (ROUTE_SIZE, ROUTE_SIZE) and c.getpixel((2, 2))[3] == 0
 
     # rendered.png is byte for byte what was uploaded.
     assert local.download_file(user.id, creation.id, "rendered.png") == painting
@@ -201,7 +208,7 @@ def test_a_transparent_painting_is_served_as_it_is(db, make_user, make_creation,
 
 
 def test_no_confident_cut_tells_the_client_to_frame_it(db, make_user, make_creation, local, client):
-    painting = _png(_studio(noise=40))
+    painting = _png(_studio(ROUTE_SIZE, noise=40))
     user, creation = _painted_hero(db, make_user, make_creation, local, painting)
 
     assert _get(client, user, creation, "cut_rendered.png").content == painting
@@ -212,7 +219,7 @@ def test_no_confident_cut_tells_the_client_to_frame_it(db, make_user, make_creat
 
 
 def test_an_old_thumbnail_is_replaced_by_one_made_from_the_cut(db, make_user, make_creation, local, client):
-    painting = _png(_studio())
+    painting = _png(_studio(ROUTE_SIZE))
     user, creation = _painted_hero(db, make_user, make_creation, local, painting)
     # What the previous release cached: a thumbnail of the opaque painting.
     stale, mime = files_api._make_thumbnail(painting)
@@ -226,7 +233,7 @@ def test_an_old_thumbnail_is_replaced_by_one_made_from_the_cut(db, make_user, ma
 
 
 def test_a_new_algorithm_remakes_the_cut(db, make_user, make_creation, local, client, monkeypatch):
-    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio()))
+    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio(ROUTE_SIZE)))
     _get(client, user, creation, "cut_rendered.png")
     calls = []
     real = cutout.cut_out
@@ -241,7 +248,7 @@ def test_a_new_algorithm_remakes_the_cut(db, make_user, make_creation, local, cl
 
 
 def test_a_repainted_hero_gets_a_new_cut(db, make_user, make_creation, local, client):
-    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio()))
+    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio(ROUTE_SIZE)))
     _get(client, user, creation, "cut_rendered.png")
     assert local.file_exists(user.id, creation.id, "cut_rendered.png")
 
@@ -265,7 +272,7 @@ def test_an_unpainted_hero_is_not_cut(db, make_user, make_creation, local, clien
 
 
 def test_making_the_cut_does_not_reorder_the_gallery(db, make_user, make_creation, local, client):
-    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio()))
+    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio(ROUTE_SIZE)))
     db.refresh(creation)
     before = creation.updated_at
     _get(client, user, creation, "thumb_rendered.png")
@@ -276,7 +283,7 @@ def test_making_the_cut_does_not_reorder_the_gallery(db, make_user, make_creatio
 
 
 def test_a_removed_heros_cut_is_not_public(db, make_user, make_creation, local, client):
-    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio()))
+    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio(ROUTE_SIZE)))
     creation.deleted_at = datetime(2026, 3, 1)
     db.commit()
     assert _get(client, user, creation, "cut_rendered.png").status_code == 404
@@ -286,7 +293,7 @@ def test_a_removed_heros_cut_is_not_public(db, make_user, make_creation, local, 
 
 def test_too_busy_to_cut_serves_the_painting_uncached(db, make_user, make_creation, local, client, monkeypatch):
     import threading
-    painting = _png(_studio())
+    painting = _png(_studio(ROUTE_SIZE))
     user, creation = _painted_hero(db, make_user, make_creation, local, painting)
     monkeypatch.setattr(painting_cut, "_slots", threading.BoundedSemaphore(1))
     monkeypatch.setattr(painting_cut, "WAIT_S", 0.01)
@@ -308,9 +315,9 @@ def test_too_busy_to_cut_serves_the_painting_uncached(db, make_user, make_creati
 # --- the hero page's painting thumbnail: every kind has one ------------------
 
 @pytest.mark.parametrize("painting, kind", [
-    (lambda: _png(_studio()), cutout.CUT),
+    (lambda: _png(_studio(ROUTE_SIZE)), cutout.CUT),
     (lambda: _transparent_png(), cutout.TRANSPARENT),
-    (lambda: _png(_studio(noise=40)), cutout.FRAMED),
+    (lambda: _png(_studio(ROUTE_SIZE, noise=40)), cutout.FRAMED),
 ])
 def test_the_plate_paintings_thumbnail_is_there_whatever_its_kind(db, make_user, make_creation, local, client,
                                                                   painting, kind):
@@ -338,7 +345,7 @@ def test_the_plate_paintings_thumbnail_is_there_whatever_its_kind(db, make_user,
 def test_the_display_painting_is_made_from_the_cut(db, make_user, make_creation, local, client):
     """The slides show display_rendered.png: the cut, like thumb_rendered.png,
     so a hero with a studio backdrop stands free there too."""
-    painting = _png(_studio())
+    painting = _png(_studio(ROUTE_SIZE))
     user, creation = _painted_hero(db, make_user, make_creation, local, painting)
 
     r = _get(client, user, creation, "display_rendered.png", v="1")
@@ -350,7 +357,7 @@ def test_the_display_painting_is_made_from_the_cut(db, make_user, make_creation,
 
 
 def test_a_new_cut_drops_the_old_display_painting(db, make_user, make_creation, local, client, monkeypatch):
-    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio()))
+    user, creation = _painted_hero(db, make_user, make_creation, local, _png(_studio(ROUTE_SIZE)))
     _get(client, user, creation, "display_rendered.png")
     assert local.file_exists(user.id, creation.id, "display_rendered.png")
 

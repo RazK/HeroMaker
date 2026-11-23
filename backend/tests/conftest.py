@@ -2,8 +2,7 @@
 Shared fixtures for the backend unit tests.
 
 These tests run entirely in-process against a throwaway SQLite database. They
-do NOT need a running server, network access, or API keys - unlike the
-integration tests in backend/app/tests/, which drive a live API.
+do NOT need a running server, network access, or API keys.
 
 IMPORTANT: DATABASE_URL is set BEFORE any `app.*` module is imported, because
 app/database.py builds its engine at import time from app/config/settings.py.

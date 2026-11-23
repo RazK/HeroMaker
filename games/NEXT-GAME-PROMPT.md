@@ -18,11 +18,11 @@ standalone app in `games/` and as a published, playable artifact link.
 Read `games/PLAYBOOK.md` first. It records what worked when building the last
 game, what went wrong, and the asset and publishing constraints that are already
 established — do not spend time re-deriving them. Read `games/README.md` for
-what to reuse from `games/hero-dash` rather than rewrite: the VRM optimizer, the
+what to reuse from Hero Dash (now in `hero-moves`, or on the `archive/hero-dash` branch) rather than rewrite: the VRM optimizer, the
 CSP-safe loader, the rotation-only animation system and its documented axis
 conventions, the model-free webcam body tracking, and the whole test harness set.
 
-**Do not modify or delete `games/hero-dash`.** It is parked, not dead.
+Hero Dash is parked, not dead: its code is on the `archive/hero-dash` branch (moved out of the tree on 2026-11-23, nothing built or imported it). Do not delete that branch.
 
 ## Why this genre
 
@@ -52,7 +52,7 @@ before polishing anything. One move, one avatar, real scoring. I would rather
 redirect a rough thing than admire a finished wrong thing.
 
 **3. Environment gate — before the first publish.** Stand up the CSP simulator
-and the viewport matrix from `hero-dash/tools` and keep them green from the
+and the viewport matrix (`hero-moves/tools`, `archive/hero-dash`) and keep them green from the
 start. Both of the last game's user-visible failures came from testing somewhere
 easier than production.
 
@@ -100,7 +100,7 @@ Come back to me only when all of this is true, and not before:
 - real production avatars from the live gallery, not placeholders
 - the face-time number, measured and reported
 - all gates above passed, with the harness output that proves it
-- committed and pushed, with the reasoning in the repo the way `hero-dash` has it
+- committed and pushed, with the reasoning in the repo the way Hero Dash had it (`archive/hero-dash`)
 
 Report plainly what you did not verify and what you are unsure about. If you
 conclude mid-build that this genre is also wrong for the asset, stop and tell me

@@ -25,7 +25,7 @@ experiments: [E-004]
 
 We believe parents shown a short ad will click at least 1.3 times as often when it shows Violet copying a grown-up who waves than when it shows Violet dancing, because a hero that moves with you is something no toy does.
 
-**Why we think so.** The README GIF (`docs/assets/kalidoface_demo.gif`) is the strongest proof we have that the hero is alive, not a recording. Dancing is what every animated character does.
+**Why we think so.** The README GIF (`docs/assets/kalidoface_demo.webp`) is the strongest proof we have that the hero is alive, not a recording. Dancing is what every animated character does.
 
 **How we'll know.** A/B experiment of two creatives, each with its own door tag. Supported: click-through 1.3x or more, and `make_started` per first visit not lower. Rejected: under 1.1x, or `make_started` lower. Anything between is inconclusive. The thresholds are targets we chose, not measurements.
 

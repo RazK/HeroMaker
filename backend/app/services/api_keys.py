@@ -118,16 +118,6 @@ def authenticate(db: Session, key: Optional[str], origin: Optional[str]) -> ApiK
     return row
 
 
-def require_api_key(
-    request: Request,
-    authorization: Optional[str] = Header(None),
-    x_api_key: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-) -> ApiKey:
-    """FastAPI dependency: the calling key (401/403 otherwise)."""
-    return authenticate(db, _bearer(authorization, x_api_key), request.headers.get("origin"))
-
-
 def started_today(db: Session, key: ApiKey, now: Optional[datetime] = None) -> int:
     """Heroes this key started in the last 24 hours."""
     since = (now or datetime.utcnow()) - timedelta(days=1)

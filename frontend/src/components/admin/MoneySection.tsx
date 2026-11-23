@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, MoneyPeriod, MoneySummary, ProviderBalance, RecurringExpense } from '../../api/client';
 import { Icon } from '../tb/Icon';
-import { Dialog, Sheet, SheetRow } from '../tb/parts';
+import { ConfirmDialog, Sheet, SheetRow } from '../tb/parts';
 import { providerName, shortDate, todayIso, usd } from './format';
 import { LemonSqueezyCheckCard } from './LemonSqueezyCheckCard';
 
@@ -256,14 +256,8 @@ function BillSheet({ bill, onClose, onSaved }: { bill: RecurringExpense | null; 
           </div>
         )}
         {bill && confirm && (
-          <Dialog label={`Delete ${bill.name}?`} onClose={() => setConfirm(false)}>
-            <div className="tb-h2">Delete {bill.name}?</div>
-            <div className="tb-muted">Past months stop counting it too.</div>
-            <div className="tb-stack">
-              <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setConfirm(false)}>Keep it</button>
-              <button type="button" className="tb-btn tb-btn--danger tb-btn--full" disabled={busy} onClick={() => run(() => api.admin.deleteRecurring(bill.id))}><Icon name="trash" />Delete</button>
-            </div>
-          </Dialog>
+          <ConfirmDialog title={`Delete ${bill.name}?`} line="Past months stop counting it too." onClose={() => setConfirm(false)}
+            busy={busy} onAction={() => run(() => api.admin.deleteRecurring(bill.id))} action={<><Icon name="trash" />Delete</>} />
         )}
         {error && <div className="adm-error" role="alert">{error}</div>}
         <button type="button" className="tb-btn tb-btn--primary tb-btn--full" disabled={!valid || busy} onClick={save}>

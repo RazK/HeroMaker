@@ -31,6 +31,7 @@ from app.services.task_manager import get_task_manager
 from app.services.credits import step_billing
 from app.services.users import count_users, hero_stats, list_users_with_stats, update_user
 from app.api import finance, money
+from app.services.creation_steps import find_step
 
 logger = logging.getLogger(__name__)
 
@@ -402,8 +403,7 @@ async def admin_install_file(
     creation = db.query(Creation).filter(Creation.id == creation_id, Creation.deleted_at.is_(None)).first()
     if creation is None:
         raise HTTPException(status_code=404, detail="No such hero")
-    step = db.query(CreationStep).filter(CreationStep.creation_id == creation_id,
-                                         CreationStep.step_name == step_name).first()
+    step = find_step(db, creation_id, step_name)
     if step is not None and step.status == "processing":
         raise HTTPException(status_code=409, detail=f"{step_name} is running; cancel it first")
     data = await request.body()

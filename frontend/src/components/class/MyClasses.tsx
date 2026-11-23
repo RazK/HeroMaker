@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, paintingFramed } from '../../api/client';
-import { AGE_BANDS, ClassView, School, SeatPrice, dollars, seatsCents, teacherApi } from '../../api/classes';
+import { AGE_BANDS, ClassView, School, SeatPrice, minPaidSeats, priceText, seatsCents, teacherApi } from '../../api/classes';
 import { HeroTile } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
 import { Dialog, Sheet } from '../tb/parts';
@@ -265,6 +265,9 @@ function NewClassSheet({ credits, heroCost, seatPrice, onClose, onCreated }: {
   const short = credits !== undefined && cost > credits;
   // Short of credits: pay money at the teacher price, for exactly these seats.
   const cents = seatPrice ? seatsCents(seatPrice, seats) : 0;
+  // A paid order has a floor (Grow: 10 seats); paying with credits has none.
+  const least = minPaidSeats(seatPrice);
+  const tooFew = short && !!seatPrice && seats < least;
 
   const pay = async () => {
     setBusy(true);
@@ -281,7 +284,7 @@ function NewClassSheet({ credits, heroCost, seatPrice, onClose, onCreated }: {
   };
 
   if (paying && seatPrice) {
-    return <PaySeatsDialog seats={seats} cents={cents} title={title.trim()} seatsBefore={0} onClose={() => setPaying(false)}
+    return <PaySeatsDialog seats={seats} cents={cents} currency={seatPrice.currency} title={title.trim()} seatsBefore={0} onClose={() => setPaying(false)}
       open={() => teacherApi.buyNew(title.trim(), seats, ages)} />;
   }
 
@@ -329,15 +332,15 @@ function NewClassSheet({ credits, heroCost, seatPrice, onClose, onCreated }: {
       </div>
       <div className="tb-stack cls-sheet-bar">
         <div className="tb-bar-note">
-          {short ? `You need ${cost} credits. You have ${credits}.` : `${heroCost} credits a hero, paid now`}
+          {tooFew ? `A paid order is for at least ${least} seats.` : short ? `You need ${cost} credits. You have ${credits}.` : `${heroCost} credits a hero, paid now`}
         </div>
         {short && seatPrice ? (
           <>
             <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}>
               <Icon name="coin" />Buy credits
             </button>
-            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-pay-seats" disabled={!title.trim()} onClick={() => setPaying(true)}>
-              Pay {dollars(cents)} for {seats} {seats === 1 ? 'seat' : 'seats'}
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-pay-seats" disabled={!title.trim() || tooFew} onClick={() => setPaying(true)}>
+              Pay {priceText(cents, seatPrice.currency)} for {seats} {seats === 1 ? 'seat' : 'seats'}
             </button>
           </>
         ) : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Cancel</button>}

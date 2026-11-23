@@ -33,24 +33,10 @@ export async function loadStepConfig(): Promise<StepConfig[]> {
 }
 
 /**
- * Get cached step configuration (must call loadStepConfig first)
- */
-export function getStepConfig(): StepConfig[] {
-  return stepConfig;
-}
-
-/**
  * Get step config by name
  */
 export function getStepByName(name: string): StepConfig | undefined {
   return stepConfig.find(s => s.name === name);
-}
-
-/**
- * Get step display name
- */
-export function getStepDisplayName(name: string): string {
-  return getStepByName(name)?.display_name || name;
 }
 
 /**
@@ -61,29 +47,9 @@ export function getStepCost(name: string): number {
 }
 
 /**
- * Get step output file
- */
-export function getStepOutputFile(name: string): string | undefined {
-  return getStepByName(name)?.output_file;
-}
-
-/**
  * Get total cost for all steps
  */
 export function getTotalCost(): number {
   return stepConfig.reduce((sum, step) => sum + step.credit_cost, 0);
 }
 
-/**
- * Get all step names in order
- */
-export function getStepOrder(): string[] {
-  return stepConfig.map(s => s.name);
-}
-
-/**
- * Check if step config is loaded
- */
-export function isConfigLoaded(): boolean {
-  return configLoaded;
-}

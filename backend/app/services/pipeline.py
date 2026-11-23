@@ -8,7 +8,7 @@ import tempfile
 import threading
 import asyncio
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable, List
+from typing import Optional, Dict, Callable, List
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from sqlalchemy.orm import Session
@@ -19,10 +19,9 @@ logger = logging.getLogger(__name__)
 # Note: Task tracking moved to TaskManager in app state (main.py)
 
 from app.models import Creation, CreationStep
-from app.config.steps import STEPS, get_step_by_name, get_step_cost, get_all_step_names
+from app.config.steps import STEPS, get_step_by_name, get_all_step_names
 from app.database import SessionLocal
 from app.utils.file_utils import (
-    check_file_exists,
     get_file_url,
     upload_file_to_storage,
     download_file_from_storage
@@ -45,6 +44,7 @@ from app.services import analytics
 from app.config import pricing
 from app.services import usage as usage_service
 from app.services.usage import UsageContext
+from app.services.creation_steps import find_step
 
 
 # ============================================================================
@@ -54,10 +54,7 @@ from app.services.usage import UsageContext
 def _initialize_creation_steps(creation_id: str, db: Session) -> None:
     """Create CreationStep records for all steps if they don't exist."""
     for step_config in STEPS:
-        existing = db.query(CreationStep).filter(
-            CreationStep.creation_id == creation_id,
-            CreationStep.step_name == step_config["name"]
-        ).first()
+        existing = find_step(db, creation_id, step_config["name"])
         
         if not existing:
             step = CreationStep(
@@ -73,14 +70,9 @@ def _initialize_creation_steps(creation_id: str, db: Session) -> None:
 
 def _get_creation_step(creation_id: str, step_name: str, db: Session) -> CreationStep:
     """Get existing CreationStep record by creation_id and step_name."""
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
-    
+    step = find_step(db, creation_id, step_name)
     if not step:
         raise ValueError(f"CreationStep not found for creation_id={creation_id}, step_name={step_name}. Steps should be initialized first.")
-    
     return step
 
 
@@ -430,7 +422,6 @@ async def wait_for_hero_naming(creation_id: str) -> None:
 
 async def step_image_processing(creation_id: str, user_id: str, db: Session) -> None:
     """Process image: original.jpg → processed.jpg. Also starts hero naming."""
-    storage = get_storage()
     loop = asyncio.get_event_loop()
 
     start_hero_naming(creation_id, user_id, db)
@@ -482,7 +473,6 @@ async def _cache_save(attempt, files, metadata=None) -> None:
 
 async def step_openai_render(creation_id: str, user_id: str, db: Session) -> None:
     """Render image: processed.jpg → rendered.png"""
-    storage = get_storage()
     loop = asyncio.get_event_loop()
 
     # The look the user picked. Read from the hero on every run, so "Make it
@@ -536,7 +526,6 @@ async def step_openai_render(creation_id: str, user_id: str, db: Session) -> Non
 
 async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
     """Generate 3D model: rendered.png → model.glb"""
-    storage = get_storage()
     loop = asyncio.get_event_loop()
 
     cache = await _cache_begin("meshy_3d", creation_id, user_id, MESHY_3D_PARAMS)
@@ -593,7 +582,6 @@ async def step_meshy_3d(creation_id: str, user_id: str, db: Session) -> None:
 
 async def step_meshy_rig(creation_id: str, user_id: str, db: Session) -> None:
     """Rig 3D model: model.glb → rigged.glb"""
-    storage = get_storage()
     loop = asyncio.get_event_loop()
 
     cache = await _cache_begin("meshy_rig", creation_id, user_id, MESHY_RIG_PARAMS)
@@ -605,10 +593,7 @@ async def step_meshy_rig(creation_id: str, user_id: str, db: Session) -> None:
         return
 
     # Get meshy_3d task_id from meshy_3d step metadata
-    meshy_3d_step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == "meshy_3d"
-    ).first()
+    meshy_3d_step = find_step(db, creation_id, "meshy_3d")
     
     if not meshy_3d_step:
         raise ValueError("meshy_3d step not found")
@@ -714,10 +699,7 @@ async def execute_step(
     storage = get_storage()
     
     # Get step record
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
+    step = find_step(db, creation_id, step_name)
     
     if not step:
         raise ValueError(f"Step {step_name} not found")
@@ -736,10 +718,7 @@ async def execute_step(
     
     # Validate meshy_rig dependency (needs meshy_3d task_id)
     if step_name == "meshy_rig":
-        meshy_3d_step = db.query(CreationStep).filter(
-            CreationStep.creation_id == creation_id,
-            CreationStep.step_name == "meshy_3d"
-        ).first()
+        meshy_3d_step = find_step(db, creation_id, "meshy_3d")
         if not meshy_3d_step:
             step_errors.mark_failed(step, "meshy_3d step not found")
             db.commit()
@@ -790,7 +769,7 @@ async def execute_step(
     try:
         # Check if cancelled before execution
         db.refresh(step)
-        if step.status == "failed" and step.error_message == "Step cancelled by user":
+        if step_errors.is_cancelled(step):
             return {"status": "cancelled"}
         
         if mock_creation_id:
@@ -815,10 +794,7 @@ async def execute_step(
             
             # Copy meshy_3d metadata for meshy_rig dependency
             if step_name == "meshy_3d":
-                mock_step = db.query(CreationStep).filter(
-                    CreationStep.creation_id == mock_creation_id,
-                    CreationStep.step_name == "meshy_3d"
-                ).first()
+                mock_step = find_step(db, mock_creation_id, "meshy_3d")
                 if mock_step and mock_step.metadata_json:
                     step.metadata_json = mock_step.metadata_json.copy()
                     flag_modified(step, "metadata_json")
@@ -832,7 +808,7 @@ async def execute_step(
         
         # Check if cancelled during execution
         db.refresh(step)
-        if step.status == "failed" and step.error_message == "Step cancelled by user":
+        if step_errors.is_cancelled(step):
             return {"status": "cancelled"}
         
         # Verify output file was created
@@ -856,7 +832,7 @@ async def execute_step(
     except Exception as e:
         # Mark as failed (unless already cancelled)
         db.refresh(step)
-        if not (step.status == "failed" and step.error_message == "Step cancelled by user"):
+        if not step_errors.is_cancelled(step):
             # The raw text is for admins; the user is told what its code means
             # (app/services/step_errors.py).
             code = step_errors.mark_failed(step, e)
@@ -911,10 +887,7 @@ def _fail_if_timed_out(creation_id: str, step_name: str, timeout) -> bool:
 
     session = SessionLocal()
     try:
-        step = session.query(CreationStep).filter(
-            CreationStep.creation_id == creation_id,
-            CreationStep.step_name == step_name,
-        ).first()
+        step = find_step(session, creation_id, step_name)
         return step is not None and fail_timed_out_step(session, step, timeout)
     except Exception as e:
         logger.error(f"[{creation_id}] Error failing timed-out step {step_name}: {e}")

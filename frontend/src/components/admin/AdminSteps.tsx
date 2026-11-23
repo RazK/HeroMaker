@@ -3,7 +3,7 @@ import { api, ApiError, CreationResponse, CreationStepResponse } from '../../api
 import { getStepByName } from '../../config/steps';
 import { ModelPreview } from '../LazyModelPreview';
 import { Icon, IconName } from '../tb/Icon';
-import { Dialog, Header, NavButton } from '../tb/parts';
+import { ConfirmDialog, Header, NavButton } from '../tb/parts';
 import { STEP_UI, etaText, heroName, refundWords, stepProgress } from '../tb/pipeline';
 import './admin.css';
 
@@ -152,17 +152,9 @@ export function AdminSteps({ creation, currentUserId, onBack, onRefresh, onCredi
       </div>
 
       {ask && (
-        <Dialog label={ask.title} onClose={() => { if (!busy) setAsk(null); }}>
-          <div className="tb-h2">{ask.title}</div>
-          <div className="tb-muted">{ask.line}</div>
-          <div className="tb-stack">
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" disabled={busy} onClick={() => setAsk(null)}>Cancel</button>
-            <button type="button" className={`tb-btn ${ask.danger ? 'tb-btn--danger' : 'tb-btn--primary'} tb-btn--full adm-ask-go`} disabled={busy}
-              onClick={() => act(ask.run, 'That did not work. Try again.', ask.danger)}>
-              {ask.action}
-            </button>
-          </div>
-        </Dialog>
+        <ConfirmDialog title={ask.title} line={ask.line} keep="Cancel" keepDisabled={busy} onClose={() => { if (!busy) setAsk(null); }}
+          tone={ask.danger ? 'danger' : 'primary'} busy={busy} actionClassName="adm-ask-go" action={ask.action}
+          onAction={() => act(ask.run, 'That did not work. Try again.', ask.danger)} />
       )}
     </div>
   );

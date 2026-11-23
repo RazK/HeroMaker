@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, AdminAction, AdminHero, AdminUserDetail, ApiError, CreationResponse, CreationStepResponse, LedgerTransaction, RemovalReason, paintingFramed } from '../../api/client';
 import { HeroTile, SkeletonTile, TileGrid, makingLine, makingPct } from '../tb/HeroTile';
 import { Icon, IconName } from '../tb/Icon';
-import { Dialog, Sheet, SheetRow } from '../tb/parts';
+import { ConfirmDialog, Sheet, SheetRow } from '../tb/parts';
 import { STEP_UI, currentStep, failedStep, heroState, refundWords, stepProgress } from '../tb/pipeline';
 import { CreditsSheet, CreditsMode } from './CreditsSheet';
 import { shortDate } from './format';
@@ -420,16 +420,8 @@ function RemoveSheet({ hero, busy, onClose, onRemove }: {
         </div>
       </Sheet>
       {confirming && reason && (
-        <Dialog label={`Remove ${name}?`} onClose={() => setConfirming(false)}>
-          <div className="tb-h2">Remove {name}?</div>
-          <div className="tb-muted">Only admins will see it. You can restore it.</div>
-          <div className="tb-stack">
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setConfirming(false)}>Keep it</button>
-            <button type="button" className="tb-btn tb-btn--danger tb-btn--full" disabled={busy} onClick={() => onRemove(reason, note.trim())}>
-              <Icon name="hide" />Remove
-            </button>
-          </div>
-        </Dialog>
+        <ConfirmDialog title={`Remove ${name}?`} line="Only admins will see it. You can restore it." onClose={() => setConfirming(false)}
+          busy={busy} onAction={() => onRemove(reason, note.trim())} action={<><Icon name="hide" />Remove</>} />
       )}
     </>
   );

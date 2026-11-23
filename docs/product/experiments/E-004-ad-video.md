@@ -31,7 +31,7 @@ tag, like E-002.
 | Door tag | The video |
 |---|---|
 | `ad-video-dance` | Violet: drawing → painting → dancing 3D (the landing's design) |
-| `ad-video-copy` | Raz waves, Violet copies him (`docs/assets/kalidoface_demo.gif`, the README GIF) |
+| `ad-video-copy` | Raz waves, Violet copies him (`docs/assets/kalidoface_demo.webp`, the README GIF) |
 
 **Audience and share.** The audience of the door that won E-002 (family,
 unless E-002 says otherwise), one ad set per creative, equal daily budget.

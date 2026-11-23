@@ -91,6 +91,7 @@ def main():
     ap.add_argument("--base", type=float, default=3.0, help="base height mm, 0 = none")
     ap.add_argument("--palette", default="", help="comma list of catalogue names to force")
     ap.add_argument("--bands", type=float, default=0, help="colour by height bands of at least this many mm (few swaps)")
+    ap.add_argument("--paint-above", type=float, default=0, help="keep full per-triangle colour above this height (mm): the head")
     ap.add_argument("--base-colour", default="", help="catalogue name of the base's colour (must be in the palette)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
@@ -156,6 +157,16 @@ def main():
     uv = (UV[F[tri]] * bary[:, :, None]).sum(1)
     rgb = sample_tex(tex, uv)
     far = dist > 1.5  # base and filler: no texture there
+    # full-colour copy (for a colour printer that takes vertex colours, e.g. JLC3DP PLY)
+    fc = rgb.copy()
+    fc[far] = hex2rgb(CATALOGUE.get(a.base_colour or "Purple", "#5E43B7"))
+    vsum = np.zeros((len(m.vertices), 3)); vcnt = np.zeros(len(m.vertices))
+    for k in range(3):
+        np.add.at(vsum, m.faces[:, k], fc)
+        np.add.at(vcnt, m.faces[:, k], 1)
+    vcol = (np.clip(vsum / np.maximum(vcnt, 1)[:, None], 0, 1) * 255).astype(np.uint8)
+    trimesh.Trimesh(m.vertices, m.faces, vertex_colors=np.c_[vcol, np.full(len(vcol), 255, np.uint8)],
+                    process=False).export(os.path.join(a.out, "toy_fullcolour.ply"))
     area = m.area_faces
     lab = rgb2lab(rgb)
 
@@ -243,7 +254,10 @@ def main():
             if i > 0: cands.append(seq[i - 1])
             if j < nb: cands.append(seq[j])
             seq[i:j] = max(cands, key=lambda c: votes[i:j, c].sum())
+        full = lbl.copy()
         lbl = seq[zb]
+        if a.paint_above > 0:
+            lbl = np.where(cen[:, 2] > a.paint_above, full, lbl)
         report["band_changes"] = int((np.diff(seq) != 0).sum())
         report["bands"] = [(round(float(i * step), 1), CATALOGUE[names[chosen[c]]]) for i, c in enumerate(seq) if i == 0 or seq[i - 1] != c]
     same = lbl[adj[:, 0]] == lbl[adj[:, 1]]
