@@ -112,6 +112,16 @@ Each rule has the date it was set.
 - **The paywall is not a failure.** When a hero pauses because the user is out
   of credits, show the finished painting big and proud and **ask for credits to
   bring it to life** — never a red cross or the word "failed". (2026-11-23)
+- **The "Bring it to life" moment is a clear pay pop-up, not a passive screen.**
+  It must make a clear call to pay: a pop-up that explains the plans and sends
+  to payment — **like Simply Piano or Kahoot**. Phone: a bottom sheet. Desktop:
+  a ~480 px dialog. It opens by itself when the painting is ready and the
+  account cannot pay. It shows the painting + "Bring <hero> to life", the
+  benefits, the plan cards from `/api/v1/packs` (Family pre-selected, "Best
+  value"), and **"Continue to payment"** → `/api/v1/checkout` → `checkout_url`;
+  after paying the buyer returns to the hero being made. "One payment. No
+  subscription." Design is Maya's; Raz approves before Liran builds.
+  (2026-11-23, after Raz rejected three passive paywall options.)
 - **No ugly browser scrollbar** on the right of the landing page. Hide it, or
   make it thin and soft. (2026-11-23, pending Maya)
 
