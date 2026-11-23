@@ -30,6 +30,9 @@ router = APIRouter()
 THUMBNAIL_SIZE = (512, 512)
 THUMB_JPEG_QUALITY = 82
 THUMB_WEBP_QUALITY = 85
+# WebP effort. 6 took ~4 s per 512 px painting and ~6 s per 1280 px one, on the
+# request that first shows it; 4 takes 50-200 ms for files ~6% larger, same look.
+WEBP_METHOD = 4
 
 
 def _make_thumbnail(data: bytes) -> tuple[bytes, str]:
@@ -50,7 +53,7 @@ def _make_thumbnail(data: bytes) -> tuple[bytes, str]:
             img = img.convert("RGBA")
         out = io.BytesIO()
         if img.mode == "RGBA" and img.getextrema()[-1][0] < 255:
-            img.save(out, "WEBP", quality=THUMB_WEBP_QUALITY, method=6)
+            img.save(out, "WEBP", quality=THUMB_WEBP_QUALITY, method=WEBP_METHOD)
             return out.getvalue(), "image/webp"
         if img.mode != "RGB":
             img = img.convert("RGB")
@@ -79,7 +82,7 @@ def _make_display(data: bytes) -> tuple[bytes, str]:
         elif img.mode not in ("RGB", "RGBA"):
             img = img.convert("RGB")
         out = io.BytesIO()
-        img.save(out, "WEBP", quality=DISPLAY_WEBP_QUALITY, method=6)
+        img.save(out, "WEBP", quality=DISPLAY_WEBP_QUALITY, method=WEBP_METHOD)
         return out.getvalue(), "image/webp"
 
 
