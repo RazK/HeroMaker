@@ -51,7 +51,8 @@ function prepare(pose: PoseFile, sigma: number): { world: V[][]; image: number[]
   let last = filled.find((f) => f) ?? null
   for (let i = 0; i < n; i++) { if (filled[i]) last = filled[i]; else filled[i] = last }
   const raw = filled.map((f) => f!.world.map(([x, y, z]) => v(x, -y, -z)))
-  const image = filled.map((f) => f!.image)
+  const image = filled.map((f) => f!.image.map((p) => p.slice()))
+  unswap(raw, image)
   if (sigma <= 0) return { world: raw, image }
   const r = Math.ceil(sigma * 2.5)
   const w = Array.from({ length: 2 * r + 1 }, (_, k) => Math.exp(-((k - r) ** 2) / (2 * sigma * sigma)))
@@ -64,6 +65,38 @@ function prepare(pose: PoseFile, sigma: number): { world: V[][]; image: number[]
     return acc.divideScalar(ws)
   }))
   return { world, image }
+}
+
+/** MediaPipe's left/right pairs: 1-6 face, 7-8 ears, 9-10 mouth, then the body from 11. */
+const PAIRS: [number, number][] = [[1, 4], [2, 5], [3, 6], [7, 8], [9, 10]]
+for (let i = 11; i <= 31; i += 2) PAIRS.push([i, i + 1])
+
+/** Torso yaw (radians) from the shoulder line, seen from above. */
+const yawOf = (P: V[]) => Math.atan2(-(P[11].z - P[12].z), P[11].x - P[12].x)
+
+/**
+ * When a person turns their back, the pose model sometimes swaps left and
+ * right: the body jumps half a turn between two frames. A real turn is gradual
+ * (a slow 360 in two seconds is ~11 degrees a frame at 16 fps), so any jump of
+ * more than 100 degrees is a swap, and that frame's pairs are swapped back.
+ * Exported for tools/mimic/unswap.test.mjs.
+ */
+export function unswap(world: V[][], image: number[][][]): number {
+  let fixed = 0
+  let prev = yawOf(world[0])
+  for (let i = 1; i < world.length; i++) {
+    let d = yawOf(world[i]) - prev
+    d = Math.atan2(Math.sin(d), Math.cos(d))
+    if (Math.abs(d) > (100 * Math.PI) / 180) {
+      for (const [a, b] of PAIRS) {
+        ;[world[i][a], world[i][b]] = [world[i][b], world[i][a]]
+        ;[image[i][a], image[i][b]] = [image[i][b], image[i][a]]
+      }
+      fixed++
+    }
+    prev = yawOf(world[i])
+  }
+  return fixed
 }
 
 /** Rotation taking the orthonormal frame (side, up) at rest to (side, up) now. */
