@@ -1,0 +1,17 @@
+{
+ "checkout_page": "https://frontend-staging-7cb8.up.railway.app/api/payments/sandbox/checkout/ec1db4d5-71f0-45f7-b723-d187404c1340",
+ "balance_after": 10,
+ "receipts": [
+  {
+   "order_number": null,
+   "pack": "single",
+   "credits": 10,
+   "paid_display": "₪10",
+   "test_mode": true,
+   "created_at": "2026-11-23T23:23:00.501019",
+   "class_id": null,
+   "class_title": null,
+   "seats": null
+  }
+ ]
+}

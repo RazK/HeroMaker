@@ -9,6 +9,7 @@ happens in the video. `record.js` made them (`node record.js <flow>`).
 | collector-toy.mp4 | the hero as a printable toy: take apart, put together, Print file |
 | visitor.mp4 | a shared link: the reveal, a move, home, Make a hero |
 | teacher.mp4 | pay ₪100 for 10 seats (test), QR + code, a student joins and makes a hero, end the class (robot run 123) |
+| buy-credits.mp4 | signed in with 0 credits → coin → Pick a pack → One hero ₪10 → TEST checkout → Pay → Credits added, coin 10 (order ec1db4d5-71f0-45f7-b723-d187404c1340; proof in buy-credits.proof.json) |
 | kid-happy.mp4 | a ready hero: Dance, Flip, Play → Robot Rumble round, back, Share (link copied) |
 
 Software 3D on the recording machine is slow: in the toy flow a tap can take

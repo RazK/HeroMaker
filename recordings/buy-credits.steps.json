@@ -1,0 +1,33 @@
+{
+ "flow": "buy-credits",
+ "file": "buy-credits.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "viewport": "390x844 @2x (780x1688 video)",
+ "speed": "real, never sped up",
+ "steps": [
+  {
+   "step": "signed in, 0 credits (setup ends here)",
+   "at": 5.7
+  },
+  {
+   "step": "tapped the coin: Buy credits, pick a pack",
+   "at": 7.9
+  },
+  {
+   "step": "picked One hero, ₪10: the TEST checkout (\"₪10\")",
+   "at": 12.3
+  },
+  {
+   "step": "tapped Pay: back in the app",
+   "at": 16.8
+  },
+  {
+   "step": "credits added: the coin shows 10",
+   "at": 17.8
+  },
+  {
+   "step": "end",
+   "at": 23.3
+  }
+ ]
+}

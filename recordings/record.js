@@ -96,6 +96,56 @@ fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive:
     mark('tapped Share: the link is copied, to send to family');
     await p.waitForTimeout(4000);
     mark('end');
+  } else if (flow === 'buy-credits') {
+    // A fresh test account (deleted at the end, as the robot does).
+    const stamp = Date.now().toString(36);
+    const u = { username: `rec_${stamp}`, email: `robot+rec${stamp}@example.com`, password: `rec-${stamp}-pw` };
+    await p.goto(BASE + '/', { waitUntil: 'load' });
+    await tap(p.locator('.header-auth-button'));
+    const grownUp = p.getByRole('dialog', { name: 'Is a grown-up with you?' });
+    await grownUp.waitFor({ timeout: 15000 });
+    await grownUp.getByRole('button', { name: 'Yes' }).click();
+    await p.locator('#username').waitFor({ timeout: 15000 });
+    await p.locator('button.auth-modal-tab').click();
+    await p.fill('#username', u.username); await p.fill('#email', u.email); await p.fill('#name', 'Robot Tester');
+    await p.fill('#dateOfBirth', '2000-01-01'); await p.fill('#password', u.password);
+    await p.locator('button.auth-modal-submit').click();
+    const coin = p.locator('.header-auth-credits');
+    await coin.waitFor({ timeout: 30000 });
+    const token = await p.evaluate(() => localStorage.getItem('heromaker_jwt_token'));
+    const api = async (path, init = {}) => (await fetch(BASE.replace('frontend-staging-7cb8', 'backend-staging-384f') + path, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) } }));
+    const credits = async () => (await (await api('/api/v1/me')).json()).credits;
+    try {
+      await p.waitForTimeout(3000);
+      mark(`signed in, ${await coin.innerText()} credits (setup ends here)`);
+      await p.waitForTimeout(2000);
+      await tap(coin);
+      const pack = p.locator('.buy-credits-pack[data-pack="single"]');
+      await pack.waitFor({ timeout: 20000 });
+      mark('tapped the coin: Buy credits, pick a pack');
+      await p.waitForTimeout(4000);
+      await tap(pack);
+      await p.waitForURL((x) => x.pathname.startsWith('/api/payments/sandbox/checkout/'), { timeout: 60000 });
+      await p.waitForLoadState('domcontentloaded');
+      const orderPage = p.url();
+      mark(`picked One hero, ₪10: the TEST checkout ("${(await p.locator('.amount').innerText().catch(() => '?')).trim()}")`);
+      await p.waitForTimeout(4000);
+      await p.getByRole('button', { name: 'Pay', exact: true }).click();
+      await p.waitForURL((x) => x.toString().startsWith(BASE) && !x.pathname.startsWith('/api/payments/sandbox/'), { timeout: 60000 });
+      mark('tapped Pay: back in the app');
+      const back = Date.now();
+      let n = 0;
+      while (Date.now() - back < 60000 && n < 10) { await p.waitForTimeout(1000); n = Number((await coin.innerText().catch(() => '0')).trim()) || 0; }
+      mark(`credits added: the coin shows ${n}`);
+      await p.waitForTimeout(5000);
+      const receipts = await (await api('/api/v1/receipts')).json();
+      fs.writeFileSync(`${out}/proof.json`, JSON.stringify({ checkout_page: orderPage, balance_after: await credits(), receipts }, null, 1));
+      console.log('PROOF', JSON.stringify(receipts));
+      mark('end');
+    } finally {
+      const r = await api('/api/v1/me', { method: 'DELETE', body: JSON.stringify({ confirm: u.username }) });
+      console.log('deleted test account', u.username, r.status);
+    }
   } else if (flow === 'visitor') {
     await p.goto(BASE + '/', { waitUntil: 'load' });
     const item = p.locator('.creation-gallery-item.creation-gallery-status-completed').first();
