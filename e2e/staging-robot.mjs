@@ -811,6 +811,18 @@ try {
     // The painting is made for free, then the hero waits for payment before 3D.
     const how = await waitForHero(page, null, { pauseAt: 'meshy_3d', pauseCode: 'not_enough_credits' });
     if (how !== 'paused') throw new Error('the free hero did not pause before 3D');
+    // Raz (2026-11-23): the paywall is not a failure. The painting, proud: no
+    // red, no cross, no "failed"; "It's painted!" and the way on.
+    const wall = await page.evaluate(() => ({
+      title: document.querySelector('.tb-paywall-title')?.textContent?.trim(),
+      failedWord: /fail/i.test(document.querySelector('.tb-hero-screen')?.innerText || ''),
+      cross: document.querySelectorAll('.tb-failed, .tb-status-name--failed, .tb-step-dot--failed, .tb-slide-failed-mark').length,
+      slide: document.querySelector('.tb-live-stage')?.getAttribute('data-slide'),
+      bring: [...document.querySelectorAll('.tb-bring-to-life')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
+    }));
+    if (wall.title !== 'It’s painted!' || wall.failedWord || wall.cross || wall.slide !== 'painting' || !/^Bring it to life\s*· \d+ credits$/.test(wall.bring[0] || '')) {
+      throw new Error(`the paywall is not Maya's: ${JSON.stringify(wall)}`);
+    }
     await snap(page, 'free-painting-paused');
     const balance = await creditsShown(page);
     if (balance !== 0) throw new Error(`balance after the free painting is ${balance}, want 0`);
@@ -852,9 +864,10 @@ try {
 
   await step(page, 'create', async () => {
     if (freeHeroUrl) {
-      // Paid now: the paused free hero goes on from 3D with Try again.
+      // Paid now: the paused free hero goes on from 3D with its paywall
+      // button, "Bring it to life · N credits" (Maya's design, #350).
       await page.goto(freeHeroUrl);
-      const again = page.getByRole('button', { name: /Try again/ });
+      const again = page.getByRole('button', { name: /Bring it to life/ });
       await again.waitFor({ timeout: 30000 });
       await again.click();
       // The pause stays on screen until the retry is picked up; only then

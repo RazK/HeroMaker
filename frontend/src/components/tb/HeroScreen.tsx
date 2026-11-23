@@ -305,7 +305,15 @@ export function HeroScreen(props: HeroScreenProps) {
     const failed = state === 'failed';
     const label = paywall ? `Bring ${heroName(creation)} to life` : failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
     const eta = progress ? etaText(progress.endsAt, now) : '';
-    info = (
+    info = paywall && !supporting ? (
+      // The paywall (Maya's design, 2026-11-23): the painting is done and good,
+      // so the page celebrates it. Two sentences, each on its own line. No
+      // stepper, no red, no cross, no "failed"; the hero's name is on its card.
+      <div className="tb-making tb-paywall" data-step={step?.step_name} data-step-index={stepIndex} data-paywall>
+        <h2 className="tb-h2 tb-paywall-title">It’s painted!</h2>
+        <p className="tb-paywall-line" role="status">Next, it comes alive in 3D.</p>
+      </div>
+    ) : (
       <div className={failed && !paywall ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed && !paywall ? step?.error_code ?? 'unknown' : undefined} data-paywall={paywall || undefined}>
         <Stepper steps={stepViews(creation)} />
         <div className="tb-status">
@@ -345,7 +353,21 @@ export function HeroScreen(props: HeroScreenProps) {
         <span className="tb-btn-trail"><Icon name="coin" size={18} />{retryCost} credits</span>
       </button>
     );
-    bar = failed && supporting ? (
+    // The paywall's one way on: bring it to life, the price after the words
+    // (rule 27). Short of credits it opens Buy credits; once paid, the same
+    // button runs the rest of the hero.
+    const bring = (
+      <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-bring-to-life" disabled={busy}
+        onClick={short ? () => window.dispatchEvent(new CustomEvent('credits:buy')) : tryAgain}>
+        <Icon name="dance" />Bring it to life <span className="tb-bring-price">· {retryCost} credits</span>
+      </button>
+    );
+    bar = paywall && owns && !supporting ? (
+      <>
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>Back to my heroes</button>
+        {bring}
+      </>
+    ) : failed && supporting ? (
       // Support: the facts are above; the per-step tools are one tap away.
       <>
         <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-every-step" onClick={props.onShowSteps}><Icon name="grid" />Every step</button>

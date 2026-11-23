@@ -141,7 +141,9 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   if (painted) slides.push({ key: 'painting', state: 'ready' });
   else if (making && !making.idle) slides.push({ key: 'painting', state: coming });
   if (live) slides.push({ key: 'hero', state: 'ready' });
-  else if (painted && !making.idle) slides.push({ key: 'hero', state: coming });
+  // Paused for credits (the paywall): there is no 3D yet and none is being
+  // made, so the painting is the last slide and the stage shows it, proud.
+  else if (painted && !making.idle && !making.paywall) slides.push({ key: 'hero', state: coming });
   if (live && figure) slides.push({ key: 'figure', state: 'ready' });
   const frontier = slides.find((s) => s.state !== 'ready') ?? slides[slides.length - 1];
 
@@ -188,7 +190,13 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     before.current = sig;
     const born = slides.find((s) => s.state === 'ready' && was[s.key] && was[s.key] !== 'ready');
     if (born && follow.current) setAt(born.key);
-    // A slide that went away (it never does today): back to the part in the making.
+    // A part that starts being made after a pause (paid at the paywall, the
+    // 3D begins) with nothing just born: the stage goes to it. When a part is
+    // born and the next appears with it, the new part stays the one shown.
+    const started = slides.find((s) => s.state === 'pending' && !was[s.key]);
+    if (started && !born) setAt(started.key);
+    // A slide that went away (the 3D one, when the hero pauses at the paywall):
+    // back to the last part there is.
     if (!slides.some((s) => s.key === at)) setAt(frontier.key);
   }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -437,19 +445,6 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       // or, stopped, under what went wrong.
       const from = s.key === 'painting' ? drawingPic : paintingPic;
       const label = s.key === 'painting' ? 'Painted' : `${heroName}, live`;
-      if (s.state === 'failed' && making?.paywall) {
-        // Out of credits: the painting is done and good. Show it proud, with a
-        // warm nudge to bring it to life — never dimmed, a cross, or "failed".
-        return {
-          label,
-          node: (
-            <div className="tb-slide-coming" role="status">
-              <div className="tb-live-room">{SUN && <div className="tb-stage-sun" />}{from}</div>
-              <span className="tb-slide-status">Bring it to life</span>
-            </div>
-          ),
-        };
-      }
       if (s.state === 'failed') {
         return {
           label,
