@@ -24,8 +24,6 @@ This service provides an HTTP API for converting GLB (glTF Binary) files to VRM 
 - `railway.toml` - Railway deployment configuration
 - `VERSION` - Current version number
 
-**Note:** Docker image build and push scripts are located in `devops/scripts/build-and-push-images.sh`
-
 ## Building the Service
 
 ### Build from Dockerfile
@@ -43,29 +41,10 @@ docker build --build-arg VERSION=$(cat VERSION) -t vrm-converter-service:$(cat V
 - Images are tagged with version: `vrm-converter-service:1.0.0`
 - To rebuild with a new version, update `VERSION` file and rebuild
 
-### Publishing to GitHub Container Registry (GHCR)
+### Deploying
 
-Use the centralized build script:
-
-```bash
-# From project root
-./devops/scripts/build-and-push-images.sh ghcr.io/YOUR_USERNAME/heromaker latest
-```
-
-This builds and pushes all services (backend, frontend, vrm-converter) to GHCR.
-
-**First-time setup:**
-
-1. Create a GitHub Personal Access Token (PAT) at https://github.com/settings/tokens
-   - Select scope: `write:packages`
-2. Login to GHCR:
-   ```bash
-   echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
-   ```
-
-The image will be available at: `ghcr.io/YOUR_USERNAME/heromaker/vrm-converter:latest`
-
-**Note:** Images are also automatically built via GitHub Actions on push to `main` branch (see `.github/workflows/build-images.yml`).
+Railway builds this Dockerfile itself: a merge to `main` deploys it to
+staging, a promotion to production (`docs/deployment/cicd.md`).
 
 ## Running the Service
 

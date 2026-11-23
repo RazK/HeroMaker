@@ -172,8 +172,8 @@ only by running the *Promote to production* workflow and approving it. Full
 protocol: [`docs/deployment/cicd.md`](deployment/cicd.md).
 
 1. Merge a PR to `main`
-2. `.github/workflows/build-images.yml` builds the 3 images, pushes to GHCR,
-   and deploys all three services to the **staging** environment
+2. `.github/workflows/build-images.yml` deploys all three services to the
+   **staging** environment with `railway up` (Railway builds each Dockerfile)
 3. Try it in staging
 4. **Actions → Promote to production → Run workflow**, then approve. The same
    commit deploys to **production**
@@ -211,7 +211,6 @@ npm i -g @railway/cli
 railway login
 railway logs --service backend --lines 100
 railway logs --service vrm-converter --lines 100
-railway run --service backend python scripts/sync_local_to_railway.py  # data migration
 ```
 
 ---
