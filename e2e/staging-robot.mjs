@@ -1288,13 +1288,9 @@ try {
     const seats = Math.min(price.max_seats, Math.max(5, price.min_seats || 0, Math.floor(balance / heroCost) + 1));
     const totalCents = price.order_cents + price.seat_cents * seats;
     const want = sandbox ? ilsDisplay(totalCents) : `$${(totalCents / 100).toFixed(2)}`;
-    // What the class screen offers: on grow_sandbox only the amount is
-    // checked, not its currency sign (it shows "$" for shekels today, a known
-    // gap owned by design).
-    const amountOf = (text) => Number(/(\d[\d,]*(?:\.\d+)?)/.exec(text)?.[1]?.replace(/,/g, '') ?? NaN);
-    const offersRight = (text, prefix, suffix) => (sandbox
-      ? text.startsWith(prefix) && text.endsWith(suffix) && amountOf(text.slice(prefix.length, text.length - suffix.length)) === totalCents / 100
-      : text === `${prefix}${want}${suffix}`);
+    // What the class screen offers, sign and all: "₪100" on grow_sandbox,
+    // "$6.75" on Lemon Squeezy.
+    const offersRight = (text, prefix, suffix) => text === `${prefix}${want}${suffix}`;
     const receiptsBefore = sandbox ? await receipts() : null;
 
     await newClass.click();

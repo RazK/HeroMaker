@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
-import { ClassView, SeatPrice, Student, dollars, seatsCents, teacherApi } from '../../api/classes';
+import { ClassView, SeatPrice, Student, minPaidSeats, priceText, seatsCents, teacherApi } from '../../api/classes';
 import { TileGrid } from '../tb/HeroTile';
 import { Icon } from '../tb/Icon';
 import { Dialog, Header, NavButton, NoPageScroll, Sheet, SheetRow } from '../tb/parts';
@@ -174,7 +174,7 @@ export function ClassScreen({ classId, credits, paid, onBack, onOpenHero }: {
       {sheet === 'more' && (
         <Sheet title={c.title} onClose={() => setSheet(null)}>
           <div className="tb-muted" style={{ padding: '0 4px 8px' }}>{c.seats_used} of {c.seats} seats used · {c.sessions} {c.sessions === 1 ? 'session' : 'sessions'}</div>
-          <SheetRow icon="plus" label="Add seats" trail={seatPrice ? `${c.hero_cost} credits or ${dollars(seatPrice.seat_cents)}` : `${c.hero_cost} credits each`} onClick={() => setSheet('seats')} />
+          <SheetRow icon="plus" label="Add seats" trail={seatPrice ? `${c.hero_cost} credits or ${seatPrice.seat_display ?? priceText(seatPrice.seat_cents, seatPrice.currency)}` : `${c.hero_cost} credits each`} onClick={() => setSheet('seats')} />
         </Sheet>
       )}
       {who && !who.removing && (
@@ -352,6 +352,9 @@ function AddSeats({ c, credits, seatPrice, onClose, onPaid }: {
   const cost = seats * c.hero_cost;
   const short = credits !== undefined && cost > credits;
   const cents = seatPrice ? seatsCents(seatPrice, seats) : 0;
+  // A paid order has a floor (Grow: 10 seats); paying with credits has none.
+  const least = minPaidSeats(seatPrice);
+  const tooFew = short && !!seatPrice && seats < least;
   const pay = async () => {
     setBusy(true);
     try {
@@ -363,7 +366,7 @@ function AddSeats({ c, credits, seatPrice, onClose, onPaid }: {
     }
   };
   if (paying && seatPrice) {
-    return <PaySeatsDialog seats={seats} cents={cents} title={c.title} seatsBefore={c.seats} onClose={() => setPaying(false)}
+    return <PaySeatsDialog seats={seats} cents={cents} currency={seatPrice.currency} title={c.title} seatsBefore={c.seats} onClose={() => setPaying(false)}
       open={() => teacherApi.buySeats(c.id, seats)} />;
   }
   if (confirm) {
@@ -388,13 +391,13 @@ function AddSeats({ c, credits, seatPrice, onClose, onPaid }: {
         {error && <div className="tb-muted" role="alert" style={{ color: 'var(--tb-red)' }}>{error}</div>}
       </div>
       <div className="tb-stack cls-sheet-bar">
-        <div className="tb-bar-note">{short ? `You need ${cost} credits. You have ${credits}.` : `${c.hero_cost} credits a seat, paid now`}</div>
+        <div className="tb-bar-note">{tooFew ? `A paid order is for at least ${least} seats.` : short ? `You need ${cost} credits. You have ${credits}.` : `${c.hero_cost} credits a seat, paid now`}</div>
         {short && seatPrice
           ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>
           : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={onClose}>Cancel</button>}
         {short && seatPrice
-          ? <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-pay-seats" onClick={() => setPaying(true)}>
-              Pay {dollars(cents)} for {seats} {seats === 1 ? 'seat' : 'seats'}
+          ? <button type="button" className="tb-btn tb-btn--primary tb-btn--full cls-pay-seats" disabled={tooFew} onClick={() => setPaying(true)}>
+              Pay {priceText(cents, seatPrice.currency)} for {seats} {seats === 1 ? 'seat' : 'seats'}
             </button>
           : short
           ? <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => window.dispatchEvent(new CustomEvent('credits:buy'))}><Icon name="coin" />Buy credits</button>
