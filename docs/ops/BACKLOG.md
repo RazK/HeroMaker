@@ -8,6 +8,30 @@ Newest first. When an item enters a sprint, move it to `SPRINT_LOG.md`.
 
 ## Open
 
+### Studio view: one carousel spine, no chapter cards
+- **From:** Raz, 2026-11-23. He dislikes the current hero/studio interface.
+- **Want (his vision):** the hero page is one swipeable carousel through the
+  creation stages — **drawing → painting → 3D → toy**. The **progress bar and
+  the carousel cursor are the same element**: an icon per stage along a path, a
+  cursor marking where you are, **green** where a stage is being created. You
+  swipe along it. As you move past the drawing it **shrinks into a small
+  polaroid in a corner** and stays there through every stage; **tapping that
+  polaroid jumps back to step 1** (the drawing / upload view).
+- **Kill:** the separate chapter cards / tiles ("Drawing · Painting · 3D hero")
+  — they take space and add noise. This also removes the self-hiding
+  current-chapter tile that causes the **"chapter cards reshuffle"** bug.
+- **Why it matters:** one element does two jobs (progress + navigation); the
+  persistent drawing polaroid keeps the "this drawing became this" story alive;
+  less on screen, clearer meaning. Serves money moment #1 (the reveal).
+- **Absorbs:** the **paywall** becomes one state of this carousel (the "3D
+  locked → bring it to life" stop). Paywall Option 2 (corner polaroid) is the
+  same direction, so build the paywall as part of this rather than twice. The
+  **camera** is step 1 of the same flow.
+- **Scope:** the whole hero/studio view (`HeroLive.tsx`, `HeroScreen.tsx`,
+  the carousel + stepper). Big. **Next sprint.** Maya designs first (one
+  spine, phone + desktop), Raz approves, then build.
+- **Gallery view:** Raz is happy with it — no change.
+
 ### Low-friction / anonymous start — carrots before sticks
 - **From:** Raz, 2026-11-23.
 - **Problem:** making the first hero sends the user to a form (sign-up /
