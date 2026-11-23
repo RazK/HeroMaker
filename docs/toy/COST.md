@@ -20,7 +20,34 @@ Raz, 2026-11-23: a toy must cost at most ₪80-120 to print; nobody pays more th
 | 8 cm, one colour + hand painting | 2.2 h | 31 g | 0 | ≈ ₪50 (40 min painting) |
 | 8 cm, every triangle painted (AMS) | 16.4 h | 176 g (140 g) | 621 | ≈ ₪75, one toy per printer per day |
 | 10 cm, every triangle painted (AMS) | ≈ 25 h | 272 g (214 g) | 959 | ≈ ₪110, one toy per printer per day |
-| 12 cm ball-joint action figure (Hi3D split), one colour, 0.12 mm | 9.6 h | 66 g | 0 | ≈ ₪40 + assembly |
+| 12 cm ball-joint action figure (Hi3D split), one colour, 0.2 mm | 6.1 h | 68 g | 0 (≈6 if each part has its own colour, printed part by part) | ≈ ₪25 + assembly |
+
+## Is the toy a business? Cost and price per toy
+
+Price for 50% margin = 2 x (making + packing and post). Making includes 15% for failed
+prints. Packing and post is **₪25, an assumption** (box ₪5 + registered small parcel
+~₪20; Gidi to check). Prices are before VAT; add 18% for the customer price.
+
+| Way | Size | Time per toy | Making | + post = cost | Price for 50% margin | Same, with VAT |
+|---|---|---|---|---|---|---|
+| **Height bands + paint-pen face** | **8 cm** | 3.9 h | ₪36 | ₪61 | **₪122** | **₪144** |
+| Height bands + paint-pen face | 10 cm | ≈ 4.6 h | ₪40 | ₪65 | ₪130 | ₪153 |
+| Parts in single colours, ball joints (Hi3D) | 12 cm | ≈ 6.3 h + 25 min assembly | ₪59 | ₪84 | ₪168 | ₪198 |
+| 1 colour + hand painting | 8 cm | 2.2 h + 40 min painting | ₪56 | ₪81 | ₪162 | ₪191 |
+| 5-colour FDM, fully painted (AMS) | 8 cm | 16.4 h | ₪84 | ₪109 | ₪218 | ₪257 |
+| 5-colour FDM, fully painted (AMS) | 10 cm | ≈ 25 h | ₪123 | ₪148 | ₪296 | ₪349 |
+| Full-colour service (HP 580, Impact Labs) | 8-10 cm | 3+ business days | quote | quote + ₪25 | 2 x that | |
+
+**What this says:**
+- Only the **8 cm height-band toy** fits Raz's ₪150 at 50% margin with post (₪144 with VAT).
+- **Without post** (handed over at a class, a party, or Schneider), the 10 cm band toy
+  costs ₪40 and sells at 50% margin for ₪80 (₪94 with VAT).
+- Fully painted 5-colour FDM is not a product at these prices. A printer makes one
+  of them a day; it makes 5-6 band toys.
+- Full colour is decided by one quote: it works if the print + post is under ~₪60.
+
+Not counted: the printer itself (~₪4,000 once, inside the ₪3/h), the hero's own
+generation cost, payment fees, returns.
 
 ## The method: colour by height bands
 
