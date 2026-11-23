@@ -1123,7 +1123,16 @@ try {
     }
     if ((await swipe()) !== 'hero') throw new Error(`a swipe from the painting landed on "${await slideNow()}"`);
     await page.locator('.tb-move:not([disabled])').first().waitFor({ timeout: 90000 });
+    // The moves fade in with the hero: enabled is not yet shown. Wait (up to
+    // 15 s, software GL on CI) for all 4 to be inside the stage; one reading
+    // the moment they were enabled caught them mid-fade in run #124, while its
+    // own failure screenshot showed all 4 in place.
+    const settle = Date.now();
     movesSeen.hero = await movesInView();
+    while (movesSeen.hero !== 4 && Date.now() - settle < 15000) {
+      await page.waitForTimeout(250);
+      movesSeen.hero = await movesInView();
+    }
     if (movesSeen.hero !== 4) throw new Error(`${movesSeen.hero} of 4 moves inside the live hero's stage`);
     // The hero's page (proposal A): the name card at the card's bottom start,
     // the moves one column at its bottom end, inside the card; Share and Play
