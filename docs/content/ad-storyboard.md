@@ -84,3 +84,33 @@ crayon covers a quarter of the drawing. Keep it ON in the ad.
 **What to fix from v1:** v1 shows a white card with a hard edge behind the
 painting in frame 3. Use the cut-out. The last frame of v1 has an empty band
 over the polaroid; beat 4 above replaces it.
+
+## v2 keyframes on Maya's grid (Tom, for Maya)
+
+9:16, beats 1–4:
+
+![9:16](img/ad01-v2-keys-9x16.jpg)
+
+4:5, beats 1–4:
+
+![4:5](img/ad01-v2-keys-4x5.jpg)
+
+**Gate:** 1 nothing twice: pass. 2 two fonts: pass. 3 one axis: pass.
+5 least text: pass. **4 no dead space: FAIL in beats 2 and 4, both sizes.**
+
+**Why, and a decision for Maya.** The grid has a conflict. A 920 px polaroid
+on the axis reaches x 1000, into the rail (x 912–1056, y 900–1536), so beat 1
+uses 740 px, the widest that clears it. A row at 24 px margins puts slot 3 in
+the rail too, unless it sits above y 900. Up there, the bottom half is empty.
+
+- **A (Tom's pick): 9:16 stacks the steps on the axis**, polaroid, an arrow
+  pointing down, the painting, an arrow down, Violet, filling y 528–1488 and
+  clear of the rail. Beat 4 adds the sentence beside each... no: under each
+  picture, then Make a hero. 4:5 keeps the row, centred in its band.
+- **B:** keep the row, centre it in the band, and let the empty slot 3 and
+  the arrows cross the rail (the rail only covers buttons, not this content).
+- **C:** a smaller row (200 px slots) on the axis that clears the rail.
+
+Also: the call window's 384x264 landscape crops Maya's raised hands out of a
+portrait clip (beat 3). Make it portrait (264x384), still bottom-left and clear
+of the rail?
