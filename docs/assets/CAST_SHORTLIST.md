@@ -1,47 +1,40 @@
 # Poster cast: Nir's shortlist (2026-11-23)
 
-The bar is in `DEMO_CAST.md` (on the PM's branch). There was no provider spend: every
-candidate is a hero that already exists in production's Editors' choice.
+Raz picks the three. Violet stays cast #1. The bar is in `DEMO_CAST.md`. There was no
+provider spend: every candidate is a hero that already exists in production's Editors'
+choice, and all 104 Editors' choice paintings were reviewed.
 
 ![Shortlist](cast_shortlist.png)
 
-Top row: the painting. Bottom row: the rig test, with the real `rigged.glb` posed with one
-arm up and one leg kicking.
+Columns: painting, 3D (the real `rigged.glb` posed with one arm up and one leg kicking), and
+the toy at 8 cm (full colour, on a base). The drawings were checked too, but they are not in
+the repo: several are by real children.
 
-## How I checked each stage
-
-1. **Drawing:** read by eye, internally only. No drawing is in this repo.
-2. **Painting:** all 104 Editors' choice paintings (staging and production) on one sheet.
-3. **3D and rig:** the finalists' `rigged.glb` was posed (`scripts/toy/bake.js`) and
-   rendered. All 7 bend cleanly at the shoulders and hips, with no torn or stretched skin.
-   I did not check dance or flip clips; those need the hero on staging.
-4. **Toy:** `scripts/toy/toyprep.py` at 8 cm with 5 colours. Each toy came out watertight,
-   with no walls under 0.8 mm except the bear's 0.9%. Price is full colour at JLC3DP:
-   volume x ₪2.79/cm³.
-
-## Shortlist
-
-| # | Hero (production) | Kind | Drawing | Toy, 8 cm | Rights | Verdict |
+| # | Hero (production) | Kind, audience | Drawing | 3D / rig | Toy, 8 cm (JLC full colour) | Rights |
 |---|---|---|---|---|---|---|
-| 1 | **Starry Sam** | boy hero | a real child's: bold, simple, closed outline | 28 cm³, ₪78, 43 colour regions | **unknown**, no artist recorded | top 3 if consent is found |
-| 2 | **Yummy Bear** | animal hero | clean, childlike | 52 cm³, ₪145 (₪97 at 7 cm), chunky | adult artist (Elad, 33): ask him | **top 3** |
-| 3 | **Cookie Man** | second style | a real child's, very simple | 33 cm³, ₪93, only 19 colour regions: the easiest toy | child (Yuval, 8): needs the parent's consent | top 3 if consent is given |
-| 4 | Crayon Kid | boy hero | made with ChatGPT in a crayon style | 29 cm³, ₪81 | **ours** (no consent needed) | backup. The chest "S" looks like Superman's: re-paint without it before any ad |
-| 5 | Blue Spike Monster | creature | a real child's, scribbly | 58 cm³, ₪161, 105 regions (spikes) | unknown | backup: the strongest creature, but the dearest toy |
-| 6 | Gingerella | girl hero | an adult's (Tom, 20) | 33 cm³, ₪93 | adult artist | too close to Violet (a second girl hero in a cape) |
+| 1 | Starry Sam | boy hero, 4-8 | bold, simple, a child's | bends cleanly | 28 cm³, ₪78 | artist not recorded: consent needed |
+| 2 | Yummy Bear | teddy superhero, 4-9 | clean, childlike | bends cleanly | 81 cm³, ₪225 (₪151 at 7 cm), chunky | adult artist: ask him |
+| 3 | Cookie Man | gingerbread, gift season | very simple, a child's | bends cleanly | 33 cm³, ₪93, fewest colours | child artist: parent's consent |
+| 4 | Crayon Kid | masked superhero, 6-10 | AI-made, crayon style | bends cleanly | 29 cm³, ₪81 | **ours**: none needed. The chest "S" looks like Superman's: repaint it before any ad |
+| 5 | Blue Spike Monster | friendly monster, 7-10 | scribbly, a child's | bends cleanly | 58 cm³, ₪161, spiky | artist not recorded: consent needed |
+| 6 | Sunny Sprout | chick creature, 4-7 | simple, a child's | bends cleanly | 45 cm³, ₪125 | child artist: parent's consent |
+| 7 | Bouncy Blue Bunny | bunny superhero, 5-9 | scribbly, a child's | bends cleanly | 14 cm³, ₪38, slim parts | artist not recorded: consent needed |
+| 8 | Gingerella | girl superhero | an adult's | bends cleanly | 33 cm³, ₪93 | adult artist: ask him. Close to Violet |
+
+Every toy is watertight, with walls under 0.8 mm on at most 0.23% of the surface. Not
+checked yet: dance and flip clips. Those need the hero on staging.
 
 Rejected:
-- **Super Foxy:** the drawing is clearly not a child's (clean professional outlines), so it
-  would break "you draw it". It also has a Superman-style logo.
-- **Heroes that look like known brands** (a LEGO-like figure, a Minion-like one, Hollow
-  Knight, Superman): trademark risk.
+- **Super Foxy:** the drawing is not a child's (clean professional outlines), and it has a
+  Superman-style logo.
+- **Brand look-alikes:** the LEGO-like, Minion-like, Hollow Knight-like and Superman heroes.
 
 ## Flags for the PM
 
-- **Violet's rights:** her staging painting is identical to production's "SuperGirl"
-  (artist "Michal", 12). DEMO_CAST.md says Violet is house-made. Please confirm where
-  Violet's drawing came from before she goes in an ad.
-- **A staging demo** of these heroes means copying them from production to staging. That
-  needs Raz's yes each time (CLAUDE.md). Crayon Kid is already on staging (as "Super Sami").
-- **No new provider spend is needed:** every candidate already has a painting, a model, a
-  rig and an avatar.
+- **Violet's rights:** her staging painting is identical to production's "SuperGirl", which
+  is credited to a 12-year-old. DEMO_CAST.md says Violet is house-made. Please confirm
+  where the drawing came from before any ad.
+- **A staging demo** needs these heroes copied from production to staging. That needs Raz's
+  yes each time. Crayon Kid is already on staging (as "Super Sami").
+- **The toy check found a tool bug, now fixed:** MeshFix had silently dropped half the
+  bear. Violet's order files were re-checked and are not affected.

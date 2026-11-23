@@ -49,6 +49,22 @@ Fill a row only when the asset exists and the stage is really done. The blob
 ids / staging creation ids go here so every agent (ads, prints, demos) uses
 the same files.
 
+## Candidates (Nir, 2026-11-23): Raz picks three
+
+Not the cast yet. Each needs Raz's pick and its rights cleared. Stage verdicts, cards and
+toy prices are in `CAST_SHORTLIST.md`. The heroes are in production's Editors' choice.
+
+| Candidate | Kind | Drawing | Painting | 3D / rig | Toy (8 cm) | Rights |
+|---|---|---|---|---|---|---|
+| Starry Sam | boy hero | yes | yes | yes (posed) | ₪78 | consent needed (artist not recorded) |
+| Yummy Bear | animal hero | yes | yes | yes (posed) | ₪225 (₪151 at 7 cm) | adult artist: ask |
+| Cookie Man | second style | yes | yes | yes (posed) | ₪93 | child's: parent's consent |
+| Crayon Kid | boy hero | yes | yes | yes (posed) | ₪81 | ours (AI drawing). Repaint the "S" |
+| Blue Spike Monster | creature | yes | yes | yes (posed) | ₪161 | consent needed (artist not recorded) |
+| Sunny Sprout | creature | yes | yes | yes (posed) | ₪125 | child's: parent's consent |
+| Bouncy Blue Bunny | animal hero | yes | yes | yes (posed) | ₪38 | consent needed (artist not recorded) |
+| Gingerella | girl hero | yes | yes | yes (posed) | ₪93 | adult artist: ask |
+
 ## How we choose the next three
 
 1. Gather candidate drawings into a place the team can read (Google Drive, not
