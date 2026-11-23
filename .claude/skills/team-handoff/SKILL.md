@@ -1,6 +1,6 @@
 ---
 name: team-handoff
-description: Use when one HeroMaker agent passes work to another (the product manager, Gidi on payments and the books, Maya on design, Nir on 3D printing), or reports to Raz. Who is who, how to reach them, and how to write the message.
+description: Use when one HeroMaker agent passes work to another (the product manager, Gidi on payments and the books, Maya on design, Liran on development, Nir on 3D printing, Tom on content), or reports to Raz. Who is who, how to reach them, and how to write the message.
 ---
 
 # Team handoff
@@ -14,7 +14,9 @@ Names are the **session titles**. Check them with `get_session` or
 |---|---|---|
 | Product manager (the main HeroMaker session) | What we build and in what order (money check), the Sunday review, merging to `main`, robot-testing staging, asking Raz for promotion | Design pixels, the payments code |
 | Gidi · Payments | All of HeroMaker's money: checkout, the webhook, credits, receipts, payment providers (Lemon Squeezy, Grow), **and the books** (a Google Sheet in Raz's Drive: every expense by category, income, budget questions, the money lines of the Sunday review). Payments Live comes before the books. | Paying or changing any account; putting amounts, card data or personal transactions in the repo; design |
-| Maya · Design | The design canvas, screens for phone and desktop, the brand book | Code merges without the PM, product scope |
+| Maya · Design | The design canvas, screens for phone and desktop, the brand book | App code (Liran builds her approved designs), code merges without the PM, product scope |
+| Liran · Dev | Building the designs Raz approved, in the PM's order; code quality (the cleanup report, then small deleting PRs) | Work the PM did not hand over; deleting or weakening a test that guards money or children's privacy |
+| Tom · Content | Ad scripts and creatives, with Maya's design gate | Running or paying for ads before payments are Live and Raz says yes |
 | Nir · 3D | The printed toy: print suppliers, print-ready multi-colour models, slicing and print previews, the "real toy" demand test; later, if demand is shown, automated slicing and knee/elbow hinges | Phase 2 work before the PM says go; contacting suppliers or ordering without Raz's yes |
 
 Compass (product docs) and Scout (PR review) are run on demand by the PM.
