@@ -40,6 +40,14 @@ const SAMPLE = params.get('sample') || 'Crayon_Kid'
 const HERO_URL = OWN_HERO ?? sampleUrl(SAMPLE) ?? Object.values(samples)[0]
 const HERO_NAME = OWN_HERO ? OWN_NAME : (params.get('name') || SAMPLE.replace(/_/g, ' '))
 
+/** The child's own drawing, next to the hero's VRM (the backend's thumbnail). */
+const OWN_DRAWING = OWN_HERO ? OWN_HERO.replace(/[^/?#]+(\?.*)?$/, 'thumb_original.jpg') : null
+/**
+ * Opened from a shared link (?via=share): the family has no context yet, so
+ * the start sheet says what this is before how to play (Raz, 2026-11-23).
+ */
+const SHARED = params.get('via') === 'share' && !!OWN_DRAWING
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 // ------------------------------------------------------------------ DOM
@@ -67,8 +75,14 @@ app.innerHTML = `
     </div>
     <div class="tb-bar rr-bar">
       <div class="rr-card rr-card--start tb-panel">
-        <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
-        <div class="rr-line">Bop them before they reach your toys!</div>
+        ${SHARED ? `<div class="rr-story">
+          <span class="rr-story-pol"><img src="${esc(OWN_DRAWING!)}" alt="The drawing"></span>
+          <div class="rr-story-text">
+            <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
+            <div class="rr-story-line">A kid drew this on paper.<br>Now it’s alive. Come play!</div>
+          </div>
+        </div>` : `<div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>`}
+        <div class="rr-line">Bop the robots before they reach the toys!</div>
         <div class="rr-start-slot"></div>
       </div>
       <div class="rr-card rr-card--end tb-panel">
@@ -94,6 +108,8 @@ const timerValue = app.querySelector<HTMLElement>('.rr-timer-value')!
 // the sheet grip. Primary last, as in every bottom bar of the app.
 app.querySelector('.rr-back-slot')!.append(tbNav('back', 'Back to your hero', goBack))
 for (const card of app.querySelectorAll('.rr-card')) card.prepend(tbGrip())
+// A drawing that does not load leaves the words alone, not a broken image.
+app.querySelector('.rr-story-pol img')?.addEventListener('error', (e) => (e.target as HTMLElement).closest('.rr-story-pol')?.remove())
 const startBtn = tbButton('Start', { icon: 'play' })
 startBtn.classList.add('rr-start')
 startBtn.disabled = true
@@ -436,7 +452,7 @@ function setProgress(f: number) {
     ;(window as unknown as { __ready?: unknown; __moves?: number }).__moves = loaded
     // The child's own drawing: the biggest card on the wall, right behind
     // their hero (Raz: "it's important that they see the original drawing").
-    if (OWN_HERO) void crowd.board.hangStar(OWN_HERO.replace(/[^/?#]+(\?.*)?$/, 'thumb_original.jpg'))
+    if (OWN_DRAWING) void crowd.board.hangStar(OWN_DRAWING)
     ;(window as unknown as { __ready?: unknown }).__ready = true
     // The crowd: other heroes cheering from the stands, one after another
     // behind the player's. The game never waits for them, and plays the same
