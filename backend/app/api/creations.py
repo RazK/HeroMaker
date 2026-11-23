@@ -26,6 +26,7 @@ from app.services.task_manager import PIPELINE_KEY
 from app.services import openai as openai_service
 from app.utils.file_utils import delete_creation_files
 from app.utils.storage import get_storage
+from app.services.creation_steps import find_step
 
 
 logger = logging.getLogger(__name__)
@@ -293,16 +294,13 @@ async def cancel_step(
         raise HTTPException(status_code=403, detail="You don't have permission to cancel this step")
     
     # Find the step
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
+    step = find_step(db, creation_id, step_name)
     
     if not step:
         raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
     
     # Check if already cancelled
-    if step.status == "failed" and step.error_message == "Step cancelled by user":
+    if step_errors.is_cancelled(step):
         return {
             "message": f"Step {step_name} is already cancelled",
             "creation_id": creation_id,
@@ -371,10 +369,7 @@ async def run_step(
         raise HTTPException(status_code=400, detail="Step is already running")
     
     # Get step to check current status
-    step = db.query(CreationStep).filter(
-        CreationStep.creation_id == creation_id,
-        CreationStep.step_name == step_name
-    ).first()
+    step = find_step(db, creation_id, step_name)
     
     if not step:
         raise HTTPException(status_code=404, detail=f"Step {step_name} not found")
@@ -408,10 +403,7 @@ async def run_step(
                 # Validation error (e.g., input file not found, insufficient credits)
                 # Mark step as failed since execute_step didn't get to mark it
                 try:
-                    step = db_session.query(CreationStep).filter(
-                        CreationStep.creation_id == creation_id,
-                        CreationStep.step_name == step_name
-                    ).first()
+                    step = find_step(db_session, creation_id, step_name)
                     if step and step.status != "failed":
                         step_errors.mark_failed(step, e)
                         db_session.commit()
@@ -423,10 +415,7 @@ async def run_step(
             # Other errors - execute_step should have marked as failed, but double-check
             error_msg = str(e)
             try:
-                step = db_session.query(CreationStep).filter(
-                    CreationStep.creation_id == creation_id,
-                    CreationStep.step_name == step_name
-                ).first()
+                step = find_step(db_session, creation_id, step_name)
                 if step and step.status != "failed":
                     step_errors.mark_failed(step, e)
                     db_session.commit()
