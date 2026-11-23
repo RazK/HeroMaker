@@ -32,6 +32,22 @@ These came straight from the product owner. They override your defaults.
   he approves *Promote to production*. Everything except his review is yours
   to automate.
 
+## Product: read docs/product/OPERATING.md before proposing work
+
+One KPI (paid heroes per week), a 5-line review to Raz every Sunday, pilots
+before A/B tests at our traffic, and one promise from the ad to the share
+page. Every request is checked against `docs/product/MONEY_MOMENTS.md`.
+
+The team and its skills (`.claude/skills/`, shared by every agent that
+clones this repo):
+
+- **`money-check`**: run it before building or proposing anything, and on
+  every new idea from Raz. Steer him when an idea does not bring money.
+- **`weekly-review`**: the Sunday 5 lines, from real numbers only.
+- **`pilot-notes`**: plan and write up Schneider, classes and other pilots.
+- **`team-handoff`**: who is who (names are session titles: Gidi · Payments,
+  Maya · Design), how agents message each other, how to report to Raz.
+
 ## Design: read docs/design/PRINCIPLES.md, then BRANDBOOK.md, before any UI work
 
 `docs/design/PRINCIPLES.md` is Raz's rules, written down so he never repeats them:
