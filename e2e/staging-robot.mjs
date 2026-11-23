@@ -535,6 +535,15 @@ async function waitForHero(page, done, { pauseAt = null, pauseCode = null } = {}
   let lastLine = '';
   while (Date.now() < deadline) {
     if (done && await done.isVisible().catch(() => false)) return 'done';
+    // Out of credits is a paywall, not a failure: the hero screen shows it as
+    // tb-making[data-paywall] (no red, no cross), not tb-failed.
+    const paused = page.locator('.tb-making[data-paywall]');
+    if (await paused.count()) {
+      const name = await paused.getAttribute('data-step').catch(() => '?');
+      if (pauseAt && name === pauseAt && pauseCode === 'not_enough_credits') return 'paused';
+      const label = await paused.locator('.tb-status-name').innerText().catch(() => '?');
+      throw new Error(`hero paused for credits at "${name}" (${label}), not the expected ${pauseAt}/${pauseCode}`);
+    }
     const failed = page.locator('.tb-failed');
     if (await failed.count()) {
       const name = await failed.getAttribute('data-step').catch(() => '?');
@@ -850,7 +859,7 @@ try {
       await again.click();
       // The pause stays on screen until the retry is picked up; only then
       // does a failed stage mean anything.
-      await page.locator('.tb-failed').waitFor({ state: 'detached', timeout: 60000 });
+      await page.locator('.tb-making[data-paywall], .tb-failed').waitFor({ state: 'detached', timeout: 60000 });
       await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
       mark('pipeline_end');
       heroName = await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText().catch(() => null);

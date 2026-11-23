@@ -100,6 +100,9 @@ export function HeroScreen(props: HeroScreenProps) {
   }, [state]);
 
   const step = currentStep(creation);
+  // Out of credits is a paywall, not a failure (the painting is done and good):
+  // the whole screen celebrates and asks for credits, never shows an error.
+  const paywall = state === 'failed' && step?.error_code === 'not_enough_credits';
   const now = Date.now();
   const measured = stepProgress(step, now);
   const stepKey = `${step?.step_name}:${step?.started_at}`;
@@ -300,21 +303,21 @@ export function HeroScreen(props: HeroScreenProps) {
     bar = <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>{backLabel}</button>;
   } else {
     const failed = state === 'failed';
-    const label = failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
+    const label = paywall ? `Bring ${heroName(creation)} to life` : failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
     const eta = progress ? etaText(progress.endsAt, now) : '';
     info = (
-      <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed ? step?.error_code ?? 'unknown' : undefined}>
+      <div className={failed && !paywall ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed && !paywall ? step?.error_code ?? 'unknown' : undefined} data-paywall={paywall || undefined}>
         <Stepper steps={stepViews(creation)} />
         <div className="tb-status">
-          <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
-          {failed
+          <div className={`tb-status-name${failed && !paywall ? ' tb-status-name--failed' : ''}`}>{label}</div>
+          {failed && !paywall
             // The raw provider error is an admin's, behind Details; never on the page.
             ? isAdmin && step?.error_detail && <button type="button" className="tb-chip tb-error-details" onClick={() => setSheet('details')}>Details</button>
             : <div className="tb-status-eta">{eta}</div>}
         </div>
         {failed && (supporting
           ? <SupportFacts creation={creation} step={step} />
-          : <div className="tb-failed-line" role="status">{failedLine(step)}</div>)}
+          : <div className="tb-failed-line" role="status">{paywall ? `${heroName(creation)} is painted and ready. Bring it to life in 3D.` : failedLine(step)}</div>)}
         {!failed && (
           // Keyed by the step's run, so a new step starts its bar from empty
           // instead of sliding backwards from the last one.
@@ -389,6 +392,7 @@ export function HeroScreen(props: HeroScreenProps) {
           step: step?.step_name,
           pct: progress?.pct ?? 0,
           failed: state === 'failed',
+          paywall,
           failedLabel: failedLabel(step),
           idle: state === 'idle',
           info,
