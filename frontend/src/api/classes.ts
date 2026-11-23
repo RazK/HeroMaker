@@ -70,7 +70,6 @@ export interface School {
 
 /** The children's ages, picked on the class sheet (backend AGE_BANDS). */
 export const AGE_BANDS = ['3-4', '5-6', '7-8', '9-10', '11+'] as const;
-export const agesLabel = (ages: string) => `Ages ${ages.replace('-', '–')}`;
 
 export interface ClassView {
   id: string;

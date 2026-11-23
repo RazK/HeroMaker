@@ -85,9 +85,6 @@ export interface CreationResponse {
  */
 export type Painting = 'cut' | 'transparent' | 'framed';
 
-/** The painting to stand on a plate: its cut-out, or the painting itself when it needs none. */
-export const PAINTING_FILE = 'cut_rendered.png';
-
 /**
  * Its thumbnail: made from the cut when there is one, from the painting when
  * it needs none. Not thumb_cut_rendered.png, which a painting that needed no
