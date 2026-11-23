@@ -39,6 +39,7 @@ from app.services import demo_library
 from app.services import step_stats
 from app.services.meshy import MeshyClient, MeshyAPIError
 from app.services.credits import get_balance, deduct_credits, refund_last_step_charge
+from app.services import free_painting
 from app.services import step_errors
 from app.services import analytics
 from app.config import pricing
@@ -747,6 +748,10 @@ async def execute_step(
     
     # Check and deduct credits
     step_cost = step_config.get("credit_cost", 0)
+    if step_cost > 0 and step_name == free_painting.STEP:
+        # Pay after the reveal (E-006, off unless FREE_PAINTING): a first
+        # painting is paid for by a one-time grant of exactly its cost.
+        free_painting.grant_if_due(db, user_id, creation_id, step_cost)
     if step_cost > 0:
         balance = get_balance(user_id, db)
         if balance < step_cost:
