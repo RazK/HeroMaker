@@ -18,6 +18,24 @@ story; the parent is the buyer we talk to. A phone-shot, at-home look reads as
 a family's moment, not an advert, and lets us show both: the child's joy and
 the parent's "wow".
 
+## Who pays, and the film for each (Raz, 2026-11-23)
+
+| Film | Who pays | For what | Script |
+|---|---|---|---|
+| Family | a parent | an afternoon with their child that ends in something made | `scripts/family.md` |
+| Class | an art teacher, per seat | a lesson that works with no accounts; every child takes a hero home | `scripts/class-and-birthday.md` |
+| Birthday | the host parent | the party's activity and every guest's take-home | `scripts/class-and-birthday.md` |
+
+**9:16 is the main format** (Raz prefers it); 4:5 and 16:9 are cut from it.
+
+## Two rules from Raz's review of Ad 01
+
+- **Timing.** Every beat holds at least 2.5 s after a transition; a transition
+  is 0.5 s or less; nothing new starts until the last thing has been read.
+- **Motion.** The child moves slowly, roundly, with the whole body: turns,
+  wide open arms, sways, a bow, a slow jump. No quick wrist or elbow moves:
+  they do not carry over to the hero. Every clip prompt says so.
+
 ## The chapters
 
 | # | Chapter | What happens | Money moment | Who feels it |
