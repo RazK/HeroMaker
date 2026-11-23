@@ -2,133 +2,172 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>HeroMaker ad</title>
-<!-- The first ad (docs/content/README.md). Recorded frame by frame by record.mjs:
-     window.__ad.set(t) poses every layer for second t; nothing here runs on a clock. -->
-<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<title>HeroMaker ad 01</title>
+<!-- Ad 01 (docs/content/scripts/ad-01-it-comes-alive.md), on Maya's grid
+     (docs/content/ad-storyboard.md, "Maya's notes"). Recorded frame by frame by
+     games/hero-moves/tools/ad-record.mjs: window.__ad.set(t) poses every layer for
+     second t; nothing here runs on a clock.
+
+     Grid, in 9:16 pixels (1080 x 1920; 4:5 is the same grid scaled to 1350 tall):
+       caption slot  y 312-480, one size, never moves
+       visual band   y 528-1488
+       TikTok rail   x 912-1056, y 900-1536: always empty (9:16 only)
+     One centre axis, x 540. Two fonts: Barriecito (the caption, the sentences),
+     Nunito (the button). -->
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Nunito:wght@800&display=swap" rel="stylesheet">
 <style>
   :root { --cream: #fff6e9; --ink: #231942; --ink-2: #5c5578; --grape: #5b3df5; --grape-deep: #3a22b8; --white: #fff; }
   html, body { margin: 0; background: var(--cream); overflow: hidden; }
-  #ad { position: relative; width: var(--w); height: var(--h); background: var(--cream); font-family: Nunito, sans-serif; color: var(--ink); overflow: hidden; }
-  .layer { position: absolute; inset: 0; }
-  .cap { position: absolute; left: 0; right: 0; text-align: center; font-family: Barriecito, Nunito, sans-serif; font-size: calc(var(--w) * 0.105); line-height: 1; }
-  /* Act 1-2: the drawing and the painting side by side. */
-  .paper { position: absolute; background: var(--white); padding: 1.6% 1.6% 0; border-radius: 6px; box-shadow: 0 2px 0 rgba(35,25,66,.08), 0 18px 40px rgba(35,25,66,.10); transform-origin: 50% 60%; }
-  .paper img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
-  .paper span { display: block; text-align: center; font-family: Barriecito, sans-serif; color: var(--ink-2); font-size: calc(var(--w) * 0.04); padding: 3% 0 4%; }
-  .painted { position: absolute; border-radius: 9%; overflow: hidden; box-shadow: 0 18px 40px rgba(35,25,66,.12); }
-  .painted img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
-  /* Act 3: the call. */
-  .violet { position: absolute; }
-  .violet img { width: 100%; display: block; }
-  .call { position: absolute; border-radius: 9%/6%; overflow: hidden; box-shadow: 0 10px 0 rgba(35,25,66,.06), 0 24px 48px rgba(35,25,66,.22); }
-  .call img { width: 100%; display: block; }
-  /* Act 4: the end card. */
-  .end { background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4%; }
-  .end img { width: 40%; }
-  .end .lines { font-family: Barriecito, sans-serif; font-size: calc(var(--w) * 0.085); line-height: 1.12; text-align: center; }
-  .btn { background: var(--grape); color: var(--white); border-radius: 999px; padding: 3.2% 9%; font-weight: 800; font-size: calc(var(--w) * 0.055); box-shadow: 0 8px 0 var(--grape-deep); }
+  #ad { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 0 0; background: var(--cream); color: var(--ink); overflow: hidden; }
+  .abs { position: absolute; }
+  #cap { left: 0; right: 0; top: 312px; height: 168px; display: flex; align-items: center; justify-content: center; font-family: Barriecito, sans-serif; font-size: 112px; line-height: 1; }
+  /* The gallery polaroid (.tb-pol): white, padded, rounded, -4deg at rest here -3. */
+  #pol { background: var(--white); border-radius: 3.5%; box-shadow: 0 10px 28px rgba(35, 25, 66, .18); transform-origin: 50% 50%; }
+  #pol img { position: absolute; display: block; }
+  #pol span { position: absolute; left: 0; right: 0; text-align: center; font-family: Barriecito, sans-serif; color: var(--ink-2); line-height: 1; }
+  #painted, #vrow { object-fit: contain; }
+  .arrow { color: var(--grape); overflow: visible; }
+  #call { border-radius: 32px; overflow: hidden; box-shadow: 0 16px 40px rgba(35, 25, 66, .22); }
+  #call img { position: absolute; display: block; }
+  .sent { width: 280px; text-align: center; font-family: Barriecito, sans-serif; font-size: 46px; line-height: 1; }
+  #btn { left: 290px; width: 500px; height: 124px; border-radius: 999px; background: var(--grape); color: var(--white); box-shadow: 0 10px 0 var(--grape-deep); display: flex; align-items: center; justify-content: center; font-family: Nunito, sans-serif; font-weight: 800; font-size: 54px; }
 </style>
 </head>
 <body>
 <div id="ad">
-  <div class="layer" id="act12">
-    <div class="cap" id="cap1"></div>
-    <div class="paper" id="paper"><img id="drawon" alt="" /><span>Maya, 7</span></div>
-    <div class="painted" id="painted"><img src="assets/violet-painted.webp" alt="" /></div>
-  </div>
-  <div class="layer" id="act3">
-    <div class="cap" id="cap3">It comes alive!</div>
-    <div class="violet" id="violet"><img id="violetImg" alt="" /></div>
-    <div class="call" id="call"><img id="girlImg" alt="" /></div>
-  </div>
-  <div class="layer end" id="act4">
-    <img src="assets/logo.png" alt="HeroMaker" />
-    <div class="lines">You draw it.<br />We paint it.<br />It comes alive!</div>
-    <div class="btn">Make a hero</div>
-  </div>
+  <div id="cap" class="abs"></div>
+  <svg id="a1" class="abs arrow" viewBox="2 6 54 24"><path fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" d="M44 11 L52 18 L44 25"/></svg>
+  <svg id="a2" class="abs arrow" viewBox="2 6 54 24"><path fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" d="M44 11 L52 18 L44 25"/></svg>
+  <img id="painted" class="abs" src="assets/violet-cut.png" alt="" />
+  <img id="vrow" class="abs" alt="" />
+  <img id="violet" class="abs" alt="" />
+  <div id="call" class="abs"><img id="girl" alt="" /></div>
+  <div id="pol" class="abs"><img id="drawon" alt="" /><span>Maya, 7</span></div>
+  <div id="s1" class="abs sent">You draw it.</div>
+  <div id="s2" class="abs sent">We paint it.</div>
+  <div id="s3" class="abs sent">It comes alive!</div>
+  <div id="btn" class="abs">Make a hero</div>
 </div>
 <script>
 const q = new URLSearchParams(location.search)
 const W = +(q.get('w') || 1080), H = +(q.get('h') || 1920)
+const FEED = H / W < 1.5   // 4:5: the same grid, scaled to 1350 tall, call side by side
+// Work in 9:16 units; 4:5 squeezes y only where the grid says so (see Y()).
 const ad = document.getElementById('ad')
-ad.style.setProperty('--w', W + 'px'); ad.style.setProperty('--h', H + 'px')
-const tall = H / W > 1.5
-
-// Frame sequences: the draw-on (15 fps), the girl and Violet (16 fps).
-const seq = (dir, n, ext, fps) => ({ urls: Array.from({ length: n }, (_, i) => `assets/${dir}/${String(i).padStart(4, '0')}.${ext}`), fps })
-const DRAW = seq('drawon', +(q.get('drawN') || 86), 'png', 15)
-const GIRL = seq('girl', 81, 'jpg', 16)
-const VIOLET = seq('violet', 81, 'png', 16)
-// Girl JPEGs are numbered from 1 by ffmpeg.
-GIRL.urls = GIRL.urls.map((_, i) => `assets/girl/${String(i + 1).padStart(4, '0')}.jpg`)
-
-const T = { a1: 0, a2: 2.4, a3: 3.6, a4: 8.6, end: 10.6 }
-const clamp = (x) => Math.max(0, Math.min(1, x))
-const ease = (x) => 1 - Math.pow(1 - clamp(x), 3)
+ad.style.width = W + 'px'; ad.style.height = H + 'px'
+const Y = (y) => y * H / 1920   // the grid's y, scaled to this height
 const $ = (id) => document.getElementById(id)
-const place = (el, x, y, w, h) => Object.assign(el.style, { left: x + 'px', top: y + 'px', width: w + 'px', ...(h ? { height: h + 'px' } : {}) })
+const clamp = (x) => Math.max(0, Math.min(1, x))
+const ease = (x) => { x = clamp(x); return 1 - Math.pow(1 - x, 3) }
+const lerp = (a, b, k) => a + (b - a) * k
+const box = (el, x, y, w, h) => Object.assign(el.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' })
 
-const loaded = new Set()
-function img(el, url) {
-  if (el.getAttribute('src') !== url) el.src = url
-  return el.decode ? el.decode().catch(() => {}) : Promise.resolve()
+const DRAW_N = +(q.get('drawN') || 1), DRAW_FPS = 24
+const CLIP_N = 81, CLIP_FPS = 16
+const pad4 = (i) => String(i).padStart(4, '0')
+
+// Beats (s): 1 the drawing draws itself, 2 into the row + painting, 3 alive + call, 4 row + button.
+const B = { b1: 0, b2: 3.5, b3: 5.0, b4: 10.0, end: 12.0 }
+const DRAW_SPEED = (DRAW_N / DRAW_FPS) / (B.b2 - 0.3)   // the whole draw-on fits beat 1
+
+// The row: three 280 px slots and two 96 px arrows, centred on the axis,
+// at the top of the visual band (above the rail's y 900).
+const SLOT = 280, ARW = 96
+const rowX = (W - (3 * SLOT + 2 * ARW)) / 2
+const rowY = Y(560)
+const slotX = (i) => rowX + i * (SLOT + ARW)
+const arrowX = (i) => rowX + SLOT + i * (SLOT + ARW)
+
+// Wavy arrow paths (the landing's: a straight line a sine wave travels along).
+const wave = (phase) => {
+  const pts = []
+  for (let k = 0; k <= 40; k++) {
+    const s = k / 40, y = 18 + 3.6 * Math.sin(Math.PI * s) ** 2 * Math.sin(2 * Math.PI * 2 * s - phase)
+    pts.push(`${(6 + 46 * s).toFixed(2)} ${y.toFixed(2)}`)
+  }
+  return 'M' + pts.join(' L')
 }
 
+function img(el, url) { if (el.getAttribute('src') !== url) el.src = url; return el.decode ? el.decode().catch(() => {}) : null }
+
 window.__ad = {
-  duration: T.end,
+  duration: B.end,
   async set(t) {
-    const show = (id, on) => { $(id).style.display = on ? '' : 'none' }
-    show('act12', t < T.a3 + 0.25); show('act3', t >= T.a3 && t < T.a4 + 0.3); show('act4', t >= T.a4)
     const waits = []
+    // ---- the one caption slot ------------------------------------------------
+    const cap = t < B.b2 ? 'You draw it.' : t < B.b3 ? 'We paint it.' : t < B.b4 ? 'It comes alive!' : ''
+    $('cap').textContent = cap
+    Object.assign($('cap').style, { top: Y(312) + 'px', height: Y(168) + 'px', fontSize: (FEED ? 96 : 112) + 'px' })
 
-    // Acts 1-2: the drawing draws itself (sped up 2.2x), then the painting comes in.
-    if (t < T.a3 + 0.25) {
-      const pw = W * (tall ? 0.5 : 0.4)
-      const both = ease((t - T.a2) / 0.5)
-      const drawX = (W - pw) / 2 - both * (tall ? 0 : W * 0.23)
-      const drawY = tall ? H * 0.22 - both * H * 0.07 : H * 0.26
-      place($('paper'), drawX, drawY, pw)
-      $('paper').style.transform = `rotate(${-3 + both * 1}deg)`
-      const di = Math.min(DRAW.urls.length - 1, Math.floor(t * 2.2 * DRAW.fps))
-      waits.push(img($('drawon'), DRAW.urls[di]))
-      const p = $('painted')
-      const ppw = pw * 0.92
-      const px = tall ? (W - ppw) / 2 : W / 2 + W * 0.04
-      const py = tall ? H * 0.53 : H * 0.28
-      place(p, px, py + (1 - both) * H * 0.04, ppw)
-      p.style.opacity = both
-      p.style.transform = `scale(${0.9 + 0.1 * both})`
-      const cap = $('cap1')
-      cap.textContent = t < T.a2 ? 'You draw it.' : 'We paint it.'
-      cap.style.top = (tall ? H * 0.09 : H * 0.08) + 'px'
-      const fadeOut = 1 - clamp((t - T.a3) / 0.25)
-      $('act12').style.opacity = fadeOut
+    // ---- the polaroid: one element, big in beat 1, then slot 1 --------------
+    // 740 px wide: the widest that stays clear of the rail on the axis.
+    const big = { w: 740, x: (W - 740) / 2 }
+    const bigH = big.w * 1.1
+    big.y = Y(528) + (Y(1488) - Y(528) - bigH) / 2
+    if (FEED) { big.w = 600; big.x = (W - 600) / 2; big.y = Y(528) + (Y(1488) - Y(528) - 600 * 1.1) / 2 }
+    const k2 = ease((t - B.b2) / 0.7)
+    const pw = lerp(big.w, SLOT, k2), ph = pw * 1.1
+    const px = lerp(big.x, slotX(0), k2), py = lerp(big.y, rowY, k2)
+    box($('pol'), px, py, pw, ph)
+    $('pol').style.transform = `rotate(${lerp(-3, -4, k2)}deg)`
+    const padP = pw * 0.045
+    box($('drawon'), padP, padP, pw - 2 * padP, pw - 2 * padP)
+    Object.assign($('pol').querySelector('span').style, { top: (pw - padP + ph * 0.012) + 'px', fontSize: (pw * 0.06) + 'px' })
+    const di = Math.min(DRAW_N - 1, Math.floor(t * DRAW_SPEED * DRAW_FPS))
+    waits.push(img($('drawon'), `assets/drawon/${pad4(di)}.png`))
+
+    // ---- beat 2: arrows and the painting's cut-out --------------------------
+    const rowOn = t >= B.b2
+    const rowFade = t < B.b4 ? 1 - ease((t - B.b3) / 0.6) : ease((t - B.b4) / 0.4)   // fades as Violet grows, back for the end
+    const showRow = rowOn && (t < B.b3 + 0.6 || t >= B.b4)
+    $('pol').style.opacity = t < B.b3 ? 1 : rowFade
+    const a1 = ease((t - B.b2 - 0.5) / 0.4), pa = ease((t - B.b2 - 0.8) / 0.35), a2 = ease((t - B.b2 - 1.1) / 0.4)
+    for (const [id, i, k] of [['a1', 0, a1], ['a2', 1, a2]]) {
+      const el = $(id)
+      box(el, arrowX(i) + 10, rowY + SLOT * 1.1 / 2 - 22, ARW - 20, 44)
+      el.style.opacity = showRow ? (t >= B.b4 ? rowFade : k * rowFade) : 0
+      el.querySelector('path').setAttribute('d', wave(t * 2 * Math.PI / 1.6 + i * Math.PI))
     }
+    box($('painted'), slotX(1), rowY + (SLOT * 1.1 - SLOT) / 2, SLOT, SLOT)
+    $('painted').style.opacity = showRow ? (t >= B.b4 ? rowFade : pa * rowFade) : 0
+    $('painted').style.transform = `scale(${t >= B.b4 ? 1 : 0.85 + 0.15 * pa})`
 
-    // Act 3: the call. Violet fills the screen; the girl in the window, lower right.
-    if (t >= T.a3 && t < T.a4 + 0.3) {
-      const k = t - T.a3
-      const fi = Math.min(80, Math.floor(k * 16))
-      waits.push(img($('violetImg'), VIOLET.urls[fi]), img($('girlImg'), GIRL.urls[fi]))
-      const vw = tall ? W * 0.86 : W * 0.62
-      const vh = vw * 760 / 520
-      place($('violet'), tall ? W * 0.02 : (W - vw) / 2 - W * 0.08, tall ? H * 0.2 : H - vh - H * 0.02, vw)
-      const cw = tall ? W * 0.34 : W * 0.28
-      const ch = cw * 832 / 560
-      const pop = ease(k / 0.4)
-      place($('call'), W - cw - W * 0.05, H - ch - H * (tall ? 0.05 : 0.04), cw)
-      $('call').style.transform = `scale(${0.85 + 0.15 * pop})`
-      $('call').style.opacity = pop
-      $('call').style.transformOrigin = '100% 100%'
-      $('cap3').style.top = (tall ? H * 0.08 : H * 0.05) + 'px'
-      $('cap3').style.opacity = ease(k / 0.4)
-      $('act3').style.opacity = 1 - clamp((t - T.a4) / 0.3)
-    }
+    // ---- beat 3: Violet grows out of slot 3; the call has its own place -----
+    const k3 = ease((t - B.b3) / 0.8)
+    const fi = Math.min(CLIP_N - 1, Math.max(0, Math.floor((t - B.b3) * CLIP_FPS)))
+    const vRatio = 520 / 760
+    let vh = lerp(SLOT * 1.1, Y(1488) - Y(528), k3), vw = vh * vRatio
+    let vx = lerp(slotX(2) + (SLOT - SLOT * 1.1 * vRatio) / 2, (W - vw) / 2, k3), vy = lerp(rowY, Y(528), k3)
+    if (FEED) { vh = lerp(SLOT * 1.1, Y(1488) - Y(528), k3); vw = vh * vRatio; vx = lerp(slotX(2), W / 4 - vw / 2, k3) }
+    box($('violet'), vx, vy, vw, vh)
+    $('violet').style.opacity = t >= B.b3 && t < B.b4 + 0.4 ? (t < B.b4 ? 1 : 1 - ease((t - B.b4) / 0.4)) : 0
+    if (t >= B.b3 && t < B.b4 + 0.4) waits.push(img($('violet'), `assets/violet/${pad4(fi)}.png`))
+    // 9:16: bottom-left, x 64-448, y 1560-1824. 4:5: the right half, beside Violet.
+    const cw = FEED ? 400 : 384, ch = FEED ? 400 * 832 / 560 * 0.78 : 264
+    const cx = FEED ? W * 3 / 4 - cw / 2 : 64, cy = FEED ? Y(528) + (Y(1488) - Y(528) - ch) / 2 : 1560
+    box($('call'), cx, cy, cw, ch)
+    const kc = ease((t - B.b3 - 0.3) / 0.4)
+    $('call').style.opacity = t < B.b4 ? kc : 1 - ease((t - B.b4) / 0.4)
+    $('call').style.transform = `scale(${0.9 + 0.1 * kc})`
+    // The girl's portrait clip fills the window, cropped to her head and arms.
+    const gw = cw, gh = cw * 832 / 560
+    box($('girl'), 0, -(gh - ch) * 0.18, gw, gh)
+    if (t >= B.b3 - 0.1 && t < B.b4 + 0.4) waits.push(img($('girl'), `assets/girl/${pad4(fi + 1)}.jpg`))
 
-    // Act 4: the end card fades up over the last of the call.
-    if (t >= T.a4) $('act4').style.opacity = ease((t - T.a4) / 0.3)
-
+    // ---- beat 4: the complete row, the sentences once, Make a hero ----------
+    const k4 = ease((t - B.b4) / 0.5)
+    box($('vrow'), slotX(2), rowY, SLOT, SLOT * 1.1)
+    $('vrow').style.opacity = t >= B.b4 ? k4 : 0
+    if (t >= B.b4) waits.push(img($('vrow'), `assets/violet/${pad4(CLIP_N - 1)}.png`))
+    if (t >= B.b4) $('pol').style.opacity = k4
+    ;['s1', 's2', 's3'].forEach((id, i) => {
+      box($(id), slotX(i), rowY + SLOT * 1.1 + 24, SLOT, 50)
+      $(id).style.opacity = t >= B.b4 ? ease((t - B.b4 - 0.2 - i * 0.12) / 0.4) : 0
+    })
+    const by = rowY + SLOT * 1.1 + 24 + 50 + (FEED ? 64 : 96)
+    $('btn').style.top = by + 'px'
+    $('btn').style.opacity = t >= B.b4 ? ease((t - B.b4 - 0.6) / 0.4) : 0
+    $('btn').style.transform = `scale(${t >= B.b4 ? 0.92 + 0.08 * ease((t - B.b4 - 0.6) / 0.4) : 1})`
     await Promise.all(waits)
   },
 }
