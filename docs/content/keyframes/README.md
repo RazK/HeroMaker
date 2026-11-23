@@ -68,3 +68,28 @@ Each frame is 16:9. The purple box is the 9:16 crop and the yellow box is the
 - **Same moment:** Violet's move starts on the same frame as Maya's (the
   mocap is retargeted from her clip). The split lasts the whole move; never
   cut in the middle of one.
+
+### Sightlines: who can see what (Raz, 2026-11-23). Check this on every shot
+
+Raz: "Ask yourself whether the characters can really see what they're supposed
+to see, or whether it doesn't face them at all." A screen faces the person
+reacting to it, never the viewer, unless the viewer IS that person (a POV
+shot). A drawing faces the person drawing it. Before a still is accepted, name
+who looks at what in it and check that they can see it.
+
+| Shot | Wrong now | Make it |
+|---|---|---|
+| 1.1 | The drawing lies sideways to her | The drawing upright **from her side**: the figure's feet toward her, head away. The camera, low and in front, sees it upside down, which is right. |
+| 1.2 | The drawing is upside down to her (head toward her) | Over her shoulder: she and the camera both see it upright. She colours the cape. |
+| 1.3 | ok | She holds it up to Mom, facing the camera (Mom is filming). |
+| 2.1 | ok (Mom's POV over her phone) | Keep. |
+| 2.2 | ok (the phone faces them) | Keep. The screen shows only as an insert cut (2.3), full frame. |
+| 3.1 | The phone faces the camera; she leans in beside it and cannot see it | The phone propped up **facing her**. The camera is over her shoulder or at 3/4 behind the phone's edge, so we see her face and, past her, a sliver of the screen. The screen itself comes as an insert. |
+| 3.2, 3.3 | ok: the split is a montage, not a room | Keep. |
+| 3.4 | The tablet on the table faces the camera; Mom and Maya stand behind it, so they cannot see it | Mom walks in **behind Maya**, who is facing the TV (see 4.1). Mom sees the TV over Maya's shoulder and stops. We see Mom's face, and the TV from the side. |
+| 4.1, 4.2 | She dances behind an iPad that faces us, not her | **A big TV.** She faces it and dances along. The camera is behind her, at 3/4: her back or half her face, and the TV showing Violet dancing, big and readable. Optionally, a tablet on a stand facing her, the camera behind its edge, the same way. |
+| 5.1 | The laptop faces the camera; she stands beside it, facing us; Grandma could not see her phone | The camera is at 3/4 behind Maya's shoulder. She faces the laptop and holds her phone up to its webcam. We see Grandma on the laptop and Violet on the phone, both facing Maya. |
+| 5.2 | ok: a POV, the laptop as Maya sees it | Keep. Grandma looks into her own camera, so at Maya. |
+
+Rule for the edit: a shot where a screen faces the viewer is a **POV or an
+insert**, never a room shot with people reacting behind it.
