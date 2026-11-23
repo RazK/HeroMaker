@@ -141,6 +141,12 @@ function MainApp() {
   const [askWhoFor, setAskWhoFor] = useState(false);
   const [pipelineCost, setPipelineCost] = useState<number>(0);
   const [creditBalance, setCreditBalance] = useState<number | undefined>(undefined);
+  // Pay after the reveal (backend services/free_painting.py): this account's
+  // first painting needs no credits. A ref too, so a check made right after a
+  // re-read sees the new answer.
+  const [freePainting, setFreePainting] = useState(false);
+  const freePaintingRef = useRef(false);
+  const setFree = (on: boolean) => { freePaintingRef.current = on; setFreePainting(on); };
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean; is_teacher: boolean } | null>(null);
   const [galleryKey, setGalleryKey] = useState(0);
   // Signed out: whether the landing's own Run a class / Make a hero are on screen
@@ -179,6 +185,7 @@ function MainApp() {
     const wantsClasses = !!token && intendsClasses();
     if (!token) {
       setCreditBalance(undefined);
+      setFree(false);
       setUserInfo(null);
       setAuthChecked(true);
       return undefined;
@@ -194,12 +201,14 @@ function MainApp() {
         if (user.is_teacher) setSection('classes');
       }
       setCreditBalance(user.credits);
+      setFree(!!user.free_painting);
       setUserInfo({ id: user.id, is_admin: user.is_admin, is_teacher: !!user.is_teacher });
       window.dispatchEvent(new CustomEvent('auth:credits-updated', { detail: { credits: user.credits } }));
       setAuthChecked(true);
       return user.credits;
     } catch {
       setCreditBalance(undefined);
+      setFree(false);
       setUserInfo(null);
     }
     setAuthChecked(true);
@@ -424,7 +433,8 @@ function MainApp() {
   // credits first, before any photo is taken or uploaded (Raz: "why you let
   // me start making hero even though I don't have credits"). The balance is
   // re-read before saying no, so a stale copy never turns anyone away.
-  const enoughForHero = (b: number | undefined) => b === undefined || pipelineCost <= 0 || b >= pipelineCost;
+  const enoughForHero = (b: number | undefined) =>
+    b === undefined || pipelineCost <= 0 || b >= pipelineCost || freePaintingRef.current;
   // With the balance read: the New hero sheet, or Buy credits first.
   const proceedToMake = (balance: number | undefined) => {
     if (enoughForHero(balance)) { setShowNewHero(true); return; }
@@ -621,7 +631,7 @@ function MainApp() {
   const shouldPoll = view !== 'gallery' && creation && (hasProcessingStep || creation.status === 'pending');
   useCreationPolling(shouldPoll ? creation.id : null, (updated) => setCreation(updated));
 
-  const short = creditBalance !== undefined && pipelineCost > creditBalance;
+  const short = !freePainting && creditBalance !== undefined && pipelineCost > creditBalance;
   const notices = (
     <>
       {purchaseNotice && <div className="tb-notice app-purchase-notice" role="status"><Icon name="coin" />{purchaseNotice}</div>}
@@ -947,7 +957,7 @@ function MainApp() {
             ) : (
               <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-btn--with-trail post-upload-action-primary" disabled={isStarting} onClick={handleStartPipeline}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon name="play" />{isStarting ? 'Starting…' : 'Make my hero'}</span>
-                {pipelineCost > 0 && <span className="tb-btn-trail"><Icon name="coin" size={18} />{pipelineCost} credits</span>}
+                {pipelineCost > 0 && !freePainting && <span className="tb-btn-trail"><Icon name="coin" size={18} />{pipelineCost} credits</span>}
               </button>
             )}
           </div>
