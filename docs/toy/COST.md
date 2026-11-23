@@ -1,5 +1,38 @@
 # What a printed toy costs, and the cheap way to print it
 
+## The answer: per toy, if a service prints it (sprint 1)
+
+Raz: plan the print as a service first; buy a printer only if it pays.
+Assumptions:
+- **Price for a ≥50% margin** = 2 x cost. "With VAT" adds 18%.
+- **Cost** = print + our hand work (₪60/h) + packing and local post ₪25. The ₪25 is an
+  assumption for Gidi to check.
+- **JLC3DP shipping to Israel is not known until checkout.** It is spread over a batch,
+  so it is left out of the cost below.
+- Below $75 per order there is no import VAT.
+- Numbers come from slicers and published price lists. Nothing has been printed yet: the
+  test order answers that.
+
+| Way (8 cm unless noted) | Who prints | Print | Hand work | Cost per toy | Time per toy | Price for 50% | With VAT |
+|---|---|---|---|---|---|---|---|
+| **Full colour (resin, prints the hero's own texture)** | JLC3DP | ₪73 | 5 min (₪5) | **₪103** | 4 days build + 3-8 days post | ₪206 | ₪243 |
+| **Full colour, 7 cm** | JLC3DP | ₪49 | 5 min (₪5) | **₪79** | same | **₪158** | ₪186 |
+| 5-colour FDM (Bambu AMS) | a maker in Israel | ~₪400 (estimate: 16 h, 176 g) | 5 min | ~₪430 | 1-2 days | ~₪860 | not a product |
+| 1 colour + hand painting | JLC3DP (PLA) | ₪11 | 40 min painting (₪40) | ₪76 | 4 days + post, + painting | ₪152 | ₪179 |
+| 1 colour + hand painting | a maker in Israel | ~₪100 | 40 min (₪40) | ₪165 | 1-4 days | ₪330 | ₪389 |
+| Parts in single colours + pins, 12 cm (6 parts) | JLC3DP (PLA, one colour per part) | ~₪23 (68 g) | 15 min assembly + 10 min face paint (₪25) | ₪73 | 4 days + post | ₪146 | ₪172 |
+| Jointed full colour, 10 cm (body + 2 arms on pins) | JLC3DP | ₪135 | 5 min | ₪165 | 4 days + post | ₪330 | ₪389 |
+
+**What it says:**
+- **Full colour at 7 cm is the product:** it looks like the hero with no hand work, and
+  sells at about ₪150-190 for a 50% margin.
+- At 8 cm the margin at ₪150 is about 30%.
+- **Single-colour PLA parts on pins (₪146) are the cheapest jointed toy,** but the
+  face needs paint.
+- **5-colour FDM from a maker is out:** about ₪400 a toy.
+- **The test order on 24-25 Nov answers what is still unknown:** the real shipping cost,
+  the days to the door, and whether the colours hold. Until then these are estimates.
+
 Raz, 2026-11-23: a toy must cost at most ₪80-120 to print; nobody pays more than
 ₪150. Slicer estimates for Violet (PrusaSlicer 2.7.2, Bambu P1S/X1C + AMS profile,
 0.2 mm layers unless noted). Nothing has been printed yet.
