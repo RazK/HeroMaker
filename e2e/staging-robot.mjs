@@ -798,6 +798,10 @@ try {
     await snap(page, 'free-painting-paused');
     const balance = await creditsShown(page);
     if (balance !== 0) throw new Error(`balance after the free painting is ${balance}, want 0`);
+    // Home again, as after any other step: the paused hero's own Buy credits
+    // button would be a second match for the buy step's menu row.
+    await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
+    await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
     return 'with 0 credits: Make my hero (no cost shown), the painting made free, paused before 3D (not_enough_credits), balance still 0';
   });
 
@@ -837,6 +841,9 @@ try {
       const again = page.getByRole('button', { name: /Try again/ });
       await again.waitFor({ timeout: 30000 });
       await again.click();
+      // The pause stays on screen until the retry is picked up; only then
+      // does a failed stage mean anything.
+      await page.locator('.tb-failed').waitFor({ state: 'detached', timeout: 60000 });
       await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
       mark('pipeline_end');
       heroName = await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText().catch(() => null);
