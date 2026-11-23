@@ -10,6 +10,7 @@ fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive:
   const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await ctx.addInitScript(() => { localStorage.setItem('heromaker_adult_confirmed', '1'); });
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE }).catch(() => {});
   const p = await ctx.newPage();
   // Chrome's own screencast, at device pixels (780x1688): every frame with its time.
   fs.mkdirSync(`${out}/frames`);
@@ -53,6 +54,46 @@ fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive:
     await p.waitForTimeout(5000);
     mark('Print file button (download for a 3D printer)');
     await p.locator('.tb-dock-layer').getByText('Print file').first().hover().catch(() => {});
+    await p.waitForTimeout(4000);
+    mark('end');
+  } else if (flow === 'kid-happy') {
+    const HERO = process.env.HERO || '5622bb2a-2027-4693-a431-36703644ab95';
+    await p.goto(`${BASE}/hero/${HERO}`, { waitUntil: 'load' });
+    await p.waitForFunction(() => document.querySelector('.tb-live-stage')?.getAttribute('data-slide') === 'hero', null, { timeout: 120000 });
+    await p.waitForFunction(() => { const m = document.querySelector('.tb-dock-layer--moves'); return m && getComputedStyle(m).opacity === '1'; }, null, { timeout: 60000 });
+    mark('the hero, ready to move');
+    await p.waitForTimeout(2000);
+    await tap(p.locator('.tb-move[data-move="dance"]').first());
+    mark('tapped Dance');
+    await p.waitForTimeout(5000);
+    await tap(p.locator('.tb-move[data-move="backflip"]').first());
+    mark('tapped Flip: a backflip');
+    await p.waitForTimeout(4000);
+    await tap(p.locator('.tb-play').first());
+    await p.locator('.tb-games-sheet').waitFor({ timeout: 30000 });
+    mark('tapped Play: pick a game');
+    await p.waitForTimeout(3000);
+    await tap(p.locator('.tb-game[data-game="arena"]'));
+    await p.waitForURL(/\/play\/arena\.html/, { timeout: 30000 });
+    await p.waitForFunction(() => window.__ready !== undefined, null, { timeout: 120000 });
+    mark('Robot Rumble opens with this hero');
+    await p.waitForTimeout(3000);
+    await tap(p.locator('.rr-start'));
+    await p.waitForFunction(() => window.__phase === 'play', null, { timeout: 30000 });
+    mark('tapped Start: the round begins');
+    const kb = p.keyboard;
+    for (const [key, ms] of [['ArrowRight', 1200], ['j', 0], ['ArrowUp', 900], ['j', 0], ['k', 0], ['ArrowLeft', 1200], ['j', 0], ['j', 0], ['ArrowDown', 900], ['k', 0], ['j', 0], ['ArrowRight', 1500], ['j', 0], ['j', 0]]) {
+      if (ms) { await kb.down(key); await p.waitForTimeout(ms); await kb.up(key); } else { await kb.press(key); await p.waitForTimeout(700); }
+    }
+    mark('played: move, punch, jump');
+    await p.waitForTimeout(2000);
+    await tap(p.locator('.rr-back-slot .tb-nav, .rr-back-slot button').first());
+    await p.waitForURL((u) => u.pathname.startsWith('/hero/'), { timeout: 30000 });
+    await p.locator('.tb-share').waitFor({ timeout: 60000 });
+    mark('back on the hero');
+    await p.waitForTimeout(3000);
+    await tap(p.locator('.tb-share').first());
+    mark('tapped Share: the link is copied, to send to family');
     await p.waitForTimeout(4000);
     mark('end');
   } else if (flow === 'visitor') {

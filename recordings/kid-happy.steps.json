@@ -1,0 +1,49 @@
+{
+ "flow": "kid-happy",
+ "file": "kid-happy.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "viewport": "390x844 @2x (780x1688 video)",
+ "speed": "real, never sped up",
+ "steps": [
+  {
+   "step": "the hero, ready to move",
+   "at": 9
+  },
+  {
+   "step": "tapped Dance",
+   "at": 15.5
+  },
+  {
+   "step": "tapped Flip: a backflip",
+   "at": 23.2
+  },
+  {
+   "step": "tapped Play: pick a game",
+   "at": 31.1
+  },
+  {
+   "step": "Robot Rumble opens with this hero",
+   "at": 40.7
+  },
+  {
+   "step": "tapped Start: the round begins",
+   "at": 52.7
+  },
+  {
+   "step": "played: move, punch, jump",
+   "at": 77
+  },
+  {
+   "step": "back on the hero",
+   "at": 86.6
+  },
+  {
+   "step": "tapped Share: the link is copied, to send to family",
+   "at": 95.4
+  },
+  {
+   "step": "end",
+   "at": 99.4
+  }
+ ]
+}
