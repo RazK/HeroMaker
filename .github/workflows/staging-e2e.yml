@@ -8,8 +8,19 @@ name: Staging robot
 #
 # It runs here rather than anywhere else because it needs the open internet:
 # Lemon Squeezy's checkout is a third-party page.
+#
+# It runs by itself after every deploy to staging (a merge to main), once
+# staging serves the merged commit: the release flow says the robot passes
+# before Raz is asked to look (CLAUDE.md). Its hero comes from the staging
+# result cache (PIPELINE_RESULT_CACHE), so a run calls no paid provider
+# unless a prompt or Meshy setting changed. By hand, with inputs, it still
+# runs from Actions -> Staging robot.
 
 on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       steps:
@@ -36,8 +47,12 @@ concurrency:
 
 jobs:
   robot:
+    # After a deploy: only a successful push to main (not a v* tag build).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04  # Playwright 1.56 cannot install Chromium on ubuntu-latest (26.04) yet
-    timeout-minutes: 45
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
 
@@ -54,6 +69,29 @@ jobs:
       - name: Resolve the staging URL
         id: url
         run: echo "frontend=$(jq -er '.environments.staging.urls.frontend' devops/railway/project.json)" >> "$GITHUB_OUTPUT"
+
+      # `railway up --detach` returns before the new build is live. Test the
+      # merged commit, not the one before it: wait until the backend's
+      # /api/version and the frontend's bundle both name it.
+      - name: Wait for staging to serve the merged commit
+        if: github.event_name == 'workflow_run'
+        env:
+          FRONTEND: ${{ steps.url.outputs.frontend }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          short="${SHA:0:7}"
+          backend="$(jq -er '.environments.staging.urls.backend' devops/railway/project.json)"
+          for i in $(seq 1 80); do
+            api="$(curl -fsS "$backend/api/version" || true)"
+            js="$(curl -fsS "$FRONTEND/" | grep -o '/assets/index-[^"]*\.js' | head -1 || true)"
+            ui=0; [ -n "$js" ] && ui="$(curl -fsS "$FRONTEND$js" | grep -c "$short" || true)"
+            if echo "$api" | grep -q "$short" && [ "${ui:-0}" -gt 0 ]; then
+              echo "staging serves $short: $api"; exit 0
+            fi
+            echo "waiting for $short (backend: ${api:-no answer}; frontend has it: ${ui:-0})"; sleep 15
+          done
+          echo "::error::staging did not serve $short within 20 minutes; see the deploy in build-images.yml and Railway"
+          exit 1
 
       - name: Run the robot
         working-directory: e2e
