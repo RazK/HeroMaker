@@ -132,6 +132,19 @@ except Exception as e:
     logger.error(f"Failed to run migrations, refusing to start: {e}")
     raise SystemExit(1)
 
+# A leaked admin account must never be usable (app/services/security_guards.py).
+# A failure here is logged, not fatal: the guard runs again on the next boot.
+try:
+    from app.database import SessionLocal
+    from app.services.security_guards import disarm_leaked_debug_admin
+    _db = SessionLocal()
+    try:
+        disarm_leaked_debug_admin(_db)
+    finally:
+        _db.close()
+except Exception as e:
+    logger.error(f"SECURITY: the leaked-debug-admin guard did not run: {e}")
+
 # Import routers after lifespan is defined (but before app creation)
 # This avoids circular imports since routers import get_task_manager from task_manager module
 from app.api import files, health, admin, payments, payments_sandbox, classes, v1, v1_account, mcp, events, share_card
