@@ -211,6 +211,16 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      # The service's own tests (fake Blender, stand-in bpy): seconds, and
+      # they fail before the slow image build does.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Converter tests
+        working-directory: vrm-converter-service
+        run: |
+          pip install -r requirements.txt httpx pytest
+          python -m pytest -q tests
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v5
         with:
