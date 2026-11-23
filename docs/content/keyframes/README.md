@@ -111,3 +111,7 @@ insert**, never a room shot with people reacting behind it.
 ## Re-made (Tom, 2026-11-23)
 
 1.1 tight on the boot; 1.2 over her shoulder, colouring the cape, not looking at the camera; 3.4 Mom ends on a warm smile. The outfit rule (yellow tee, jeans) is now in every prompt.
+
+## Sightline re-makes (Tom, 2026-11-23)
+
+Who sees what, checked: 1.1 the drawing upright for her (her hand comes from her side). 1.2 over her shoulder, upright for her and the camera. 3.4 Maya faces the TV; Mom comes in behind her and looks at it. 4.1 she faces the TV, which shows Violet. **Still to re-make: 3.1** (the phone faced the camera more than her), **4.2** (the TV showed a different hero), **5.1** (the drawing and the phone side by side, per your note). Blocked: the OpenAI account ran out of credit.
