@@ -52,16 +52,6 @@ STEPS = [
 def get_step_by_name(name: str):
     return next((s for s in STEPS if s["name"] == name), None)
 
-def get_next_step(current_step_name: str):
-    for i, step in enumerate(STEPS):
-        if step["name"] == current_step_name:
-            if i + 1 < len(STEPS):
-                return STEPS[i + 1]
-    return None
-
-def get_first_step():
-    return STEPS[0] if STEPS else None
-
 def get_all_step_names():
     return [step["name"] for step in STEPS]
 

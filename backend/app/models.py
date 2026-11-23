@@ -48,17 +48,6 @@ class User(Base):
 
     creations = relationship("Creation", back_populates="user")
     
-    def calculate_age(self) -> Optional[int]:
-        """Calculate age from date_of_birth."""
-        if not self.date_of_birth:
-            return None
-        today = date.today()
-        age = today.year - self.date_of_birth.year
-        # Adjust if birthday hasn't occurred this year
-        if (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day):
-            age -= 1
-        return age
-
 class Creation(Base):
     __tablename__ = "creations"
 

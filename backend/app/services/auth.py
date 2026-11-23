@@ -101,40 +101,6 @@ def get_current_user(
     return user
 
 
-def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: Session = Depends(get_db)
-) -> Optional[User]:
-    """
-    Get the current authenticated user from JWT token if provided.
-    Returns None if no token (for public endpoints).
-    Raises 401 only if token is provided but invalid.
-    """
-    if not credentials:
-        return None
-    
-    # Token provided - validate it
-    token = credentials.credentials
-    user_id = verify_access_token(token)
-    
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return user
-
-
 def get_current_user_required(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)

@@ -22,7 +22,6 @@ from app.models import Creation, CreationStep
 from app.config.steps import STEPS, get_step_by_name, get_step_cost, get_all_step_names
 from app.database import SessionLocal
 from app.utils.file_utils import (
-    check_file_exists,
     get_file_url,
     upload_file_to_storage,
     download_file_from_storage
