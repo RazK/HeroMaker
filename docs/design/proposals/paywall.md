@@ -48,3 +48,42 @@ copy on the left and the ask on the right.
 3. **A step bar over the copy:** ✓ Drawing · ✓ Painting · ● 3D hero. It says
    "you are here, one step left".
    ![3](paywall-3.png)
+
+## Round 3: a real paywall (Raz, 2026-11-23: "a clear pop-up that asks for money, explains the plans, and sends them to payment")
+
+The rounds above were a nudge, not a paywall. This one follows the standard
+mobile paywall layout (Simply Piano, Kahoot, the Adapty and RevenueCat
+studies): headline, then three benefits, then plan cards with one
+recommended, then one CTA, then the fine print.
+
+![paywall sheet, phone + desktop](paywall-sheet.png)
+
+**When it opens**
+- Automatically, as soon as the painting is ready and the account cannot pay
+  for the 3D steps.
+- Again from "Bring it to life" if it was closed.
+- **Phone:** a bottom sheet over the dimmed hero page.
+- **Desktop:** a 480 px centred dialog.
+
+**What it shows**
+- **Header:** the hero's own painting (thumb), then the heading "Bring
+  <name> to life!" in the display face.
+- **Benefits:** three ticks.
+  - "She dances, waves and flips in 3D"
+  - "Play games with her"
+  - "Send her to the whole family"
+  - Pronouns come from the hero, or are neutral: "It".
+- **Plans:** from `GET /api/v1/packs`.
+  - One hero: ₪10, "This drawing".
+  - Family pack: ₪39, "5 heroes · ₪7.80 each", badge **Best value**,
+    pre-selected.
+  - Radio cards: the selected one is grape, with grape depth.
+- **CTA:** "Continue to payment". It calls `POST /api/v1/checkout` with the
+  selected slug and goes to `checkout_url`.
+- **Fine print:** "One payment. No subscription."
+- **Close:** × top-right; the grip on the phone.
+
+**After payment** the buyer returns to the hero being made, with the 3D steps
+running. Credits come from the webhook only, as now.
+
+No red, no "failed", no "credits" word.
