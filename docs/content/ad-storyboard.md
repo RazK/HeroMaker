@@ -105,8 +105,8 @@ the rail too, unless it sits above y 900. Up there, the bottom half is empty.
 
 - **A (Tom's pick): 9:16 stacks the steps on the axis**, polaroid, an arrow
   pointing down, the painting, an arrow down, Violet, filling y 528–1488 and
-  clear of the rail. Beat 4 adds the sentence beside each... no: under each
-  picture, then Make a hero. 4:5 keeps the row, centred in its band.
+  clear of the rail. Beat 4: each sentence beside its picture, then Make a
+  hero under the column. 4:5 keeps the row, centred in its band.
 - **B:** keep the row, centre it in the band, and let the empty slot 3 and
   the arrows cross the rail (the rail only covers buttons, not this content).
 - **C:** a smaller row (200 px slots) on the axis that clears the rail.
