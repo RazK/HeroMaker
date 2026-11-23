@@ -305,8 +305,12 @@ def _refresh_hi3d(creation: Creation, state: Dict[str, Any], client, now: float)
     status = HI3D_STATES.get(str(task.get("state") or "").lower(), state["status"])
     ended = datetime.utcnow().isoformat() + "Z"
     if status == "SUCCEEDED":
+        try:
+            raw = _download(task["url"])  # the link is valid for one hour
+        except Exception as e:
+            return _result_not_downloaded(creation, state, e, ended)
         storage = get_storage()
-        glb, colours = _true_colours(creation, _download(task["url"]))  # the link is valid for one hour
+        glb, colours = _true_colours(creation, raw)
         storage.upload_file(creation.user_id, creation.id, PARTS_GLB, glb, content_type="model/gltf-binary")
         files = [PARTS_GLB]
         try:
@@ -325,6 +329,31 @@ def _refresh_hi3d(creation: Creation, state: Dict[str, Any], client, now: float)
     else:
         state["status"] = status
         state["progress"] = 50 if status == "IN_PROGRESS" else 0
+    _write_state(creation, state)
+    return state
+
+
+# Hi3D's result link lasts one hour. A split nobody looked at for longer, or a
+# download that broke, used to raise out of every read: a 500 on each poll, the
+# split "in progress" for ever, and a paid one never refunded. Each read asks
+# Hi3D again (it may hand out a fresh link), so a failed download is tried on
+# the next reads too; after this many it is a failed split, which
+# action_figure.settle refunds.
+DOWNLOAD_TRIES = 3
+
+
+def _result_not_downloaded(creation: Creation, state: Dict[str, Any], error: Exception,
+                           ended: str) -> Dict[str, Any]:
+    tries = int(state.get("download_failures") or 0) + 1
+    logger.warning("[%s] Hi3D split %s finished but its result did not download (try %d of %d): %s",
+                   creation.id, state["task_id"], tries, DOWNLOAD_TRIES, error)
+    state["download_failures"] = tries
+    if tries >= DOWNLOAD_TRIES:
+        # Hi3D did the work and billed for it: its usage row stays booked.
+        state.update(status="FAILED", finished_at=ended,
+                     error="Hi3D finished the split, but its result link expired before it could be downloaded.")
+    else:
+        state.update(status="IN_PROGRESS", progress=90)
     _write_state(creation, state)
     return state
 
@@ -403,7 +432,10 @@ def view(creation: Creation, base: str, state: Optional[Dict[str, Any]]) -> Dict
     # Each split overwrites the same names: the task id in the URL keeps a
     # browser from showing the previous split's file, and the colour repair's
     # number keeps it from showing the file as it was before the repair.
-    stamp = f"?v={state['task_id'][:12]}"
+    # A split that failed before Meshy gave it a task has no task id (one
+    # such state, from the old remesh path, made every read of its hero's toy
+    # a 500): it has no files either, so any stamp will do.
+    stamp = f"?v={(state.get('task_id') or '')[:12]}"
     if (state.get("colours") or {}).get("v"):
         stamp += f".c{state['colours']['v']}"
 

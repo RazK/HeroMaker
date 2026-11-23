@@ -313,7 +313,7 @@ export async function heroCentring(page, { samples = 5 } = {}) {
 }
 
 async function main() {
-  const [base, hero, sizes = '1920x1080,1280x800,390x844,844x390'] = process.argv.slice(2);
+  const [base, hero, sizes = '1920x1080,1280x800,390x844,360x780,844x390'] = process.argv.slice(2);
   if (!base || !hero) {
     console.log('usage: node e2e/hero-layout.mjs <base-url> <hero-id> [WxH,...]');
     process.exit(2);

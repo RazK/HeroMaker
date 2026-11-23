@@ -45,9 +45,12 @@ def blender_convert(input_path: str, output_path: str, thumbnail_path: Optional[
     
     # Run Blender with the conversion script
     # Format: blender --background --python script.py -- input.glb output.vrm [thumbnail_path]
+    # --python-exit-code: without it Blender exits 0 even when the script
+    # raises, so a crash looked like a conversion that made no file.
     cmd = [
         BLENDER_PATH,
         "--background",
+        "--python-exit-code", "1",
         "--python",
         str(CONVERSION_SCRIPT),
         "--",
@@ -97,8 +100,11 @@ def cleanup_files(*paths):
                 print(f"Warning: Failed to delete {path}: {e}")
 
 
+# A plain `def`, not `async def`: FastAPI runs it in a worker thread. As an
+# async endpoint, its blocking Blender run (up to 5 minutes) froze the whole
+# service: every other conversion and even /health waited behind it.
 @app.post("/convert")
-async def convert_glb_to_vrm(
+def convert_glb_to_vrm(
     background_tasks: BackgroundTasks, 
     file: UploadFile = File(...),
     thumbnail: Optional[UploadFile] = File(None)

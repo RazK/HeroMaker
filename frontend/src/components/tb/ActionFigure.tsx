@@ -152,7 +152,7 @@ export function ActionFigureSlide({ heroId, heroName, credits, initial, picture,
       </div>
       {inDock(
         <button type="button" className="tb-btn tb-btn--primary tb-btn--with-trail tb-figure-dock tb-figure-buy" disabled={busy} onClick={buy}>
-          <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : price === undefined ? 'Make the action figure' : 'Make it a toy'}</span>
+          <span className="tb-figure-buy-label"><Icon name="cube" size={22} />{busy ? 'Starting…' : price === undefined ? 'Make the toy' : 'Make it a toy'}</span>
           <span className="tb-btn-trail">{price === undefined ? 'Admin' : `${price} credits`}</span>
         </button>,
       )}
