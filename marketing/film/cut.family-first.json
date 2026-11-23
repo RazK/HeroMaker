@@ -56,12 +56,16 @@
    ]
   },
   {
-   "kind": "morph",
-   "from": "assets/end/drawing.png",
-   "to": "assets/end/painting.png",
+   "kind": "seq",
+   "dir": "assets/paintseq",
+   "ext": "png",
+   "n": 101,
+   "fps": 24,
+   "iw": 1080,
+   "ih": 1920,
+   "zoom": 1,
    "dur": 4.2,
-   "at": 0.3,
-   "caption": "We paint it."
+   "note": "marketing/film/spec/paint.html, drawing then painting"
   },
   {
    "kind": "still",
@@ -114,8 +118,16 @@
    ]
   },
   {
-   "kind": "end",
-   "dur": 3.6
+   "kind": "seq",
+   "dir": "assets/endseq",
+   "ext": "png",
+   "n": 81,
+   "fps": 16,
+   "iw": 1080,
+   "ih": 1920,
+   "zoom": 1,
+   "dur": 4.0,
+   "note": "marketing/film/spec/end.html, Violet moving in row 3"
   }
  ]
 }

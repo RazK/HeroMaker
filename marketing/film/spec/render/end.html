@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset=utf-8>
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Nunito:wght@700;800&display=swap" rel=stylesheet>
+<style>
+html,body{margin:0;width:360px;height:640px;background:#fff6e9;font-family:Nunito}
+/* One grid: margin 24, picture column 128, gap 24, text column. Block centred vertically. */
+.f{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 24px;gap:24px}
+.row{display:grid;grid-template-columns:128px 1fr;column-gap:20px;align-items:center;height:128px}
+.pic{width:128px;height:128px;display:flex;align-items:center;justify-content:center}
+.pic img{max-width:100%;max-height:100%}
+.alive{position:relative;overflow:visible}.alive img{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);height:165px;max-height:none;max-width:none}
+.pol{background:#fff;padding:5px 5px 14px;box-shadow:0 2px 8px rgba(35,25,66,.2);transform:rotate(-3deg);width:108px}
+.pol img{display:block;width:100%}
+.t{white-space:nowrap;font-family:Barriecito;font-size:27px;line-height:1;color:#231942}
+.btn{margin:8px 0 0;height:56px;width:100%;box-sizing:border-box;border-radius:999px;background:#5b3df5;color:#fff;font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 #3a22b8}
+</style></head><body><div class="f">
+<div class="row"><div class="pic"><div class="pol"><img src="violet-drawing.webp"></div></div><div class="t">You draw it.</div></div>
+<div class="row"><div class="pic"><img src="painted.png"></div><div class="t">We paint it.</div></div>
+<div class="row"><div class="pic alive"><img src="violet-alive.webp"></div><div class="t">It comes alive!</div></div>
+<div class="btn">Make a hero</div>
+</div></body></html>
