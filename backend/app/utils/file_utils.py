@@ -4,16 +4,6 @@ Maintains backward compatibility with existing function signatures.
 """
 from app.utils.storage import get_storage
 
-def check_file_exists(creation_id: str, user_id: str, filename: str) -> bool:
-    """Check if a file exists for a creation."""
-    storage = get_storage()
-    return storage.file_exists(user_id, creation_id, filename)
-
-def list_creation_files(creation_id: str, user_id: str) -> list[str]:
-    """List all files for a creation."""
-    storage = get_storage()
-    return storage.list_files(user_id, creation_id)
-
 def get_file_url(creation_id: str, user_id: str, filename: str) -> str:
     """
     Get the URL for a file.
@@ -53,18 +43,6 @@ def download_file_from_storage(user_id: str, creation_id: str, filename: str) ->
     """
     storage = get_storage()
     return storage.download_file(user_id, creation_id, filename)
-
-def delete_file_from_storage(user_id: str, creation_id: str, filename: str) -> None:
-    """
-    Delete a file from storage (S3 or local filesystem).
-    
-    Args:
-        user_id: User ID
-        creation_id: Creation ID
-        filename: Filename
-    """
-    storage = get_storage()
-    storage.delete_file(user_id, creation_id, filename)
 
 def delete_creation_files(user_id: str, creation_id: str) -> None:
     """
