@@ -5,7 +5,7 @@
     "font": "Amatic SC",
     "bodyFont": "Rubik"
   },
-  "shareVideo.f1.title": "{hasChild, select, yes {{childGender, select, female {{child} ציירה משהו…} male {{child} צייר משהו…} other {הציור של {child}…}}} other {תראו את הציור הזה…}}",
+  "shareVideo.f1.title": "{hasChild, select, yes {{childGender, select, female {{child} ציירה משהו…} male {{child} צייר משהו…} other {הציור של {child}…}}} other {תראו מה ציירתי!}}",
   "shareVideo.f2.title": "רגע… מה קורה פה?!",
   "shareVideo.f3.poof": "פוף!",
   "shareVideo.f4.title": "הציור התעורר לחיים!",

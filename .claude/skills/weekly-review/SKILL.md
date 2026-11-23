@@ -16,8 +16,8 @@ the top if there is one.
   `docs/product/HYPOTHESES.md`), read production's purchases and creations
   through the admin pages or the Railway tools, read-only. Say where each
   number came from. If you cannot read one, write "unknown" and why.
-- **Money in:** Lemon Squeezy orders (and Grow, once live). From the
-  finance agent's sheet once it exists.
+- **Money in and spent:** ask Gidi (he keeps the books in a Google Sheet:
+  income from Lemon Squeezy and Grow, spend by category).
 - **Guardrails:** refunds, `hero_failed`, provider cost per hero.
 - **Team status:** read the other agents' sessions (`get_session`, their
   latest summary). Names are their session titles.

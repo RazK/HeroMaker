@@ -22,6 +22,8 @@ export default defineConfig(({ mode }) => ({
                    arena: 'arena.html',
                    // Offline key art for the app's game chooser (tools/make-posters.mjs).
                    poster: 'poster.html',
+                   // Offline: a hero copies a person in a video (tools/mimic/).
+                   mimic: 'mimic.html',
                    // Not a page: the HeroMaker app imports it at run time from
                    // /play/herostage.js (see src/herostage.ts), so it keeps a
                    // fixed name and its exports, and shares three.js and the
