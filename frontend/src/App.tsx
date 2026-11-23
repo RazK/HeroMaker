@@ -918,16 +918,13 @@ function MainApp() {
 
       {showWebcamModal && (
         <FileUpload
-          onUpload={(file, characterName) => {
+          onUpload={(file) => {
             track('photo_taken');
-            handleUpload(file, characterName);
+            handleUpload(file);
             setShowWebcamModal(false);
           }}
           disabled={isUploading}
-          showWebcamOnMount={true}
           onClose={() => setShowWebcamModal(false)}
-          creditBalance={creditBalance}
-          creationCost={pipelineCost}
         />
       )}
 
