@@ -53,7 +53,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04  # Playwright 1.56 cannot install Chromium on ubuntu-latest (26.04) yet
-    timeout-minutes: 65
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +73,9 @@ jobs:
 
       # `railway up --detach` returns before the new build is live. Test the
       # merged commit, not the one before it: wait until the backend's
-      # /api/version and the frontend's bundle both name it.
+      # /api/version and the frontend's bundle both name it. A deploy of all
+      # three services took ~21 min on 2026-11-23 (two merges queued), and a
+      # 20-min wait failed runs #109 and #111 on a staging that was fine.
       - name: Wait for staging to serve the merged commit
         if: github.event_name == 'workflow_run'
         env:
@@ -82,7 +84,7 @@ jobs:
         run: |
           short="${SHA:0:7}"
           backend="$(jq -er '.environments.staging.urls.backend' devops/railway/project.json)"
-          for i in $(seq 1 80); do
+          for i in $(seq 1 160); do
             api="$(curl -fsS "$backend/api/version" || true)"
             js="$(curl -fsS "$FRONTEND/" | grep -o '/assets/index-[^"]*\.js' | head -1 || true)"
             ui=0; [ -n "$js" ] && ui="$(curl -fsS "$FRONTEND$js" | grep -c "$short" || true)"
@@ -91,7 +93,7 @@ jobs:
             fi
             echo "waiting for $short (backend: ${api:-no answer}; frontend has it: ${ui:-0})"; sleep 15
           done
-          echo "::error::staging did not serve $short within 20 minutes; see the deploy in build-images.yml and Railway"
+          echo "::error::staging did not serve $short within 40 minutes; see the deploy in build-images.yml and Railway"
           exit 1
 
       - name: Run the robot
