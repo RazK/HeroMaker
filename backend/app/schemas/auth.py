@@ -82,6 +82,9 @@ class UserResponse(BaseModel):
     created_at: str
     # When a grown-up confirmed they were there, before signing in (or null).
     adult_confirmed_at: Optional[str] = None
+    # Pay after the reveal (E-006): this account may still make its first
+    # painting with no credits. False unless FREE_PAINTING is on.
+    free_painting: bool = False
 
     @classmethod
     def from_user(cls, user):

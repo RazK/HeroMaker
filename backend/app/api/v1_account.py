@@ -91,7 +91,10 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 def get_me(who: Principal = Depends(require(APP)), db: Session = Depends(get_db)):
-    return auth.get_me(user=who.user, db=db)
+    from app.services import free_painting
+    me = auth.get_me(user=who.user, db=db)
+    me.free_painting = free_painting.eligible(db, who.user_id)
+    return me
 
 
 @router.patch("/me", response_model=UserResponse)
