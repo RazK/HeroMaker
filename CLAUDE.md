@@ -177,6 +177,16 @@ open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
 
+### Changing a production variable redeploys unreleased code
+
+On Railway, changing a service's variable **redeploys it from the latest
+commit of its branch**, not from the image already running. On 2026-11-22 a
+variable change on the production backend put `main` (staging's unreleased
+code) on production for ten minutes, until the old build was redeployed by
+id. So, for production: set variables with `skipDeploys`, then redeploy the
+**running** deployment by its id. Any production variable change still needs
+Raz's yes.
+
 ## Staging never looks like production (Raz's rule)
 
 Staging has its own app icon (a dark tile with a yellow STAGING band), its own
