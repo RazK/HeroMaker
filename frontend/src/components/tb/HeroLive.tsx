@@ -42,6 +42,8 @@ export interface Making {
   step?: string;
   pct: number;
   failed: boolean;
+  /** Out of credits is a paywall, not a failure: the slide celebrates, no cross. */
+  paywall?: boolean;
   /** "Sculpting failed": the failed step's name, for its slide. */
   failedLabel?: string;
   idle?: boolean;
@@ -435,6 +437,19 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       // or, stopped, under what went wrong.
       const from = s.key === 'painting' ? drawingPic : paintingPic;
       const label = s.key === 'painting' ? 'Painted' : `${heroName}, live`;
+      if (s.state === 'failed' && making?.paywall) {
+        // Out of credits: the painting is done and good. Show it proud, with a
+        // warm nudge to bring it to life — never dimmed, a cross, or "failed".
+        return {
+          label,
+          node: (
+            <div className="tb-slide-coming" role="status">
+              <div className="tb-live-room">{SUN && <div className="tb-stage-sun" />}{from}</div>
+              <span className="tb-slide-status">Bring it to life</span>
+            </div>
+          ),
+        };
+      }
       if (s.state === 'failed') {
         return {
           label,
