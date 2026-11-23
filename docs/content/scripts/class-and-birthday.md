@@ -1,4 +1,9 @@
-# Films: Class and Birthday (outlines, for the PM)
+# Films: Class and Birthday (outlines, PARKED)
+
+**Parked by the PM (2026-11-23):** the family film comes first. These wait for
+a paying signal in their segment (a teacher or a party host who pays). The
+class stage (every hero dancing together) is a prototype (PR #117, not
+merged): never shown. A class finale uses the real projected class gallery.
 
 Two more buyers, the same building blocks as the family film (the drawing,
 the reveal, coming alive). Outlines first: the PM checks the money and what the

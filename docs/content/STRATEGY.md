@@ -23,10 +23,17 @@ the parent's "wow".
 | Film | Who pays | For what | Script |
 |---|---|---|---|
 | Family | a parent | an afternoon with their child that ends in something made | `scripts/family.md` |
-| Class | an art teacher, per seat | a lesson that works with no accounts; every child takes a hero home | `scripts/class-and-birthday.md` |
-| Birthday | the host parent | the party's activity and every guest's take-home | `scripts/class-and-birthday.md` |
+| Class (parked) | an art teacher, per seat | a lesson that works with no accounts; every child takes a hero home | `scripts/class-and-birthday.md` |
+| Birthday (parked) | the host parent | the party's activity and every guest's take-home | `scripts/class-and-birthday.md` |
 
 **9:16 is the main format** (Raz prefers it); 4:5 and 16:9 are cut from it.
+
+**The PM's order (2026-11-23): the family film first**, one money moment and one
+call to action. Class and birthday wait for a paying signal. For Schneider
+(10 Dec): a silent screen loop (drawing → hero → play) cut from the family film
+and the real class gallery; no prices, a QR to the site. On the free quota the
+family film is ready about 28 Nov; ask the PM about PRO only if it slips past
+about 6 Dec.
 
 ## Two rules from Raz's review of Ad 01
 

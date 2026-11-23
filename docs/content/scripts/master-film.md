@@ -46,8 +46,8 @@ draws the storyboard from these. "Live" = AI video from a keyframe;
 
 | # | Time | Shot | Text | Source |
 |---|---|---|---|---|
-| 5.1 | 0:46–0:50 | A video call: Grandma on the screen. Maya holds up the phone with Violet dancing. | | Live + Product |
-| 5.2 | 0:50–0:54 | Grandma laughs, hand on her heart. | | Live |
+| 5.1 | 0:46–0:50 | 3/4 behind Maya's shoulder at the kitchen table: Grandma on the laptop's video call. Maya holds up, side by side at one height, the drawing in her left hand and the phone with Violet dancing in her right, both facing the webcam. Both hands inside the 9:16 crop. | | Live + Product |
+| 5.2 | 0:50–0:54 | Grandma, on her own camera: her eyes go from the drawing to Violet and back; her hand goes to her heart. No printed toy anywhere (not on sale). | | Live |
 
 ## 6. End card (0:54–1:00)
 
