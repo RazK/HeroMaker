@@ -115,3 +115,7 @@ insert**, never a room shot with people reacting behind it.
 ## Sightline re-makes (Tom, 2026-11-23)
 
 Who sees what, checked: 1.1 the drawing upright for her (her hand comes from her side). 1.2 over her shoulder, upright for her and the camera. 3.4 Maya faces the TV; Mom comes in behind her and looks at it. 4.1 she faces the TV, which shows Violet. **Still to re-make: 3.1** (the phone faced the camera more than her), **4.2** (the TV showed a different hero), **5.1** (the drawing and the phone side by side, per your note). Blocked: the OpenAI account ran out of credit.
+
+### Sightline re-makes done (Tom, 2026-11-23)
+
+Who sees what: 3.1 the phone faces Maya (we see its back), she looks into it. 4.2 the TV shows Violet; Maya cheers facing it. 5.1 Grandma on the laptop faces Maya; Maya holds the drawing and the phone up to it, both facing the webcam (we see their backs). All sightline re-makes are now in: 1.1, 1.2, 3.1, 3.4, 4.1, 4.2, 5.1.
