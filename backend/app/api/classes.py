@@ -21,8 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.creations import _checked_style, create_with_drawing, require_picture, start_pipeline
 from app.database import get_db
 from app.models import ClassGuest, ClassRoom, Creation, User
-from app.config import packs as packs_config
-from app.services import analytics, classes, demo_library, lemonsqueezy
+from app.services import analytics, classes, demo_library, payments_provider
 from app.schemas.creation import file_versions
 from app.services.auth import get_current_user_required, verify_access_token
 from app.services.task_manager import get_task_manager
@@ -110,32 +109,39 @@ def seat_price() -> Optional[dict]:
     """The class price, for "Pay $X for N seats": a part per order plus a part
     per seat, in cents (app/config/packs.py has the numbers and their margin).
     None hides the option: no class-seats variant, or no store, configured,
-    exactly as GET /api/v1/packs omits a pack it cannot sell."""
-    if not (lemonsqueezy.can_sell() and packs_config.class_seats_variant_id()):
-        return None
-    return {
-        "order_cents": packs_config.price_cents(packs_config.CLASS_ORDER_USD_MICROS),
-        "seat_cents": packs_config.price_cents(packs_config.CLASS_SEAT_USD_MICROS),
-        "max_seats": packs_config.CLASS_MAX_SEATS,
-    }
+    exactly as GET /api/v1/packs omits a pack it cannot sell. From the
+    selected payments provider; a shekel price adds `currency` ("ILS", cents
+    are agorot), `min_seats` and `seat_display`."""
+    return payments_provider.seat_price()
+
+
+def _check_min_seats(price: dict, seats: int) -> None:
+    """A provider's smallest order (grow_sandbox: 10 seats). Lemon Squeezy has
+    none beyond the class's own 1 to 60."""
+    least = price.get("min_seats") or 1
+    if int(seats) < least:
+        raise HTTPException(status_code=400, detail=f"A class order is for at least {least} seats")
 
 
 def _open_seats_checkout(db: Session, user: User, classroom: ClassRoom, seats: int,
                          redirect_url: Optional[str]) -> dict:
-    """A Lemon Squeezy checkout for `seats` seats of `classroom`. Nothing is
-    granted here: the signed webhook adds the seats when the money arrives."""
+    """A checkout for `seats` seats of `classroom`, with the selected payments
+    provider. Nothing is granted here: the provider's signed callback adds the
+    seats when the money arrives."""
     if redirect_url:
         # The app asks to come back to the class, whose id it may not know yet.
         redirect_url = redirect_url.replace("{class_id}", classroom.id)
     try:
-        url, quote = lemonsqueezy.create_class_seats_checkout(
+        url, quote = payments_provider.create_class_seats_checkout(
             class_id=classroom.id, class_title=classroom.title, seats=seats,
-            user_id=user.id, email=user.email, redirect_url=redirect_url,
+            user_id=user.id, email=user.email, redirect_url=redirect_url, db=db,
         )
-    except lemonsqueezy.NotConfiguredError as exc:
+    except payments_provider.SeatsError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except payments_provider.NotConfiguredError as exc:
         logger.error("Class seat checkout unavailable: %s", exc)
         raise HTTPException(status_code=503, detail="Payments are unavailable right now.") from exc
-    except lemonsqueezy.LemonSqueezyError as exc:
+    except payments_provider.PaymentsError as exc:
         logger.error("Class seat checkout failed for class %s: %s", classroom.id, exc)
         raise HTTPException(status_code=502, detail="Payments are unavailable right now.") from exc
     classes.funnel("class_checkout_opened", class_id=classroom.id, seats=quote["seats"], cents=quote["price_cents"])
@@ -145,7 +151,7 @@ def _open_seats_checkout(db: Session, user: User, classroom: ClassRoom, seats: i
         "seats": quote["seats"],
         "price_cents": quote["price_cents"],
         "price_display": quote["price_display"],
-        "test_mode": lemonsqueezy.test_mode(),
+        "test_mode": payments_provider.test_mode(),
     }
 
 
@@ -154,8 +160,10 @@ def buy_new_class(body: BuySeatsRequest, db: Session = Depends(get_db),
                   user: User = Depends(get_current_user_required)):
     """A new class, paid with money at the class price: the class is made now
     with no seats, and the seats arrive with the payment."""
-    if seat_price() is None:
+    price = seat_price()
+    if price is None:
         raise HTTPException(status_code=503, detail="Payments are unavailable right now.")
+    _check_min_seats(price, body.seats)
     with _refusals():
         classroom = classes.create_class_to_buy(db, user, body.title or "", body.seats, body.ages)
     try:
@@ -193,13 +201,15 @@ def add_seats(class_id: str, body: SeatsRequest, db: Session = Depends(get_db),
 def buy_seats(class_id: str, body: BuySeatsRequest, db: Session = Depends(get_db),
               user: User = Depends(get_current_user_required)):
     """More seats for an existing class, paid with money at the class price."""
-    if seat_price() is None:
+    price = seat_price()
+    if price is None:
         raise HTTPException(status_code=503, detail="Payments are unavailable right now.")
     with _refusals():
         classroom = classes.owned_class(db, user, class_id)
         if classroom.owner_id != user.id:
             raise classes.ClassError(404, "Class not found", "not_found")
         classes.check_seats(body.seats, already=classroom.seats)
+    _check_min_seats(price, body.seats)
     return _open_seats_checkout(db, user, classroom, body.seats, body.redirect_url)
 
 

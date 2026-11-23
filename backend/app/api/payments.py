@@ -6,13 +6,17 @@ In the order money moves through them:
     GET  /api/v1/packs            what we sell, public, no prices invented here
     POST /api/v1/checkout         signed-in user asks for a checkout URL
     POST /api/payments/webhook    Lemon Squeezy tells us they paid -> credits
+    POST /api/payments/grow/callback   Grow-shaped callback (grow_sandbox) -> credits
     GET  /api/v1/receipts         signed-in user's own purchase history
 
 The client calls are served by app/api/v1_account.py, which calls the
-functions here. Only the webhook is routed from this module: the store is
-configured with that address.
+functions here, through whichever provider PAYMENTS_PROVIDER selects
+(app/services/payments_provider.py). Only the provider callbacks are routed
+from this module: the store is configured with those addresses. grow_sandbox's
+fake hosted page lives in app/api/payments_sandbox.py.
 
-THE WEBHOOK IS THE ONLY PLACE CREDITS ARE GRANTED FOR MONEY. The browser is
+THE WEBHOOK IS THE ONLY PLACE CREDITS ARE GRANTED FOR MONEY (each provider's
+signed callback, that is). The browser is
 never trusted to say "I paid" - it never touches this path. A user returning
 from a successful checkout just sees their balance, which the webhook has
 already moved (or will, within a second or two).
@@ -27,13 +31,15 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import and_, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import packs as packs_config
 from app.database import get_db
-from app.models import ClassRoom, Payment, User
+from app.models import CheckoutOrder, ClassRoom, Payment, User
 from app.services import classes as class_service
-from app.services import analytics, ledger, lemonsqueezy
+from app.services import analytics, ledger, payments_provider
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +59,15 @@ class PackOut(BaseModel):
     price_cents: int
     price_display: str
     highlight: bool
+    # "USD" (Lemon Squeezy) or "ILS" (Grow). price_cents is in this
+    # currency's cents: agorot for ILS. price_display already carries the sign.
+    currency: str = "USD"
 
 
 def list_packs():
     """
-    The packs a customer can actually buy right now.
+    The packs a customer can actually buy right now, from the selected
+    payments provider (app/services/payments_provider.py).
 
     Packs with no Lemon Squeezy variant configured are omitted rather than
     shown greyed out: a price with no working button is worse than no price.
@@ -65,21 +75,19 @@ def list_packs():
     business, and they live on the admin finance page.
 
     Nothing is listed unless the store can both open a checkout and hear that
-    it was paid (lemonsqueezy.can_sell): variant ids alone used to be enough,
-    so a deployment missing its API key showed Buy buttons that answered 503,
-    and one missing its webhook secret would have taken money and granted
-    nothing.
+    it was paid (payments_provider.can_sell): variant ids alone used to be
+    enough, so a deployment missing its API key showed Buy buttons that
+    answered 503, and one missing its webhook secret would have taken money
+    and granted nothing.
     """
-    if not lemonsqueezy.can_sell():
-        return []
     return [
         PackOut(
             slug=p["slug"], name=p["name"], blurb=p["blurb"],
             credits=p["credits"], heroes=p["heroes"],
             price_cents=p["price_cents"], price_display=p["price_display"],
-            highlight=p["highlight"],
+            highlight=p["highlight"], currency=p.get("currency", "USD"),
         )
-        for p in packs_config.get_packs(include_unconfigured=False)
+        for p in payments_provider.list_packs()
     ]
 
 
@@ -104,13 +112,14 @@ class CheckoutResponse(BaseModel):
 
 def create_checkout(request: CheckoutRequest, db: Session, user: User):
     """
-    Open a Lemon Squeezy checkout for this user and return its URL.
+    Open a checkout for this user with the selected provider and return its URL.
 
-    Nothing is charged and no credits move here. The user id is stamped into
-    the checkout so the webhook knows whose balance to credit; that is the
-    whole purpose of this call.
+    Nothing is charged and no credits move here. Lemon Squeezy stamps the user
+    id into the checkout so the webhook knows whose balance to credit;
+    grow_sandbox stores the whole order on our side (CheckoutOrder) and its
+    callback names that order. Either way, that is the whole purpose of this call.
     """
-    pack = packs_config.get_pack(request.pack)
+    pack = payments_provider.get_pack(request.pack)
     if pack is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -118,20 +127,21 @@ def create_checkout(request: CheckoutRequest, db: Session, user: User):
         )
 
     try:
-        url = lemonsqueezy.create_checkout(
+        url = payments_provider.create_checkout(
             pack=pack,
             user_id=user.id,
             email=user.email,
             redirect_url=request.redirect_url,
+            db=db,
         )
-    except lemonsqueezy.NotConfiguredError as exc:
+    except payments_provider.NotConfiguredError as exc:
         # Ours to fix, not the customer's. 503 so an uptime check notices.
         logger.error("Checkout unavailable: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Payments are not available right now.",
         ) from exc
-    except lemonsqueezy.LemonSqueezyError as exc:
+    except payments_provider.PaymentsError as exc:
         logger.error("Checkout failed for user %s pack %s: %s", user.id, pack["slug"], exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -143,7 +153,7 @@ def create_checkout(request: CheckoutRequest, db: Session, user: User):
         pack=pack["slug"],
         credits=pack["credits"],
         price_display=pack["price_display"],
-        test_mode=lemonsqueezy.test_mode(),
+        test_mode=payments_provider.test_mode(),
     )
 
 
@@ -167,7 +177,7 @@ async def lemonsqueezy_webhook(
     """
     raw = await request.body()
 
-    if not lemonsqueezy.verify_signature(raw, x_signature):
+    if not payments_provider.verify_signature(raw, x_signature):
         # Do not say which of "no secret configured" / "bad signature" it was.
         logger.warning("Rejected a Lemon Squeezy webhook with a bad signature")
         raise HTTPException(
@@ -177,18 +187,18 @@ async def lemonsqueezy_webhook(
 
     try:
         payload = await request.json()
-        event = lemonsqueezy.parse_order_event(payload)
-    except (ValueError, lemonsqueezy.LemonSqueezyError) as exc:
+        event = payments_provider.parse_order_event(payload)
+    except (ValueError, payments_provider.PaymentsError) as exc:
         logger.error("Unreadable Lemon Squeezy webhook: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Malformed webhook body",
         ) from exc
 
-    if event["event"] not in lemonsqueezy.HANDLED_EVENTS:
+    if event["event"] not in payments_provider.HANDLED_EVENTS:
         return {"status": "ignored", "reason": f"unhandled event {event['event']}"}
 
-    if event["test_mode"] and not lemonsqueezy.test_mode():
+    if event["test_mode"] and not payments_provider.test_mode():
         # A live deployment is being told about a test-mode order: paid with
         # Lemon Squeezy's test card, so no money moved. The test and live
         # webhooks normally have different signing secrets and this never gets
@@ -203,7 +213,7 @@ async def lemonsqueezy_webhook(
     if event["kind"] == packs_config.CLASS_SEATS_SLUG:
         return _class_seats_event(db, event)
 
-    if event["event"] == lemonsqueezy.EVENT_ORDER_REFUNDED:
+    if event["event"] == payments_provider.EVENT_ORDER_REFUNDED:
         # Refunds are not clawed back automatically. Taking credits a child has
         # already spent on a hero would fail, and silently leaving them is a
         # decision an admin should make, not a webhook. Log loudly instead.
@@ -347,7 +357,7 @@ def _class_seats_event(db: Session, event: dict) -> dict:
     not an attack: the most anyone gets is what they paid for.
     """
     order_id = event["order_id"]
-    if event["event"] == lemonsqueezy.EVENT_ORDER_REFUNDED:
+    if event["event"] == payments_provider.EVENT_ORDER_REFUNDED:
         if not event["refunded"] and event["status"] != "refunded":
             # A partial refund. Which seats it pays back is a judgement call,
             # so it is left to an admin, exactly like a refunded pack.
@@ -417,6 +427,209 @@ def _class_seats_event(db: Session, event: dict) -> dict:
 
 
 # --------------------------------------------------------------------------
+# Money arriving, Grow-shaped (grow_sandbox now, Grow next)
+# --------------------------------------------------------------------------
+
+@router.post("/grow/callback")
+async def grow_callback(request: Request, db: Session = Depends(get_db)):
+    """The payment server's callback. Verify, then credit (handle_grow_callback)."""
+    raw = await request.body()
+    return handle_grow_callback(db, raw, request.headers)
+
+
+def handle_grow_callback(db: Session, raw: bytes, headers) -> dict:
+    """
+    A Grow-shaped callback says "transaction T paid sum S for order O".
+
+    The ONE function that grants credits for it, whether the callback came
+    over HTTP or from the sandbox page's Pay button in-process
+    (app/api/payments_sandbox.py): the signature is verified here either way.
+
+    The callback is believed about two things only: that a transaction
+    happened, and its id. Everything else is OURS. The order is the row we
+    stored when the checkout opened (CheckoutOrder): what it buys and what it
+    must cost are read from there, and a callback whose sum differs from it
+    grants nothing. custom fields carry only our order id, which is just a
+    lookup key: naming someone else's order buys them what it says, for what
+    it costs.
+
+    Replays: the order is claimed for its transaction atomically (a second,
+    different transaction for a paid order grants nothing), and the ledger row
+    is keyed on the transaction id, so the same transaction delivered twice
+    credits once.
+
+    Like the Lemon Squeezy webhook, 200 for anything we decided not to act on;
+    401 for an unauthenticated body, 400 for an unreadable one, 404 when no
+    Grow-shaped provider is armed here (production, for one).
+    """
+    if not payments_provider.callbacks_open():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+    if not payments_provider.verify_callback(raw, headers):
+        logger.warning("Rejected a payment callback with a bad signature")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
+    try:
+        callback = payments_provider.parse_callback(raw)
+    except payments_provider.PaymentsError as exc:
+        logger.error("Unreadable payment callback: %s", exc)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed callback body") from exc
+
+    provider = payments_provider.name()
+    transaction_id = callback["transaction_id"]
+    order = (db.query(CheckoutOrder)
+             .filter(CheckoutOrder.id == callback["order_id"], CheckoutOrder.provider == provider)
+             .first())
+    if order is None:
+        logger.error("Payment callback for transaction %s names order %s, which we never opened; "
+                     "nothing granted", transaction_id, callback["order_id"])
+        return {"status": "ignored", "reason": "unknown order"}
+    if not callback["paid"]:
+        return {"status": "ignored", "reason": f"transaction status {callback['status']}"}
+    if callback["sum_minor"] != order.amount_minor:
+        logger.error("Payment callback for order %s says %s %s were paid; the order costs %s. "
+                     "Nothing granted (transaction %s)", order.id, callback["sum_minor"], order.currency,
+                     order.amount_minor, transaction_id)
+        return {"status": "ignored", "reason": "sum does not match the order"}
+
+    # Claim the order for this transaction: a pending order, or one this same
+    # transaction already paid (a redelivery). One UPDATE, so two different
+    # transactions racing for one order cannot both win.
+    try:
+        claimed = (db.query(CheckoutOrder)
+                   .filter(CheckoutOrder.id == order.id,
+                           or_(CheckoutOrder.status == "pending",
+                               and_(CheckoutOrder.status == "paid",
+                                    CheckoutOrder.transaction_id == transaction_id)))
+                   .update({CheckoutOrder.status: "paid", CheckoutOrder.transaction_id: transaction_id},
+                           synchronize_session=False))
+        db.commit()
+    except IntegrityError:
+        # transaction_id is UNIQUE: this transaction already paid another order.
+        db.rollback()
+        claimed = 0
+    if claimed != 1:
+        db.refresh(order)
+        logger.error("Payment callback: transaction %s for order %s (status %s, paid by %s); nothing granted",
+                     transaction_id, order.id, order.status, order.transaction_id)
+        return {"status": "ignored", "reason": f"order is {order.status}"}
+
+    ref = f"{provider}:tx:{transaction_id}"
+    meta = {
+        "provider": provider,
+        "order_id": order.id,
+        "transaction_id": transaction_id,
+        "currency": order.currency,
+        "amount_minor": order.amount_minor,
+        "test_mode": payments_provider.test_mode(),
+    }
+    if order.kind == packs_config.CLASS_SEATS_SLUG:
+        return _grow_class_seats(db, order, ref, meta)
+
+    try:
+        tx = ledger.record_purchase(
+            user_id=order.user_id,
+            amount=order.credits,
+            db=db,
+            # THE replay guard: the same transaction returns this row.
+            external_ref=ref,
+            metadata={**meta, "pack": order.product},
+        )
+    except ledger.UnknownUserError:
+        logger.error("Order %s names user %s, who does not exist; nothing granted", order.id, order.user_id)
+        return {"status": "ignored", "reason": "unknown user"}
+
+    _record_order_payment(db, order, ref, order.user_id)
+    logger.info("Credited %s credits to user %s for order %s, transaction %s (balance now %s)",
+                order.credits, order.user_id, order.id, transaction_id, tx.balance_after)
+    return {"status": "ok", "credits_granted": order.credits, "balance_after": tx.balance_after}
+
+
+def _grow_class_seats(db: Session, order: CheckoutOrder, ref: str, meta: dict) -> dict:
+    """Seats for ONE class, to its wallet, exactly as _class_seats_event does
+    for Lemon Squeezy - but the class, the seats and the price come from our
+    stored order, and the price is recomputed from its seat count."""
+    seats, class_id = order.seats, order.class_id
+    if not class_id or not seats or seats < 1 or seats > packs_config.CLASS_MAX_SEATS:
+        logger.error("Class seat order %s is unusable (class=%r seats=%r); nothing granted", order.id, class_id, seats)
+        return {"status": "ignored", "reason": "order carries no usable class seats"}
+    classroom = db.query(ClassRoom).filter(ClassRoom.id == class_id).first()
+    if classroom is None:
+        logger.error("Class seat order %s names class %s, which does not exist; nothing granted", order.id, class_id)
+        return {"status": "ignored", "reason": "unknown class"}
+    expected = packs_config.class_seats_price_agorot(seats)
+    if order.amount_minor < expected:
+        logger.error("Class seat order %s cost %s for %s seats, which now cost %s; nothing granted",
+                     order.id, order.amount_minor, seats, expected)
+        return {"status": "ignored", "reason": "amount paid does not cover the seats"}
+
+    tx, granted = class_service.grant_bought_seats(
+        db, classroom, seats, order.id, ref=ref,
+        metadata={**meta, "kind": packs_config.CLASS_SEATS_SLUG, "teacher_id": classroom.owner_id,
+                  "buyer_user_id": order.user_id, "price_minor": expected},
+    )
+    _record_order_payment(db, order, ref, order.user_id or classroom.owner_id,
+                          extra={"class_id": class_id, "seats": seats})
+    db.expire_all()
+    classroom = db.query(ClassRoom).filter(ClassRoom.id == class_id).one()
+    logger.info("Class seat order %s: %s seats for class %s (%s)", order.id, seats, class_id,
+                "granted" if granted else "already granted")
+    return {
+        "status": "ok",
+        "class_id": class_id,
+        "seats_granted": seats if granted else 0,
+        "seats": classroom.seats,
+    }
+
+
+def _record_order_payment(db: Session, order: CheckoutOrder, ref: str, user_id: str,
+                          extra: Optional[dict] = None) -> None:
+    """
+    The payment row beside the credits, for an order paid in a currency the
+    margin report cannot read. Idempotent on provider_ref, never raises: the
+    same contract as _record_payment.
+
+    The USD columns are 0. The sandbox moves no money, and there is no ILS
+    rate in this codebase to turn a real Grow sale into USD micros; the amount
+    paid is in the metadata, in the currency's cents. Real Grow sales need
+    that decision before the margin report can count them.
+    """
+    existing = db.query(Payment).filter(Payment.provider_ref == ref).first()
+    if existing is not None:
+        return
+    test = payments_provider.test_mode()
+    try:
+        db.add(Payment(
+            user_id=user_id,
+            provider=order.provider,
+            provider_ref=ref,
+            gross_usd_micros=0,
+            fee_usd_micros=0,
+            net_usd_micros=0,
+            status="succeeded",
+            metadata_json={
+                "pack": order.product,
+                "credits": order.credits,
+                "order_id": order.id,
+                "transaction_id": order.transaction_id,
+                "currency": order.currency,
+                "amount_minor": order.amount_minor,
+                "test_mode": test,
+                "usd_not_recorded": True,
+                **(extra or {}),
+            },
+        ))
+        db.commit()
+        # The funnel's "bought" step, as _record_payment says it. amount_cents
+        # is USD cents there; this sale has none recorded.
+        analytics.record_server(
+            db, "purchase_done", {"pack": order.product, "amount_cents": 0, "test": test},
+            user_id=user_id, ref=ref, once=True,
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Credits were granted for order %s but the payment row failed to write", order.id)
+
+
+# --------------------------------------------------------------------------
 # Looking back
 # --------------------------------------------------------------------------
 
@@ -448,12 +661,16 @@ def list_receipts(db: Session, user: User):
     for tx in rows[:100]:
         meta = tx.metadata_json or {}
         gross = meta.get("gross_usd_micros")
+        paid = pricing.micros_to_usd_str(gross, places=2) if gross else None
+        if meta.get("currency") == packs_config.ILS and meta.get("amount_minor"):
+            # Sold in shekels (Grow, grow_sandbox): shown as charged, "₪39".
+            paid = packs_config.agorot_display(meta["amount_minor"])
         classroom = titles.get(tx.user_id)
         out.append(ReceiptOut(
             order_number=meta.get("order_number"),
             pack=meta.get("pack") or meta.get("kind"),
             credits=tx.delta,
-            paid_display=(pricing.micros_to_usd_str(gross, places=2) if gross else None),
+            paid_display=paid,
             test_mode=bool(meta.get("test_mode", False)),
             created_at=tx.created_at.isoformat(),
             class_id=classroom.id if classroom else None,

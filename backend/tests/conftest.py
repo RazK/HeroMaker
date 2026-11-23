@@ -37,6 +37,7 @@ from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402
     AdminAction,
     AnalyticsEvent,
+    CheckoutOrder,
     ClassGuest,
     ClassRoom,
     ClassSession,
@@ -56,6 +57,7 @@ from app.models import (  # noqa: E402
 # foreign keys never block a truncate.
 _WIPE_ORDER = (
     AnalyticsEvent,
+    CheckoutOrder,
     AdminAction,
     UsageEvent,
     CreditTransaction,
