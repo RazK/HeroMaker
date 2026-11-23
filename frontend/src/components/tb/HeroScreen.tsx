@@ -74,7 +74,6 @@ export function HeroScreen(props: HeroScreenProps) {
     return () => clearInterval(t);
   }, [state]);
 
-  const file = (f: string) => api.heroFileUrl(creation, f);
   const step = currentStep(creation);
   const now = Date.now();
   const measured = stepProgress(step, now);
@@ -143,14 +142,13 @@ export function HeroScreen(props: HeroScreenProps) {
     pic.current = null;
     if (!canShareFiles || !shares || state !== 'ready') return;
     let alive = true;
-    fetch(file('thumb_rendered.png'))
+    // The share picture is a flat JPEG (backend share_card.py): the cut
+    // painting's PNG is transparent, and WhatsApp painted its background black.
+    fetch(api.heroSharePictureUrl(creation.id))
       .then((r) => (r.ok ? r.blob() : null))
       .then((b) => {
         if (!alive || !b) return;
-        // Storage can type a picture binary/octet-stream, which no share
-        // target takes: name it by what it is (a thumbnail is WebP or PNG).
-        const type = b.type.startsWith('image/') ? b.type : 'image/png';
-        const f = new File([b], `${name}.${type === 'image/webp' ? 'webp' : 'png'}`, { type });
+        const f = new File([b], `${name}.jpg`, { type: 'image/jpeg' });
         if (navigator.canShare?.({ files: [f] })) pic.current = f;
       })
       .catch(() => { /* the link alone */ });
@@ -169,9 +167,10 @@ export function HeroScreen(props: HeroScreenProps) {
     const title = name;
     const text = `Meet ${name}! Tap to see it move.`;
     if (navigator.share) {
-      const withPic = pic.current && { title, url, files: [pic.current], text: `${text} ${url}` };
+      // With a picture the link rides in the text only: some apps drop the url
+      // field, and WhatsApp, which keeps both, printed the link twice.
+      const withPic = pic.current && { title, files: [pic.current], text: `${text} ${url}` };
       try {
-        // Some apps keep the picture and drop the url field: with a picture, the link rides in the text too.
         if (withPic && navigator.canShare?.(withPic)) await navigator.share(withPic);
         else await navigator.share({ title, text, url });
         return;
