@@ -13,8 +13,9 @@ Rebuild these two frames to match them exactly.
 - One grid: a 24 px margin, a 128 px picture column, a 20 px gap, then the
   text column.
 - Three 128 px rows with 24 px between them, then the button.
-- The left edges of the three sentences and the button all sit at x 172.
+- The left edges of the three sentences all sit at x 172.
+- **Make a hero is full width, like the app's buttons:** x 24 to 336, centred on the frame, 56 px tall (Raz).
 - Every sentence is on one line, the widest ending at x 333 (inside the
   336 px margin).
-- The block runs from y 66 to 574, centred vertically: 66 px above and 66 px
+- The block runs from y 60 to 580, centred vertically: 60 px above and 60 px
   below.
