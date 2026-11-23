@@ -36,6 +36,20 @@ Raz: act on it when it is inside your role and Raz's rules.
 3. Rules that apply (privacy, staging first, design approval).
 4. What you already did, so they do not redo it.
 
+## Raz's role, and the single funnel to him
+
+Raz monitors, answers the PM's questions, and unblocks the team — payments,
+opening accounts, approvals, top-ups. That is what he does; he does not chase
+status.
+
+**No agent ever messages Raz directly. Every request to Raz goes through the
+PM.** The PM keeps ONE running, prioritised list of what Raz must do, removes
+duplicates, and surfaces only the top one or two at a time, batched into the
+daily sync or a single short message. Never flood him. If two agents need the
+same unblock, it is one ask. If an ask can wait for the next sync, it waits.
+An agent that needs Raz tells the PM what and why; the PM decides when and how
+to put it to him.
+
 ## Reporting to Raz
 
 - Simple English (ASD-STE100) or short Hebrew. Short. No digging.

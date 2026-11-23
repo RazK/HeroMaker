@@ -34,6 +34,13 @@ A plan, a diff, "it should work", or a canvas mock is **not** a demo. An agent
 with nothing working says so at the sync before the review, so the PM can help
 or re-scope — never a surprise at review.
 
+## Requests to Raz
+
+Raz's role is to monitor, answer the PM, and unblock (payments, accounts,
+approvals). **Every request to Raz funnels through the PM**, who keeps one
+prioritised list and surfaces at most the top one or two at a time, batched —
+never a flood. No agent asks Raz directly.
+
 ## The log
 
 The PM keeps `SPRINT_LOG.md` next to this file: one entry per sprint — the
