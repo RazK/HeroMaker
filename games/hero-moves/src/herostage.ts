@@ -38,8 +38,15 @@ const IDLE = 'dance'
  * The room a pose needs, in the hero's own space: lowest and highest point,
  * and the widest either side of centre.
  */
-interface Room { lo: number; hi: number; half: number }
-const union = (a: Room, b: Room): Room => ({ lo: Math.min(a.lo, b.lo), hi: Math.max(a.hi, b.hi), half: Math.max(a.half, b.half) })
+/**
+ * The room a clip needs: its lowest and highest reach, its widest either side,
+ * and `mid`, the height of the middle of the hero's own outline, averaged over
+ * the clip: what the camera centres on, so the figure, not its reach, sits in
+ * the middle of the stage (a dance's raised hands no longer push it down).
+ */
+interface Room { lo: number; hi: number; half: number; mid: number }
+/** Room for both; centred where the first (the idle dance) is. */
+const union = (a: Room, b: Room): Room => ({ lo: Math.min(a.lo, b.lo), hi: Math.max(a.hi, b.hi), half: Math.max(a.half, b.half), mid: a.mid })
 
 // ------------------------------------------------------------- downloads
 
@@ -140,7 +147,7 @@ function loadHero(url: string): Promise<Loaded> {
     const animator = new Animator(hero.rig)
     const idleSpec = CLIPS.find((c) => c.id === IDLE)!
     const idle = performer.load(idleSpec, animUrl)
-    const room = { idle: { lo: 0, hi: hero.height, half: hero.width * 0.4 }, moves: new Map<string, Room>() }
+    const room = { idle: { lo: 0, hi: hero.height, half: hero.width * 0.4, mid: hero.height / 2 }, moves: new Map<string, Room>() }
     const loaded: Loaded = { hero, performer, animator, idle, moves: Promise.resolve(0), room }
     const measure = roomMeter(hero)
     loaded.moves = idle.then(() => Promise.all(CLIPS.filter((c) => c.id !== IDLE).map((c) => performer.load(c, animUrl))))
@@ -150,7 +157,7 @@ function loadHero(url: string): Promise<Loaded> {
           if (clip) room.moves.set(c.id, measure(clip))
         }
         const dance = room.moves.get(IDLE)
-        if (dance) room.idle = union(dance, { lo: 0, hi: hero.height, half: 0 })
+        if (dance) room.idle = union(dance, { lo: 0, hi: hero.height, half: 0, mid: dance.mid })
         return ok.filter(Boolean).length + 1
       })
     return loaded
@@ -192,12 +199,16 @@ function roomMeter(hero: Hero) {
   return (clip: THREE.AnimationClip): Room => {
     const mixer = new THREE.AnimationMixer(vrm.scene)
     mixer.clipAction(clip).play()
-    const room: Room = { lo: 0, hi: 0, half: 0 }
+    const room: Room = { lo: 0, hi: 0, half: 0, mid: 0 }
     const steps = 30
+    let mids = 0
     for (let i = 0; i <= steps; i++) {
       mixer.setTime((clip.duration * i) / steps)
       vrm.humanoid.update()
       root.updateMatrixWorld(true)
+      // This frame's outline, top and bottom (the joints plus their reach).
+      let top = -Infinity
+      let bottom = Infinity
       for (const name of MEASURED) {
         const node = vrm.humanoid.getRawBoneNode(name)
         if (!node) continue
@@ -208,14 +219,58 @@ function roomMeter(hero: Hero) {
         room.lo = Math.min(room.lo, y - r)
         room.hi = Math.max(room.hi, y + r)
         room.half = Math.max(room.half, Math.abs(v.x) * k + r)
+        top = Math.max(top, y + r)
+        bottom = Math.min(bottom, y - r)
       }
+      mids += top >= bottom ? (top + bottom) / 2 : h / 2
     }
+    room.mid = mids / (steps + 1)
     mixer.stopAllAction()
     mixer.uncacheRoot(vrm.scene)
     // Whatever plays next owns the rig again from a neutral start.
     vrm.humanoid.resetNormalizedPose()
     return room
   }
+}
+
+const outlineV = new THREE.Vector3()
+/** Points of a hero's skin to follow, about 1200 of them across its meshes. */
+const outlineSamples = new WeakMap<Hero, Array<{ mesh: THREE.Mesh; at: number[] }>>()
+function samplesOf(hero: Hero) {
+  let got = outlineSamples.get(hero)
+  if (got) return got
+  const meshes: THREE.Mesh[] = []
+  hero.vrm.scene.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (m.isMesh && m.geometry.getAttribute('position')) meshes.push(m)
+  })
+  const total = meshes.reduce((n, m) => n + m.geometry.getAttribute('position').count, 0)
+  const step = Math.max(1, Math.floor(total / 1200))
+  got = meshes.map((mesh) => {
+    const at: number[] = []
+    for (let i = 0; i < mesh.geometry.getAttribute('position').count; i += step) at.push(i)
+    return { mesh, at }
+  })
+  outlineSamples.set(hero, got)
+  return got
+}
+/**
+ * The middle, across, of the hero's outline as it stands now, in the stage's
+ * space: its skin, posed (a skinned mesh's vertices through its bones), so a
+ * cape or a ponytail counts as much as a hand.
+ */
+function outlineMidX(hero: Hero): number {
+  let lo = Infinity
+  let hi = -Infinity
+  for (const { mesh, at } of samplesOf(hero)) {
+    for (const i of at) {
+      mesh.getVertexPosition(i, outlineV)
+      outlineV.applyMatrix4(mesh.matrixWorld)
+      if (outlineV.x < lo) lo = outlineV.x
+      if (outlineV.x > hi) hi = outlineV.x
+    }
+  }
+  return hi >= lo ? (lo + hi) / 2 : 0
 }
 
 const gltfLoader = new GLTFLoader()
@@ -319,8 +374,8 @@ export class HeroStage {
   private playing: string | null = null
   private pop = 1
   /** The room framed now, easing toward what is shown and playing. */
-  private room: Room = { lo: 0, hi: 1.7, half: 0.5 }
-  private roomTarget: Room = { lo: 0, hi: 1.7, half: 0.5 }
+  private room: Room = { lo: 0, hi: 1.7, half: 0.5, mid: 0.85 }
+  private roomTarget: Room = { lo: 0, hi: 1.7, half: 0.5, mid: 0.85 }
   private last = performance.now()
   private observer: ResizeObserver
   private size = { w: 1, h: 1 }
@@ -328,6 +383,9 @@ export class HeroStage {
    *  kept clear at the bottom too so the hero stays centred. */
   private insetTarget = 0
   private inset = 0
+  /** Where across the hero stands now (its outline's box), followed every
+   *  frame, so a clip that carries it sideways never takes it off centre. */
+  private cx = 0
 
   constructor(private container: HTMLElement, private events: StageEvents = {}) {
     const r = getRenderer()
@@ -382,6 +440,39 @@ export class HeroStage {
     this.insetTarget = Math.max(0, px)
   }
 
+  /**
+   * One frame of the shown hero, framed close at 4:5 on a clear background,
+   * as a PNG data URL: the hero page's chapter tile for the 3D hero. Drawn and
+   * read in one go (the canvas is put back before the browser paints).
+   */
+  snapshot(): string | null {
+    const r = renderer
+    if (!r || this.shown?.kind !== 'hero') return null
+    const size = this.size
+    const inset = this.inset
+    const shot = { w: 240, h: 300 }
+    try {
+      this.size = shot
+      this.inset = 0
+      r.setSize(shot.w, shot.h, false)
+      camera.aspect = shot.w / shot.h
+      camera.updateProjectionMatrix()
+      this.aim()
+      r.render(scene, camera)
+      return r.domElement.toDataURL('image/png')
+    } catch {
+      return null
+    } finally {
+      this.size = size
+      this.inset = inset
+      r.setSize(size.w, size.h, false)
+      camera.aspect = size.w / size.h
+      camera.updateProjectionMatrix()
+      this.aim()
+      r.render(scene, camera)
+    }
+  }
+
   clear() {
     this.wanted = null
     this.put(null)
@@ -410,9 +501,10 @@ export class HeroStage {
       this.roomTarget = next.loaded.room.idle
     } else {
       const size = next.obj.userData.size as THREE.Vector3
-      this.roomTarget = { lo: 0, hi: size.y, half: Math.max(size.x, size.z) / 2 }
+      this.roomTarget = { lo: 0, hi: size.y, half: Math.max(size.x, size.z) / 2, mid: size.y / 2 }
     }
     this.room = { ...this.roomTarget }
+    this.cx = 0
     const restHalf = next.kind === 'hero' ? next.loaded.hero.width * 0.4 : this.roomTarget.half
     shadow.scale.setScalar(Math.max(0.7, restHalf * 1.8))
     this.pop = reducedMotion() ? 1 : 0
@@ -450,12 +542,12 @@ export class HeroStage {
     // Vertically, only the stage between the two insets is ours; across, all of it.
     const tanV = Math.tan((camera.fov * Math.PI) / 360) * (h - 2 * inset) / h
     const tanH = Math.tan((camera.fov * Math.PI) / 360) * camera.aspect
-    const { lo, hi, half } = this.room
-    const tall = hi - lo
-    const dist = Math.max((tall * 1.12) / 2 / tanV, (half * 2 * 1.08) / 2 / tanH)
-    const mid = (lo + hi) / 2
-    camera.position.set(0, mid + tall * 0.06, dist)
-    camera.lookAt(0, mid, 0)
+    const { lo, hi, half, mid } = this.room
+    // Centred on the figure (mid), with room for its reach either way of it.
+    const reach = Math.max(hi - mid, mid - lo)
+    const dist = Math.max((reach * 1.12) / tanV, (half * 2 * 1.08) / 2 / tanH)
+    camera.position.set(this.cx, mid + reach * 0.12, dist)
+    camera.lookAt(this.cx, mid, 0)
   }
 
   private frame() {
@@ -477,6 +569,8 @@ export class HeroStage {
         } else animator.update(dt, now / 1000)
       }
       hero.vrm.update(dt)
+      // Framed by where it is now, across: the middle of its outline.
+      this.cx = damp(this.cx, outlineMidX(hero), 30, dt)
       const { room } = s.loaded
       const move = this.playing ? room.moves.get(this.playing) : undefined
       this.roomTarget = move ? union(room.idle, move) : room.idle
@@ -486,7 +580,7 @@ export class HeroStage {
     const t = this.roomTarget, r = this.room
     const growing = t.hi > r.hi + 1e-3 || t.lo < r.lo - 1e-3 || t.half > r.half + 1e-3
     const rate = growing ? 9 : 2.5
-    this.room = { lo: damp(r.lo, t.lo, rate, dt), hi: damp(r.hi, t.hi, rate, dt), half: damp(r.half, t.half, rate, dt) }
+    this.room = { lo: damp(r.lo, t.lo, rate, dt), hi: damp(r.hi, t.hi, rate, dt), half: damp(r.half, t.half, rate, dt), mid: damp(r.mid, t.mid, 2.5, dt) }
     this.inset = Math.abs(this.inset - this.insetTarget) < 0.5 ? this.insetTarget : damp(this.inset, this.insetTarget, 6, dt)
     if (s?.kind === 'sculpt') s.obj.rotation.y += dt * (reducedMotion() ? 0.3 : 1.1)
     if (s && this.pop < 1) {
@@ -495,6 +589,8 @@ export class HeroStage {
       ;(s.kind === 'hero' ? s.loaded.hero.root : s.obj).scale.setScalar(k)
     }
     shadow.visible = !!s
+    // The contact shadow stays under the hero wherever a clip takes it.
+    shadow.position.x = this.cx
     this.aim()
     renderer?.render(scene, camera)
   }
