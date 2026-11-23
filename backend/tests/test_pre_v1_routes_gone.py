@@ -57,7 +57,15 @@ def test_no_old_route_is_mounted():
     paths = set(app.openapi()["paths"])
     assert "/api/v1/heroes" in paths     # the listing is the app's whole surface
     assert not [p for p in paths if p.startswith(old)]
-    assert [p for p in paths if p.startswith("/api/payments")] == ["/api/payments/webhook"]
+    # The providers calling us: Lemon Squeezy's webhook, the Grow-shaped
+    # callback, and grow_sandbox's fake hosted page (404 unless armed).
+    assert sorted(p for p in paths if p.startswith("/api/payments")) == [
+        "/api/payments/grow/callback",
+        "/api/payments/sandbox/checkout/{order_id}",
+        "/api/payments/sandbox/checkout/{order_id}/fail",
+        "/api/payments/sandbox/checkout/{order_id}/pay",
+        "/api/payments/webhook",
+    ]
 
 
 def test_the_lemon_squeezy_webhook_is_still_there(monkeypatch):

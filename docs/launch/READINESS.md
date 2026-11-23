@@ -19,6 +19,17 @@ already running. It put `main` on the production backend for ten minutes until
 the old build was redeployed by id. Change production variables with
 `skipDeploys`, then redeploy the running deployment by id.
 
+**Until Grow's API arrives: `PAYMENTS_PROVIDER=grow_sandbox`** (2026-11-23).
+Our own test mode, priced in shekels (one hero ₪10, family of five ₪39, class
+seats ₪10 a child from 10 children). A checkout stores our order and opens a
+fake page marked "TEST — no real money"; Pay makes the backend sign a
+Grow-shaped callback and run it through the real callback handler
+(`/api/payments/grow/callback`), which grants from the stored order, not from
+the callback. It refuses to arm on production and without
+`GROW_SANDBOX_SECRET`. Unset, `PAYMENTS_PROVIDER` is `lemonsqueezy` and nothing
+changes. Proof: `backend/tests/test_payments_sandbox.py`. When Grow's docs
+arrive, replace `grow_sandbox.verify_callback` with their real check.
+
 ## 1. Ready and proven
 
 | What | Proof |
