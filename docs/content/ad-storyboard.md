@@ -177,3 +177,22 @@ the grid, except for the call window.
 
 Then run the gate again, with item 4 checked on the whole frame, not only
 inside the band. If that passes, show Raz.
+
+## v4: Maya's five changes (Tom)
+
+![9:16](img/ad01-v4-keys-9x16.jpg)
+
+![4:5](img/ad01-v4-keys-4x5.jpg)
+
+Done: 1 the call on the axis above Violet (x 408–672, y 528–912), Violet from
+y 940 to the band's foot. 2 the painting's figure as tall as the drawing inside
+the polaroid. 3 9:16 beat 2 is two steps, each half the band (440 px). 4 9:16
+beat 4 is three 300 px rows, each sentence on its row's middle line, each pair
+one block on the axis, then Make a hero. 5 4:5 row at 300 px, edge to edge,
+centred in the band (beat 4: the row, its sentences and the button centred
+together).
+
+**Gate, whole frame.** 1 pass. 2 pass. 3 pass. 5 pass. 4: inside the band,
+pass. Below the band, y 1488 to 1920 in 9:16, nothing is placed, because
+Instagram's caption covers it (your note 1). In 4:5 beat 2, the row is 330 px
+tall in a 675 px band, so 170 px stays above and below it for about 1.5 s.
