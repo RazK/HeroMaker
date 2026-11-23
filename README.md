@@ -81,7 +81,6 @@ That's it! The API is now available at `http://localhost:8000`.
 - Live facial tracking and body pose detection
 
 ### 📦 Creation Gallery
-![Gallery Demo](docs/assets/gallery_demo.webp)
 - Browse all your creations
 - Quick access to completed avatars
 - Download VRM files
