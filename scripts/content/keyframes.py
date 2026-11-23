@@ -2,11 +2,12 @@
 
 Each still is an edit of reference images (Maya, the kitchen, the drawing, the
 painting, Violet) so the same girl appears every time. Runs shots in parallel.
-usage: python keyframes.py outdir [shot ...]
+usage: CONTENT_WORK=<work dir> python keyframes.py outdir [shot ...]
 """
 import base64, concurrent.futures as cf, json, os, subprocess, sys
 
-S = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# The working folder that holds child/, violet/ and v_alpha/ (see docs/content/README.md).
+S = os.environ.get("CONTENT_WORK", ".")
 OUT = sys.argv[1]
 os.makedirs(OUT, exist_ok=True)
 MAYA = f"{S}/child/facetime.png"        # the girl, kitchen
@@ -40,7 +41,7 @@ SHOTS = {
 
 def run(shot):
     refs, desc = SHOTS[shot]
-    args = ["curl", "-s", "https://api.openai.com/v1/images/edits", "-H", "Authorization: Bearer sk-proxy",
+    args = ["curl", "-s", "https://api.openai.com/v1/images/edits", "-H", "Authorization: Bearer proxy-injected",
             "-F", "model=gpt-image-2", "-F", "size=1536x1024", "-F", "quality=high",
             "--form-string", f"prompt={LOOK} {desc}"]
     for r in refs:
