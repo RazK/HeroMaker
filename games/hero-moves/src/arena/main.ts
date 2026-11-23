@@ -48,6 +48,8 @@ const OWN_DRAWING = OWN_HERO ? OWN_HERO.replace(/[^/?#]+(\?.*)?$/, 'thumb_origin
  * The drawing itself hangs on the wall behind the hero, once (Raz, 2026-11-23).
  */
 const SHARED = params.get('via') === 'share' && !!OWN_DRAWING
+/** The app's make flow, where a family from a share makes their own hero. */
+const MAKE_PATH = '/?make=1'
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
@@ -83,9 +85,12 @@ app.innerHTML = `
         <div class="rr-start-slot"></div>
       </div>
       <div class="rr-card rr-card--end tb-panel">
-        <div class="tb-eyebrow rr-end-eyebrow">Time’s up!</div>
+${SHARED ? '' : '<div class="tb-eyebrow rr-end-eyebrow">Time’s up!</div>'}
         <div class="rr-end-score"><span class="rr-end-value">0</span><span class="rr-end-label">points</span></div>
-        <div class="rr-line rr-end-best">Best 0</div>
+        ${SHARED
+          // A family from a shared link: the promise, then the way to make their own.
+          ? `<div class="rr-line"><span class="rr-end-who">A kid</span> drew ${esc(HERO_NAME)} on paper.<br>Your kid’s drawing can come alive too!</div>`
+          : '<div class="rr-line rr-end-best">Best 0</div>'}
         <div class="rr-end-buttons"></div>
       </div>
     </div>
@@ -119,8 +124,9 @@ const artistReady: Promise<void> = (async () => {
   } catch { /* "A kid" stays */ }
   if (!ARTIST) return
   const who = ARTIST.age ? `${ARTIST.name}, ${ARTIST.age},` : ARTIST.name
-  const whoEl = app.querySelector('.rr-story-who')
-  if (whoEl) whoEl.textContent = who
+  for (const el of app.querySelectorAll('.rr-story-who')) el.textContent = who
+  const endWho = app.querySelector('.rr-end-who')
+  if (endWho) endWho.textContent = ARTIST.name
 })()
 const startBtn = tbButton('Start', { icon: 'play' })
 startBtn.classList.add('rr-start')
@@ -128,7 +134,15 @@ startBtn.disabled = true
 app.querySelector('.rr-start-slot')!.replaceWith(startBtn)
 const againBtn = tbButton('Play again', { icon: 'redo' })
 againBtn.classList.add('rr-again')
-app.querySelector('.rr-end-buttons')!.append(tbButton('Back', { kind: 'secondary', onClick: goBack }), againBtn)
+if (SHARED) {
+  // Play again steps back to second; making their own is the primary, last.
+  againBtn.classList.replace('tb-btn--primary', 'tb-btn--secondary')
+  const make = tbButton('Make my kid’s hero', { icon: 'camera', onClick: () => location.assign(MAKE_PATH) })
+  make.classList.add('rr-make')
+  app.querySelector('.rr-end-buttons')!.append(againBtn, make)
+} else {
+  app.querySelector('.rr-end-buttons')!.append(tbButton('Back', { kind: 'secondary', onClick: goBack }), againBtn)
+}
 const ringFill = app.querySelector<SVGCircleElement>('.rr-ring-fill')!
 const ringPct = app.querySelector<HTMLElement>('.rr-ring-pct')!
 
@@ -297,10 +311,12 @@ function finish() {
   if (isBest) writeBest(game.score)
   trackGameEnded('arena', game.time, game.score)
   app.querySelector('.rr-end-value')!.textContent = game.score.toLocaleString('en-US')
-  app.querySelector('.rr-end-eyebrow')!.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
+  const endEyebrow = app.querySelector('.rr-end-eyebrow')
+  if (endEyebrow) endEyebrow.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
   const s = game.stats
   const bopped = s.robots + s.mushrooms + s.bouncies + s.crates + s.balloons
-  app.querySelector('.rr-end-best')!.textContent = isBest
+  const bestEl = app.querySelector('.rr-end-best')
+  if (bestEl) bestEl.textContent = isBest
     ? `${bopped} bopped`
     : `Best ${best.toLocaleString('en-US')} · ${bopped} bopped`
   // A thumb still hammering Punch when time runs out must not land on Back:
@@ -499,6 +515,7 @@ function setProgress(f: number) {
  */
 ;(window as unknown as Record<string, unknown>).__arena = {
   start: (seed?: number) => start(seed),
+  finish: () => finish(),
   step: (n = 1, dt = 1 / 30, render = true) => { for (let i = 0; i < n; i++) frame(dt, render && i === n - 1) },
   state: () => {
     if (!game) return null

@@ -45,7 +45,7 @@ const LAYOUTS: Record<Layout, { xs: number[]; y: number; scale: number }> = {
 // three-quarter view (turned right) shows all of it beside the hero's head;
 // above the fans' heads, below the top of that view.
 const STAR: Record<Layout, { x: number; y: number; scale: number }> = {
-  portrait: { x: -0.6, y: 2.72, scale: 2.0 },
+  portrait: { x: -0.6, y: 2.84, scale: 1.9 },
   landscape: { x: 0, y: 1.75, scale: 2.1 },
 }
 export const CARD_SLOTS = LAYOUTS.portrait.xs.length
