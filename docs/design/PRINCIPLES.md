@@ -190,10 +190,12 @@ they are for.
     7"), the slide's own controls (the moves, the toy's) at the bottom end in
     one column rising upward, each as wide as the widest word, and the owner's
     ⋯ at the top end. Each sits equally far in from both edges it is near.
-49. **Chapters replace the dots.** One tile per slide (Drawing, Painting, 3D
-    hero, Toy), its picture and its name; the one in view is chosen. A tap
-    goes there; swipe, drag and the arrow keys still work. A desktop has them
-    as a 2x2 grid in a column beside the card; a phone as one row under it.
+49. **Chapters replace the dots.** One chip per slide (Drawing, Painting, 3D
+    hero, Toy), its name only: never its picture, which the card already
+    shows (Raz, 2026-11-23: "why do I see the same thing in the main screen
+    and in a side panel?"). The one in view is chosen. A tap goes there;
+    swipe, drag and the arrow keys still work. They are one row under the
+    card, on every size; wider than tall, Share and Play end that row.
 50. **The hero's own actions at the foot:** Share (secondary) and Play
     (primary), side by side, one width, Play last. Share is out of the ⋯; the
     ⋯ is shown only when it holds something for this viewer.

@@ -440,3 +440,30 @@
   .tb-games { --poster-h: clamp(120px, calc(100dvh - 196px), 320px); grid-template-columns: repeat(2, auto); justify-content: center; }
   .tb-game-pic { width: auto; height: var(--poster-h); }
 }
+
+/* Chapters are tabs, names only (Raz, 2026-11-23: the same picture in the
+   card and in a tile beside it is a duplicate). They are the app's chips
+   (the gallery's Editors' choice / My heroes), so they never read as the
+   action buttons. Phone: one row over Share and Play. Wider than tall, the
+   ready hero: the card on top, one row under it, the chips at the start and
+   Share and Play at the end. */
+.tb-hero-main .tb-chapter-pic { display: none; }
+.tb-hero-main .tb-chapters { gap: 8px; padding-bottom: var(--tb-depth-sm); }
+.tb-hero-main .tb-chapter,
+.tb-hero-main[data-state] .tb-chapter {
+  flex-direction: row; align-items: center; justify-content: center;
+  height: 36px; padding: 0 10px; border-radius: 999px;
+  border: 2px solid var(--tb-line); box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-line);
+}
+.tb-hero-main .tb-chapter[aria-current='true'],
+.tb-hero-main[data-state] .tb-chapter[aria-current='true'] { background: var(--tb-chosen); border-color: var(--tb-grape); box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
+.tb-hero-main .tb-chapter-label,
+.tb-hero-main[data-state] .tb-chapter-label { font-family: var(--tb-font-body); font-weight: 800; font-size: 14px; line-height: 18px; }
+@media (orientation: landscape) {
+  .tb-hero-main[data-state='ready'] > .tb-screen-body.tb-hero-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 20px; }
+  .tb-hero-main[data-state='ready'] .tb-hero-side { flex-direction: row; align-items: center; justify-content: space-between; gap: 24px; }
+  .tb-hero-main[data-state='ready'] .tb-chapters { flex: 0 1 auto; display: flex; gap: 10px; padding-bottom: var(--tb-depth-sm); }
+  .tb-hero-main[data-state='ready'] .tb-chapter { height: 40px; padding: 0 18px; }
+  .tb-hero-main[data-state='ready'] .tb-chapter-label { font-size: 16px; }
+  .tb-hero-main[data-state='ready'] .tb-hero-foot { flex: 0 0 min(46%, 652px); }
+}

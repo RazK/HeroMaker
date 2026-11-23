@@ -244,17 +244,6 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     };
   }, [mod, vrm]);
 
-  // The 3D hero's chapter shows the hero itself: one frame of it, taken once
-  // it is dancing on the stage (older stage modules cannot: the painting).
-  const [heroThumb, setHeroThumb] = useState<string | null>(null);
-  useEffect(() => {
-    if (!page || !shown || heroThumb) return;
-    const t = window.setTimeout(() => {
-      try { setHeroThumb(stage.current?.snapshot?.() ?? null); } catch { /* the painting stands in */ }
-    }, 900);
-    return () => window.clearTimeout(t);
-  }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // A move tapped before the hero was on stage plays as soon as it is.
   useEffect(() => {
     if (shown && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
@@ -506,19 +495,12 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
       data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
     />
   );
-  // The chapters: one tile per slide, its picture and its name, in place of
-  // the dots (Raz, 2026-11-22). The current one is chosen.
-  const chapterThumb = (s: Slide): { src: string; polaroid?: boolean } => {
-    if (s.key === 'drawing' || (s.key === 'painting' && !painted)) return { src: file('thumb_original.jpg'), polaroid: true };
-    if (s.key === 'painting') return { src: file(paintingThumb) };
-    if (s.key === 'hero') return { src: heroThumb ?? file(paintingThumb) };
-    return { src: figure?.initial?.files?.preview ?? file(paintingThumb) };
-  };
+  // The chapters: one tab per slide, its name only, in place of the dots.
+  // No picture: the card already shows the current one, and a picture of
+  // it again beside it is a duplicate (Raz, 2026-11-23). The current is chosen.
   const chapters = page && (
     <div className="tb-chapters" role="group" aria-label={`How ${heroName} was made`} style={{ ['--n' as string]: String(slides.length) } as CSSProperties}>
-      {slides.map((s, i) => {
-        const pic = chapterThumb(s);
-        return (
+      {slides.map((s, i) => (
           <button
             key={s.key}
             type="button"
@@ -527,11 +509,9 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
             aria-current={i === index ? 'true' : undefined}
             onClick={() => jump.current?.(i)}
           >
-            <span className="tb-chapter-pic"><SafeImg className={pic.polaroid ? 'tb-pol' : undefined} src={pic.src} alt="" draggable={false} /></span>
             <span className="tb-chapter-label">{CHAPTER_NAMES[s.key]}</span>
           </button>
-        );
-      })}
+      ))}
     </div>
   );
 
