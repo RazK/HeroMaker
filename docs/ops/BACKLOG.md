@@ -45,6 +45,14 @@ Newest first. When an item enters a sprint, move it to `SPRINT_LOG.md`.
   leads into it). Maya designs; Raz approves; then build. **Next sprint.**
 - **Interim:** show Raz the real Buy-credits → checkout → credits-land flow on
   staging (a morning video), so he sees payments function today.
+- **Two payment bugs found 2026-11-23 (owner: Gidi), to fix with this:**
+  1. The "Pick a pack" sheet hard-codes **"Payments by Lemon Squeezy"**
+     (`frontend/src/components/BuyCredits.tsx:115`), but staging (and maybe
+     production) sells through **Grow**. The label must follow the real
+     provider, or be generic. Visible to the buyer.
+  2. A **Grow order's receipt has `order_number = null`**, so a buyer's receipt
+     carries no reference to quote. Small backend fix: store the order id on the
+     receipt.
 
 ### Low-friction / anonymous start — carrots before sticks
 - **From:** Raz, 2026-11-23.
