@@ -329,13 +329,35 @@ export class HeroStage {
   private insetTarget = 0
   private inset = 0
 
+  /** Off screen (another slide of the hero page is showing), the stage draws
+   *  nothing: it drew every frame regardless, which on the drawing's slide
+   *  kept a phone's GPU busy for a hero nobody could see. */
+  private visibility: IntersectionObserver | null = null
+  private drawing = false
+
   constructor(private container: HTMLElement, private events: StageEvents = {}) {
     const r = getRenderer()
     container.appendChild(r.domElement)
     this.observer = new ResizeObserver(() => this.resize())
     this.observer.observe(container)
     this.resize()
-    r.setAnimationLoop(() => this.frame())
+    this.draw(true)
+    if (typeof IntersectionObserver !== 'undefined') {
+      this.visibility = new IntersectionObserver((entries) => {
+        const e = entries[entries.length - 1]
+        if (e) this.draw(e.isIntersecting)
+      })
+      this.visibility.observe(container)
+    }
+  }
+
+  private draw(on: boolean) {
+    if (on === this.drawing) return
+    this.drawing = on
+    // frame() caps its step at 0.1 s, so a hero coming back on screen picks
+    // up where it was rather than jumping through the time it was away.
+    if (on) this.last = performance.now()
+    getRenderer().setAnimationLoop(on ? () => this.frame() : null)
   }
 
   /** Show the 3D sculpt turning on the spot. Resolves once it is on screen. */
@@ -391,6 +413,8 @@ export class HeroStage {
     this.wanted = null
     this.put(null)
     this.observer.disconnect()
+    this.visibility?.disconnect()
+    this.drawing = false
     renderer?.setAnimationLoop(null)
     renderer?.domElement.remove()
   }
