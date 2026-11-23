@@ -1058,7 +1058,8 @@ try {
     if (movesSeen.hero !== 4) throw new Error(`${movesSeen.hero} of 4 moves inside the live hero's stage`);
     // The hero's page (proposal A): the name card at the card's bottom start,
     // the moves one column at its bottom end, inside the card; Share and Play
-    // at the foot, one width, Play last.
+    // one row of one width, Play last, below the card (taller than wide) or in
+    // the rail beside it (wider than tall, as at the robot's 1280x900).
     const shape = await page.evaluate(() => {
       const st = document.querySelector('.tb-live-stage').getBoundingClientRect();
       const name = document.querySelector('.tb-live-stage .tb-live-name').getBoundingClientRect();
@@ -1069,12 +1070,14 @@ try {
         nameIn: name.left > st.left && name.bottom < st.bottom && name.left - st.left < st.width / 3,
         namePad: [Math.round(name.left - st.left), Math.round(st.bottom - name.bottom)],
         column: moves.every((m) => Math.abs(m.left - moves[0].left) < 1 && Math.abs(m.width - moves[0].width) < 1 && m.right < st.right && m.bottom < st.bottom && m.left > st.left + st.width / 2),
-        foot: !!share && !!play && Math.abs(share.width - play.width) < 1 && Math.abs(share.top - play.top) < 1 && share.left < play.left && share.top >= st.bottom,
+        // Share then Play, one row, one width, Share first; adjacent to the
+        // card: below it (taller than wide) or in the rail beside it (wider).
+        foot: !!share && !!play && Math.abs(share.width - play.width) < 1 && Math.abs(share.top - play.top) < 1 && share.left < play.left && (share.top >= st.bottom - 1 || share.left >= st.right - 1),
       };
     });
     if (!shape.nameIn || Math.abs(shape.namePad[0] - shape.namePad[1]) > 2) throw new Error(`the name card is not at the card's bottom start: ${JSON.stringify(shape)}`);
     if (!shape.column) throw new Error(`the moves are not one column at the card's bottom end: ${JSON.stringify(shape)}`);
-    if (!shape.foot) throw new Error(`Share and Play are not side by side, one width, under the card: ${JSON.stringify(shape)}`);
+    if (!shape.foot) throw new Error(`Share and Play are not side by side, one width, below or beside the card: ${JSON.stringify(shape)}`);
     mark('game_ready');
 
     // A real tap on a move: it plays at once, no queue. Measured in the page,
