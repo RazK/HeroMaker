@@ -46,3 +46,18 @@ the painting joins it, the call, the end card with Make a hero.
 - Maya (the artist on the polaroid) is not a real child; the AI girl plays her.
 - Hugging Face free ZeroGPU quota: about two 5 s clips a day. PRO is $9/month.
 - `tools/mimic` repairs the pose model's left/right swap on a turn (tested).
+
+## Family film first cut (Sprint 1, due Tue 25 Nov on razk.github.io)
+
+`marketing/film/film.html` lays out a timeline of segments from a cut list
+(`marketing/film/cut.family-first.json`): `still` (a keyframe with a slow
+push-in), `seq` (a clip's frames), `screen` (the real app, recorded from
+staging, on a card, header cropped off), `split` (Violet on top, Maya under, one
+move, per Maya's look rules) and `end`. `games/hero-moves/tools/film-record.mjs
+<assetsDir> out.mp4` records it frame by frame, 9:16 by default.
+
+The assets folder holds `cut.json`, `kf/` (keyframe PNGs), `screen/` (frames of
+Violet's staging hero page at 16 fps), `end/` (drawing, painting cut-out,
+Violet), and the clips' frame folders. The first cut uses stills where the clip
+is not made yet; each night's free-quota clips replace them: F5 (the split)
+first, then F4 (the gasp) and F6 (Mom).

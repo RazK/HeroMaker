@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>HeroMaker family film</title>
+<!-- The family film (docs/content/scripts/family.md), 9:16 first.
+     A timeline of segments read from assets/cut.json; window.__film.set(t) poses
+     every layer for second t (nothing runs on a clock), recorded frame by frame
+     by games/hero-moves/tools/ad-record.mjs --page=film.
+     Segment kinds:
+       still  {src, zoom:[from,to], focus:[x,y]}   a keyframe with a slow push-in
+       seq    {dir, n, fps, ext, focus}             an image sequence (a clip, a render)
+       screen {src(video frames dir), n, fps, crop:[x,y,w,h]}  the real app, on a card
+       split  {top:{dir,n,fps,ext}, bottom:{...}}   Violet on top, Maya under, one move
+       end    {}                                    the three steps and Make a hero
+     Rules: Raz's timing (each beat holds 2.5 s or more, crossfades 0.4 s), text
+     only in the top band, nothing in the bottom 20% (Maya's look rules). -->
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Nunito:wght@800&display=swap" rel="stylesheet">
+<style>
+  :root { --cream: #fff6e9; --ink: #231942; --grape: #5b3df5; --grape-deep: #3a22b8; --lilac: #e9e3ff; --white: #fff; }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  #film { position: absolute; inset: 0; overflow: hidden; background: var(--cream); }
+  .layer { position: absolute; inset: 0; overflow: hidden; opacity: 0; }
+  .layer img { position: absolute; display: block; }
+  .cap { position: absolute; left: 0; right: 0; text-align: center; font-family: Barriecito, sans-serif; color: var(--ink); line-height: 1; }
+  .cap.on-photo { color: var(--white); text-shadow: 0 4px 24px rgba(35, 25, 66, .55); }
+  .card { position: absolute; border-radius: 48px; overflow: hidden; box-shadow: 0 24px 60px rgba(35, 25, 66, .25); background: var(--lilac); }
+  .btn { position: absolute; border-radius: 999px; background: var(--grape); color: var(--white); box-shadow: 0 10px 0 var(--grape-deep); display: flex; align-items: center; justify-content: center; font-family: Nunito, sans-serif; font-weight: 800; }
+  .sent { position: absolute; font-family: Barriecito, sans-serif; color: var(--ink); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="film"></div>
+<script>
+const q = new URLSearchParams(location.search)
+const W = +(q.get('w') || 1080), H = +(q.get('h') || 1920)
+const film = document.getElementById('film')
+Object.assign(film.style, { width: W + 'px', height: H + 'px' })
+const clamp = (x) => Math.max(0, Math.min(1, x))
+const ease = (x) => { x = clamp(x); return x * x * (3 - 2 * x) }
+const pad4 = (i) => String(i).padStart(4, '0')
+const XF = 0.4   // crossfade
+
+let CUT = null
+const layers = []
+function el(tag, cls, parent) { const e = document.createElement(tag); if (cls) e.className = cls; parent.appendChild(e); return e }
+function img(e, url) { if (e.getAttribute('src') !== url) e.src = url; return e.decode ? e.decode().catch(() => {}) : null }
+
+// Cover the frame with an image of natural size (iw, ih), scaled by z, keeping `focus` (0..1) in view.
+function cover(e, iw, ih, z, fx = 0.5, fy = 0.5) {
+  const s = Math.max(W / iw, H / ih) * z
+  const w = iw * s, h = ih * s
+  const x = Math.min(0, Math.max(W - w, W / 2 - fx * w)), y = Math.min(0, Math.max(H - h, H / 2 - fy * h))
+  Object.assign(e.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' })
+}
+
+function build() {
+  for (const seg of CUT.segments) {
+    const L = el('div', 'layer', film)
+    seg.el = L
+    if (seg.kind === 'still' || seg.kind === 'seq') seg.img = el('img', '', L)
+    if (seg.kind === 'screen') {
+      L.style.background = 'var(--cream)'
+      seg.card = el('div', 'card', L); seg.img = el('img', '', seg.card)
+    }
+    if (seg.kind === 'split') {
+      L.style.background = 'var(--lilac)'
+      seg.topImg = el('img', '', L); seg.botImg = el('img', '', L)
+    }
+    if (seg.kind === 'end') {
+      L.style.background = 'var(--cream)'
+      seg.pics = ['assets/end/drawing.png', 'assets/end/painting.png', 'assets/end/violet.png'].map((u) => { const i = el('img', '', L); i.src = u; return i })
+      seg.sents = ['You draw it.', 'We paint it.', 'It comes alive!'].map((t) => { const s = el('div', 'sent', L); s.textContent = t; return s })
+      seg.btn = el('div', 'btn', L); seg.btn.textContent = CUT.cta || 'Make a hero'
+    }
+    if (seg.caption) { seg.cap = el('div', 'cap' + (seg.kind === 'still' || seg.kind === 'seq' ? ' on-photo' : ''), L); seg.cap.textContent = seg.caption }
+  }
+}
+
+function frameOf(seg, t, src) {
+  const n = src.n, i = Math.min(n - 1, Math.max(0, Math.floor((t - seg.t0) * (src.fps || 16) * (src.speed || 1))))
+  return `${src.dir}/${pad4(i + (src.from || 0))}.${src.ext || 'png'}`
+}
+
+window.__film = {
+  async load(cut) {
+    CUT = typeof cut === 'string' ? await (await fetch(cut)).json() : cut
+    let t = 0
+    for (const s of CUT.segments) { s.t0 = t; s.t1 = t + s.dur; t = s.t1 - XF }
+    this.duration = t + XF
+    build()
+    await document.fonts.ready
+    return { duration: this.duration }
+  },
+  duration: 0,
+  async set(t) {
+    const waits = []
+    const capTop = H * 0.08, capSize = Math.round(W * 0.1)
+    for (const s of CUT.segments) {
+      const on = t >= s.t0 && t < s.t1
+      const a = on ? Math.min(ease((t - s.t0) / XF), s === CUT.segments.at(-1) ? 1 : ease((s.t1 - t) / XF)) : 0
+      s.el.style.opacity = s === CUT.segments[0] && on ? Math.min(1, ease((s.t1 - t) / XF) || 1) : a
+      if (!on) continue
+      const k = (t - s.t0) / s.dur
+      if (s.kind === 'still') {
+        const [z0, z1] = s.zoom || [1.0, 1.08]
+        waits.push(img(s.img, s.src))
+        cover(s.img, s.iw || 1536, s.ih || 1024, z0 + (z1 - z0) * ease(k), ...(s.focus || [0.5, 0.5]))
+      }
+      if (s.kind === 'seq') {
+        waits.push(img(s.img, frameOf(s, t, s)))
+        cover(s.img, s.iw, s.ih, s.zoom || 1, ...(s.focus || [0.5, 0.5]))
+      }
+      if (s.kind === 'screen') {
+        // The real app on a phone-sized card, centred in the visual band.
+        const [cx, cy, cw, ch] = s.crop, ch2 = H * 0.62, cw2 = ch2 * cw / ch
+        Object.assign(s.card.style, { left: (W - cw2) / 2 + 'px', top: H * 0.2 + 'px', width: cw2 + 'px', height: ch2 + 'px' })
+        waits.push(img(s.img, frameOf(s, t, s)))
+        const sc = cw2 / cw
+        Object.assign(s.img.style, { left: -cx * sc + 'px', top: -cy * sc + 'px', width: s.vw * sc + 'px', height: s.vh * sc + 'px' })
+      }
+      if (s.kind === 'split') {
+        // Maya's rule: 9:16 stacks Violet on top and Maya under, one move, one height.
+        const half = (H * 0.8 - H * 0.18) / 2
+        const top = H * 0.18
+        waits.push(img(s.topImg, frameOf(s, t, s.top)), img(s.botImg, frameOf(s, t, s.bottom)))
+        // Violet's render frame has air above and below her: size it by the figure (85% of the frame).
+        const vh = half / (s.top.fig || 0.85), vw = vh * s.top.iw / s.top.ih
+        Object.assign(s.topImg.style, { left: (W - vw) / 2 + 'px', top: top - (vh - half) * 0.6 + 'px', width: vw + 'px', height: vh + 'px' })
+        const bw = W, bh = W * s.bottom.ih / s.bottom.iw, bhCrop = half
+        Object.assign(s.botImg.style, { left: '0px', top: top + half + (bhCrop - bh) * (s.bottom.fy ?? 0.4) + 'px', width: bw + 'px', height: bh + 'px', clipPath: `inset(${-(bhCrop - bh) * (s.bottom.fy ?? 0.4)}px 0 ${bh + (bhCrop - bh) * (s.bottom.fy ?? 0.4) - bhCrop}px 0)` })
+      }
+      if (s.kind === 'end') {
+        const RH = W * 0.3, rows = [0, 1, 2].map((i) => H * 0.2 + i * (RH + 24))
+        const PW = RH, TW = W * 0.42, G = 36, x0 = (W - (PW + G + TW)) / 2
+        s.pics.forEach((p, i) => Object.assign(p.style, { left: x0 + 'px', top: rows[i] + 'px', width: PW + 'px', height: RH + 'px', objectFit: 'contain', opacity: ease((t - s.t0 - 0.2 - i * 0.25) / 0.4) }))
+        s.sents.forEach((e, i) => Object.assign(e.style, { left: x0 + PW + G + 'px', top: rows[i] + RH / 2 - W * 0.03 + 'px', fontSize: W * 0.055 + 'px', opacity: ease((t - s.t0 - 0.35 - i * 0.25) / 0.4) }))
+        const bw = W * 0.46, bh = W * 0.115
+        Object.assign(s.btn.style, { left: (W - bw) / 2 + 'px', top: rows[2] + RH + 56 + 'px', width: bw + 'px', height: bh + 'px', fontSize: W * 0.05 + 'px', opacity: ease((t - s.t0 - 1.1) / 0.4) })
+      }
+      if (s.cap) Object.assign(s.cap.style, { top: capTop + 'px', fontSize: capSize + 'px', opacity: ease((t - s.t0 - 0.3) / 0.4) })
+    }
+    await Promise.all(waits)
+  },
+}
+</script>
+</body>
+</html>

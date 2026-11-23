@@ -1,0 +1,131 @@
+{
+ "name": "family-first-cut",
+ "cta": "Make a hero",
+ "segments": [
+  {
+   "kind": "still",
+   "src": "assets/kf/1.1.png",
+   "dur": 3.0,
+   "zoom": [
+    1.0,
+    1.12
+   ],
+   "focus": [
+    0.4,
+    0.55
+   ]
+  },
+  {
+   "kind": "still",
+   "src": "assets/kf/1.2.png",
+   "dur": 2.8,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "focus": [
+    0.55,
+    0.5
+   ]
+  },
+  {
+   "kind": "still",
+   "src": "assets/kf/1.3.png",
+   "dur": 3.2,
+   "zoom": [
+    1.0,
+    1.06
+   ],
+   "focus": [
+    0.5,
+    0.45
+   ],
+   "caption": "You draw it."
+  },
+  {
+   "kind": "still",
+   "src": "assets/kf/2.1.png",
+   "dur": 2.8,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "focus": [
+    0.6,
+    0.5
+   ]
+  },
+  {
+   "kind": "screen",
+   "dir": "assets/screen",
+   "ext": "png",
+   "n": 399,
+   "fps": 16,
+   "from": 96,
+   "speed": 1.0,
+   "vw": 430,
+   "vh": 932,
+   "crop": [
+    8,
+    62,
+    414,
+    648
+   ],
+   "dur": 4.2,
+   "caption": "We paint it."
+  },
+  {
+   "kind": "still",
+   "src": "assets/kf/2.4.png",
+   "dur": 2.8,
+   "zoom": [
+    1.0,
+    1.08
+   ],
+   "focus": [
+    0.45,
+    0.45
+   ]
+  },
+  {
+   "kind": "split",
+   "dur": 5.0,
+   "caption": "It comes alive!",
+   "top": {
+    "dir": "assets/old_violet",
+    "ext": "png",
+    "n": 81,
+    "fps": 16,
+    "iw": 520,
+    "ih": 760
+   },
+   "bottom": {
+    "dir": "assets/old_maya",
+    "ext": "jpg",
+    "n": 81,
+    "fps": 16,
+    "from": 1,
+    "iw": 560,
+    "ih": 832,
+    "fy": 0.3
+   }
+  },
+  {
+   "kind": "still",
+   "src": "assets/kf/3.4.png",
+   "dur": 3.0,
+   "zoom": [
+    1.0,
+    1.06
+   ],
+   "focus": [
+    0.3,
+    0.42
+   ]
+  },
+  {
+   "kind": "end",
+   "dur": 3.6
+  }
+ ]
+}
