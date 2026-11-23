@@ -841,6 +841,9 @@ try {
       const again = page.getByRole('button', { name: /Try again/ });
       await again.waitFor({ timeout: 30000 });
       await again.click();
+      // The pause stays on screen until the retry is picked up; only then
+      // does a failed stage mean anything.
+      await page.locator('.tb-failed').waitFor({ state: 'detached', timeout: 60000 });
       await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
       mark('pipeline_end');
       heroName = await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText().catch(() => null);
