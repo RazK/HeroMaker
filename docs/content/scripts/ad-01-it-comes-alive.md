@@ -34,6 +34,10 @@ Owner: Tom (Content). Storyboard: Maya (Design). Go: PM, then Raz.
 | 5 | 12.0–13.5 | The call window grows: Maya laughs; Mom leans into the frame behind her, amazed. | (none) | AI video, last frame of shot 4 |
 | 6 | 13.5–15.0 | End card: the landing's row (drawing → painting → Violet) and Make a hero. | Make a hero | landing assets |
 
+Shots 2–4 and 6 follow Maya's grid and beats (`docs/content/ad-storyboard.md`,
+"Maya's notes"): one caption slot, the call window bottom-left in 9:16 and
+side by side in 4:5, the sentences once on the end card.
+
 Rules for every shot (`docs/design/PRINCIPLES.md`): one element moves, never a
 copy (#18); nothing overlaps (#11); no half-empty frames (#9, #26); the painting
 is its cut-out, never a beige box; the caption in one place and one size (#7);
