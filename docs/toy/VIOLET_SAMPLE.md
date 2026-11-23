@@ -8,8 +8,9 @@ Hero: Violet Volt, staging gallery (public), `model.glb` from the meshy_3d step.
 ## The file
 
 `violet_toy_5colour.3mf`: one watertight object, every triangle painted with one of
-5 filaments. Opens painted in Bambu Studio, OrcaSlicer (`paint_color`) and PrusaSlicer
-(`slic3rpe:mmu_segmentation`). Made by `scripts/toy/toyprep.py`; sliced with
+5 filaments. PrusaSlicer reads the paint (`slic3rpe:mmu_segmentation`) and slices it;
+the same triangles carry Bambu Studio / OrcaSlicer paint (`paint_color`), not yet
+opened in either. Made by `scripts/toy/toyprep.py`; sliced with
 PrusaSlicer 2.7.2 CLI and `scripts/toy/bambu_like.ini` (a Bambu P1S/X1C + AMS
 approximation: single nozzle, filament swaps, prime tower).
 
