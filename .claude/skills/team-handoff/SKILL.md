@@ -1,6 +1,6 @@
 ---
 name: team-handoff
-description: Use when one HeroMaker agent passes work to another (the product manager, Gidi on payments, Maya on design, the finance agent), or reports to Raz. Who is who, how to reach them, and how to write the message.
+description: Use when one HeroMaker agent passes work to another (the product manager, Gidi on payments and the books, Maya on design), or reports to Raz. Who is who, how to reach them, and how to write the message.
 ---
 
 # Team handoff
@@ -13,9 +13,8 @@ Names are the **session titles**. Check them with `get_session` or
 | Role | Owns | Does not |
 |---|---|---|
 | Product manager (the main HeroMaker session) | What we build and in what order (money check), the Sunday review, merging to `main`, robot-testing staging, asking Raz for promotion | Design pixels, the payments code |
-| Gidi · Payments | Checkout, the webhook, credits, receipts, payment providers (Lemon Squeezy, Grow) | Bookkeeping, design |
+| Gidi · Payments | All of HeroMaker's money: checkout, the webhook, credits, receipts, payment providers (Lemon Squeezy, Grow), **and the books** (a Google Sheet in Raz's Drive: every expense by category, income, budget questions, the money lines of the Sunday review). Payments Live comes before the books. | Paying or changing any account; putting amounts, card data or personal transactions in the repo; design |
 | Maya · Design | The design canvas, screens for phone and desktop, the brand book | Code merges without the PM, product scope |
-| Finance (when Raz opens it) | The books in a Google Sheet, read-only | Paying, changing accounts, writing to the repo's code |
 
 Compass (product docs) and Scout (PR review) are run on demand by the PM.
 
