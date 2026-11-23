@@ -68,6 +68,15 @@ Each rule has the date it was set.
   brokers the discussion (puts each deliverable in front of the right people,
   collects input, iterates) — synthesizes **one team decision**, and shows Raz
   the deliverables and the decision. (2026-11-23)
+- **Run the sprint autonomously; meet Raz between sprints.** Do NOT bring Raz
+  micro-decisions — that is the PM's job. Between sprints the PM shows the last
+  sprint's **results** and gets Raz's **approval for the next**. Inside the
+  sprint the PM collects deliverables, syncs, gives feedback, cross-reviews,
+  **decides**, and drives to the business goal (paid heroes/week). Raz may drop
+  in and steer a teammate; the PM still owns the management. **Every sprint ends
+  with clear progress and clear deliverables — no exceptions.** (2026-11-23)
+- **Never make Raz repeat a note.** A note given twice is a failure. Capture
+  every input in this file the same turn and apply it from then on. (2026-11-23)
 
 ## Words
 
