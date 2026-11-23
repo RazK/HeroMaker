@@ -52,8 +52,8 @@ the same files.
 ## Recommended: Elad's sample heroes (Nir, 2026-11-23)
 
 Raz, 2026-11-23: the framed drawings at the TLV museum event were **samples drawn by Elad**,
-an adult on the team. They are not children's drawings, so they are clean to use with
-Elad's OK. That OK is not yet recorded in writing.
+an adult on the team. They are not children's drawings, so they are clean to use.
+**Elad's OK for ads and prints: confirmed by Raz on 2026-11-23.**
 
 ![Elad's samples](cast_elad.png)
 
