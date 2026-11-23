@@ -42,6 +42,7 @@ button { font: inherit; color: inherit; }
 .rr-timer { min-width: 72px; justify-content: center; }
 .rr-timer.is-low { background: var(--tb-red); color: var(--tb-white); box-shadow: 0 var(--tb-depth-sm) 0 #8e1b1b; animation: rr-beat 1s ease-in-out infinite; }
 @keyframes rr-beat { 50% { transform: scale(1.06); } }
+.rr-title { text-decoration: none; justify-content: center; }
 .rr-screen[data-phase="play"] .rr-title,
 .rr-screen[data-phase="countdown"] .rr-title { display: none; }
 .rr-screen[data-phase="play"] .rr-pills,

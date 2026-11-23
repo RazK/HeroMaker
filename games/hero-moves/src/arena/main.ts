@@ -62,7 +62,7 @@ app.innerHTML = `
   <div class="tb-screen tb-screen--fit rr-screen" data-phase="loading">
     <header class="tb-header">
       <div class="tb-header-side rr-back-slot"></div>
-      <div class="tb-header-title rr-title">Robot Rumble</div>
+      <a class="tb-header-title rr-title tb-logo tb-logo-mark" href="/" aria-label="HeroMaker home"><img src="/app-icon.png" alt=""><span>HeroMaker</span></a>
       <div class="tb-header-side tb-header-side--end rr-pills">
         <div class="tb-credits rr-pill rr-score" aria-label="Score">${icon('star', 18)}<span class="rr-score-value">0</span></div>
         <div class="tb-credits rr-pill rr-timer" role="timer" aria-label="Time left">${icon('clock', 18)}<span class="rr-timer-value">1:15</span></div>
@@ -109,7 +109,11 @@ const timerEl = app.querySelector<HTMLElement>('.rr-timer')!
 const timerValue = app.querySelector<HTMLElement>('.rr-timer-value')!
 // The app's own parts (ui/tb.ts): the round back button, the big pill buttons,
 // the sheet grip. Primary last, as in every bottom bar of the app.
-app.querySelector('.rr-back-slot')!.append(tbNav('back', 'Back to your hero', goBack))
+// From a shared link there is no hero page of theirs to go back to: Back
+// goes to HeroMaker's home, the landing and the gallery (Raz, 2026-11-23).
+app.querySelector('.rr-back-slot')!.append(SHARED
+  ? tbNav('back', 'HeroMaker home', () => location.assign('/'))
+  : tbNav('back', 'Back to your hero', goBack))
 for (const card of app.querySelectorAll('.rr-card')) card.prepend(tbGrip())
 // Who drew it: the hero's public card says the child's first name and age
 // (Raz: "we asked for them so we would show them").
@@ -212,7 +216,7 @@ function aimCamera(dt: number, snap = false) {
   const sd = Math.max((heroH * 0.62 / 0.5) / 2 / tanS, ((g?.hero.width ?? 1) * 0.75) / (tanS * aspect)) + 0.8
   // A shared start sheet is shorter (no name: the tag under the hero has it),
   // so the stage is taller: look higher, and the hero and tag sit lower in it.
-  const showLook = new THREE.Vector3(hx, heroH * (SHARED ? 0.62 : 0.52), hz)
+  const showLook = new THREE.Vector3(hx, heroH * (SHARED ? 0.55 : 0.52), hz)
   const yaw = 0.32
   const showPos = showLook.clone().add(new THREE.Vector3(Math.sin(yaw) * sd, heroH * 0.25 + 0.3, Math.cos(yaw) * sd))
 
@@ -398,7 +402,7 @@ function frame(dtReal: number, render = true) {
   // The shared hero's name tag stands right under its feet on the start view.
   if (tagEl && game && (phase === 'menu' || phase === 'loading')) {
     const feet = game.pos.clone().project(camera)
-    tagEl.style.top = `${Math.round((1 - feet.y) / 2 * stageEl.clientHeight + 14)}px`
+    tagEl.style.top = `${Math.round((1 - feet.y) / 2 * stageEl.clientHeight + 6)}px`
   }
 
   // Performance: frame cost and draw calls, and a cheaper pixel ratio if the
