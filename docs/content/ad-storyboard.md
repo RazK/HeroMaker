@@ -47,4 +47,40 @@ landing's small polaroid (~130 px)? On in the ad.
 
 ## Maya's notes
 
-_(Maya: write here: what to change, the keyframes you want.)_
+Signed off with these changes (Maya, 2026-11-23). Run the gate at the top of
+`docs/design/PRINCIPLES.md` on every keyframe before it goes to Raz.
+
+**The grid (9:16 at 1080x1920; 4:5 the same at 1080x1350).** One centre axis.
+One caption slot, fixed: the top band (y 312–480 in 9:16), Barriecito, one size
+for all three sentences, never moving. Visuals live in y 528–1488. TikTok's
+right rail (x 912–1056, y 900–1536) stays empty in 9:16. The button is Nunito
+on the app's grape pill. No other fonts.
+
+1. **You draw it.** The gallery polaroid (white, -3°, "Maya, 7" in its margin),
+   920 px wide on the axis. The crayon is ON. Nothing else in the frame.
+2. **We paint it.** The same polaroid shrinks into the row's first slot (one
+   element, it moves; never a second copy). The row fills the width at 24 px
+   margins: polaroid, wavy grape arrow, the painting's cut-out (no box, no
+   background), arrow, an empty third slot. The arrows are the landing's
+   (straight line with a sine travelling along it).
+3. **It comes alive!** Violet grows out of the third slot until her height
+   fills the visual band (y 528–1488), on her contact shadow, on the axis. The
+   row fades out as she grows. Maya's call window has its own place: in 9:16
+   bottom-left, x 64–448, y 1560–1824, rounded 32 px, under Violet's feet and
+   clear of the rail. In 4:5, the two sit side by side as equal halves (Violet
+   left, call right), with no overlap at any frame.
+4. **The row and Make a hero.** The row from beat 2 is complete, with Violet in
+   the third slot. Under it, the three sentences ONCE, one under each picture
+   (like the landing on a phone), and Make a hero under them. The caption slot
+   is empty here, so no sentence shows twice.
+
+**The landing's third picture:** Violet alone. At 100–190 px the call window is
+a smudge, and the row's other two pictures are single things too. Keep the call
+for the ad.
+
+**The draw-on for the landing's small polaroid:** crayon OFF. At about 130 px a
+crayon covers a quarter of the drawing. Keep it ON in the ad.
+
+**What to fix from v1:** v1 shows a white card with a hard edge behind the
+painting in frame 3. Use the cut-out. The last frame of v1 has an empty band
+over the polaroid; beat 4 above replaces it.
