@@ -206,14 +206,22 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
   const slides = (await stage.getAttribute('data-slides')).split(',').map((k) => k.replace(/-.*$/, ''));
   const start = slides.indexOf(await stage.getAttribute('data-slide'));
   const out = [];
-  for (let i = 0; i < slides.length; i++) {
+  // Go to a chapter's slide by clicking its tile. The current chapter's own
+  // tile is display:none by design (a duplicate of the big view, Raz
+  // 2026-11-23), so when we are already on that slide there is nothing to
+  // click, and nothing to wait for.
+  const go = async (i) => {
+    if ((await stage.getAttribute('data-slide')) === slides[i]) return true;
     await page.locator('.tb-chapter').nth(i).click();
     // 20 s, not 5: the robot draws the 3D hero and the toy without a GPU
     // (software GL on CI), where a slide change on the toy hero took over 5 s
     // in runs 89-91. What this checks is WHERE a chapter goes, not how fast a
     // GPU-less machine gets there.
-    const landed = await page.waitForFunction((k) => document.querySelector('.tb-live-stage')?.getAttribute('data-slide') === k, slides[i], { timeout: 20000 })
+    return page.waitForFunction((k) => document.querySelector('.tb-live-stage')?.getAttribute('data-slide') === k, slides[i], { timeout: 20000 })
       .then(() => true, () => false);
+  };
+  for (let i = 0; i < slides.length; i++) {
+    const landed = await go(i);
     await page.waitForTimeout(settle);
     if (slides[i] === 'figure') await toyShown(page);
     const got = await slideProblems(page);
@@ -226,7 +234,7 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
     }
   }
   if (start >= 0) {
-    await page.locator('.tb-chapter').nth(start).click();
+    await go(start);
     await page.waitForTimeout(settle);
   }
   return out;
