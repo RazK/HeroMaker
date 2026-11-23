@@ -2,7 +2,8 @@
   "$meta": {
     "name": "עברית",
     "dir": "rtl",
-    "font": "Amatic SC"
+    "font": "Amatic SC",
+    "bodyFont": "Rubik"
   },
   "shareVideo.f1.title": "{hasChild, select, yes {{childGender, select, female {{child} ציירה משהו…} male {{child} צייר משהו…} other {הציור של {child}…}}} other {תראו את הציור הזה…}}",
   "shareVideo.f2.title": "רגע… מה קורה פה?!",

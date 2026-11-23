@@ -14,7 +14,9 @@
  */
 
 /* Titles and buttons are set in Barriecito, HeroMaker's brand face. It has one
-   weight; never let the browser fake a bold of it. Hebrew falls back to Fredoka. */
+   weight; never let the browser fake a bold of it. Hebrew glyphs fall through
+   the stack: titles to Amatic SC 700, text to Rubik (neither Barriecito nor
+   Nunito has Hebrew). docs/design/LOCALIZATION.md. */
 html { font-synthesis: none; }
 
 :root {
@@ -47,8 +49,8 @@ html { font-synthesis: none; }
   --tb-dance: #d6247f;        /* Dance party: magenta; white text on it, 4.8:1 */
   --tb-dance-deep: #1e0b3a;   /* its night-club dark */
 
-  --tb-font-display: 'Barriecito', 'Fredoka', 'Nunito', system-ui, sans-serif;
-  --tb-font-body: 'Nunito', system-ui, sans-serif;
+  --tb-font-display: 'Barriecito', 'Amatic SC', 'Fredoka', 'Nunito', system-ui, sans-serif;
+  --tb-font-body: 'Nunito', 'Rubik', system-ui, sans-serif;
 
   --tb-gutter: 20px;
   /* The one vertical rhythm: visible space above and below the header, between
