@@ -211,8 +211,20 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
   // 2026-11-23), so when we are already on that slide there is nothing to
   // click, and nothing to wait for.
   const go = async (i) => {
-    if ((await stage.getAttribute('data-slide')) === slides[i]) return true;
-    await page.locator('.tb-chapter').nth(i).click();
+    // Wait until we are on that slide already, or its tile can be clicked.
+    // Checking data-slide once and then clicking raced a slide still
+    // settling: it landed on the target just after the check, its tile went
+    // display:none, and the click waited 30 s for a hidden tile (run #118).
+    const ready = await page.waitForFunction((n) => {
+      const k = document.querySelector('.tb-live-stage')?.getAttribute('data-slide');
+      const tile = document.querySelectorAll('.tb-chapter')[n];
+      if (tile && k === tile.dataset.chapter) return 'here';
+      return tile && tile.getBoundingClientRect().width > 0 ? 'tile' : false;
+    }, i, { timeout: 20000 }).then((h) => h.jsonValue(), () => 'tile');
+    if (ready === 'here') return true;
+    // Short, and not fatal: if the slide lands on the target between the wait
+    // and the click, the tile hides again; the check below says where we are.
+    await page.locator('.tb-chapter').nth(i).click({ timeout: 5000 }).catch(() => {});
     // 20 s, not 5: the robot draws the 3D hero and the toy without a GPU
     // (software GL on CI), where a slide change on the toy hero took over 5 s
     // in runs 89-91. What this checks is WHERE a chapter goes, not how fast a
