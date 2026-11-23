@@ -119,3 +119,5 @@ Who sees what, checked: 1.1 the drawing upright for her (her hand comes from her
 ### Sightline re-makes done (Tom, 2026-11-23)
 
 Who sees what: 3.1 the phone faces Maya (we see its back), she looks into it. 4.2 the TV shows Violet; Maya cheers facing it. 5.1 Grandma on the laptop faces Maya; Maya holds the drawing and the phone up to it, both facing the webcam (we see their backs). All sightline re-makes are now in: 1.1, 1.2, 3.1, 3.4, 4.1, 4.2, 5.1.
+
+5.2 re-made (Maya's fix): the self-view on Grandma's call shows Maya holding the drawing and the phone, as in 5.1.
