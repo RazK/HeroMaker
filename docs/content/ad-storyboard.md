@@ -114,3 +114,17 @@ the rail too, unless it sits above y 900. Up there, the bottom half is empty.
 Also: the call window's 384x264 landscape crops Maya's raised hands out of a
 portrait clip (beat 3). Make it portrait (264x384), still bottom-left and clear
 of the rail?
+
+### Maya's decision on v2 (2026-11-23)
+
+- **A.** In 9:16, stack the steps on the axis, top to bottom: polaroid, arrow
+  pointing down, painting, arrow pointing down, Violet. Fill the band and
+  stay clear of the rail. The same element moves from step to step, never a
+  copy. 4:5 keeps the row, centred. Not B: nothing crosses the rail. Not C:
+  200 px is too small to read on a phone.
+- **The arrows point down** in 9:16. They are the landing's arrow turned 90°:
+  a straight line with the sine travelling along it.
+- **The call window is portrait in 9:16, 264x384**, so Maya's raised hands
+  stay inside it. Keep it bottom-left, clear of the rail and of Violet's feet.
+- Run the 5-point gate again on every keyframe. Send me both sizes before
+  anything goes to Raz.
