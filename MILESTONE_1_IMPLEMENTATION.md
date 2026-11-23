@@ -49,9 +49,9 @@
 8. **Main App** (`backend/app/main.py`)
    - Added auth router
 
-9. **Migration Script** (`backend/scripts/migrate_debug_user.py`)
+9. **Migration Script** (`backend/scripts/migrate_debug_user.py`, deleted 2026-11-23)
    - Converts debug user to real authenticated account
-   - Sets password: `HeroMaker1337!`
+   - Sets password: (removed: it was public; see docs/engineering/CLEANUP.md)
    - Sets tokens: 1000
    - Migrates all creations to debug user
 
@@ -104,7 +104,7 @@
    #    Username: debug
    #    Email: debug@heromaker.local
    #    Tokens: 1000
-   #    Password: HeroMaker1337!
+   #    Password: (removed)
    # ✅ All creations belong to debug user
    ```
 
@@ -130,7 +130,7 @@
    - [ ] Login returns JWT token
    - [ ] `/api/auth/me` returns user info with JWT
    - [ ] `/api/auth/me` returns 401 without JWT
-   - [ ] Debug user can login with password `HeroMaker1337!`
+   - [ ] Debug user can login with password (removed: it was public; see docs/engineering/CLEANUP.md)
    - [ ] Debug user has 1000 tokens
    - [ ] All existing creations belong to debug user
 
@@ -156,7 +156,7 @@
    6. Verify header shows username and tokens (should be 0)
    7. Try to upload an image (should work - no token check yet in M1)
    8. Logout
-   9. Login with debug user (username: debug, password: HeroMaker1337!)
+   9. Login with debug user (username: debug, password: removed)
    10. Verify debug user has 1000 tokens
    11. Verify existing creations are visible
 
