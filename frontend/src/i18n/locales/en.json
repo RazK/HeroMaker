@@ -4,7 +4,7 @@
     "dir": "ltr",
     "font": "Barriecito"
   },
-  "shareVideo.f1.title": "{hasChild, select, yes {{child} drew something…} other {Someone drew something…}}",
+  "shareVideo.f1.title": "{hasChild, select, yes {{child} drew something…} other {Look what I drew!}}",
   "shareVideo.f2.title": "Wait… what?!",
   "shareVideo.f3.poof": "Poof!",
   "shareVideo.f4.title": "It came alive!",
