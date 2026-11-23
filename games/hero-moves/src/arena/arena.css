@@ -42,6 +42,7 @@ button { font: inherit; color: inherit; }
 .rr-timer { min-width: 72px; justify-content: center; }
 .rr-timer.is-low { background: var(--tb-red); color: var(--tb-white); box-shadow: 0 var(--tb-depth-sm) 0 #8e1b1b; animation: rr-beat 1s ease-in-out infinite; }
 @keyframes rr-beat { 50% { transform: scale(1.06); } }
+.rr-title { text-decoration: none; justify-content: center; }
 .rr-screen[data-phase="play"] .rr-title,
 .rr-screen[data-phase="countdown"] .rr-title { display: none; }
 .rr-screen[data-phase="play"] .rr-pills,
@@ -148,7 +149,7 @@ button { font: inherit; color: inherit; }
 .rr-screen[data-phase="end"] .rr-card--end { display: flex; }
 .rr-card .tb-eyebrow { text-align: center; }
 .rr-hero-name { text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rr-line { text-align: center; font-size: 16px; color: var(--tb-ink-2); font-weight: 700; }
+.rr-line { text-align: center; line-height: 1.35; font-size: 16px; color: var(--tb-ink-2); font-weight: 700; }
 .rr-chips { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .rr-chip { display: inline-flex; align-items: center; gap: 6px; height: 36px; font-size: 15px; pointer-events: none; }
 .rr-chip svg { color: var(--tb-grape); }
@@ -366,3 +367,10 @@ button { font: inherit; color: inherit; }
 @media (max-width: 380px) {
   .rr-controls { --rr-d: 92px; }
 }
+
+/* A shared hero's name tag (?via=share): under the hero on the start view,
+   flies up and away when the round starts. */
+.rr-tag { position: absolute; left: 50%; top: 70%; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 20px 10px; background: var(--tb-white); border-radius: 18px; box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-line); transform: translateX(-50%) rotate(-2deg); transition: transform 420ms cubic-bezier(.5, -0.4, .7, 1), opacity 420ms; pointer-events: none; white-space: nowrap; }
+.rr-tag-name { font-family: var(--tb-font-display); font-size: 26px; line-height: 1; color: var(--tb-ink); }
+.rr-tag-by { font-size: 15px; font-weight: 700; color: var(--tb-ink-2); }
+.rr-screen:not([data-phase="menu"]):not([data-phase="loading"]) .rr-tag { opacity: 0; transform: translateX(-50%) translateY(-160px) rotate(-12deg) scale(.6); }
