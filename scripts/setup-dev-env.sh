@@ -15,7 +15,7 @@ fi
 
 if [ -f "backend/requirements.txt" ]; then
     echo "Installing backend Python dependencies"
-    .venv/bin/pip install -r backend/requirements.txt
+    .venv/bin/pip install -r backend/requirements-dev.txt
 fi
 
 if [ -f "frontend/package-lock.json" ]; then

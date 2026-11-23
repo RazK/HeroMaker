@@ -8,9 +8,9 @@ WORKDIR /app
 # line before a hang is the one that says where it hung.
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies (gcc for building, postgresql-client for backups)
+# Install system dependencies (postgresql-client for backups). No compiler:
+# every Python dependency ships a wheel for this Python.
 RUN apt-get update && apt-get install -y \
-    gcc \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,8 +23,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend application code
 COPY app/ ./app/
 
-# Copy scripts for maintenance tasks (backups, migrations, etc.)
-COPY scripts/ ./scripts/
+# backend/scripts/ is not copied: the workflows run those scripts from the CI
+# checkout with `railway run`, which only borrows this service's variables.
 
 # Create data directories if they don't exist (will be mounted as volume)
 RUN mkdir -p /app/data/files /app/data/db

@@ -1,0 +1,4 @@
+# What the tests need on top of the app's own requirements. CI and local
+# development install this; the production image installs requirements.txt.
+-r requirements.txt
+pytest>=7.4.0
