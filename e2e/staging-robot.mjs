@@ -798,6 +798,10 @@ try {
     await snap(page, 'free-painting-paused');
     const balance = await creditsShown(page);
     if (balance !== 0) throw new Error(`balance after the free painting is ${balance}, want 0`);
+    // Home again, as after any other step: the paused hero's own Buy credits
+    // button would be a second match for the buy step's menu row.
+    await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
+    await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
     return 'with 0 credits: Make my hero (no cost shown), the painting made free, paused before 3D (not_enough_credits), balance still 0';
   });
 
