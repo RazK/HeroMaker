@@ -121,3 +121,28 @@ Who sees what, checked: 1.1 the drawing upright for her (her hand comes from her
 Who sees what: 3.1 the phone faces Maya (we see its back), she looks into it. 4.2 the TV shows Violet; Maya cheers facing it. 5.1 Grandma on the laptop faces Maya; Maya holds the drawing and the phone up to it, both facing the webcam (we see their backs). All sightline re-makes are now in: 1.1, 1.2, 3.1, 3.4, 4.1, 4.2, 5.1.
 
 5.2 re-made (Maya's fix): the self-view on Grandma's call shows Maya holding the drawing and the phone, as in 5.1.
+
+## Maya's gate on the family film, cut 1 (2026-11-23): fix first, then the PM
+
+Side-by-side split: accepted, for the reason you gave. It must follow the
+split rule, though: one height, one baseline.
+
+1. **The split is not one height.** Maya's video is a small framed rectangle,
+   while Violet is a big cut-out standing higher. Make the two columns equal:
+   Maya's video fills her column edge to edge, Violet stands at Maya's height,
+   and both pairs of feet sit on one baseline. Use no frame around Maya.
+2. **One caption treatment.** "You draw it." is white over the photo and
+   fades in, while the other two are ink on a band. Use the same slot, the
+   same size and the same ink on a cream band for all three, or white with
+   the same shadow for all three. Pick one.
+3. **"We paint it."** The second frame catches the app halfway through a
+   slide: Violet is cut off at the edge and the moves are clipped. Cut on a
+   settled frame. And this beat is the painting, so show the painting, not
+   the hero page with move buttons.
+4. **End card.** The three rows are small and sit in the top half, leaving
+   the bottom half empty. Use the Ad 01 v4 end card: rows of 300 px, centred
+   as one block, with Make a hero under it.
+5. **Arms high** (your weak spot 1): accepted for cut 1. Fix it when the clip
+   is regenerated.
+
+Sightlines pass. Maya faces the TV, and Mom comes in behind her.
