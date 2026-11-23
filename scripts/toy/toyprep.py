@@ -3,7 +3,7 @@
   toyprep.py model.glb outdir --height=100 --colours=5
 
 1. scale to `height` mm, Z up, feet on the bed
-2. repair to watertight (MeshFix), union with the base (manifold3d); report thin walls
+2. repair: fill small holes; else MeshFix; else (MeshFix dropped parts) voxel remesh
 3. optional round base under the feet (stability + bed adhesion)
 4. sample the hero's texture onto the new triangles
 5. choose N filaments from a real catalogue that best reproduce the texture
@@ -110,9 +110,63 @@ def main():
     import pymeshfix, manifold3d
     pre = trimesh.Trimesh(V, F, process=False)
     pre.merge_vertices(merge_tex=True, merge_norm=True)
-    fx = pymeshfix.MeshFix(np.asarray(pre.vertices, float), np.asarray(pre.faces, np.int32))
-    fx.repair(joincomp=True, remove_smallest_components=False)
-    m = trimesh.Trimesh(fx.points, fx.faces, process=True)
+    # small holes: fill them in place (keeps every part); MeshFix only if that is not enough,
+    # because MeshFix drops whatever it cannot join (it took a bear's ear and leg)
+    m = pre.copy(); m.remove_unreferenced_vertices()
+    # fan-fill every boundary loop around its centroid, each new triangle wound
+    # opposite to the existing face on its boundary edge (keeps the winding consistent)
+    import networkx as nx
+    directed = set()
+    for f in m.faces:
+        directed.update({(f[0], f[1]), (f[1], f[2]), (f[2], f[0])})
+    edges = m.edges_sorted[trimesh.grouping.group_rows(m.edges_sorted, require_count=1)]
+    G = nx.Graph(); G.add_edges_from(map(tuple, edges))
+    V2 = list(m.vertices); F2 = list(m.faces)
+    for comp in nx.connected_components(G):
+        sub = G.subgraph(comp)
+        if any(d != 2 for _, d in sub.degree()):
+            continue
+        cyc = [e[0] for e in nx.find_cycle(sub)]
+        c = len(V2); V2.append(m.vertices[cyc].mean(0))
+        for a_, b_ in zip(cyc, cyc[1:] + cyc[:1]):
+            F2.append([b_, a_, c] if (a_, b_) in directed else [a_, b_, c])
+    m = trimesh.Trimesh(np.array(V2), np.array(F2), process=False)
+    trimesh.repair.fix_normals(m)
+    ok = False
+    if m.is_watertight:
+        if m.volume < 0:
+            m.invert()
+        mm_ = manifold3d.Manifold(manifold3d.Mesh(vert_properties=m.vertices.astype(np.float32), tri_verts=m.faces.astype(np.uint32)))
+        ok = mm_.status() == manifold3d.Error.NoError
+    if ok:
+        report["repair"] = "fill_holes"
+    else:
+        fx = pymeshfix.MeshFix(np.asarray(pre.vertices, float), np.asarray(pre.faces, np.int32))
+        fx.repair(joincomp=True, remove_smallest_components=False)
+        mf_ = trimesh.Trimesh(fx.points, fx.faces, process=True)
+        # did MeshFix throw parts away? (it took a bear's ear and leg)
+        from scipy.spatial import cKDTree
+        smp = pre.sample(20000)
+        lost = float((cKDTree(mf_.sample(200000)).query(smp)[0] > 1.0).mean())
+        report["meshfix_lost_pct"] = round(100 * lost, 2)
+        if lost < 0.01:
+            m = mf_; report["repair"] = "meshfix"
+        else:
+            # voxelise the hole-filled surface (winding does not matter), smooth, remesh
+            from scipy import ndimage
+            from skimage import measure
+            import fast_simplification
+            pitch = 0.25
+            vox = m.voxelized(pitch).fill()
+            grid = np.pad(vox.matrix, 4); org = vox.transform[:3, 3] - 4 * pitch
+            field = ndimage.gaussian_filter(grid.astype(np.float32), 0.8)
+            vv, ff, _, _ = measure.marching_cubes(field, 0.5)
+            vv = vv * pitch + org
+            vv, ff = fast_simplification.simplify(vv.astype(np.float32), ff.astype(np.int32), target_reduction=max(0.0, 1 - 150000 / len(ff)))
+            fx = pymeshfix.MeshFix(np.asarray(vv, float), np.asarray(ff, np.int32))
+            fx.repair(joincomp=True, remove_smallest_components=True)
+            m = trimesh.Trimesh(fx.points, fx.faces, process=True)
+            report["repair"] = "voxel"
     if m.volume < 0:
         m.invert()
     def to_man(t):
@@ -152,7 +206,8 @@ def main():
     # ---- colour transfer ---------------------------------------------------
     src.vertices[:, 2] += (a.base - 1.0) if a.base > 0 else 0
     cen = m.triangles_center
-    closest, dist, tri = trimesh.proximity.closest_point(src, cen)
+    parts = [trimesh.proximity.closest_point(src, cen[i:i + 5000]) for i in range(0, len(cen), 5000)]
+    closest = np.concatenate([q[0] for q in parts]); dist = np.concatenate([q[1] for q in parts]); tri = np.concatenate([q[2] for q in parts])
     bary = trimesh.triangles.points_to_barycentric(src.triangles[tri], closest)
     uv = (UV[F[tri]] * bary[:, :, None]).sum(1)
     rgb = sample_tex(tex, uv)
