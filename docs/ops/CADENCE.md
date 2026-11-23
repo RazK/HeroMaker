@@ -22,13 +22,25 @@ description**. The one rule above all: *evidence over activity*
 ## What Raz gets — a demo video + a link, never text
 
 Raz asked for this on 2026-11-23: **a short demo video + a link he can click,
-not a written summary.** So:
+not a written summary.**
 
-- Each finished demo goes to Raz as a **short screen-capture / robot demo-mode
-  video + a staging link**, sent straight to him.
-- The PM's own message to Raz is at most: a one-line "today's demos" header, the
-  **one** thing (if any) the PM needs from him with the ask on top, and the KPI
-  if known (paid heroes this week). No 5-line write-ups.
+**The video is a presentation, not a screen dump** (Raz's spec, 2026-11-23,
+after a 50-second sped-up blur he could not follow):
+
+- **Tom (content) makes the demo videos** — not the dev. He owns the format and
+  a reusable template.
+- **Max 25–30 seconds.**
+- **Caption slide, then clip:** a full-screen text slide saying what you are
+  about to see, then a **~5-second** screen recording of that step **at real
+  speed**. Repeat per step.
+- **Never sped up.** If a step runs longer than 5s, trim it — do not speed it
+  up. He must be able to read and follow every moment.
+- On-brand (Toy Box), clear, like a product explainer.
+
+Each finished video goes to Raz with a staging link, sent straight to him. The
+PM's own message to Raz is at most: a one-line "today's demos" header, the
+**one** thing (if any) the PM needs from him with the ask on top, and the KPI
+if known (paid heroes this week). No 5-line write-ups.
 
 ## What a "working demo" means (the gate)
 
