@@ -140,8 +140,28 @@ def test_an_abandoned_request_stops_waiting_and_creates_nothing(network, clock):
     with pytest.raises(meshy.MeshyAPIError):
         client._request("POST", "/openapi/v1/image-to-3d", json={})
 
-    assert len(fake.calls) == 1
+    # An abandoned client sends nothing at all (since 2026-11-23: a timed-out
+    # step also stops its polling thread this way).
+    assert len(fake.calls) == 0
     assert clock.slept == []
+
+
+def test_a_request_abandoned_while_waiting_for_a_slot_creates_nothing(network, clock):
+    """Cancelled during the wait itself: the next try is never sent."""
+    fake = network(_full(), _Response(202, {"result": "task-nobody-wants"}))
+    client = meshy.MeshyClient(api_key="test")
+    real_sleep = clock.sleep
+
+    def sleep_then_cancel(seconds):
+        real_sleep(seconds)
+        client.abandon()
+
+    meshy.time.sleep = sleep_then_cancel   # restored by the clock fixture
+
+    with pytest.raises(meshy.MeshyAPIError):
+        client._request("POST", "/openapi/v1/image-to-3d", json={})
+
+    assert len(fake.calls) == 1, "a task was created after the step was cancelled"
 
 
 def test_a_caller_inside_a_web_request_is_told_busy_at_once(network, clock):
