@@ -32,6 +32,12 @@ These came straight from the product owner. They override your defaults.
   he approves *Promote to production*. Everything except his review is yours
   to automate.
 
+## Product: read docs/product/OPERATING.md before proposing work
+
+One KPI (paid heroes per week), a 5-line review to Raz every Sunday, pilots
+before A/B tests at our traffic, and one promise from the ad to the share
+page. Every request is checked against `docs/product/MONEY_MOMENTS.md`.
+
 ## Design: read docs/design/PRINCIPLES.md, then BRANDBOOK.md, before any UI work
 
 `docs/design/PRINCIPLES.md` is Raz's rules, written down so he never repeats them:
