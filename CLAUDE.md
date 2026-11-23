@@ -268,8 +268,9 @@ workflow that hard-codes one. See `docs/deployment/cicd.md`.
 `games/PLAYBOOK.md` before building one — it records the asset's constraints
 (22 bones, no fingers, no blendshapes, wildly varying proportions), the
 publishing constraints, what a 2D pose tracker can and cannot read on these
-avatars, and the process rules that came out of building them. `games/hero-dash`
-is parked; `games/README.md` says why and lists what to reuse from it.
+avatars, and the process rules that came out of building them. Hero Dash
+is parked (its code is on the `archive/hero-dash` branch); `games/README.md` says
+why and where its reusable parts live now.
 
 ### Two capabilities worth knowing about before you build anything
 
