@@ -4,6 +4,7 @@ import { openLegal } from './tb/Legal';
 import { Icon } from './tb/Icon';
 import { ConfirmDialog, NavButton, Sheet } from './tb/parts';
 import './ApiKeysSheet.css';
+import { useCopy } from '../hooks/useCopy';
 
 type Made = ApiKeyInfo & { key: string; webhook_secret: string };
 
@@ -17,10 +18,8 @@ const ago = (iso: string | null) => {
 
 /** A value to copy exactly: Nunito 800 (never Barriecito), and a Copy button. */
 function CopyBox({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(value); setCopied(true); } catch { window.prompt(label, value); }
-  };
+  const { copied, copy: copyText } = useCopy();
+  const copy = () => copyText(value, label);
   return (
     <div className="tb-field">
       <label>{label}</label>

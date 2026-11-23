@@ -9,6 +9,7 @@ import { Icon } from './Icon';
 import { Dialog, Header, NavButton, ProgressBar, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
 import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, refundWords, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
+import { useCopy } from '../../hooks/useCopy';
 
 // Admin only, and it carries three.js: loaded when opened.
 const PrintSplitSheet = lazy(() => import('./PrintSplit').then((m) => ({ default: m.PrintSplitSheet })));
@@ -161,7 +162,7 @@ export function HeroScreen(props: HeroScreenProps) {
   // one, read ahead (the gallery's thumbnail, usually cached) so the tap
   // shares at once: a read after the tap can outlive its permission to share.
   const pic = useRef<File | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy(4000);
   const canShareFiles = typeof navigator !== 'undefined' && !!navigator.canShare;
   useEffect(() => {
     pic.current = null;
@@ -179,11 +180,6 @@ export function HeroScreen(props: HeroScreenProps) {
       .catch(() => { /* the link alone */ });
     return () => { alive = false; };
   }, [creation.id, state]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!copied) return;
-    const t = window.setTimeout(() => setCopied(false), 4000);
-    return () => window.clearTimeout(t);
-  }, [copied]);
   const share = async () => {
     track('share_tapped', { hero_id: creation.id });
     // `?via=share` makes the visits a share brings their own door (G-6), so a
@@ -203,7 +199,7 @@ export function HeroScreen(props: HeroScreenProps) {
         if ((err as DOMException)?.name === 'AbortError') return;
       }
     }
-    try { await navigator.clipboard.writeText(url); setCopied(true); } catch { window.prompt('Copy the link', url); }
+    await copy(url, 'Copy the link');
   };
 
   const retryCost = remainingCost(creation);
@@ -462,7 +458,7 @@ export function HeroScreen(props: HeroScreenProps) {
 
 /** Admins only: what the provider really said, and the request ID to quote to its support. */
 function ErrorDetailsSheet({ step, onClose }: { step: CreationStepResponse; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopy();
   const text = [
     `Step: ${step.step_name}`,
     `Code: ${step.error_code ?? 'unknown'}`,
@@ -470,9 +466,7 @@ function ErrorDetailsSheet({ step, onClose }: { step: CreationStepResponse; onCl
     '',
     step.error_detail ?? '',
   ].join('\n');
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(text); setCopied(true); } catch { /* the text is selectable */ }
-  };
+  const copy = () => copyText(text);
   return (
     <Sheet title="Details" onClose={onClose} className="tb-error-sheet">
       <dl className="tb-error-facts">

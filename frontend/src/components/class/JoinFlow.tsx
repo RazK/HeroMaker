@@ -15,6 +15,7 @@ import { useOverlayBack } from '../../routes';
 import '../tb/HeroScreen.css';
 import './class.css';
 import { SafeImg } from '../tb/Picture';
+import { useCopy } from '../../hooks/useCopy';
 
 export const JOIN_PATH = '/join';
 
@@ -473,13 +474,13 @@ function KidHero({ creation, name, onRetry, onParents, onNext }: {
 
 function ShowParents({ name, path, onClose }: { name: string; path: string; onClose: () => void }) {
   const url = `${window.location.origin}${path}`;
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   const send = async () => {
     track('share_tapped', {});
     try {
       if (navigator.share) { await navigator.share({ title: `${name}’s hero`, url }); return; }
     } catch { /* fall back to copying */ }
-    try { await navigator.clipboard.writeText(url); setCopied(true); } catch { window.prompt('Copy the link', url); }
+    await copy(url, 'Copy the link');
   };
   return (
     <Sheet title="Show your parents" onClose={onClose} className="cls-parents-sheet">

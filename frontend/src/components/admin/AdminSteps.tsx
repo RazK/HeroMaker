@@ -6,6 +6,7 @@ import { Icon, IconName } from '../tb/Icon';
 import { ConfirmDialog, Header, NavButton } from '../tb/parts';
 import { STEP_UI, etaText, heroName, refundWords, stepProgress } from '../tb/pipeline';
 import './admin.css';
+import { useCopy } from '../../hooks/useCopy';
 
 /** Something that spends credits or deletes: asked first (brand book). */
 interface Ask { title: string; line: string; action: string; danger?: boolean; run: () => Promise<unknown> }
@@ -40,7 +41,7 @@ export function AdminSteps({ creation, currentUserId, onBack, onRefresh, onCredi
   const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   const [, tick] = useState(0);
   const running = creation.steps.some((s) => s.status === 'processing');
   // The time left moves every second, between the polls.
@@ -81,9 +82,7 @@ export function AdminSteps({ creation, currentUserId, onBack, onRefresh, onCredi
   };
   const confirm = (a: Ask) => setAsk(a);
 
-  const copyId = async () => {
-    try { await navigator.clipboard.writeText(creation.id); setCopied(true); } catch { /* the id is selectable */ }
-  };
+  const copyId = () => copy(creation.id);
   const download = (file: string) => api.downloadFile(creation.id, file, creation.user_id).catch(() => setError(`Could not download ${file}`));
 
   const allCost = creation.steps.reduce((n, s) => n + cost(s), 0);

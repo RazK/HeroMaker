@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react';
 import { api, ApiEstimates, getAuthToken } from '../../api/client';
 import { Icon } from './Icon';
 import { LegalScreen } from './Legal';
+import { useCopy } from '../../hooks/useCopy';
 import './Developers.css';
 
 /** Something to copy as it is: code in a box with a Copy button. */
 function Code({ children }: { children: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(children); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* selectable */ }
-  };
+  const { copied, copy: copyText } = useCopy(1500);
+  const copy = () => copyText(children);
   return (
     <div className="dev-code">
       <pre><code>{children}</code></pre>
