@@ -2,7 +2,7 @@
 
 ## The gate: before ANY screenshot reaches Raz
 
-Raz has had to repeat these five more than any others. Look at the picture you
+Raz has had to repeat these seven more than any others. Look at the picture you
 are about to send and answer each one, out loud, in your notes. One "no" and it
 does not go out.
 
@@ -18,6 +18,18 @@ does not go out.
    big card, no gap that does not separate two things. (10, 26)
 5. **Least text.** Could a line go? Then it goes. Context first, then how, in
    two lines at most. (24, 25)
+6. **Nothing by accident.** Every element lines up with something (a
+   shared edge or a shared centre), and sits either inside its container
+   with a clear, chosen margin (16 or 24 px) or fully outside it. Nothing
+   half-touches an edge or floats near one. Measure every edge before sending.
+7. **One frame, never a frame in a frame.** A picture is not put in a card
+   that sits in a stage that sits in a page. The picture is the frame.
+   (Raz, 2026-11-23, on the film frames Maya passed: "a frame in a frame in
+   a frame", "the name tag half-touches the edge", "the button is aligned
+   with nothing", "dead white space".)
+
+This gate applies to everything Maya passes, other people's work too: films,
+ads, keyframes. "Passed" means Maya measured it.
 
 
 Read this before any UI, UX or copy work, every time. These are the rules Raz has
