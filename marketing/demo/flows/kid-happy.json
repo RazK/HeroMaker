@@ -3,28 +3,34 @@
  "note": "Recorded on staging · real speed",
  "steps": [
   {
-   "say": "The hero moves.",
-   "rec": "kid-happy.webm",
-   "at": "hero3d",
-   "dur": 4.0
-  },
-  {
-   "say": "The kid picks a game.",
-   "rec": "kid-happy.webm",
-   "at": "game_ready",
-   "dur": 3.5
-  },
-  {
-   "say": "And plays it with their own hero.",
-   "rec": "kid-happy.webm",
-   "at": "play",
+   "say": "Tap a move: dance, or a backflip.",
+   "rec": "kid-happy.mp4",
+   "at": 22.0,
    "dur": 5.0
   },
   {
-   "say": "Then shows the family.",
-   "rec": "kid-happy.webm",
-   "at": "share",
-   "dur": 4.0
+   "say": "Then Play, and pick a game.",
+   "rec": "kid-happy.mp4",
+   "at": 31.6,
+   "dur": 2.4
+  },
+  {
+   "say": "3, 2, 1… go!",
+   "rec": "kid-happy.mp4",
+   "at": 49.2,
+   "dur": 3.4
+  },
+  {
+   "say": "Jump and punch, as their own hero.",
+   "rec": "kid-happy.mp4",
+   "at": 61.0,
+   "dur": 5.0
+  },
+  {
+   "say": "Then share it with the family.",
+   "rec": "kid-happy.mp4",
+   "at": 95.0,
+   "dur": 3.0
   }
  ]
 }
