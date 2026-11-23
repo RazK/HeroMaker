@@ -117,7 +117,7 @@ def hatch(mask, angle_deg, spacing):
 SKETCH_S, GAP_S, HOLD_S = 1.4, 0.1, 1.2
 STROKE_W = max(6, SIZE // 55)
 events = []  # (t0, t1, kind, part index, polyline)
-t = 0.25
+t = 0.0  # Maya: the first frame already shows the first pencil line, never an empty page
 per_px = SKETCH_S / sum(len(outline(p["mask"])) for p in parts)
 for j, p in enumerate(parts):
     o = outline(p["mask"]); dur = len(o) * per_px
@@ -176,7 +176,7 @@ def draw_crayon(frame, tip, direction, colour):
 GRAPHITE = np.array([110, 104, 112], np.float32)
 N = int(round(TOTAL * FPS))
 for fi in range(N):
-    tt = fi / FPS
+    tt = fi / FPS + 0.12
     sketch = np.zeros((h, w), np.uint8)
     reveal = np.zeros((h, w), np.uint8)
     tip = None
