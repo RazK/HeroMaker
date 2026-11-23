@@ -40,7 +40,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
 const DRAWING = path.join(HERE, '..', 'marketing', 'concepts', 'assets', 'pairs', 'crayon-kid-drawing.jpg');
 const BASE_URL = (process.env.BASE_URL || '').replace(/\/$/, '');
-const ALL_STEPS = ['landing', 'gallery', 'signup', 'buy', 'create', 'profile', 'game', 'class', 'analytics'];
+const ALL_STEPS = ['landing', 'gallery', 'signup', 'free', 'buy', 'create', 'profile', 'game', 'class', 'analytics'];
 const STEPS = (process.env.STEPS || ALL_STEPS.join(',')).split(',').map((s) => s.trim());
 const PIPELINE_TIMEOUT_MS = Number(process.env.PIPELINE_TIMEOUT_MS || 25 * 60 * 1000);
 // DEMO=1 records a video of the same journey at a human pace, with a visible
@@ -500,6 +500,61 @@ const user = LOGIN_AS
   ? { username: LOGIN_AS, email: `robot+${loginStamp}@example.com`, password: `robot-${loginStamp}-pw` }
   : { username: `robot_${stamp}`, email: `robot+${stamp}@example.com`, password: `robot-${stamp}-pw` };
 let heroName = null;
+// Pay after the reveal (backend FREE_PAINTING, E-006): read from /me at
+// sign-up. When on, the 'free' step makes the hero with 0 credits, its
+// painting is free, it pauses before 3D, and 'create' finishes that same hero
+// after 'buy' has paid. When off, the robot runs as it always has.
+let freePainting = false;
+let freeHeroUrl = null;
+
+/** The two questions (the WhoFor board), over the first hero being made. */
+async function answerTwoQuestions(page) {
+  const ask = page.getByRole('dialog', { name: 'Two quick questions' });
+  await ask.waitFor({ timeout: 20000 });
+  const asked = await ask.locator('.tb-ask-title').allInnerTexts();
+  if (asked.join(' | ') !== "What's it for? | Who drew it?") throw new Error(`the two questions read [${asked.join(' | ')}]`);
+  await ask.getByRole('button', { name: 'A gift' }).click();
+  await ask.getByRole('button', { name: 'A kid' }).click();
+  const picked = await ask.locator('[aria-pressed="true"]').allInnerTexts();
+  if (picked.join(',') !== 'A gift,A kid') throw new Error(`chosen answers read [${picked.join(', ')}]`);
+  await snap(page, 'who-for');
+  await linger(page, 1500);
+  await ask.getByRole('button', { name: 'Done' }).click();
+  await ask.waitFor({ state: 'detached', timeout: 5000 });
+  const traits = await page.evaluate(() => localStorage.getItem('hm_traits'));
+  if (traits !== '{"purpose":"gift","who":"kid"}') throw new Error(`the answers were kept as ${traits}`);
+}
+
+/**
+ * Wait on the hero screen until `done` is visible. A failed stage throws,
+ * unless it is `pauseAt` failing with `pauseCode`: then that pause is the
+ * answer, and this returns 'paused'.
+ */
+async function waitForHero(page, done, { pauseAt = null, pauseCode = null } = {}) {
+  const deadline = Date.now() + PIPELINE_TIMEOUT_MS;
+  let lastLine = '';
+  while (Date.now() < deadline) {
+    if (done && await done.isVisible().catch(() => false)) return 'done';
+    const failed = page.locator('.tb-failed');
+    if (await failed.count()) {
+      const name = await failed.getAttribute('data-step').catch(() => '?');
+      const code = await failed.getAttribute('data-error').catch(() => '?');
+      if (pauseAt && name === pauseAt && code === pauseCode) return 'paused';
+      const label = await failed.locator('.tb-status-name').innerText().catch(() => '?');
+      throw new Error(`stage "${name}" failed (${code}): ${label}`);
+    }
+    const line = await page.locator('.tb-making').evaluate((el) => {
+      const dots = [...el.querySelectorAll('.tb-step-dot')].map((d) => (d.className.match(/tb-step-dot--(\w+)/) || [])[1]);
+      return `${el.getAttribute('data-step')}  [${dots.join(' ')}]  ${el.querySelector('.tb-status-eta')?.textContent || ''}`;
+    }).catch(() => '');
+    if (line !== lastLine) {
+      console.log(`  [${new Date().toISOString().slice(11, 19)}] ${line}`);
+      lastLine = line;
+    }
+    await page.waitForTimeout(DEMO ? 2000 : 10000);
+  }
+  throw new Error(`hero not done after ${PIPELINE_TIMEOUT_MS / 60000} min; last: ${lastLine}`);
+}
 
 // The run's own token: from the page if signed in, else by signing in over
 // the API, because a run can fail after the account was made but before the
@@ -705,11 +760,12 @@ try {
       return null;
     });
     if (!adult) throw new Error('the account did not keep the time the grown-up said Yes (adult_confirmed_at)');
+    freePainting = await page.evaluate(async () => (await (await fetch('/api/v1/me', { headers: { Authorization: `Bearer ${localStorage.getItem('heromaker_jwt_token')}` } })).json()).free_painting === true);
     const balance = await creditsShown(page);
     // With no credits, Make a hero goes to Buy credits first, saying why: no
     // photo is taken or uploaded for a hero that cannot be paid for.
-    let gate = '';
-    if (balance === 0 && !DEMO) {
+    let gate = freePainting ? '; free first painting due (FREE_PAINTING on)' : '';
+    if (balance === 0 && !DEMO && !freePainting) {
       await page.locator('.tb-new-hero').click();
       const why = page.locator('.buy-credits-why');
       await why.waitFor({ timeout: 15000 });
@@ -719,6 +775,30 @@ try {
       await why.waitFor({ state: 'detached', timeout: 5000 });
     }
     return `grown-up check: Not yet went back, Yes went on, kept on the account (${adult}); ${user.username}, balance ${balance}${gate}`;
+  });
+
+  await step(page, 'free', async () => {
+    if (!freePainting) return 'skipped: no free painting for this account (FREE_PAINTING off)';
+    if (await creditsShown(page) !== 0) throw new Error('the free painting needs an account with 0 credits');
+    // With 0 credits, Make a hero opens the photo sheet, not Buy credits.
+    const input = page.locator('.header-upload-buttons input[type=file]');
+    await input.setInputFiles(DRAWING);
+    const go = page.locator('button.post-upload-action-primary');
+    await go.waitFor({ timeout: 60000 });
+    if (await page.locator('.post-upload-actions-modal .tb-btn-trail').count()) throw new Error('Make my hero shows a credit cost for the free painting');
+    if (await page.locator('.post-upload-actions-modal .tb-bar-note').count()) throw new Error(`the make sheet says "${await page.locator('.post-upload-actions-modal .tb-bar-note').innerText()}" for the free painting`);
+    await go.click();
+    await page.locator('.tb-hero-screen').waitFor({ timeout: 60000 });
+    freeHeroUrl = page.url();
+    mark('pipeline_start');
+    await answerTwoQuestions(page);
+    // The painting is made for free, then the hero waits for payment before 3D.
+    const how = await waitForHero(page, null, { pauseAt: 'meshy_3d', pauseCode: 'not_enough_credits' });
+    if (how !== 'paused') throw new Error('the free hero did not pause before 3D');
+    await snap(page, 'free-painting-paused');
+    const balance = await creditsShown(page);
+    if (balance !== 0) throw new Error(`balance after the free painting is ${balance}, want 0`);
+    return 'with 0 credits: Make my hero (no cost shown), the painting made free, paused before 3D (not_enough_credits), balance still 0';
   });
 
   await step(page, 'buy', async () => {
@@ -751,6 +831,18 @@ try {
   });
 
   await step(page, 'create', async () => {
+    if (freeHeroUrl) {
+      // Paid now: the paused free hero goes on from 3D with Try again.
+      await page.goto(freeHeroUrl);
+      const again = page.getByRole('button', { name: /Try again/ });
+      await again.waitFor({ timeout: 30000 });
+      await again.click();
+      await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
+      mark('pipeline_end');
+      heroName = await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText().catch(() => null);
+      mark('ready_end');
+      return `the free hero, paid for, went on with Try again; all stages completed; "${heroName || 'hero'}" shown ready to play`;
+    }
     mark('upload');
     const input = page.locator('.header-upload-buttons input[type=file]');
     await input.setInputFiles(DRAWING);
@@ -767,47 +859,10 @@ try {
     await go.click();
     await page.locator('.tb-hero-screen').waitFor({ timeout: 60000 });
     mark('pipeline_start');
-    // The two questions (the WhoFor board): over the first hero being made,
-    // once per browser, after it is paid for. Both are asked here (not a class).
-    const ask = page.getByRole('dialog', { name: 'Two quick questions' });
-    await ask.waitFor({ timeout: 20000 });
-    const asked = await ask.locator('.tb-ask-title').allInnerTexts();
-    if (asked.join(' | ') !== "What's it for? | Who drew it?") throw new Error(`the two questions read [${asked.join(' | ')}]`);
-    await ask.getByRole('button', { name: 'A gift' }).click();
-    await ask.getByRole('button', { name: 'A kid' }).click();
-    const picked = await ask.locator('[aria-pressed="true"]').allInnerTexts();
-    if (picked.join(',') !== 'A gift,A kid') throw new Error(`chosen answers read [${picked.join(', ')}]`);
-    await snap(page, 'who-for');
-    await linger(page, 1500);
-    await ask.getByRole('button', { name: 'Done' }).click();
-    await ask.waitFor({ state: 'detached', timeout: 5000 });
-    const traits = await page.evaluate(() => localStorage.getItem('hm_traits'));
-    if (traits !== '{"purpose":"gift","who":"kid"}') throw new Error(`the answers were kept as ${traits}`);
-
-    const deadline = Date.now() + PIPELINE_TIMEOUT_MS;
-    let lastLine = '';
-    const ready = page.locator('.tb-hero-screen[data-state="ready"]');
-    while (Date.now() < deadline) {
-      if (await ready.isVisible().catch(() => false)) break;
-      const failed = page.locator('.tb-failed');
-      if (await failed.count()) {
-        const name = await failed.getAttribute('data-step').catch(() => '?');
-        const label = await failed.locator('.tb-status-name').innerText().catch(() => '?');
-        throw new Error(`stage "${name}" failed: ${label}`);
-      }
-      const line = await page.locator('.tb-making').evaluate((el) => {
-        const dots = [...el.querySelectorAll('.tb-step-dot')].map((d) => (d.className.match(/tb-step-dot--(\w+)/) || [])[1]);
-        return `${el.getAttribute('data-step')}  [${dots.join(' ')}]  ${el.querySelector('.tb-status-eta')?.textContent || ''}`;
-      }).catch(() => '');
-      if (line !== lastLine) {
-        console.log(`  [${new Date().toISOString().slice(11, 19)}] ${line}`);
-        lastLine = line;
-      }
-      await page.waitForTimeout(DEMO ? 2000 : 10000);
-    }
-    if (!(await ready.isVisible().catch(() => false))) {
-      throw new Error(`hero not ready after ${PIPELINE_TIMEOUT_MS / 60000} min; last: ${lastLine}`);
-    }
+    // The two questions: over the first hero being made, once per browser,
+    // after it is paid for. Both are asked here (not a class).
+    await answerTwoQuestions(page);
+    await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
     mark('pipeline_end');
     // The hero's name is on its name card, over the stage (the header is the site's).
     heroName = await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText().catch(() => null);
