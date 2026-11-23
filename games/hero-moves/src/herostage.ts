@@ -233,17 +233,42 @@ function roomMeter(hero: Hero) {
   }
 }
 
-const jointV = new THREE.Vector3()
-/** The middle, across, of the measured joints' box, in the stage's space. */
-function jointsMidX(hero: Hero): number {
+const outlineV = new THREE.Vector3()
+/** Points of a hero's skin to follow, about 1200 of them across its meshes. */
+const outlineSamples = new WeakMap<Hero, Array<{ mesh: THREE.Mesh; at: number[] }>>()
+function samplesOf(hero: Hero) {
+  let got = outlineSamples.get(hero)
+  if (got) return got
+  const meshes: THREE.Mesh[] = []
+  hero.vrm.scene.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (m.isMesh && m.geometry.getAttribute('position')) meshes.push(m)
+  })
+  const total = meshes.reduce((n, m) => n + m.geometry.getAttribute('position').count, 0)
+  const step = Math.max(1, Math.floor(total / 1200))
+  got = meshes.map((mesh) => {
+    const at: number[] = []
+    for (let i = 0; i < mesh.geometry.getAttribute('position').count; i += step) at.push(i)
+    return { mesh, at }
+  })
+  outlineSamples.set(hero, got)
+  return got
+}
+/**
+ * The middle, across, of the hero's outline as it stands now, in the stage's
+ * space: its skin, posed (a skinned mesh's vertices through its bones), so a
+ * cape or a ponytail counts as much as a hand.
+ */
+function outlineMidX(hero: Hero): number {
   let lo = Infinity
   let hi = -Infinity
-  for (const name of MEASURED) {
-    const node = hero.vrm.humanoid.getRawBoneNode(name)
-    if (!node) continue
-    node.getWorldPosition(jointV)
-    lo = Math.min(lo, jointV.x)
-    hi = Math.max(hi, jointV.x)
+  for (const { mesh, at } of samplesOf(hero)) {
+    for (const i of at) {
+      mesh.getVertexPosition(i, outlineV)
+      outlineV.applyMatrix4(mesh.matrixWorld)
+      if (outlineV.x < lo) lo = outlineV.x
+      if (outlineV.x > hi) hi = outlineV.x
+    }
   }
   return hi >= lo ? (lo + hi) / 2 : 0
 }
@@ -358,7 +383,7 @@ export class HeroStage {
    *  kept clear at the bottom too so the hero stays centred. */
   private insetTarget = 0
   private inset = 0
-  /** Where across the hero stands now (its joints' box), followed every
+  /** Where across the hero stands now (its outline's box), followed every
    *  frame, so a clip that carries it sideways never takes it off centre. */
   private cx = 0
 
@@ -544,8 +569,8 @@ export class HeroStage {
         } else animator.update(dt, now / 1000)
       }
       hero.vrm.update(dt)
-      // Framed by where it is now, across: the middle of its joints' box.
-      this.cx = damp(this.cx, jointsMidX(hero), 12, dt)
+      // Framed by where it is now, across: the middle of its outline.
+      this.cx = damp(this.cx, outlineMidX(hero), 30, dt)
       const { room } = s.loaded
       const move = this.playing ? room.moves.get(this.playing) : undefined
       this.roomTarget = move ? union(room.idle, move) : room.idle
@@ -564,6 +589,8 @@ export class HeroStage {
       ;(s.kind === 'hero' ? s.loaded.hero.root : s.obj).scale.setScalar(k)
     }
     shadow.visible = !!s
+    // The contact shadow stays under the hero wherever a clip takes it.
+    shadow.position.x = this.cx
     this.aim()
     renderer?.render(scene, camera)
   }

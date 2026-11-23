@@ -305,8 +305,9 @@
 /* The hero's own actions: Share and Play, side by side, one width; in the
    other states the bar's own buttons, stacked. The buttons' depth is inside. */
 .tb-hero-foot { display: flex; flex-direction: column; gap: var(--tb-stack); padding-bottom: var(--tb-depth); }
-.tb-hero-main[data-foot='row'] .tb-hero-foot { flex-direction: row; gap: 12px; }
-.tb-hero-main[data-foot='row'] .tb-hero-foot > .tb-btn { flex: 1 1 0; min-width: 0; width: auto; padding: 0 12px; box-sizing: border-box; }
+/* A grid, not a flex row: equal columns whatever each button's border. */
+.tb-hero-main[data-foot='row'] .tb-hero-foot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tb-hero-main[data-foot='row'] .tb-hero-foot > .tb-btn { min-width: 0; width: 100%; padding: 0 12px; box-sizing: border-box; }
 
 /* Wider than tall: the card on the start side, the side a column beside it,
    the card down to the bottom margin, the foot's depth on the card's bottom. */
