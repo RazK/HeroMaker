@@ -79,13 +79,17 @@ problems:
 - **One promise, everywhere:** the family film delivers it. On track.
 - **Weekly review:** scheduled and running. On track.
 
-## Decisions for Raz
+## Decisions — all approved by Raz, 2026-11-23
 
-- [ ] Add a **Growth/Acquisition** agent.
-- [ ] Add a PM **chief-of-staff** agent (or decide the PM stays solo and we only
-      change the hand-off routing).
-- [ ] Make **Scout** a standing, read-only reviewer that gates merges.
-- [ ] **Park Nir** until toy demand.
+- [x] **Growth / Acquisition agent:** **Noa · Growth**
+      (`session_01XZmifhWZ1TeCiiyy5mdHhp`).
+- [x] **PM chief of staff:** **Anat · Chief of Staff**
+      (`session_01XZmifhh61UDvAk2otHkrvm`) — takes the mechanical coordination
+      off the PM.
+- [x] **Standing read-only reviewer that gates merges** — every PR gets a
+      read-only review (Read/Grep/Glob, no writes) before Liran merges. See
+      `RAZ_RULES.md`.
+- [x] **Nir · 3D parked** until toy demand is shown.
 
 ## Sources
 

@@ -48,6 +48,15 @@ Each rule has the date it was set.
   releases to staging, one PR at a time. Everyone else opens PRs; the PM sets
   the order; Liran merges. No parallel merges (they race the staging deploy).
   (2026-11-23)
+- **Every merge is gated on a read-only review.** Before Liran merges a PR, a
+  reviewer (Scout / the `code-review` skill) checks it **read-only**
+  (Read, Grep, Glob — no writes). No review, no merge. Verification is a
+  standing role, not optional. (2026-11-23)
+- **The team (2026-11-23):** PM (orchestrator) with **Anat · Chief of Staff**
+  (mechanical coordination), **Gidi · Payments** + books, **Maya · Design**,
+  **Liran · Dev** + releases, **Tom · Content** + videos, **Noa · Growth**
+  (acquisition, the KPI's funnel, pilots). **Nir · 3D is parked** until toy
+  demand. Scout (review) and Compass (docs) are specialists. (2026-11-23)
 - **Every agent shows their work in their own chat.** When a teammate makes a
   deliverable — a video, a design, a mockup, a demo — they **present it in their
   own session** (SendUserFile, or an artifact Raz can open), not only hand it to
