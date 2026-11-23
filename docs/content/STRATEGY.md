@@ -1,7 +1,7 @@
 # Content strategy: one film, cut everywhere
 
 Owner: Tom (Content). Reviewed by the PM (money, hypotheses) and Maya (look).
-Status: **draft for the PM and Maya**, 2026-11-23.
+Status: **approved by the PM (money-check pass), 2026-11-23**; the storyboard with Maya.
 
 ## The idea
 
@@ -45,12 +45,21 @@ chapter only once it is on sale: we never show something a parent cannot buy.
 | Meta | 6 s | 3 + end card | 9:16, 4:5 |
 | The site | 4–6 s silent loops | each chapter on its own: the landing's three pictures, "how it works" | transparent WebP / MP4 |
 
+**Play (chapter 4) is in the 60 s master and the site loops only, never in a
+paid cut:** it serves coming back (H-020), not the first purchase. A "play" ad
+is a later, separate test once we have buyers.
+
 **The first second of every Meta cut is the hero copying the child.** That is
 the one thing nobody else can show, and it is H-039's bet.
 
 ## Hypotheses this content tests
 
 Each is a bet on an existing product hypothesis; the PM owns the numbers.
+
+**No A/B test reads these yet.** Under D-001 the tests that would (C-1 as
+E-004, C-5 as E-005) stay parked until we sell 20 heroes a week. Until then
+we learn from which single cut runs first and from the share and Schneider
+pilots.
 
 | Id | We believe | Because it moves | Read it by |
 |---|---|---|---|
@@ -81,6 +90,6 @@ Each is a bet on an existing product hypothesis; the PM owns the numbers.
 | The drawing drawing itself | `scripts/content/draw_on.py` | none |
 | Titles and end card | `marketing/ad/ad.html`, recorded | none |
 
-About 10 live-action clips: **about 5 days on the free quota, or 1 day with
-PRO ($9).** The PM said no PRO for the first ad; with the whole film it is
-worth asking again.
+About 10 live-action clips on the free quota, **about 5 days** (the PM: no
+PRO, nothing runs before Live; revisit only for a dated need, through Raz and
+Gidi's books). Order: Ad 01's clips first, then the film's chapters.

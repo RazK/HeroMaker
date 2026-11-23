@@ -2,7 +2,7 @@
 
 60 s, 16:9 master, shot so every chapter also crops to 9:16 and 4:5 (the
 action on the centre third). Strategy and cuts: `docs/content/STRATEGY.md`.
-Status: **draft for the PM and Maya**. Cast: Maya (7), Mom, Grandma: all
+Status: **approved by the PM**; storyboard with Maya. Cast: Maya (7), Mom, Grandma: all
 AI-generated, never real.
 
 Each shot gets one keyframe (`docs/content/keyframes/`), and Maya (design)
@@ -59,9 +59,9 @@ the first picture.
 
 3.2 (the copy, the hook) → 1.3 → 2.3 → 2.4 → 3.4 → 6.
 
-## Open for the PM
+## Decided (PM, 2026-11-23)
 
-1. Is chapter 4 (Play) worth its 8 s in the master, or does it go only to the
-   site and a later "play" ad?
-2. Chapter 2 shows the wait honestly ("a few minutes"). Agree?
-3. Ten live clips: Hugging Face PRO ($9) for one day, or five days free?
+1. Every chapter stays; the toy only once it is on sale.
+2. Play: the master and the site only, never a paid cut.
+3. The honest wait ("a few minutes") stays.
+4. Free quota, no PRO: Ad 01's clips first, then these.
