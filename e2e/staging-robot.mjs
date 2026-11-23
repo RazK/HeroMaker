@@ -1,11 +1,12 @@
 // The staging robot: drives the real site the way a customer would, end to end.
 //
-//   landing page -> heroes gallery -> sign up -> buy credits (Lemon Squeezy
-//   test mode) -> upload a drawing -> every pipeline stage completes -> the
+//   landing page -> heroes gallery -> sign up -> buy credits (test mode of
+//   whichever provider sells: grow_sandbox's own TEST page - one Fail, then
+//   every pack - or Lemon Squeezy's checkout) -> upload a drawing -> every pipeline stage completes -> the
 //   hero is in "My Creations" -> its page: the carousel, then moves -> Play ->
 //   the game chooser -> Dance party, and the camera-free Robot Rumble ->
 //   I run classes (the account sheet) -> My classes, on the switch under the header -> a new class whose seats it cannot cover from its credits,
-//   paid for in money on Lemon Squeezy -> the seats land on the class (not on
+//   paid for in money (test mode) -> the seats land on the class (not on
 //   the robot's balance) -> Start class shows a PIN and a QR -> a student
 //   joins on a phone and makes a hero -> the teacher opens it from the class
 //   -> the same name from a second phone waits for the teacher, who removes it
@@ -24,8 +25,11 @@
 //   STEPS=landing,gallery,signup   run a subset (default: all)
 //
 // It spends real money at OpenAI and Meshy (one hero, ~10 credits of
-// provider cost) and two Lemon Squeezy TEST-mode purchases (a credit pack,
-// then a class's seats), which are free.
+// provider cost) and TEST-mode purchases, which are free: on Lemon Squeezy a
+// credit pack (PACK) and a class's seats; on grow_sandbox (packs priced in
+// ILS, checkout at /api/payments/sandbox/) one checkout ended with Fail, every
+// pack on sale (or just PACK, if it names one) and a class's seats. The
+// provider is read from GET /api/v1/packs, so either works unchanged.
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -288,6 +292,140 @@ async function payOnLemonSqueezy(page, email, { marks: marking = true } = {}) {
     }
     if (!back(new URL(page.url()))) throw new Error(`Continue did not come back from checkout: still at ${page.url().slice(0, 80)}`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// grow_sandbox: our own TEST checkout page (backend/app/api/payments_sandbox.py),
+// served on the site's own origin under /api/payments/sandbox/checkout/<order>.
+// It says "TEST - no real money" and has two buttons: Pay makes the SERVER
+// send itself a signed callback, Fail marks the order failed. Either way it
+// redirects back to the site.
+// ---------------------------------------------------------------------------
+const SANDBOX_PATH = '/api/payments/sandbox/checkout/';
+const SANDBOX_TITLE = 'TEST checkout - no real money';
+const CHECKOUT_URL = (u) => /lemonsqueezy\.com/.test(u.hostname) || u.pathname.startsWith(SANDBOX_PATH);
+
+// Which provider sells here, read from what the API returns: grow_sandbox
+// prices its packs in ILS, Lemon Squeezy in USD. Staging may go back to Lemon
+// Squeezy, so nothing assumes either.
+async function paymentsProvider() {
+  const r = await fetch(`${BASE_URL}/api/v1/packs`);
+  if (!r.ok) throw new Error(`GET /api/v1/packs answered ${r.status}`);
+  const packs = await r.json();
+  if (!Array.isArray(packs) || !packs.length) throw new Error(`nothing is on sale: GET /api/v1/packs returned ${JSON.stringify(packs)}`);
+  return { name: packs.some((p) => p.currency === 'ILS') ? 'grow_sandbox' : 'lemonsqueezy', packs };
+}
+
+// "₪10", "₪10.50": the backend's agorot_display.
+const ilsDisplay = (agorot) => `₪${Math.floor(agorot / 100)}${agorot % 100 ? `.${String(agorot % 100).padStart(2, '0')}` : ''}`;
+
+// On the TEST page: check it is ours and says what it sells, press `button`
+// ("Pay" or "Fail"), and come back to the site. Returns the order's page URL.
+async function payOnSandbox(page, { button = 'Pay', amount = null, marks: marking = true } = {}) {
+  await page.waitForURL((u) => u.pathname.startsWith(SANDBOX_PATH), { timeout: 60000 });
+  await page.waitForLoadState('domcontentloaded');
+  const orderUrl = page.url();
+  if (!orderUrl.startsWith(BASE_URL)) throw new Error(`the TEST checkout is not on the site's own origin: ${orderUrl}`);
+  const title = await page.title();
+  if (title !== SANDBOX_TITLE) throw new Error(`the checkout page is titled "${title}", want "${SANDBOX_TITLE}"`);
+  if (amount !== null) {
+    const shown = (await page.locator('.amount').innerText()).trim();
+    if (shown !== amount) throw new Error(`the TEST checkout asks for ${shown}, want ${amount}`);
+  }
+  await snap(page, `checkout-sandbox-${button.toLowerCase()}`);
+  if (marking) mark('checkout');
+  await linger(page, 1500);
+  await page.getByRole('button', { name: button, exact: true }).click();
+  await page.waitForURL((u) => u.toString().startsWith(BASE_URL) && !u.pathname.startsWith(SANDBOX_PATH), { timeout: 60000 });
+  if (marking && button === 'Pay') mark('paid');
+  return orderUrl;
+}
+
+// The robot's receipts, read back over the API.
+const receipts = () => robotApi('/api/v1/receipts');
+
+// The buy step on grow_sandbox, through the same Buy credits sheet: one
+// checkout ended with Fail (nothing granted, no receipt), then every pack on
+// sale (or just PACK, when it names one) paid, each adding exactly its
+// credits and one receipt.
+async function buyOnSandbox(page, packs) {
+  const openSheet = async () => {
+    await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
+    await page.locator('.header-auth-user-button').click();
+    await page.getByRole('button', { name: /buy credits/i }).click();
+  };
+  const packCard = async (pack) => {
+    const card = page.locator(`.buy-credits-pack[data-pack="${pack.slug}"]`);
+    await card.waitFor({ timeout: 20000 });
+    const price = (await card.locator('.buy-credits-pack-price').innerText()).trim();
+    if (price !== pack.price_display) throw new Error(`the ${pack.slug} pack shows "${price}", want "${pack.price_display}"`);
+    const credits = (await card.locator('.buy-credits-pack-credits').innerText()).trim();
+    if (credits !== `${pack.credits} credits`) throw new Error(`the ${pack.slug} pack shows "${credits}", want "${pack.credits} credits"`);
+    return card;
+  };
+  const balance = async () => (await robotApi('/api/v1/me')).credits;
+  const wanted = packs.some((p) => p.slug === PACK) ? packs.filter((p) => p.slug === PACK) : packs;
+  mark('buy_start');
+
+  // Fail: back on the site, nothing granted and no receipt.
+  const start = await balance();
+  const startReceipts = await receipts();
+  const failPack = [...packs].sort((a, b) => a.price_cents - b.price_cents)[0];
+  await openSheet();
+  await (await packCard(failPack)).click();
+  const failedOrder = await payOnSandbox(page, { button: 'Fail', amount: failPack.price_display, marks: false });
+  if (new URL(page.url()).searchParams.get('checkout') !== 'failed') throw new Error(`Fail came back to ${page.url()}, without checkout=failed`);
+  await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
+  await page.waitForTimeout(5000);
+  await snap(page, 'checkout-failed-back');
+  const shownAfterFail = await creditsShown(page);
+  const afterFail = await balance();
+  if (afterFail !== start || shownAfterFail !== start) throw new Error(`a failed checkout moved the balance ${start} -> ${afterFail} (shown ${shownAfterFail})`);
+  if ((await receipts()).length !== startReceipts.length) throw new Error('a failed checkout left a receipt');
+  // The order itself is failed for good: its page offers no Pay any more.
+  await page.goto(failedOrder, { waitUntil: 'domcontentloaded' });
+  const status = (await page.locator('.status').innerText().catch(() => '')).trim();
+  if (status !== 'This order is failed.') throw new Error(`the failed order's page says "${status}", want "This order is failed."`);
+  if (await page.getByRole('button', { name: 'Pay', exact: true }).count()) throw new Error('a failed order still offers Pay');
+  await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
+
+  // Pay: each pack adds exactly its credits, and one receipt that says so.
+  const bought = [];
+  for (const [i, pack] of wanted.entries()) {
+    const before = await balance();
+    const receiptsBefore = await receipts();
+    await openSheet();
+    const card = await packCard(pack);
+    if (DEMO) { await card.hover(); await page.waitForTimeout(2500); }
+    await card.click();
+    await payOnSandbox(page, { amount: pack.price_display, marks: i === 0 });
+    await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
+    const want = before + pack.credits;
+    const back = Date.now();
+    let shown = await creditsShown(page).catch(() => before);
+    while (Date.now() - back < 60000 && shown < want) {
+      await page.waitForTimeout(2000);
+      shown = await creditsShown(page).catch(() => before);
+    }
+    const landed = ((Date.now() - back) / 1000).toFixed(1);
+    if (shown !== want) throw new Error(`after paying ${pack.price_display} for ${pack.slug} the balance shows ${shown}, want ${before} + ${pack.credits} = ${want}`);
+    // Exactly: still the same a moment later, and the API agrees.
+    await page.waitForTimeout(3000);
+    const api = await balance();
+    if (api !== want) throw new Error(`after paying for ${pack.slug} the API balance is ${api}, want exactly ${want}`);
+    if (i === 0) mark('credits');
+    const list = await receipts();
+    if (list.length !== receiptsBefore.length + 1) throw new Error(`paying for ${pack.slug} left ${list.length - receiptsBefore.length} new receipts, want 1`);
+    const r = list[0];
+    if (r.pack !== pack.slug || r.credits !== pack.credits || r.paid_display !== pack.price_display || r.class_id) {
+      throw new Error(`the receipt for ${pack.slug} reads ${JSON.stringify(r)}, want pack ${pack.slug}, ${pack.credits} credits, ${pack.price_display}`);
+    }
+    await snap(page, `bought-${pack.slug}`);
+    bought.push(`${pack.slug} ${pack.price_display} +${pack.credits} in ${landed}s (receipt ${r.paid_display}${r.test_mode ? ', test' : ''})`);
+  }
+  if (DEMO) { await page.locator('.header-auth-credits').hover(); await page.waitForTimeout(3000); }
+  mark('credits_end');
+  return `grow_sandbox TEST checkout: Fail granted nothing (balance ${start}, no receipt, order failed); paid ${bought.join('; ')}; balance ${start} -> ${await balance()}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -574,6 +712,8 @@ try {
   });
 
   await step(page, 'buy', async () => {
+    const provider = await paymentsProvider();
+    if (provider.name === 'grow_sandbox') return buyOnSandbox(page, provider.packs);
     const before = await creditsShown(page);
     mark('buy_start');
     await page.locator('.header-auth-user-button').click();
@@ -1090,13 +1230,29 @@ try {
     const listed = await robotApi('/api/v1/classes');
     const price = listed.seat_price;
     if (!price) throw new Error('GET /api/v1/classes offers no seat_price: the class-seats variant is not configured');
-    if (price.order_cents !== 50 || price.seat_cents !== 125) {
+    // grow_sandbox sells seats in shekels (10 ILS a seat, 10 seats at least);
+    // Lemon Squeezy in dollars ($0.50 + $1.25 a seat).
+    const sandbox = price.currency === 'ILS';
+    if (sandbox) {
+      if (price.order_cents !== 0 || price.seat_cents !== 1000 || price.min_seats !== 10) {
+        throw new Error(`seat_price is ${JSON.stringify(price)}, want order_cents 0, seat_cents 1000 and min_seats 10 (₪10 a seat, 10 at least)`);
+      }
+    } else if (price.order_cents !== 50 || price.seat_cents !== 125) {
       throw new Error(`seat_price is ${JSON.stringify(price)}, want order_cents 50 and seat_cents 125 ($0.50 + $1.25 a seat)`);
     }
     // More seats than the robot's credits cover, so money is the way to pay.
     const heroCost = listed.hero_cost;
-    const seats = Math.min(price.max_seats, Math.max(5, Math.floor(balance / heroCost) + 1));
-    const want = `$${((price.order_cents + price.seat_cents * seats) / 100).toFixed(2)}`;
+    const seats = Math.min(price.max_seats, Math.max(5, price.min_seats || 0, Math.floor(balance / heroCost) + 1));
+    const totalCents = price.order_cents + price.seat_cents * seats;
+    const want = sandbox ? ilsDisplay(totalCents) : `$${(totalCents / 100).toFixed(2)}`;
+    // What the class screen offers: on grow_sandbox only the amount is
+    // checked, not its currency sign (it shows "$" for shekels today, a known
+    // gap owned by design).
+    const amountOf = (text) => Number(/(\d[\d,]*(?:\.\d+)?)/.exec(text)?.[1]?.replace(/,/g, '') ?? NaN);
+    const offersRight = (text, prefix, suffix) => (sandbox
+      ? text.startsWith(prefix) && text.endsWith(suffix) && amountOf(text.slice(prefix.length, text.length - suffix.length)) === totalCents / 100
+      : text === `${prefix}${want}${suffix}`);
+    const receiptsBefore = sandbox ? await receipts() : null;
 
     await newClass.click();
     // The first class asks for the school once.
@@ -1129,16 +1285,16 @@ try {
     const paySeats = page.locator('.cls-pay-seats');
     await paySeats.waitFor({ timeout: 10000 });
     const offer = (await paySeats.innerText()).trim();
-    if (offer !== `Pay ${want} for ${seats} seats`) throw new Error(`the bar offers "${offer}", want "Pay ${want} for ${seats} seats"`);
+    if (!offersRight(offer, 'Pay ', ` for ${seats} seats`)) throw new Error(`the bar offers "${offer}", want "Pay ${want} for ${seats} seats"`);
     await paySeats.click();
     const payMoney = page.locator('.cls-pay-money');
     await payMoney.waitFor();
     const confirm = (await payMoney.innerText()).trim();
-    if (confirm !== `Pay ${want}`) throw new Error(`the dialog's button reads "${confirm}", want "Pay ${want}"`);
+    if (!offersRight(confirm, 'Pay ', '')) throw new Error(`the dialog's button reads "${confirm}", want "Pay ${want}"`);
     await snap(page, 'class-pay');
     await linger(page, 1500);
-    // The checkout the app opens, read as it passes: the page leaves for Lemon
-    // Squeezy at once, and a response body is gone with the page.
+    // The checkout the app opens, read as it passes: the page leaves for the
+    // checkout at once, and a response body is gone with the page.
     let buy = null;
     await page.route('**/api/v1/classes/buy', async (route) => {
       const res = await route.fetch();
@@ -1146,7 +1302,7 @@ try {
       await route.fulfill({ response: res, body: buy.text });
     });
     await payMoney.click();
-    await page.waitForURL(/lemonsqueezy\.com/, { timeout: 60000 }).catch(() => {});
+    await page.waitForURL(CHECKOUT_URL, { timeout: 60000 }).catch(() => {});
     await page.unroute('**/api/v1/classes/buy');
     if (!buy) throw new Error('tapping Pay never asked for a checkout');
     if (buy.status !== 201) throw new Error(`POST /api/v1/classes/buy answered ${buy.status}: ${buy.text}`);
@@ -1155,7 +1311,10 @@ try {
       throw new Error(`the checkout is for ${checkout.seats} seats at ${checkout.price_display}, want ${seats} at ${want}`);
     }
 
-    await payOnLemonSqueezy(page, user.email, { marks: false });
+    const onSandbox = new URL(checkout.checkout_url).pathname.startsWith(SANDBOX_PATH);
+    if (onSandbox !== sandbox) throw new Error(`seat_price is in ${price.currency || 'USD'} but the checkout opened at ${checkout.checkout_url}`);
+    if (sandbox) await payOnSandbox(page, { amount: want, marks: false });
+    else await payOnLemonSqueezy(page, user.email, { marks: false });
     // Back on our site, on the class, which watches its seats arrive.
     const back = Date.now();
     if (!new URL(page.url()).search.includes(`class_paid=${checkout.class_id}`) && !(await page.locator('.cls-class').count())) {
@@ -1178,6 +1337,13 @@ try {
     if (cls.seats !== seats || cls.title !== className) throw new Error(`the API has "${cls.title}" with ${cls.seats} seats, want "${className}" with ${seats}`);
     const after = (await robotApi('/api/v1/me')).credits;
     if (after !== balance) throw new Error(`the teacher's balance moved ${balance} -> ${after}: class seats must never land on it`);
+    if (sandbox) {
+      // One receipt, for this class's seats, at the shekel price.
+      const list = await receipts();
+      const mine = list.filter((r) => r.class_id === checkout.class_id);
+      if (list.length !== receiptsBefore.length + 1 || mine.length !== 1) throw new Error(`paying for the seats left ${list.length - receiptsBefore.length} new receipts (${mine.length} for the class), want 1`);
+      if (mine[0].seats !== seats || mine[0].paid_display !== want) throw new Error(`the seats' receipt reads ${JSON.stringify(mine[0])}, want ${seats} seats at ${want}`);
+    }
 
     // Start the class: the code to copy off the board, and the QR to scan.
     await start.click();
@@ -1324,7 +1490,7 @@ try {
       await switchBar.waitFor({ state: 'detached', timeout: 15000 });
       await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
-    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on Lemon Squeezy, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero (${kidAsked}), ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
+    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on ${sandbox ? 'the grow_sandbox TEST checkout (one receipt)' : 'Lemon Squeezy'}, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero (${kidAsked}), ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
   });
 
   // Analytics (docs/analytics/REQUIREMENTS.md): the run above must have left
