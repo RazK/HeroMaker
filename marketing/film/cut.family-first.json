@@ -56,22 +56,11 @@
    ]
   },
   {
-   "kind": "screen",
-   "dir": "assets/screen",
-   "ext": "png",
-   "n": 399,
-   "fps": 16,
-   "from": 20,
-   "speed": 1.0,
-   "vw": 430,
-   "vh": 932,
-   "crop": [
-    8,
-    62,
-    414,
-    648
-   ],
+   "kind": "morph",
+   "from": "assets/end/drawing.png",
+   "to": "assets/end/painting.png",
    "dur": 4.2,
+   "at": 0.3,
    "caption": "We paint it."
   },
   {

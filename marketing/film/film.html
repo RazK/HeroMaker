@@ -68,6 +68,13 @@ function build() {
       L.style.background = 'var(--cream)'
       seg.card = el('div', 'card', L); seg.img = el('img', '', seg.card)
     }
+    if (seg.kind === 'morph') {
+      // The drawing turns into the painting, on the app's lilac card (the reveal).
+      L.style.background = 'var(--cream)'
+      seg.card = el('div', 'card', L)
+      seg.imgA = el('img', '', seg.card); seg.imgA.src = seg.from
+      seg.imgB = el('img', '', seg.card); seg.imgB.src = seg.to
+    }
     if (seg.kind === 'split') {
       L.style.background = 'var(--lilac)'
       seg.topImg = el('img', '', L); seg.botImg = el('img', '', L)
@@ -129,6 +136,12 @@ window.__film = {
         waits.push(img(s.img, frameOf(s, t, s)))
         const sc = cw2 / cw
         Object.assign(s.img.style, { left: -cx * sc + 'px', top: -cy * sc + 'px', width: s.vw * sc + 'px', height: s.vh * sc + 'px' })
+      }
+      if (s.kind === 'morph') {
+        const cw = W * 0.72, ch = cw * 1.25, x = (W - cw) / 2, y = H * 0.15 + (H * 0.65 - ch) / 2
+        Object.assign(s.card.style, { left: x + 'px', top: y + 'px', width: cw + 'px', height: ch + 'px' })
+        const m = s.at || 0.35, b = ease((k - m) / 0.25)
+        for (const [e, o] of [[s.imgA, 1 - b], [s.imgB, b]]) Object.assign(e.style, { left: '6%', top: '8%', width: '88%', height: '84%', objectFit: 'contain', opacity: o })
       }
       if (s.kind === 'split') {
         // Maya's rule: 9:16 stacks Violet on top and Maya under, one move, one height.
