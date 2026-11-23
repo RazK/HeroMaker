@@ -67,13 +67,8 @@ app.innerHTML = `
     </div>
     <div class="tb-bar rr-bar">
       <div class="rr-card rr-card--start tb-panel">
-        <div class="tb-eyebrow">Robot Rumble</div>
         <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
         <div class="rr-line">Bop them before they reach your toys!</div>
-        <div class="rr-chips">
-          <span class="tb-chip rr-chip">${icon('punch', 18)}Punch</span>
-          <span class="tb-chip rr-chip">${icon('jump', 18)}+${icon('punch', 18)}Smash</span>
-        </div>
         <div class="rr-start-slot"></div>
       </div>
       <div class="rr-card rr-card--end tb-panel">
@@ -439,6 +434,9 @@ function setProgress(f: number) {
     aimCamera(0, true)
     startBtn.disabled = false
     ;(window as unknown as { __ready?: unknown; __moves?: number }).__moves = loaded
+    // The child's own drawing: the biggest card on the wall, right behind
+    // their hero (Raz: "it's important that they see the original drawing").
+    if (OWN_HERO) void crowd.board.hangStar(OWN_HERO.replace(/[^/?#]+(\?.*)?$/, 'thumb_original.jpg'))
     ;(window as unknown as { __ready?: unknown }).__ready = true
     // The crowd: other heroes cheering from the stands, one after another
     // behind the player's. The game never waits for them, and plays the same

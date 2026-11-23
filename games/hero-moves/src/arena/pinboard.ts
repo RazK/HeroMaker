@@ -37,8 +37,16 @@ const H = 0.66
  */
 type Layout = 'portrait' | 'landscape'
 const LAYOUTS: Record<Layout, { xs: number[]; y: number; scale: number }> = {
-  portrait: { xs: [-1.55, 1.55, -2.27, 2.27, -2.99, 2.99], y: 2.75, scale: 1.2 },
+  portrait: { xs: [-1.55, 1.55, -2.27, 2.27, -2.99, 2.99], y: 2.75, scale: 1.0 },
   landscape: { xs: [-3.95, 3.95, -4.77, 4.77, -5.59, 5.59], y: 1.42, scale: 1.45 },
+}
+/** The player's own drawing: twice the size of a fan's card. */
+// Portrait: a little left of the wall's middle, so the start screen's
+// three-quarter view (turned right) shows all of it beside the hero's head;
+// above the fans' heads, below the top of that view.
+const STAR: Record<Layout, { x: number; y: number; scale: number }> = {
+  portrait: { x: -0.6, y: 2.72, scale: 2.0 },
+  landscape: { x: 0, y: 1.75, scale: 2.1 },
 }
 export const CARD_SLOTS = LAYOUTS.portrait.xs.length
 
@@ -62,10 +70,11 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
 }
 
 /** The polaroid, painted: white card, drawing contained, "Maya, 6". */
-function paintCard(img: HTMLImageElement, artist?: string | null, age?: number | null): THREE.Texture {
+function paintCard(img: HTMLImageElement, artist?: string | null, age?: number | null, res = 1): THREE.Texture {
   const c = document.createElement('canvas')
-  c.width = 192; c.height = 236
+  c.width = 192 * res; c.height = 236 * res
   const g = c.getContext('2d')!
+  g.scale(res, res)
   g.fillStyle = '#ffffff'
   g.beginPath(); g.roundRect(0, 0, 192, 236, 14); g.fill()
   // The drawing, never cropped, on the polaroid's paper tint.
@@ -181,11 +190,48 @@ export class Pinboard {
     this.pins.instanceMatrix.needsUpdate = true
   }
 
+  /**
+   * The player's own drawing: one card, in the middle of the wall right
+   * behind their hero, far bigger than the fans' (Raz, 2026-11-23). It is
+   * the proof of the whole product: this toy was that drawing.
+   */
+  star: THREE.Group | null = null
+  async hangStar(url: string): Promise<boolean> {
+    if (this.star) return false
+    const [img] = await Promise.all([loadImage(url), displayFont()])
+    if (!img || !img.naturalWidth) return false
+    const card = new THREE.Group()
+    card.name = 'own-drawing'
+    card.rotation.z = -0.035
+    const shadow = new THREE.Mesh(this.shadowGeo, new THREE.MeshBasicMaterial({ map: cardShadow(), transparent: true, depthWrite: false }))
+    shadow.position.set(0.02, -0.03, -0.01)
+    card.add(shadow)
+    const face = new THREE.Mesh(this.cardGeo, new THREE.MeshStandardMaterial({ map: paintCard(img, null, null, 2), roughness: 0.85, transparent: true, alphaTest: 0.5 }))
+    face.name = 'drawing'
+    card.add(face)
+    this.root.add(card)
+    this.cards.push(face)
+    this.star = card
+    card.scale.setScalar(0.01)
+    this.pops.push({ obj: card, t: 0 })
+    this.placeStar()
+    return true
+  }
+
+  private placeStar() {
+    if (!this.star) return
+    const S = STAR[this.layout]
+    this.star.position.set(S.x, S.y, STAND.wallZ + 0.04)
+    this.star.userData.scale = S.scale
+    if (!this.pops.some((p) => p.obj === this.star)) this.star.scale.setScalar(S.scale)
+  }
+
   /** Follow the camera's shape: re-hang the cards when it flips. */
   setLayout(layout: Layout) {
     if (layout === this.layout) return
     this.layout = layout
     this.place()
+    this.placeStar()
   }
 
   update(dt: number) {
