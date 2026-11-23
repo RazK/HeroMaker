@@ -44,7 +44,7 @@ Object.assign(film.style, { width: W + 'px', height: H + 'px' })
 const clamp = (x) => Math.max(0, Math.min(1, x))
 const ease = (x) => { x = clamp(x); return x * x * (3 - 2 * x) }
 const pad4 = (i) => String(i).padStart(4, '0')
-const XF = 0.4   // crossfade
+let XF = 0.4   // crossfade; a cut list's "xf" overrides it (Raz: clean cuts, no ghosts)
 
 let CUT = null
 const layers = []
@@ -103,6 +103,7 @@ function frameOf(seg, t, src) {
 window.__film = {
   async load(cut) {
     CUT = typeof cut === 'string' ? await (await fetch(cut)).json() : cut
+    if (CUT.xf !== undefined) XF = Math.max(0.001, CUT.xf)
     let t = 0
     for (const s of CUT.segments) { s.t0 = t; s.t1 = t + s.dur; t = s.t1 - XF }
     this.duration = t + XF
@@ -150,12 +151,15 @@ window.__film = {
           // edge (no frame); Violet stands in the right half at Maya's height, feet on her line.
           // Figure share and feet line of each source: Maya (pose: head ~0.13, heels ~0.95),
           // Violet's render (alpha: head 0.09, feet 0.928).
-          const cw = W / 2, ch = Math.min(cw * (s.aspect || 1.8), H * 0.62), y = H * 0.15 + (H * 0.65 - ch) / 2
+          // Raz: fill the frame, two equal columns from under the caption band down to the
+          // caption-safe line (80%). Violet is rendered on the lilac, so her frame is clipped
+          // to her own column.
+          const cw = W / 2, y = H * 0.15, ch = H * 0.65
           const mFig = s.bottom.figure || 0.82, mFeet = s.bottom.feet || 0.95, vFig = s.top.figure || 0.84, vFeet = s.top.feet || 0.928
           waits.push(img(s.topImg, frameOf(s, t, s.top)), img(s.botImg, frameOf(s, t, s.bottom)))
           Object.assign(s.botImg.style, { left: '0px', top: y + 'px', width: cw + 'px', height: ch + 'px', objectFit: 'cover', borderRadius: '0', clipPath: 'none' })
-          const vh = ch * mFig / vFig, vw = vh * s.top.iw / s.top.ih
-          Object.assign(s.topImg.style, { left: cw + (cw - vw) / 2 + 'px', top: y + mFeet * ch - vFeet * vh + 'px', width: vw + 'px', height: vh + 'px' })
+          const vh = ch * mFig / vFig, vw = vh * s.top.iw / s.top.ih, vx = cw + (cw - vw) / 2, vy = y + mFeet * ch - vFeet * vh
+          Object.assign(s.topImg.style, { left: vx + 'px', top: vy + 'px', width: vw + 'px', height: vh + 'px', clipPath: `inset(${Math.max(0, y - vy)}px ${Math.max(0, vx + vw - W)}px ${Math.max(0, vy + vh - (y + ch))}px ${Math.max(0, cw - vx)}px)` })
         } else {
         const half = (H * 0.8 - H * 0.18) / 2
         const top = H * 0.18

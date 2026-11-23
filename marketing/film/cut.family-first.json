@@ -85,7 +85,7 @@
    "dur": 10.4,
    "caption": "It comes alive!",
    "top": {
-    "dir": "assets/f5_violet",
+    "dir": "assets/f5_violet3",
     "ext": "png",
     "n": 161,
     "fps": 16,
@@ -129,5 +129,6 @@
    "dur": 4.0,
    "note": "marketing/film/spec/end.html, Violet moving in row 3"
   }
- ]
+ ],
+ "xf": 0.0
 }

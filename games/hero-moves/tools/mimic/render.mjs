@@ -2,7 +2,7 @@
  * Renders a hero copying a person, one PNG per video frame (src/mimic.ts).
  *
  *   npx vite --port 5182 &                      # in games/hero-moves
- *   node tools/mimic/render.mjs hero.vrm pose.json outDir [--w=720] [--h=1280] [--from=0] [--to=N] [--alpha]
+ *   node tools/mimic/render.mjs hero.vrm pose.json outDir [--w=720] [--h=1280] [--from=0] [--to=N] [--alpha] [--bg=#e9e3ff]
  *
  * pose.json comes from tools/mimic/extract_pose.py. The VRM and the pose file are
  * handed to the page by request interception, so they can live anywhere on disk.
@@ -23,7 +23,7 @@ page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.
 page.on('pageerror', (e) => console.error('[page]', e.message))
 await page.route('**/__in/hero.vrm', (r) => r.fulfill({ body: fs.readFileSync(vrm), contentType: 'model/gltf-binary' }))
 await page.route('**/__in/pose.json', (r) => r.fulfill({ body: fs.readFileSync(pose), contentType: 'application/json' }))
-await page.goto(`${base}/mimic.html?w=${W}&h=${H}${process.argv.includes('--alpha') ? '&alpha' : ''}`)
+await page.goto(`${base}/mimic.html?w=${W}&h=${H}${process.argv.includes('--alpha') ? '&alpha' : ''}${flag('bg', '') ? '&bg=' + encodeURIComponent(flag('bg', '')) : ''}`)
 await page.waitForFunction(() => window.__mimic)
 const opts = JSON.parse(flag('opts', '{}'))
 const info = await page.evaluate((o) => window.__mimic.load('/__in/hero.vrm', '/__in/pose.json', o), opts)
