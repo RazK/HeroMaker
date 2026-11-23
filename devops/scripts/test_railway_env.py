@@ -161,7 +161,11 @@ STAGING_ONLY = {
     # "No analytics", and only Raz changes its words. When it says what is
     # collected, the line moves to backend.env and leaves this set.
     # backend/app/services/analytics.py
-    "backend": {"PIPELINE_RESULT_CACHE", "ANALYTICS_ENABLED"},
+    # Pay after the reveal: the first painting free (E-006). Staging only by
+    # the PM's call for the Sprint 1 demo (2026-11-23); production stays off
+    # until Raz decides to give paintings away to real customers.
+    # backend/app/services/free_painting.py
+    "backend": {"PIPELINE_RESULT_CACHE", "ANALYTICS_ENABLED", "FREE_PAINTING"},
 }
 
 
