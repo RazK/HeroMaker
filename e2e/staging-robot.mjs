@@ -780,7 +780,14 @@ try {
   await step(page, 'free', async () => {
     if (!freePainting) return 'skipped: no free painting for this account (FREE_PAINTING off)';
     if (await creditsShown(page) !== 0) throw new Error('the free painting needs an account with 0 credits');
-    // With 0 credits, Make a hero opens the photo sheet, not Buy credits.
+    // With 0 credits, Make a hero opens the photo sheet, not Buy credits
+    // (and records make_started, as it does for a paying account).
+    await page.locator('.tb-new-hero').click();
+    const sheet = page.getByRole('dialog', { name: 'New hero' });
+    await sheet.waitFor({ timeout: 15000 });
+    if (await page.locator('.buy-credits-why').count()) throw new Error('Make a hero opened Buy credits for the free painting');
+    await page.keyboard.press('Escape');
+    await sheet.waitFor({ state: 'detached', timeout: 5000 });
     const input = page.locator('.header-upload-buttons input[type=file]');
     await input.setInputFiles(DRAWING);
     const go = page.locator('button.post-upload-action-primary');
