@@ -155,3 +155,25 @@ the grid, except for the call window.
 3. In 4:5 beat 2, for about 1.5 s, the row leaves the lower ~40% of the band
    empty until the end card fills it. Accept, or make the row's pictures larger
    in that beat only?
+
+### Maya on v3 (2026-11-23): not yet. Five changes, then it goes to Raz
+
+1. **The call window goes on the axis, above Violet** (9:16): x 408–672,
+   y 528–912, portrait. Violet stands under it, from y 940 to the band's
+   foot. Bottom-centre does not work: Instagram's caption covers the whole
+   bottom, not only the left. The top of the band is clear on both apps.
+2. **Yes, size by height.** The painting's figure is as tall as the drawing
+   inside the polaroid, in every beat where they sit together.
+3. **9:16 beat 2 is mostly empty.** The two pictures are about 180 px in a
+   960 px band. Stacked, each takes half the band: the polaroid about 440 px
+   tall, the arrow, then the painting at the same height. That is the point
+   of option A.
+4. **9:16 beat 4 has the same problem.** Three rows of small pictures with
+   the bottom third empty. Make each row's picture about 300 px tall. Centre
+   each sentence beside its picture on the row's middle line, as one block
+   on the axis. Make a hero goes under the rows.
+5. **4:5 beat 2: make them larger.** The row fills the width at the margins,
+   with pictures about 300 px, and is centred down the band. No empty 40%.
+
+Then run the gate again, with item 4 checked on the whole frame, not only
+inside the band. If that passes, show Raz.
