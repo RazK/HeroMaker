@@ -65,6 +65,8 @@ const BALANCE_BEFORE_CHECKOUT = PURCHASE_ON_LOAD ? balanceBeforeCheckout() : und
 const CLASS_PAID_ON_LOAD = new URLSearchParams(window.location.search).get(CLASS_PAID_PARAM);
 // The screen this address is (routes.ts): a hero, a class, the admin console.
 const ROUTE_ON_LOAD = routeAt(window.location.pathname);
+/** Opened as `/?make=1`: start making a hero (the shared game's last button). */
+const MAKE_ON_LOAD = ROUTE_ON_LOAD?.view === 'gallery' && new URLSearchParams(window.location.search).get('make') === '1';
 
 function App() {
   const pin = joinPin();
@@ -445,6 +447,18 @@ function MainApp() {
     }
     proceedToMake(await refreshCreditBalance());
   };
+  // `/?make=1`: the way in from the end of a shared game ("Make a hero from my
+  // drawing"). Once we know who is looking, it does what Make a hero does:
+  // sign-up first when signed out (make_started fires there, as always).
+  const makeOnLoad = useRef(MAKE_ON_LOAD);
+  const startNewHeroRef = useRef(startNewHero);
+  startNewHeroRef.current = startNewHero;
+  useEffect(() => {
+    if (!makeOnLoad.current || !authChecked) return;
+    makeOnLoad.current = false;
+    replaceRoute('/');
+    void startNewHeroRef.current();
+  }, [authChecked]);
 
   const discardUnstarted = (keepalive = false) => {
     const id = unstartedRef.current;

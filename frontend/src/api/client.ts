@@ -453,6 +453,11 @@ export const api = {
    * hence the URL. Use this for every thumbnail, so the gallery, the hero
    * page and the polaroid all share one cached copy.
    */
+  /** The hero's painting as a flat JPEG for sharing: what chat apps show for its link too. */
+  heroSharePictureUrl(heroId: string): string {
+    return `${API_BASE_URL}/api/v1/heroes/${encodeURIComponent(heroId)}/preview.jpg`;
+  },
+
   heroFileUrl(creation: Pick<CreationResponse, 'id' | 'user_id' | 'file_versions'>, filename: string): string {
     const url = api.getFileUrl(creation.id, filename, creation.user_id);
     // Derived files (thumb_x, cut_x, display_x) carry the version of the file they are made from.

@@ -31,7 +31,7 @@ One theme. No dark mode.
 | `--tb-plate-1..6` | `#E9E3FF` `#FFE9A8` `#CFF5EA` `#FFDCC7` `#D6ECFF` `#FFD6E7` | Plates heroes stand on; gallery tiles cycle 1 to 6 |
 | `--tb-rumble` / `--tb-rumble-deep` | `#FF7A1A` / `#D9480F` | Robot Rumble's own colour: its poster and its card footer (ink text, 6.9:1) |
 | `--tb-dance` / `--tb-dance-deep` | `#D6247F` / `#1E0B3A` | Dance party's own colour: magenta and its night-club dark (white text, 4.8:1) |
-| `--tb-font-display` | Barriecito 400 (Fredoka fallback, and for Hebrew) | The wordmark, names, titles, buttons, numbers (never ones people copy, below). One weight only: `font-synthesis: none`, never fake bold |
+| `--tb-font-display` | Barriecito 400 (Fredoka fallback); Hebrew: **Amatic SC 700** | The wordmark, names, titles, buttons, numbers (never ones people copy, below). One weight only: `font-synthesis: none`, never fake bold |
 | `--tb-font-body` | Nunito 600/700/800 | Text. Never weight 400 |
 | `--tb-space` | `16px` | THE visible gap, everywhere |
 | `--tb-gutter` | `20px` | Side margins |
@@ -248,7 +248,7 @@ A sheet never runs edge to edge on a desktop, and never sits at the bottom of a 
 
 - Logical properties only (`margin-inline-start`, `inset-inline-end`, `text-align: start`). Never left/right in new CSS.
 - Mirror directional icons (back, next, redo, logout). Never mirror logos, heroes or media.
-- Fredoka has Hebrew (verified on Google Fonts). Nunito does not: Hebrew text uses **Rubik**, which has Hebrew and our 600 to 800 weights (Varela Round has only 400).
+- Hebrew titles: **Amatic SC 700** (Raz, 2026-11-22). It is condensed and light, so Hebrew titles run about 1.4x the Latin size. Hebrew text: **Rubik 600**; Amatic is unreadable under ~24px, measured. Neither Barriecito nor Nunito has Hebrew, so the stacks fall through to them glyph by glyph. Fonts are part of the locale (`docs/design/LOCALIZATION.md`).
 
 ## Accessibility
 
@@ -343,6 +343,6 @@ Mock-ups of each are in the artifact's "Rejected" card.
 - The Stunt show prototype (`reel.html`, GitHub Pages only: its moves now live on the hero's page) uses emoji cards and a "★" combo counter.
 - `--tb-line` borders on inputs and chips are 1.3:1, under the 3:1 a control border needs.
 - toybox.css's header comment says "Header 64px" and "32px from the bottom"; real: 80px + 4px depth, 16px visible.
-- Physical left/right in CSS: `.tb-btn-trail`, `.tb-header-title`, `.tb-sheet-row`, `.tb-stage-img`, `.tb-polaroid`, `.tb-notice button`, `.tb-pill`, `.buy-credits-pack`. No Hebrew text font loaded yet.
+- Physical left/right in CSS: `.tb-btn-trail`, `.tb-header-title`, `.tb-sheet-row`, `.tb-stage-img`, `.tb-polaroid`, `.tb-notice button`, `.tb-pill`, `.buy-credits-pack`. Amatic SC and Rubik are loaded (index.html).
 
 More screenshots: [`img/`](img/) (gallery signed in/out and loading, sign up, buy credits, account, new hero, How it was made, the game in portrait and landscape).

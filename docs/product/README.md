@@ -9,6 +9,8 @@ This folder holds them, next to the code that measures them.
 | `hypotheses/H-NNN-<slug>.md` | One belief each. |
 | [`experiments/`](experiments/README.md) | One test each, `E-NNN-<slug>.md`, and the template. |
 | [`DECISIONS.md`](DECISIONS.md) | What Raz decided, from which result. |
+| [`OPERATING.md`](OPERATING.md) | The KPI, the weekly review, pilots before A/B, the one promise. **Read first.** |
+| [`templates/`](templates/) | Short forms: feature brief, design review, launch, campaign, weekly and monthly review. |
 | `class-sessions.md`, `creator-and-group-leader.md` | Feature specs. They say what was built; this method says whether it worked. |
 
 ## A hypothesis

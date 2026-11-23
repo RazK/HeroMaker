@@ -32,6 +32,23 @@ These came straight from the product owner. They override your defaults.
   he approves *Promote to production*. Everything except his review is yours
   to automate.
 
+## Product: read docs/product/OPERATING.md before proposing work
+
+One KPI (paid heroes per week), a 5-line review to Raz every Sunday, pilots
+before A/B tests at our traffic, and one promise from the ad to the share
+page. Every request is checked against `docs/product/MONEY_MOMENTS.md`.
+
+The team and its skills (`.claude/skills/`, shared by every agent that
+clones this repo):
+
+- **`money-check`**: run it before building or proposing anything, and on
+  every new idea from Raz. Steer him when an idea does not bring money.
+- **`weekly-review`**: the Sunday 5 lines, from real numbers only.
+- **`pilot-notes`**: plan and write up Schneider, classes and other pilots.
+- **`team-handoff`**: who is who (names are session titles: Gidi · Payments,
+  Maya · Design, Liran · Dev, Nir · 3D, Tom · Content), how agents message each
+  other, how to report to Raz.
+
 ## Design: read docs/design/PRINCIPLES.md, then BRANDBOOK.md, before any UI work
 
 `docs/design/PRINCIPLES.md` is Raz's rules, written down so he never repeats them:
@@ -160,6 +177,16 @@ only then the ID. If an ID really is wrong, re-derive it rather than guessing:
 open the project URL in `project.json`, switch the environment dropdown, and
 read `environmentId=` out of the address bar. Service IDs appear in the URL the
 same way. Then fix `project.json` — only `project.json`.
+
+### Changing a production variable redeploys unreleased code
+
+On Railway, changing a service's variable **redeploys it from the latest
+commit of its branch**, not from the image already running. On 2026-11-22 a
+variable change on the production backend put `main` (staging's unreleased
+code) on production for ten minutes, until the old build was redeployed by
+id. So, for production: set variables with `skipDeploys`, then redeploy the
+**running** deployment by its id. Any production variable change still needs
+Raz's yes.
 
 ## Staging never looks like production (Raz's rule)
 

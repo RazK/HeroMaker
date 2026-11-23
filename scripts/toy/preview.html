@@ -1,0 +1,30 @@
+<!doctype html><html><body style="margin:0;background:#f3f1ee">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const W=900,H=1000;
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+r.setSize(W,H); r.setPixelRatio(1); r.shadowMap.enabled=true; r.toneMapping=THREE.ACESFilmicToneMapping; r.outputColorSpace=THREE.SRGBColorSpace;
+document.body.appendChild(r.domElement);
+const sc=new THREE.Scene(); sc.background=new THREE.Color('#f3f1ee');
+sc.add(new THREE.HemisphereLight(0xffffff,0xbbb4aa,1.4));
+const d=new THREE.DirectionalLight(0xffffff,2.2); d.position.set(60,160,120); d.castShadow=true;
+d.shadow.mapSize.set(2048,2048); Object.assign(d.shadow.camera,{left:-120,right:120,top:120,bottom:-120,near:1,far:500}); sc.add(d);
+const d2=new THREE.DirectionalLight(0xffffff,0.6); d2.position.set(-100,60,-80); sc.add(d2);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.ShadowMaterial({opacity:0.18}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; sc.add(floor);
+const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.55,metalness:0});
+mat.onBeforeCompile=s=>{
+  s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying float vY;').replace('#include <begin_vertex>','#include <begin_vertex>\nvY=(modelMatrix*vec4(position,1.0)).y;');
+  s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nvarying float vY;').replace('#include <color_fragment>','#include <color_fragment>\nfloat ph=fract(vY/0.16); diffuseColor.rgb*=0.93+0.07*smoothstep(0.0,0.35,ph)*smoothstep(1.0,0.65,ph);');
+};
+new GLTFLoader().load('toy.glb',g=>{
+  g.scene.traverse(o=>{if(o.isMesh){o.material=mat;o.castShadow=true;o.receiveShadow=true;o.geometry.computeVertexNormals();}});
+  sc.add(g.scene);
+  const cam=new THREE.PerspectiveCamera(30,W/H,1,2000);
+  window.shot=(az,el,dist,ty)=>{const a=az*Math.PI/180,e=el*Math.PI/180;
+    cam.position.set(Math.sin(a)*Math.cos(e)*dist,ty+Math.sin(e)*dist,Math.cos(a)*Math.cos(e)*dist);cam.lookAt(0,ty,0);r.render(sc,cam);return true;};
+  window.ready=true;
+});
+</script></body></html>

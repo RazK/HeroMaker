@@ -3,11 +3,21 @@
 Audit of 2026-11-19, before the first paid marketing campaign. Production was
 v2.0.85 (deployed 2026-11-02); the fixes below reached staging as v2.0.115.
 
-**Verdict: not yet.** The code path is proven on staging in test mode. What is
-not proven is production itself: whether its store takes real money, and
-whether its providers still answer. Both need Raz (list 3).
+**Verdict: not yet.** Lemon Squeezy did not approve the business, so it is
+dropped (2026-11-22). The new provider is **Grow** (Israeli, works with an
+exempt dealer, charges in ILS). Grow's API team has the request; nothing can be
+built against it until they send sandbox identifiers and answer how a payment
+callback is authenticated (their public docs do not say).
 
-Keep this file current. When an item changes, move it between the lists.
+**Production sells nothing right now** (2026-11-22, Raz's yes): the three
+`LEMONSQUEEZY_VARIANT_*` and `LEMONSQUEEZY_WEBHOOK_SECRET` are empty on the
+production backend, so `/api/v1/packs` is `[]` and the webhook answers 401 to
+everything. Production runs v2.0.85, which would have credited a Lemon Squeezy
+test-card order. Lesson from doing it: on Railway, changing a variable
+redeploys the service **from the latest commit of its branch**, not the image
+already running. It put `main` on the production backend for ten minutes until
+the old build was redeployed by id. Change production variables with
+`skipDeploys`, then redeploy the running deployment by id.
 
 ## 1. Ready and proven
 
@@ -38,31 +48,15 @@ Keep this file current. When an item changes, move it between the lists.
 
 Most blocking first. Each line is one action.
 
-1. **Say whether production's store is live.** `LEMONSQUEEZY_TEST_MODE` is set
-   on production but its value is hidden from the agent. Open production →
-   Admin → Money → the Lemon Squeezy card (it shows a Test or Live pill), or
-   the variable in Railway.
-   - If it says **test**: production takes no real money. If a test webhook
-     also points at production, anyone who knows the public test card (4242…)
-     can make heroes at our cost today. Go to 2.
-   - If it says **live**: skip to 3.
-2. **Switch production to live mode.** Start today: step one is a review by
-   Lemon Squeezy that can take days.
-   - Activate the store: <https://app.lemonsqueezy.com/dashboard> → Activate
-     store. Lemon Squeezy checks the business and the product before it lets a
-     store take real money.
-   - When it is approved: on each of the products at
-     <https://app.lemonsqueezy.com/products> choose "Copy to Live Mode", turn
-     the Test mode switch off, and note the three live variant ids.
-   - Make a live API key: <https://app.lemonsqueezy.com/settings/api>
-   - Add a live webhook: <https://app.lemonsqueezy.com/settings/webhooks>,
-     URL `https://heromaker-backend.up.railway.app/api/payments/webhook`,
-     events `order_created` and `order_refunded`, and a new signing secret
-     (not the test one).
-   - In Railway (the project link in `devops/railway/project.json` →
-     production → backend → Variables) set `LEMONSQUEEZY_API_KEY`,
-     `LEMONSQUEEZY_WEBHOOK_SECRET`, `LEMONSQUEEZY_VARIANT_STARTER`,
-     `_MAKER`, `_STUDIO`, and `LEMONSQUEEZY_TEST_MODE=false`.
+1. **Grow account and API identifiers.** Raz opened the account
+   (2026-11-22) and was passed to Grow's API team. Needed from them: sandbox
+   `userId` and `pageCode`, test cards, the production base URL, the
+   `approveTransaction`, transaction-lookup and refund docs, how a
+   `notifyUrl` callback is authenticated, and whether USD and foreign cards
+   work. Until the callback can be authenticated (signature, or a server-side
+   lookup by transaction id), the webhook must not grant credits on its word.
+2. **Prices in ILS.** Grow charges in shekels. The current packs are priced
+   in dollars; a shekel price table is a decision for Raz (section 4).
 3. **Approve one real purchase and one real hero on production** (about $5.90:
    the smallest pack, plus about $0.90 of provider cost; the $5 can be
    refunded). No hero has been made on production since the 2 November deploy,

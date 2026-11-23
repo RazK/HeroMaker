@@ -5,6 +5,10 @@ One file per experiment: `E-NNN-<slug>.md`. The method is in
 
 ## Run order
 
+> **Paused below the first two (D-001, 2026-11-23).** Until we sell 20 heroes
+> a week, only E-002 and E-006 run; we learn from observed pilots instead
+> (`../OPERATING.md`). The order below is kept for when that changes.
+
 **One A/B at a time**, so no two tests change the same visitor's funnel. The
 funnel observation by door keeps running underneath all of them.
 

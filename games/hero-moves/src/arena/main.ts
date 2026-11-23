@@ -40,6 +40,18 @@ const SAMPLE = params.get('sample') || 'Crayon_Kid'
 const HERO_URL = OWN_HERO ?? sampleUrl(SAMPLE) ?? Object.values(samples)[0]
 const HERO_NAME = OWN_HERO ? OWN_NAME : (params.get('name') || SAMPLE.replace(/_/g, ' '))
 
+/** The child's own drawing, next to the hero's VRM (the backend's thumbnail). */
+const OWN_DRAWING = OWN_HERO ? OWN_HERO.replace(/[^/?#]+(\?.*)?$/, 'thumb_original.jpg') : null
+/**
+ * Opened from a shared link (?via=share): the family has no context yet, so
+ * a name tag under the hero says who it is and who drew it, and flies off when
+ * the round starts; the sheet keeps only how to play. The drawing itself
+ * hangs on the wall behind the hero, once (Raz, 2026-11-23).
+ */
+const SHARED = params.get('via') === 'share' && !!OWN_DRAWING
+/** The app's make flow, where a family from a share makes their own hero. */
+const MAKE_PATH = '/?make=1'
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 // ------------------------------------------------------------------ DOM
@@ -50,7 +62,7 @@ app.innerHTML = `
   <div class="tb-screen tb-screen--fit rr-screen" data-phase="loading">
     <header class="tb-header">
       <div class="tb-header-side rr-back-slot"></div>
-      <div class="tb-header-title rr-title">Robot Rumble</div>
+      <a class="tb-header-title rr-title tb-logo tb-logo-mark" href="/" aria-label="HeroMaker home"><img src="/app-icon.png" alt=""><span>HeroMaker</span></a>
       <div class="tb-header-side tb-header-side--end rr-pills">
         <div class="tb-credits rr-pill rr-score" aria-label="Score">${icon('star', 18)}<span class="rr-score-value">0</span></div>
         <div class="tb-credits rr-pill rr-timer" role="timer" aria-label="Time left">${icon('clock', 18)}<span class="rr-timer-value">1:15</span></div>
@@ -60,6 +72,7 @@ app.innerHTML = `
       <div class="rr-pops"></div>
       <div class="tb-credits rr-pill rr-combo" aria-hidden="true">${icon('punch', 18)}<span class="rr-combo-value"></span></div>
       <div class="rr-count" aria-live="assertive"></div>
+      ${SHARED ? `<div class="rr-tag"><span class="rr-tag-name">${esc(HERO_NAME)}</span><span class="rr-tag-by">drawn by <span class="rr-story-who">a kid</span></span></div>` : ''}
       <div class="rr-loading" role="status">
         <div class="rr-ring"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" class="rr-ring-track"/><circle cx="32" cy="32" r="28" class="rr-ring-fill"/></svg><span class="rr-ring-pct">0%</span></div>
         <div class="tb-muted rr-loading-what">Getting ${esc(HERO_NAME)} ready</div>
@@ -67,19 +80,17 @@ app.innerHTML = `
     </div>
     <div class="tb-bar rr-bar">
       <div class="rr-card rr-card--start tb-panel">
-        <div class="tb-eyebrow">Robot Rumble</div>
-        <div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>
-        <div class="rr-line">Bop them before they reach your toys!</div>
-        <div class="rr-chips">
-          <span class="tb-chip rr-chip">${icon('punch', 18)}Punch</span>
-          <span class="tb-chip rr-chip">${icon('jump', 18)}+${icon('punch', 18)}Smash</span>
-        </div>
+${SHARED ? '' : `<div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>`}
+        <div class="rr-line">Bop the robots before they reach the toys!</div>
         <div class="rr-start-slot"></div>
       </div>
       <div class="rr-card rr-card--end tb-panel">
-        <div class="tb-eyebrow rr-end-eyebrow">Time’s up!</div>
+${SHARED ? '' : '<div class="tb-eyebrow rr-end-eyebrow">Time’s up!</div>'}
         <div class="rr-end-score"><span class="rr-end-value">0</span><span class="rr-end-label">points</span></div>
-        <div class="rr-line rr-end-best">Best 0</div>
+        ${SHARED
+          // A family from a shared link: the promise, then the way to make their own.
+          ? `<div class="rr-line"><span class="rr-end-who">A kid</span> drew ${esc(HERO_NAME)} on paper.<br>Your kid’s drawing can come alive too!</div>`
+          : '<div class="rr-line rr-end-best">Best 0</div>'}
         <div class="rr-end-buttons"></div>
       </div>
     </div>
@@ -88,6 +99,7 @@ app.innerHTML = `
 const screen = app.querySelector<HTMLElement>('.rr-screen')!
 const stageEl = app.querySelector<HTMLElement>('.rr-stage')!
 const bar = app.querySelector<HTMLElement>('.rr-bar')!
+const tagEl = app.querySelector<HTMLElement>('.rr-tag')
 const popsEl = app.querySelector<HTMLElement>('.rr-pops')!
 const comboEl = app.querySelector<HTMLElement>('.rr-combo')!
 const comboValue = app.querySelector<HTMLElement>('.rr-combo-value')!
@@ -97,15 +109,45 @@ const timerEl = app.querySelector<HTMLElement>('.rr-timer')!
 const timerValue = app.querySelector<HTMLElement>('.rr-timer-value')!
 // The app's own parts (ui/tb.ts): the round back button, the big pill buttons,
 // the sheet grip. Primary last, as in every bottom bar of the app.
-app.querySelector('.rr-back-slot')!.append(tbNav('back', 'Back to your hero', goBack))
+// From a shared link there is no hero page of theirs to go back to: Back
+// goes to HeroMaker's home, the landing and the gallery (Raz, 2026-11-23).
+app.querySelector('.rr-back-slot')!.append(SHARED
+  ? tbNav('back', 'HeroMaker home', () => location.assign('/'))
+  : tbNav('back', 'Back to your hero', goBack))
 for (const card of app.querySelectorAll('.rr-card')) card.prepend(tbGrip())
+// Who drew it: the hero's public card says the child's first name and age
+// (Raz: "we asked for them so we would show them").
+let ARTIST: { name: string; age: number | null } | null = null
+const artistReady: Promise<void> = (async () => {
+  const id = OWN_HERO ? /\/api\/files\/[^/]+\/([^/]+)\//.exec(new URL(OWN_HERO).pathname)?.[1] : null
+  if (!id) return
+  try {
+    const r = await fetch(`/api/v1/heroes/${id}`, { headers: { Accept: 'application/json' } })
+    const a = r.ok ? ((await r.json()) as { artist?: { name?: string | null; age?: number | null } }).artist : null
+    const first = (a?.name ?? '').trim().split(/\s+/)[0]
+    if (first) ARTIST = { name: first, age: a?.age ?? null }
+  } catch { /* "A kid" stays */ }
+  if (!ARTIST) return
+  const who = ARTIST.age ? `${ARTIST.name}, ${ARTIST.age}` : ARTIST.name
+  for (const el of app.querySelectorAll('.rr-story-who')) el.textContent = who
+  const endWho = app.querySelector('.rr-end-who')
+  if (endWho) endWho.textContent = ARTIST.name
+})()
 const startBtn = tbButton('Start', { icon: 'play' })
 startBtn.classList.add('rr-start')
 startBtn.disabled = true
 app.querySelector('.rr-start-slot')!.replaceWith(startBtn)
 const againBtn = tbButton('Play again', { icon: 'redo' })
 againBtn.classList.add('rr-again')
-app.querySelector('.rr-end-buttons')!.append(tbButton('Back', { kind: 'secondary', onClick: goBack }), againBtn)
+if (SHARED) {
+  // Play again steps back to second; making their own is the primary, last.
+  againBtn.classList.replace('tb-btn--primary', 'tb-btn--secondary')
+  const make = tbButton('Make my kid’s hero', { icon: 'camera', onClick: () => location.assign(MAKE_PATH) })
+  make.classList.add('rr-make')
+  app.querySelector('.rr-end-buttons')!.append(againBtn, make)
+} else {
+  app.querySelector('.rr-end-buttons')!.append(tbButton('Back', { kind: 'secondary', onClick: goBack }), againBtn)
+}
 const ringFill = app.querySelector<SVGCircleElement>('.rr-ring-fill')!
 const ringPct = app.querySelector<HTMLElement>('.rr-ring-pct')!
 
@@ -172,7 +214,9 @@ function aimCamera(dt: number, snap = false) {
   const showFov = portrait ? 34 : 30
   const tanS = Math.tan(THREE.MathUtils.degToRad(showFov / 2))
   const sd = Math.max((heroH * 0.62 / 0.5) / 2 / tanS, ((g?.hero.width ?? 1) * 0.75) / (tanS * aspect)) + 0.8
-  const showLook = new THREE.Vector3(hx, heroH * 0.52, hz)
+  // A shared start sheet is shorter (no name: the tag under the hero has it),
+  // so the stage is taller: look higher, and the hero and tag sit lower in it.
+  const showLook = new THREE.Vector3(hx, heroH * (SHARED ? 0.55 : 0.52), hz)
   const yaw = 0.32
   const showPos = showLook.clone().add(new THREE.Vector3(Math.sin(yaw) * sd, heroH * 0.25 + 0.3, Math.cos(yaw) * sd))
 
@@ -274,10 +318,12 @@ function finish() {
   if (isBest) writeBest(game.score)
   trackGameEnded('arena', game.time, game.score)
   app.querySelector('.rr-end-value')!.textContent = game.score.toLocaleString('en-US')
-  app.querySelector('.rr-end-eyebrow')!.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
+  const endEyebrow = app.querySelector('.rr-end-eyebrow')
+  if (endEyebrow) endEyebrow.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
   const s = game.stats
   const bopped = s.robots + s.mushrooms + s.bouncies + s.crates + s.balloons
-  app.querySelector('.rr-end-best')!.textContent = isBest
+  const bestEl = app.querySelector('.rr-end-best')
+  if (bestEl) bestEl.textContent = isBest
     ? `${bopped} bopped`
     : `Best ${best.toLocaleString('en-US')} · ${bopped} bopped`
   // A thumb still hammering Punch when time runs out must not land on Back:
@@ -353,6 +399,11 @@ function frame(dtReal: number, render = true) {
   crowd.update(dt, camera)
   updatePops(dt)
   if (render) renderer.render(world.scene, camera)
+  // The shared hero's name tag stands right under its feet on the start view.
+  if (tagEl && game && (phase === 'menu' || phase === 'loading')) {
+    const feet = game.pos.clone().project(camera)
+    tagEl.style.top = `${Math.round((1 - feet.y) / 2 * stageEl.clientHeight + 6)}px`
+  }
 
   // Performance: frame cost and draw calls, and a cheaper pixel ratio if the
   // device cannot keep up (never in manual/recording mode).
@@ -439,6 +490,9 @@ function setProgress(f: number) {
     aimCamera(0, true)
     startBtn.disabled = false
     ;(window as unknown as { __ready?: unknown; __moves?: number }).__moves = loaded
+    // The child's own drawing: the biggest card on the wall, right behind
+    // their hero (Raz: "it's important that they see the original drawing").
+    if (OWN_DRAWING) void artistReady.then(() => crowd.board.hangStar(OWN_DRAWING, ARTIST?.name, ARTIST?.age))
     ;(window as unknown as { __ready?: unknown }).__ready = true
     // The crowd: other heroes cheering from the stands, one after another
     // behind the player's. The game never waits for them, and plays the same
@@ -473,6 +527,7 @@ function setProgress(f: number) {
  */
 ;(window as unknown as Record<string, unknown>).__arena = {
   start: (seed?: number) => start(seed),
+  finish: () => finish(),
   step: (n = 1, dt = 1 / 30, render = true) => { for (let i = 0; i < n; i++) frame(dt, render && i === n - 1) },
   state: () => {
     if (!game) return null

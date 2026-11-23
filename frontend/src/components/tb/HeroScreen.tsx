@@ -1,7 +1,7 @@
 import { KeyboardEvent, ReactNode, Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { ActionFigure, api, ApiError, CreationResponse, CreationStepResponse } from '../../api/client';
+import { ActionFigure, api, ApiError, CreationResponse, CreationStepResponse, getAuthToken } from '../../api/client';
 import { getTotalCost } from '../../config/steps';
-import { arenaUrl, playUrl } from '../../config/play';
+import { arenaUrl, canPlay, playUrl } from '../../config/play';
 import { heroLink, leaveFromOverlay } from '../../routes';
 import { flush, track } from '../../analytics';
 import { HeroLive } from './HeroLive';
@@ -42,6 +42,15 @@ interface HeroScreenProps {
  * in every state (HeroLive): the drawing, the painting and the hero, built up
  * as each is made; ready, the hero is live in 3D, with its moves under it.
  */
+/**
+ * Opened by a shared link (`?via=share`, as Share writes it). A family who
+ * gets a hero in WhatsApp goes straight into Robot Rumble with it: the game
+ * says who drew it and, after a round, how to make their own (Raz,
+ * 2026-11-23). The link stays the hero's page, so its preview card and the
+ * share door (analytics) are unchanged; crawlers run no script.
+ */
+const SHARE_ARRIVAL = new URLSearchParams(window.location.search).get('via') === 'share';
+
 export function HeroScreen(props: HeroScreenProps) {
   const { creation, isLoggedIn, currentUserId, isAdmin, creditBalance } = props;
   const state = heroState(creation);
@@ -68,6 +77,18 @@ export function HeroScreen(props: HeroScreenProps) {
   }, [figureReady, creation.id, isLoggedIn, isAdmin, props.fromClass]);
   const showFigure = !!figure && (figure.status === 'succeeded' || figure.can_make);
   const toyMade = figure?.status === 'succeeded';
+  // A share's visitor (never the owner, a teacher or support) is sent into
+  // the game, once, as soon as we know who is looking and the hero can play.
+  const sentToGame = useRef(false);
+  useEffect(() => {
+    if (!SHARE_ARRIVAL || sentToGame.current) return;
+    if (getAuthToken() && !currentUserId) return; // still reading who this is
+    if (owns || props.fromClass || props.fromAdmin || !canPlay(creation)) return;
+    sentToGame.current = true;
+    track('game_started', { game: 'arena', hero_id: creation.id });
+    flush(true);
+    window.location.replace(`${arenaUrl(creation)}&via=share`);
+  }, [owns, currentUserId, creation, props.fromClass, props.fromAdmin]);
   const shown = useRef<(StepProgress & { key: string }) | null>(null);
   useFitScreen();
 
@@ -78,7 +99,6 @@ export function HeroScreen(props: HeroScreenProps) {
     return () => clearInterval(t);
   }, [state]);
 
-  const file = (f: string) => api.heroFileUrl(creation, f);
   const step = currentStep(creation);
   const now = Date.now();
   const measured = stepProgress(step, now);
@@ -147,14 +167,13 @@ export function HeroScreen(props: HeroScreenProps) {
     pic.current = null;
     if (!canShareFiles || state !== 'ready') return;
     let alive = true;
-    fetch(file('thumb_rendered.png'))
+    // The share picture is a flat JPEG (backend share_card.py): the cut
+    // painting's PNG is transparent, and WhatsApp painted its background black.
+    fetch(api.heroSharePictureUrl(creation.id))
       .then((r) => (r.ok ? r.blob() : null))
       .then((b) => {
         if (!alive || !b) return;
-        // Storage can type a picture binary/octet-stream, which no share
-        // target takes: name it by what it is (a thumbnail is WebP or PNG).
-        const type = b.type.startsWith('image/') ? b.type : 'image/png';
-        const f = new File([b], `${name}.${type === 'image/webp' ? 'webp' : 'png'}`, { type });
+        const f = new File([b], `${name}.jpg`, { type: 'image/jpeg' });
         if (navigator.canShare?.({ files: [f] })) pic.current = f;
       })
       .catch(() => { /* the link alone */ });
@@ -167,13 +186,16 @@ export function HeroScreen(props: HeroScreenProps) {
   }, [copied]);
   const share = async () => {
     track('share_tapped', { hero_id: creation.id });
-    const url = heroLink(creation.id);
+    // `?via=share` makes the visits a share brings their own door (G-6), so a
+    // share can be followed to a purchase. It carries no one's name.
+    const url = `${heroLink(creation.id)}?via=share`;
     const title = name;
     const text = `Meet ${name}! Tap to see it move.`;
     if (navigator.share) {
-      const withPic = pic.current && { title, url, files: [pic.current], text: `${text} ${url}` };
+      // With a picture the link rides in the text only: some apps drop the url
+      // field, and WhatsApp, which keeps both, printed the link twice.
+      const withPic = pic.current && { title, files: [pic.current], text: `${text} ${url}` };
       try {
-        // Some apps keep the picture and drop the url field: with a picture, the link rides in the text too.
         if (withPic && navigator.canShare?.(withPic)) await navigator.share(withPic);
         else await navigator.share({ title, text, url });
         return;
