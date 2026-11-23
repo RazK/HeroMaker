@@ -45,6 +45,8 @@ clones this repo):
   every new idea from Raz. Steer him when an idea does not bring money.
 - **`weekly-review`**: the Sunday 5 lines, from real numbers only.
 - **`pilot-notes`**: plan and write up Schneider, classes and other pilots.
+- **`sprint`**: the 3-day sprint cadence (`docs/ops/CADENCE.md`): daily sync,
+  kickoff, review with a working staging demo, retro. The PM conducts it.
 - **`team-handoff`**: who is who (names are session titles: Gidi · Payments,
   Maya · Design, Liran · Dev, Nir · 3D, Tom · Content), how agents message each
   other, how to report to Raz.
