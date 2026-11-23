@@ -32,6 +32,20 @@ Newest first. When an item enters a sprint, move it to `SPRINT_LOG.md`.
   spine, phone + desktop), Raz approves, then build.
 - **Gallery view:** Raz is happy with it — no change.
 
+### Design the payment experience (it has never been designed)
+- **From:** Raz, 2026-11-23. He has never *seen* a payment screen; none has been
+  designed. Payments work under the hood (test-mode checkout, webhook, credits,
+  receipts; the robot buys a pack every run) — but the UX is undesigned.
+- **Want:** a real, on-brand payment experience as a first-class money moment —
+  the **"Bring it to life" → pick a pack → pay → "credits added / done"** flow,
+  the return from checkout, the receipt. Not the raw "Buy credits" sheet and a
+  bare external page.
+- **Why it matters:** this is THE money. It must feel trustworthy and simple.
+- **Fits with** the studio-view redesign above (the "Bring it to life" stop
+  leads into it). Maya designs; Raz approves; then build. **Next sprint.**
+- **Interim:** show Raz the real Buy-credits → checkout → credits-land flow on
+  staging (a morning video), so he sees payments function today.
+
 ### Low-friction / anonymous start — carrots before sticks
 - **From:** Raz, 2026-11-23.
 - **Problem:** making the first hero sends the user to a form (sign-up /

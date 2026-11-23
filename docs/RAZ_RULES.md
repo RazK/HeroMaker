@@ -44,6 +44,18 @@ Each rule has the date it was set.
   Raz brings a new thing, the PM triages it: what still fits THIS sprint, and
   what is **backlogged** for the next. Keep `docs/ops/BACKLOG.md`. Deliver the
   sprint; carry the rest forward so we progress sprint to sprint. (2026-11-23)
+- **Liran owns staging releases.** He is the only one who merges to `main` /
+  releases to staging, one PR at a time. Everyone else opens PRs; the PM sets
+  the order; Liran merges. No parallel merges (they race the staging deploy).
+  (2026-11-23)
+
+## Words
+
+- **Don't say "paywall".** The user never sees a wall. It is the **"Bring it to
+  life"** moment — pay to continue. (2026-11-23)
+- **Payments must be visibly designed and shown, not just working under the
+  hood.** The "pick a pack → pay → done" screens and the checkout are a
+  first-class design, and Raz sees them on staging. (2026-11-23)
 
 ## Staging and production (see also the release flow in CLAUDE.md)
 
