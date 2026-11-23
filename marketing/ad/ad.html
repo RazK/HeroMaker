@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>HeroMaker ad</title>
+<!-- The first ad (docs/content/README.md). Recorded frame by frame by record.mjs:
+     window.__ad.set(t) poses every layer for second t; nothing here runs on a clock. -->
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --cream: #fff6e9; --ink: #231942; --ink-2: #5c5578; --grape: #5b3df5; --grape-deep: #3a22b8; --white: #fff; }
+  html, body { margin: 0; background: var(--cream); overflow: hidden; }
+  #ad { position: relative; width: var(--w); height: var(--h); background: var(--cream); font-family: Nunito, sans-serif; color: var(--ink); overflow: hidden; }
+  .layer { position: absolute; inset: 0; }
+  .cap { position: absolute; left: 0; right: 0; text-align: center; font-family: Barriecito, Nunito, sans-serif; font-size: calc(var(--w) * 0.105); line-height: 1; }
+  /* Act 1-2: the drawing and the painting side by side. */
+  .paper { position: absolute; background: var(--white); padding: 1.6% 1.6% 0; border-radius: 6px; box-shadow: 0 2px 0 rgba(35,25,66,.08), 0 18px 40px rgba(35,25,66,.10); transform-origin: 50% 60%; }
+  .paper img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .paper span { display: block; text-align: center; font-family: Barriecito, sans-serif; color: var(--ink-2); font-size: calc(var(--w) * 0.04); padding: 3% 0 4%; }
+  .painted { position: absolute; border-radius: 9%; overflow: hidden; box-shadow: 0 18px 40px rgba(35,25,66,.12); }
+  .painted img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+  /* Act 3: the call. */
+  .violet { position: absolute; }
+  .violet img { width: 100%; display: block; }
+  .call { position: absolute; border-radius: 9%/6%; overflow: hidden; box-shadow: 0 10px 0 rgba(35,25,66,.06), 0 24px 48px rgba(35,25,66,.22); }
+  .call img { width: 100%; display: block; }
+  /* Act 4: the end card. */
+  .end { background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4%; }
+  .end img { width: 40%; }
+  .end .lines { font-family: Barriecito, sans-serif; font-size: calc(var(--w) * 0.085); line-height: 1.12; text-align: center; }
+  .btn { background: var(--grape); color: var(--white); border-radius: 999px; padding: 3.2% 9%; font-weight: 800; font-size: calc(var(--w) * 0.055); box-shadow: 0 8px 0 var(--grape-deep); }
+</style>
+</head>
+<body>
+<div id="ad">
+  <div class="layer" id="act12">
+    <div class="cap" id="cap1"></div>
+    <div class="paper" id="paper"><img id="drawon" alt="" /><span>Maya, 7</span></div>
+    <div class="painted" id="painted"><img src="assets/violet-painted.webp" alt="" /></div>
+  </div>
+  <div class="layer" id="act3">
+    <div class="cap" id="cap3">It comes alive!</div>
+    <div class="violet" id="violet"><img id="violetImg" alt="" /></div>
+    <div class="call" id="call"><img id="girlImg" alt="" /></div>
+  </div>
+  <div class="layer end" id="act4">
+    <img src="assets/logo.png" alt="HeroMaker" />
+    <div class="lines">You draw it.<br />We paint it.<br />It comes alive!</div>
+    <div class="btn">Make a hero</div>
+  </div>
+</div>
+<script>
+const q = new URLSearchParams(location.search)
+const W = +(q.get('w') || 1080), H = +(q.get('h') || 1920)
+const ad = document.getElementById('ad')
+ad.style.setProperty('--w', W + 'px'); ad.style.setProperty('--h', H + 'px')
+const tall = H / W > 1.5
+
+// Frame sequences: the draw-on (15 fps), the girl and Violet (16 fps).
+const seq = (dir, n, ext, fps) => ({ urls: Array.from({ length: n }, (_, i) => `assets/${dir}/${String(i).padStart(4, '0')}.${ext}`), fps })
+const DRAW = seq('drawon', +(q.get('drawN') || 86), 'png', 15)
+const GIRL = seq('girl', 81, 'jpg', 16)
+const VIOLET = seq('violet', 81, 'png', 16)
+// Girl JPEGs are numbered from 1 by ffmpeg.
+GIRL.urls = GIRL.urls.map((_, i) => `assets/girl/${String(i + 1).padStart(4, '0')}.jpg`)
+
+const T = { a1: 0, a2: 2.4, a3: 3.6, a4: 8.6, end: 10.6 }
+const clamp = (x) => Math.max(0, Math.min(1, x))
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3)
+const $ = (id) => document.getElementById(id)
+const place = (el, x, y, w, h) => Object.assign(el.style, { left: x + 'px', top: y + 'px', width: w + 'px', ...(h ? { height: h + 'px' } : {}) })
+
+const loaded = new Set()
+function img(el, url) {
+  if (el.getAttribute('src') !== url) el.src = url
+  return el.decode ? el.decode().catch(() => {}) : Promise.resolve()
+}
+
+window.__ad = {
+  duration: T.end,
+  async set(t) {
+    const show = (id, on) => { $(id).style.display = on ? '' : 'none' }
+    show('act12', t < T.a3 + 0.25); show('act3', t >= T.a3 && t < T.a4 + 0.3); show('act4', t >= T.a4)
+    const waits = []
+
+    // Acts 1-2: the drawing draws itself (sped up 2.2x), then the painting comes in.
+    if (t < T.a3 + 0.25) {
+      const pw = W * (tall ? 0.5 : 0.4)
+      const both = ease((t - T.a2) / 0.5)
+      const drawX = (W - pw) / 2 - both * (tall ? 0 : W * 0.23)
+      const drawY = tall ? H * 0.22 - both * H * 0.07 : H * 0.26
+      place($('paper'), drawX, drawY, pw)
+      $('paper').style.transform = `rotate(${-3 + both * 1}deg)`
+      const di = Math.min(DRAW.urls.length - 1, Math.floor(t * 2.2 * DRAW.fps))
+      waits.push(img($('drawon'), DRAW.urls[di]))
+      const p = $('painted')
+      const ppw = pw * 0.92
+      const px = tall ? (W - ppw) / 2 : W / 2 + W * 0.04
+      const py = tall ? H * 0.53 : H * 0.28
+      place(p, px, py + (1 - both) * H * 0.04, ppw)
+      p.style.opacity = both
+      p.style.transform = `scale(${0.9 + 0.1 * both})`
+      const cap = $('cap1')
+      cap.textContent = t < T.a2 ? 'You draw it.' : 'We paint it.'
+      cap.style.top = (tall ? H * 0.09 : H * 0.08) + 'px'
+      const fadeOut = 1 - clamp((t - T.a3) / 0.25)
+      $('act12').style.opacity = fadeOut
+    }
+
+    // Act 3: the call. Violet fills the screen; the girl in the window, lower right.
+    if (t >= T.a3 && t < T.a4 + 0.3) {
+      const k = t - T.a3
+      const fi = Math.min(80, Math.floor(k * 16))
+      waits.push(img($('violetImg'), VIOLET.urls[fi]), img($('girlImg'), GIRL.urls[fi]))
+      const vw = tall ? W * 0.86 : W * 0.62
+      const vh = vw * 760 / 520
+      place($('violet'), tall ? W * 0.02 : (W - vw) / 2 - W * 0.08, tall ? H * 0.2 : H - vh - H * 0.02, vw)
+      const cw = tall ? W * 0.34 : W * 0.28
+      const ch = cw * 832 / 560
+      const pop = ease(k / 0.4)
+      place($('call'), W - cw - W * 0.05, H - ch - H * (tall ? 0.05 : 0.04), cw)
+      $('call').style.transform = `scale(${0.85 + 0.15 * pop})`
+      $('call').style.opacity = pop
+      $('call').style.transformOrigin = '100% 100%'
+      $('cap3').style.top = (tall ? H * 0.08 : H * 0.05) + 'px'
+      $('cap3').style.opacity = ease(k / 0.4)
+      $('act3').style.opacity = 1 - clamp((t - T.a4) / 0.3)
+    }
+
+    // Act 4: the end card fades up over the last of the call.
+    if (t >= T.a4) $('act4').style.opacity = ease((t - T.a4) / 0.3)
+
+    await Promise.all(waits)
+  },
+}
+</script>
+</body>
+</html>
