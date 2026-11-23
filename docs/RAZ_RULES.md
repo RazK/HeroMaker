@@ -48,6 +48,14 @@ Each rule has the date it was set.
   releases to staging, one PR at a time. Everyone else opens PRs; the PM sets
   the order; Liran merges. No parallel merges (they race the staging deploy).
   (2026-11-23)
+- **Team sync, 3× per sprint** — at the morning **kickoff**, a **midday** sync,
+  and the evening **review** (a 1-day sprint). At each, the PM: (1) broadcasts a
+  SHORT shared-state delta to all five agents — the owners, decisions and holds
+  that changed since the last sync (e.g. "Liran owns staging") — with a pointer
+  to this file; (2) collects each agent's one-line status; (3) reconciles any
+  drift (two agents on the same thing, a stale assumption, a stuck hand-off);
+  (4) surfaces to Raz only what he must decide. Keeps everyone aligned without a
+  flood. (2026-11-23)
 
 ## Words
 
