@@ -435,19 +435,6 @@ button.cls-card:active { transform: scale(0.98); }
 
 .cls-kid { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .cls-kid-title { font-family: var(--tb-font-display); font-size: 32px; line-height: 36px; }
-.cls-class-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--tb-plate-1);
-  color: var(--tb-grape-text);
-  font-weight: 800;
-  font-size: 14px;
-}
-.cls-class-chip svg { width: 18px; height: 18px; }
 .cls-keypad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: 100%; max-width: 360px; margin: 0 auto; }
 .cls-key {
   height: 64px;

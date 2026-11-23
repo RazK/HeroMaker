@@ -78,7 +78,6 @@
   .tb-hero-screen .tb-bar-row .tb-btn { padding: 0 10px; font-size: 16px; }
   .tb-hero-screen .tb-bar-row .tb-btn svg { display: none; }
 }
-.tb-btn-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- A phone on its side, in every state ----------
    The stage takes one side, full height; everything else is on the other:
