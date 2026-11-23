@@ -25,3 +25,26 @@ The hero paused for credits after the painting. The behaviour is unchanged
   N comes from the step's cost.
 
 **Never** on this screen: red, a cross, "failed", or a greyed hero.
+
+## Round 2 (Raz rejected round 1, especially on the phone): three options
+
+All three share one focus: the painting fills the stage, and one ask sits
+under it:
+- the heading "It's painted!" (display face)
+- the line "Next, it comes alive in 3D."
+- a quiet "Not now" text link
+- the primary "Bring it to life · 10 credits", last
+
+There is no Drawing card, no chapter tiles, no moves and no second button.
+Desktop is the same layout: the stage on top, and one row under it with the
+copy on the left and the ask on the right.
+
+1. **Focus.** Only the painting and the ask. Nothing else competes.
+   ![1](paywall-1.png)
+2. **The drawing as a corner polaroid** on the stage (top-left, tilted). The
+   wow is "this drawing became this", and the corner costs no height.
+   **Maya's pick.**
+   ![2](paywall-2.png)
+3. **A step bar over the copy:** ✓ Drawing · ✓ Painting · ● 3D hero. It says
+   "you are here, one step left".
+   ![3](paywall-3.png)
