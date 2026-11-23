@@ -67,6 +67,7 @@ Priority = impact × uncertainty. Segment = who draws · who pays · door.
 | [H-028](hypotheses/H-028-class-finishes-in-lesson.md) | Every kid in a class gets a hero in the lesson | kid 7-9 (the class) · teacher · class | untested | 12 | observed session in a class |
 | [H-030](hypotheses/H-030-teacher-runs-again.md) | Teachers run a second class | kid 5-10 (the class) · teacher · class | untested | 12 | funnel observation |
 | [H-035](hypotheses/H-035-toy-printed-at-home.md) | Toy buyers print at home | kid 10-12, grown-up · parent · any | untested | 12 | funnel observation |
+| [H-046](hypotheses/H-046-jointed-toy-chosen.md) | Children choose the jointed toy over the statue | kid 4-12 · parent · fair/museum | untested | 12 | observed session (Schneider, P-001) |
 | [H-038](hypotheses/H-038-grownup-drawers-buy.md) | Grown-ups draw heroes too | grown-up · grown-up · ad | untested | 12 | funnel observation |
 | [H-039](hypotheses/H-039-copy-me-ad-gets-clicks.md) | A hero copying a real person outclicks a dancing hero | any · parent · ad | untested | 12 | A/B experiment of two ad creatives (E-004) |
 | [H-043](hypotheses/H-043-ready-email-brings-leavers-back.md) | A ready email brings leavers back | any · parent · any | untested | 12 | A/B experiment (E-008) |
