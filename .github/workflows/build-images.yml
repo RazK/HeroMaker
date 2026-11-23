@@ -221,6 +221,16 @@ jobs:
 
   deploy-staging:
     needs: [changes, config, bundle-game, build-backend, build-frontend, build-vrm-converter]
+    # One staging deploy at a time, newest last. Without this, merges close
+    # together deploy in parallel and the slowest wins: on 2026-11-23 #347,
+    # #348 and #352 merged within 45 s; #352 (nothing to build) deployed at
+    # 22:13:07, #348 (images to build) at 22:13:57, and staging went back to
+    # #348, so robot run #120 waited 40 min for a commit staging never served.
+    # A queued deploy is replaced by a newer one (GitHub keeps one pending), and
+    # a deploy already running is never cut off mid-way.
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
     # always() so a skipped build (no changes in that service) does not skip the
     # deploy, but config must actually have succeeded — a skipped config job
     # would leave every ID empty and deploy to whatever Railway defaults to.
