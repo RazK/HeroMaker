@@ -144,6 +144,16 @@ async function type(p, selector, value) {
   await el.pressSequentially(value, { delay: 55 });
 }
 
+/**
+ * Leave a hero's page: its Back where there is one (a desktop, or a hero
+ * opened from a class), else the logo (a phone: Raz, 2026-11-22).
+ */
+async function backFromHero(p) {
+  const back = p.locator('.tb-hero-screen .tb-back');
+  if (await back.isVisible().catch(() => false)) await back.click();
+  else await p.locator('.tb-hero-screen > .tb-header .tb-logo').click();
+}
+
 async function linger(p, ms) { if (DEMO) await p.waitForTimeout(ms); }
 
 // ---------------------------------------------------------------------------
@@ -659,7 +669,8 @@ try {
       throw new Error(`hero not ready after ${PIPELINE_TIMEOUT_MS / 60000} min; last: ${lastLine}`);
     }
     mark('pipeline_end');
-    heroName = await page.locator('.hero-name-editor, .hero-name').first().innerText().catch(() => null);
+    // The hero's name is on its name card, over the stage (the header is the site's).
+    heroName = await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText().catch(() => null);
     if (DEMO) {
       await page.waitForTimeout(1500);
       for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 320); await page.waitForTimeout(900); }
@@ -671,7 +682,7 @@ try {
   });
 
   await step(page, 'profile', async () => {
-    await page.locator('.tb-back').click();
+    await backFromHero(page);
     // A fresh hero is not starred, so it is not in Editors' choice (the
     // default view): it is found under My heroes. (A teacher, LOGIN_AS, may
     // be on My classes, which has no chips: the switch goes to Gallery first.)
@@ -723,7 +734,17 @@ try {
       .catch(async () => { throw new Error(`the opening never reached the hero: ${JSON.stringify(await page.evaluate(() => window.__intro))}`); });
     const intro = (await page.evaluate(() => window.__intro)).join(' > ');
     if (intro !== 'drawing > painting > hero') throw new Error(`the hero's page opened ${intro}, not drawing > painting > hero; screen states ${JSON.stringify(await page.evaluate(() => window.__states))}`);
-    if ((await page.locator('.tb-mini-drawing').count()) !== 1) throw new Error('no small drawing card beside the live hero');
+    // The chapters replace the dots (Raz, 2026-11-22): one tile per slide,
+    // the hero's own chosen now; the site's header (the logo) stays.
+    const chapters = await page.evaluate(() => ({
+      tiles: [...document.querySelectorAll('.tb-chapter')].map((c) => c.dataset.chapter).join(','),
+      chosen: document.querySelector('.tb-chapter[aria-current="true"]')?.dataset.chapter,
+      slides: document.querySelector('.tb-live-stage').getAttribute('data-slides').replace(/-[a-z]+/g, ''),
+      dots: document.querySelectorAll('.tb-hero-screen .tb-carousel-dot').length,
+      logo: !!document.querySelector('.tb-hero-screen > .tb-header .tb-logo'),
+    }));
+    if (chapters.tiles !== chapters.slides || chapters.chosen !== 'hero' || chapters.dots) throw new Error(`the chapters are ${JSON.stringify(chapters)}`);
+    if (!chapters.logo) throw new Error("the hero's page has lost the site's header (no logo)");
     // The hero screen fits the phone, and the document itself cannot scroll:
     // a desktop browser has no collapsing URL bar, so "it fits here" is not
     // enough; the page must be locked (overflow hidden on html and body).
@@ -734,8 +755,8 @@ try {
       return { fits: h.scrollHeight <= innerHeight + 1, locked, y: window.scrollY };
     });
     if (!ns.fits || !ns.locked || ns.y !== 0) throw new Error(`hero screen can scroll: ${JSON.stringify(ns)}`);
-    const title = (await page.locator('.tb-hero-screen .tb-header-title').innerText()).trim();
-    if (!title) throw new Error('the header shows no hero name');
+    const title = (await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText()).trim();
+    if (!title) throw new Error("the name card shows no hero name");
 
     // A swipe moves one slide, and the carousel goes round: hero, drawing,
     // painting, hero.
@@ -775,7 +796,8 @@ try {
     if (DEMO) await page.waitForTimeout(2000);
     // ONE drawing (Raz: "It needs to be exactly like the same element... Don't
     // duplicate"): held part-way through a slow swipe, either way, and while
-    // it lands, exactly one picture of the drawing is in view.
+    // it lands, never two pictures of the drawing on the stage. (The chapters
+    // beside it show the drawing too: they are not on the stage.)
     const drawingsInView = () => page.evaluate(() => {
       const st = document.querySelector('.tb-live-stage').getBoundingClientRect();
       return [...document.querySelectorAll('.tb-live-stage img')].filter((im) => {
@@ -792,7 +814,8 @@ try {
     });
     // ONE name card (Raz: "Why 2 label elements if it's same label? Keep it
     // there"): one element in the DOM, at most one in view, and it never
-    // moves sideways while the slides pass under it.
+    // moves sideways while the slides pass under it. It is on every slide,
+    // over the card's bottom start (Raz, 2026-11-22).
     const nameCard = () => page.evaluate(() => {
       const st = document.querySelector('.tb-live-stage');
       const cards = [...st.querySelectorAll('.tb-live-name:not(.tb-figure-dock)')];
@@ -834,7 +857,7 @@ try {
       [0.9, -0.5, 'to the painting'], [0.1, 0.5, 'back to the drawing'],
       [0.9, -0.75, 'to the painting'], [0.1, 0.75, 'back to the drawing']]) {
       const seen = await held(fromShare, share, way);
-      if (seen.some((n) => n !== 1)) throw new Error(`a slow swipe ${way} showed ${seen.join('/')} drawings, not one`);
+      if (seen.some((n) => n > 1) || seen[0] !== 1) throw new Error(`a slow swipe ${way} showed ${seen.join('/')} drawings, not one`);
     }
     if ((await slideNow()) !== 'drawing') throw new Error(`the slow swipes ended on "${await slideNow()}", not the drawing`);
     // The moves are the live hero's own controls, inside its slide (Raz: "we
@@ -854,10 +877,9 @@ try {
     if ((await swipe()) !== 'painting') throw new Error(`a swipe from the drawing landed on "${await slideNow()}"`);
     movesSeen.painting = await movesInView();
     if (movesSeen.painting !== 0) throw new Error(`${movesSeen.painting} moves show on the painting`);
-    // The dock swaps the name card for the moves one after the other, never
-    // one over the other (text over buttons looked messy): held part-way
-    // between the painting and the hero, either way, they are never both in
-    // view, and half way the dock is empty.
+    // The name card stays put on every slide; the moves come in with the
+    // hero and go with it: held part-way between the painting and the hero,
+    // either way, the name card is fully there, and half way the moves are not.
     const dockAt = async (fromShare, share) => {
       const box = await stage.boundingBox();
       const y = box.y + box.height * 0.45;
@@ -886,14 +908,33 @@ try {
       for (const [fromShare, signed, from, way] of [[0.9, -share, 'painting', 'to the hero'], [0.1, share, 'hero', 'back to the painting']]) {
         if ((await slideNow()) !== from) throw new Error(`before a held swipe ${way} the stage was on "${await slideNow()}"`);
         const o = await dockAt(fromShare, signed);
-        if (o.card > 0.02 && o.moves > 0.02) throw new Error(`held ${share * 100}% ${way}, the name card (${o.card.toFixed(2)}) and the moves (${o.moves.toFixed(2)}) show at once`);
-        if (share === 0.5 && (o.card > 0.05 || o.moves > 0.05)) throw new Error(`held half way ${way}, the dock is not empty (card ${o.card.toFixed(2)}, moves ${o.moves.toFixed(2)})`);
+        if (o.card < 0.98) throw new Error(`held ${share * 100}% ${way}, the name card faded to ${o.card.toFixed(2)}`);
+        if (share === 0.5 && o.moves > 0.05) throw new Error(`held half way ${way}, the moves still show (${o.moves.toFixed(2)})`);
       }
     }
     if ((await swipe()) !== 'hero') throw new Error(`a swipe from the painting landed on "${await slideNow()}"`);
     await page.locator('.tb-move:not([disabled])').first().waitFor({ timeout: 90000 });
     movesSeen.hero = await movesInView();
     if (movesSeen.hero !== 4) throw new Error(`${movesSeen.hero} of 4 moves inside the live hero's stage`);
+    // The hero's page (proposal A): the name card at the card's bottom start,
+    // the moves one column at its bottom end, inside the card; Share and Play
+    // at the foot, one width, Play last.
+    const shape = await page.evaluate(() => {
+      const st = document.querySelector('.tb-live-stage').getBoundingClientRect();
+      const name = document.querySelector('.tb-live-stage .tb-live-name').getBoundingClientRect();
+      const moves = [...document.querySelectorAll('.tb-live-stage .tb-move')].map((m) => m.getBoundingClientRect());
+      const share = document.querySelector('.tb-hero-foot .tb-share')?.getBoundingClientRect();
+      const play = document.querySelector('.tb-hero-foot .tb-play')?.getBoundingClientRect();
+      return {
+        nameIn: name.left > st.left && name.bottom < st.bottom && name.left - st.left < st.width / 3,
+        namePad: [Math.round(name.left - st.left), Math.round(st.bottom - name.bottom)],
+        column: moves.every((m) => Math.abs(m.left - moves[0].left) < 1 && Math.abs(m.width - moves[0].width) < 1 && m.right < st.right && m.bottom < st.bottom && m.left > st.left + st.width / 2),
+        foot: !!share && !!play && Math.abs(share.width - play.width) < 1 && Math.abs(share.top - play.top) < 1 && share.left < play.left && share.top >= st.bottom,
+      };
+    });
+    if (!shape.nameIn || Math.abs(shape.namePad[0] - shape.namePad[1]) > 2) throw new Error(`the name card is not at the card's bottom start: ${JSON.stringify(shape)}`);
+    if (!shape.column) throw new Error(`the moves are not one column at the card's bottom end: ${JSON.stringify(shape)}`);
+    if (!shape.foot) throw new Error(`Share and Play are not side by side, one width, under the card: ${JSON.stringify(shape)}`);
     mark('game_ready');
 
     // A real tap on a move: it plays at once, no queue. Measured in the page,
@@ -932,13 +973,14 @@ try {
       await page.waitForTimeout(2000);
     }
 
-    // Nothing overlaps on any slide, and wider than tall the name card is
-    // centred under the picture (hero-layout.mjs; Raz: "elements override
-    // each other its awful", "should be below the character"). At the
-    // robot's own size, a big desktop and a phone, then back.
+    // Nothing overlaps on any slide, the picture is centred in the card, the
+    // name card and the moves sit in its corners, the chapters and Share and
+    // Play beside or under it (hero-layout.mjs; Raz: "elements override each
+    // other its awful"). At the robot's own size, a big desktop, a phone and
+    // a phone on its side, then back.
     let layoutSizes = '';
     if (!DEMO) {
-      const sizes = [VIEW, { width: 1920, height: 1080 }, { width: 390, height: 844 }];
+      const sizes = [VIEW, { width: 1920, height: 1080 }, { width: 390, height: 844 }, { width: 844, height: 390 }];
       for (const size of sizes) {
         await page.setViewportSize(size);
         await page.waitForTimeout(800);
@@ -996,8 +1038,9 @@ try {
       };
       const play = document.querySelector('.tb-hero-screen .tb-play');
       const playBottom = play.getBoundingClientRect().bottom;
+      // (A picture's full-screen opener is the picture itself, not a button.)
       const below = [...document.querySelectorAll('.tb-hero-screen button, .tb-hero-screen a')]
-        .filter((el) => el !== play && shown(el) && el.getBoundingClientRect().bottom > playBottom + 1);
+        .filter((el) => el !== play && !el.matches('.tb-slide-open') && shown(el) && el.getBoundingClientRect().bottom > playBottom + 1);
       return below.length ? below[0].className : 'tb-play';
     });
     if (!/\btb-play\b/.test(lowest)) throw new Error(`the bottom-most button is "${lowest}", not Play`);
@@ -1263,7 +1306,7 @@ try {
       }
       await page.locator('.tb-hero-screen canvas').first().waitFor({ timeout: 60000 });
       await snap(page, 'class-hero');
-      await page.locator('.tb-back').click();
+      await backFromHero(page);
       await pinBox.waitFor({ timeout: 15000 });
     } finally {
       await kidCtx.close();

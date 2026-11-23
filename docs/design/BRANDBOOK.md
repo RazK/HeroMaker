@@ -114,6 +114,16 @@ Text screens (sign in, buy credits, account, forms) stay the 560px column, centr
 
 ### The hero page, wider than tall
 
+> **Replaced on 2026-11-22 by "proposal A"** (PRINCIPLES.md 45-50, DOS_AND_DONTS.md
+> section 11, `HeroScreen.css` "The hero's own page"): the site's header; the
+> picture centred in the card with the name card (bottom start), the slide's
+> controls (bottom end, one column) and the owner's ⋯ (top end) laid over it;
+> chapters in place of the dots and the drawing's small card; Share and Play at
+> the foot; on a desktop a 400px column beside the card holding the chapters
+> and the two buttons, the card down to the bottom margin. What follows is the
+> layout it replaced, kept for its reasons; where they differ, proposal A wins.
+> The class's screens (a child's hero, the claim link) still use the stage below.
+
 ```
  ┌───────────────────────────────────────────────────────────────────┐  cream
  │ (‹)                       Speckle Sally                       (⋯) │  header, 60px
