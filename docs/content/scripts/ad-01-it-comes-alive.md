@@ -1,6 +1,7 @@
 # Ad 01: "It comes alive!": script
 
-Status: **draft for the PM's review**, then Maya draws the storyboard from it.
+Status: **approved by the PM (2026-11-23)**; Maya's storyboard in `docs/content/ad-storyboard.md`.
+**Runs nothing until the PM says payments are Live on production** (Grow). Make the creative now.
 Owner: Tom (Content). Storyboard: Maya (Design). Go: PM, then Raz.
 
 ## Why this ad
@@ -21,7 +22,12 @@ Owner: Tom (Content). Storyboard: Maya (Design). Go: PM, then Raz.
 - **Violet Volt**: Maya's drawing, our real painting and our real 3D hero. Her
   motion comes from Maya's clip (`games/hero-moves/tools/mimic`), so she does
   exactly what Maya does.
-- **Mom** (optional, shot 5): AI-generated adult.
+- **Mom** (shot 5): AI-generated adult. Her reaction is money moment 2.
+
+**Honesty rule (PM):** Maya and Mom are AI-generated and acted. Nothing in the
+ad or its post caption may say or suggest they are a real customer (no "real
+reaction", no "Maya's story"). The painting and the hero shown are what the
+product really makes.
 
 ## Shots
 
@@ -43,11 +49,14 @@ copy (#18); nothing overlaps (#11); no half-empty frames (#9, #26); the painting
 is its cut-out, never a beige box; the caption in one place and one size (#7);
 each sentence said once (#13).
 
-## Gift cut (`ad-gift`, December)
+## Cuts
 
-Shots 1–4 the same. Shot 5: Maya hands the printed page to Grandma on the call.
-Shot 6: "A gift made from their own drawing." Only if the PM wants a December
-gift test (Hanukkah).
+- **15 s** (shots 1–6), 9:16 and 4:5.
+- **6 s bumper** from shots 4 and 6, for later. No extra clips.
+- **Gift cut: parked.** Ads cannot run before payments are Live, so a December
+  gift test would land after Hanukkah (4 Dec). Revisit for next season: shots
+  1–4 the same, Maya hands the page to Grandma on the call, "A gift made from
+  their own drawing."
 
 ## What it costs
 
@@ -56,8 +65,9 @@ gift test (Hanukkah).
 - Tom: a day to generate, render and record. Maya: the storyboard (6 frames, two
   sizes).
 
-## Open questions for the PM
+## Decided (PM, 2026-11-23)
 
-1. 15 s, or 10 s without shot 5 (Mom)?
-2. Make the gift cut now, for December?
-3. Pay $9 for Hugging Face PRO, or wait two days for the free quota?
+1. 15 s with Mom, plus the 6 s bumper.
+2. No gift cut now (parked above).
+3. No Hugging Face PRO: nothing can run for days, so the free quota (about
+   two clips a day) costs nothing. Clips: shot 1, shot 4 (two parts), shot 5.
