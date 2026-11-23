@@ -90,6 +90,7 @@ def main():
     ap.add_argument("--faces", type=int, default=120000)
     ap.add_argument("--base", type=float, default=3.0, help="base height mm, 0 = none")
     ap.add_argument("--palette", default="", help="comma list of catalogue names to force")
+    ap.add_argument("--bands", type=float, default=0, help="colour by height bands of at least this many mm (few swaps)")
     ap.add_argument("--base-colour", default="", help="catalogue name of the base's colour (must be in the palette)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
@@ -208,6 +209,43 @@ def main():
         bi = [names[c] for c in chosen].index(a.base_colour) if a.base_colour else int(np.argmin(pal_lab[:, 0]))
         lbl[base_faces] = bi
 
+    if a.bands > 0:
+        step = 0.4
+        zb = np.floor(cen[:, 2] / step).astype(int)
+        nb = zb.max() + 1
+        votes = np.zeros((nb, k))
+        # vote only with what a person sees from the front: the nearest face in each 1 mm cell
+        cell = np.floor(cen[:, [0, 2]]).astype(int)
+        key = cell[:, 0] * 100000 + cell[:, 1]
+        order = np.lexsort((cen[:, 1], key))
+        first = order[np.r_[True, key[order][1:] != key[order][:-1]]]
+        seen = np.zeros(len(cen), bool)
+        seen[first] = True
+        centre = np.abs(cen[:, 0] - np.median(cen[:, 0])) < 0.1 * a.height  # the body's middle, not the arms or a cape
+        np.add.at(votes, (zb, lbl), area * (0.01 + seen * centre))
+        seq = votes.argmax(1)
+        # merge runs shorter than a.bands into the neighbour with the bigger vote
+        minrun = int(round(a.bands / step))
+        for _ in range(5000):
+            runs = []
+            i = 0
+            while i < nb:
+                j = i
+                while j < nb and seq[j] == seq[i]:
+                    j += 1
+                runs.append((i, j))
+                i = j
+            short = [r for r in runs if r[1] - r[0] < minrun]
+            if not short or len(runs) == 1:
+                break
+            i, j = min(short, key=lambda r: votes[r[0]:r[1]].sum())
+            cands = []
+            if i > 0: cands.append(seq[i - 1])
+            if j < nb: cands.append(seq[j])
+            seq[i:j] = max(cands, key=lambda c: votes[i:j, c].sum())
+        lbl = seq[zb]
+        report["band_changes"] = int((np.diff(seq) != 0).sum())
+        report["bands"] = [(round(float(i * step), 1), CATALOGUE[names[chosen[c]]]) for i, c in enumerate(seq) if i == 0 or seq[i - 1] != c]
     same = lbl[adj[:, 0]] == lbl[adj[:, 1]]
     regions = len(trimesh.graph.connected_components(adj[same], nodes=np.arange(len(lbl)), min_len=1))
     report["palette"] = [{"extruder": i + 1, "name": names[c], "hex": CATALOGUE[names[c]],
