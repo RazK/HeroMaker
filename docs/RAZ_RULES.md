@@ -48,6 +48,11 @@ Each rule has the date it was set.
   releases to staging, one PR at a time. Everyone else opens PRs; the PM sets
   the order; Liran merges. No parallel merges (they race the staging deploy).
   (2026-11-23)
+- **Every agent shows their work in their own chat.** When a teammate makes a
+  deliverable — a video, a design, a mockup, a demo — they **present it in their
+  own session** (SendUserFile, or an artifact Raz can open), not only hand it to
+  the PM. Raz can open any teammate's chat and see the work. No silent,
+  text-only hand-offs. (2026-11-23)
 - **Team sync, 3× per sprint** — at the morning **kickoff**, a **midday** sync,
   and the evening **review** (a 1-day sprint). At each, the PM: (1) broadcasts a
   SHORT shared-state delta to all five agents — the owners, decisions and holds
@@ -56,6 +61,13 @@ Each rule has the date it was set.
   drift (two agents on the same thing, a stale assumption, a stuck hand-off);
   (4) surfaces to Raz only what he must decide. Keeps everyone aligned without a
   flood. (2026-11-23)
+- **A sync is a working review, not just a status check.** Time it to when
+  there are deliverables. The PM gathers every teammate's work (each already
+  shown in that teammate's own chat), runs a **cross-team review** — each
+  relevant teammate gives input; since there is no live group room, the PM
+  brokers the discussion (puts each deliverable in front of the right people,
+  collects input, iterates) — synthesizes **one team decision**, and shows Raz
+  the deliverables and the decision. (2026-11-23)
 
 ## Words
 
