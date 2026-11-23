@@ -33,6 +33,18 @@ Violet alone and keep the call for the ad?
 
 ![landing preview](img/landing-call-preview.webp)
 
+## The drawing draws itself (v2, for review)
+
+`scripts/content/draw_on.py`: a light pencil sketch of each part's outline,
+then each part coloured in with back-and-forth diagonal crayon strokes, a
+crayon in that part's colour steady in a right hand; the sketch fades and the
+last frame is exactly the drawing (measured: 0.00 mean difference). 7 s, 24 fps.
+
+![keyframes](img/drawon-v2-keyframes.jpg)
+
+Animated: `img/drawon-v2.webp`. Question for Maya: crayon on or off for the
+landing's small polaroid (~130 px)? On in the ad.
+
 ## Maya's notes
 
 _(Maya: write here: what to change, the keyframes you want.)_
