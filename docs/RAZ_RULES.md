@@ -40,6 +40,10 @@ Each rule has the date it was set.
 - **Keep this file and follow it.** Don't make Raz repeat a rule. (2026-11-23)
 - **One-day sprints.** Every morning a kickoff, every evening a review.
   (2026-11-23)
+- **Protect the running sprint; do not interrupt the team mid-sprint.** When
+  Raz brings a new thing, the PM triages it: what still fits THIS sprint, and
+  what is **backlogged** for the next. Keep `docs/ops/BACKLOG.md`. Deliver the
+  sprint; carry the rest forward so we progress sprint to sprint. (2026-11-23)
 
 ## Staging and production (see also the release flow in CLAUDE.md)
 
