@@ -439,3 +439,26 @@ def test_backfill_refuses_to_run_without_a_database(monkeypatch, capsys):
     monkeypatch.delenv("DATABASE_URL", raising=False)  # restored after the test
     assert backfill.main(["--dry-run"]) == 2
     assert "no database" in capsys.readouterr().err
+
+
+def test_the_classification_call_is_recorded_as_a_usage_event(make_user, make_creation):
+    """classify_input shares the naming call's request: its own operation, its
+    tokens costed the same way, and the answer it got."""
+    from app.services.usage import UsageContext
+
+    user = make_user()
+    creation = make_creation(user.id)
+    FakeOpenAI.answer = '{"kind": "photo_of_person"}'
+    kind = openai_service.classify_input(
+        DRAWING, UsageContext(user_id=user.id, creation_id=creation.id))
+
+    assert kind == "photo_of_person"
+    (event,) = _events(creation.id)
+    assert event.operation == pricing.OP_OPENAI_INPUT_KIND
+    assert event.status == "succeeded"
+    assert event.provider_ref == "req_name_1"
+    assert event.cost_usd_micros == pricing.hero_name_cost_usd_micros(600, 10)
+    assert event.metadata_json["kind"] == "photo_of_person"
+    assert event.metadata_json["completion_tokens"] == 10
+    (call,) = FakeOpenAI.calls
+    assert call["temperature"] == 0 and call["max_completion_tokens"] == 20
