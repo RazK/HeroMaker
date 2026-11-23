@@ -4,6 +4,10 @@
 
 These came straight from the product owner. They override your defaults.
 
+**The running list of Raz's rules is [`docs/RAZ_RULES.md`](docs/RAZ_RULES.md).
+Read it every session, follow it, and add every new rule he gives in the same
+turn — so he never has to repeat one.**
+
 - **Never ask for approval without a link to a running staging deploy he can
   click and use** — and staging must already run everything production is
   meant to have. An approval request with no working link is not a request.
