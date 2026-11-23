@@ -18,7 +18,9 @@ translated word for word.
 - `$meta` in each file: the language's own name, `dir` (`ltr`/`rtl`), display font.
   Fonts are part of the locale: Barriecito for Latin script (it has no Hebrew),
   **Amatic SC** (bold) for Hebrew, Raz's pick (2026-11-22; Fredoka's Hebrew "really isn't good").
-  Amatic is condensed and light, so it runs larger than the Latin.
+  Amatic is condensed and light, so it runs larger than the Latin, and it is
+  for titles only: Hebrew body text is **Rubik 600** (Amatic is unreadable
+  under ~24px).
   Each language gets one title size: the size its longest line fits.
 - Code: `createTranslator(locale, files).t('shareVideo.f1.title', { child })`
   (`frontend/src/i18n/index.ts`). The video renderer reads the same files.

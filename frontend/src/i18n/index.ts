@@ -19,7 +19,7 @@
 import { IntlMessageFormat } from 'intl-messageformat';
 
 export type Messages = Record<string, unknown> & { $meta?: LocaleMeta };
-export interface LocaleMeta { name: string; dir: 'ltr' | 'rtl'; font?: string }
+export interface LocaleMeta { name: string; dir: 'ltr' | 'rtl'; font?: string; bodyFont?: string }
 export type Values = Record<string, string | number | boolean | null | undefined>;
 
 export const SOURCE_LOCALE = 'en';
