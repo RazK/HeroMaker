@@ -1,0 +1,33 @@
+{
+ "flow": "collector-toy",
+ "file": "collector-toy.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "viewport": "390x844 @2x (780x1688 video)",
+ "speed": "real, never sped up",
+ "steps": [
+  {
+   "step": "hero page: the 3D hero, ready",
+   "at": 14
+  },
+  {
+   "step": "toy slide: the hero as a printable toy",
+   "at": 63.8
+  },
+  {
+   "step": "tapped Take apart: the pieces come apart, arrows show where each clicks in",
+   "at": 99.3
+  },
+  {
+   "step": "tapped Put together: the toy clicks back",
+   "at": 133.4
+  },
+  {
+   "step": "Print file button (download for a 3D printer)",
+   "at": 138.4
+  },
+  {
+   "step": "end",
+   "at": 163.9
+  }
+ ]
+}

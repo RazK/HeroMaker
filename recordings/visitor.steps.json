@@ -1,0 +1,33 @@
+{
+ "flow": "visitor",
+ "file": "visitor.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "viewport": "390x844 @2x (780x1688 video)",
+ "speed": "real, never sped up",
+ "steps": [
+  {
+   "step": "opens a shared link",
+   "at": 1.2
+  },
+  {
+   "step": "the reveal: drawing, painting, then the 3D hero",
+   "at": 9.8
+  },
+  {
+   "step": "tapped a move: Dance",
+   "at": 17.5
+  },
+  {
+   "step": "tapped the logo: the home page",
+   "at": 26.6
+  },
+  {
+   "step": "tapped Make a hero",
+   "at": 30.7
+  },
+  {
+   "step": "end",
+   "at": 36.7
+  }
+ ]
+}
