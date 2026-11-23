@@ -414,3 +414,8 @@
 .adm-step-actions .tb-btn { flex: 1 1 auto; }
 .adm-step-cost { display: inline-flex; align-items: center; gap: 2px; margin-inline-start: 4px; color: var(--tb-ink-2); }
 .adm-step-cost svg { color: var(--tb-sun-deep); }
+
+/* Every step's bar holds two big buttons: a card scrolling under it must not
+   sit on Restart, so the bar keeps one --tb-space of cream above them (Raz,
+   2026-11-23). The fade above the bar stays as it is. */
+.adm-steps-screen > .tb-bar { padding-top: var(--tb-space); }
