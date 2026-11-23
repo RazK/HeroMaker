@@ -33,6 +33,38 @@ export function Dialog({ onClose, children, label }: { onClose: () => void; chil
   );
 }
 
+/**
+ * "Are you sure?": a title, one line, then the way out and the action, in that
+ * order. The title also names the dialog unless `label` says otherwise.
+ */
+export function ConfirmDialog({ title, label = title, titleDir, line, keep = 'Keep it', keepDisabled, onClose, action, onAction, tone = 'danger', busy, actionClassName }: {
+  title: string;
+  label?: string;
+  titleDir?: 'auto';
+  line: ReactNode;
+  keep?: string;
+  keepDisabled?: boolean;
+  onClose: () => void;
+  action: ReactNode;
+  onAction: () => void;
+  tone?: 'danger' | 'primary';
+  busy?: boolean;
+  actionClassName?: string;
+}) {
+  return (
+    <Dialog label={label} onClose={onClose}>
+      <div className="tb-h2" dir={titleDir}>{title}</div>
+      <div className="tb-muted">{line}</div>
+      <div className="tb-stack">
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" disabled={keepDisabled} onClick={onClose}>{keep}</button>
+        <button type="button" className={`tb-btn tb-btn--${tone} tb-btn--full${actionClassName ? ` ${actionClassName}` : ''}`} disabled={busy} onClick={onAction}>
+          {action}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
 function useEscape(onClose: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };

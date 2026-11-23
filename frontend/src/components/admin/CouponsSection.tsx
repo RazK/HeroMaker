@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, AdminCouponResponse, ApiError } from '../../api/client';
 import { Icon } from '../tb/Icon';
-import { Dialog, NavButton, Sheet, SheetRow } from '../tb/parts';
+import { ConfirmDialog, NavButton, Sheet, SheetRow } from '../tb/parts';
 import { shortDate } from './format';
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I/L
@@ -134,16 +134,9 @@ export function CouponsSection() {
       )}
 
       {confirmDelete && (
-        <Dialog label={`Delete ${confirmDelete.code}?`} onClose={() => setConfirmDelete(null)}>
-          <div className="tb-h2">Delete {confirmDelete.code}?</div>
-          <div className="tb-muted">Credits already redeemed stay. This can’t be undone.</div>
-          <div className="tb-stack">
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setConfirmDelete(null)}>Keep it</button>
-            <button type="button" className="tb-btn tb-btn--danger tb-btn--full" onClick={() => act(() => api.admin.deleteCoupon(confirmDelete.id))}>
-              <Icon name="trash" />Delete
-            </button>
-          </div>
-        </Dialog>
+        <ConfirmDialog title={`Delete ${confirmDelete.code}?`} line="Credits already redeemed stay. This can’t be undone."
+          onClose={() => setConfirmDelete(null)} onAction={() => act(() => api.admin.deleteCoupon(confirmDelete.id))}
+          action={<><Icon name="trash" />Delete</>} />
       )}
 
       {creating && (

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, AdminUserResponse, ApiError } from '../../api/client';
 import { Icon } from '../tb/Icon';
-import { Dialog, NavButton, Sheet, SheetRow } from '../tb/parts';
+import { ConfirmDialog, NavButton, Sheet, SheetRow } from '../tb/parts';
 import { CreditsSheet } from './CreditsSheet';
 import { shortDate } from './format';
 
@@ -174,16 +174,9 @@ export function UsersSection({ currentUserId, onOpen, filter, onFilter }: {
       )}
 
       {deleting && (
-        <Dialog label={`Delete ${deleting.username}?`} onClose={() => setDeleting(null)}>
-          <div className="tb-h2">Delete {deleting.username}?</div>
-          <div className="tb-muted">Their heroes go too. Purchase records stay. This can’t be undone.</div>
-          <div className="tb-stack">
-            <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={() => setDeleting(null)}>Keep it</button>
-            <button type="button" className="tb-btn tb-btn--danger tb-btn--full" disabled={busy} onClick={() => act(() => api.admin.deleteUser(deleting.id))}>
-              <Icon name="trash" />Delete
-            </button>
-          </div>
-        </Dialog>
+        <ConfirmDialog title={`Delete ${deleting.username}?`} line="Their heroes go too. Purchase records stay. This can’t be undone."
+          onClose={() => setDeleting(null)} busy={busy} onAction={() => act(() => api.admin.deleteUser(deleting.id))}
+          action={<><Icon name="trash" />Delete</>} />
       )}
     </>
   );
