@@ -1,5 +1,25 @@
 # Raz's principles
 
+## The gate: before ANY screenshot reaches Raz
+
+Raz has had to repeat these five more than any others. Look at the picture you
+are about to send and answer each one, out loud, in your notes. One "no" and it
+does not go out.
+
+1. **Nothing twice.** Every word, name, title and picture appears once on the
+   screen. The game's name in the header is not repeated in the sheet; the
+   drawing on the wall is not repeated as a polaroid; the child's name in the
+   sentence is not repeated as a caption beside it. (18, 45)
+2. **Two fonts at most:** the display face for one title, the body face for
+   everything else. No eyebrows, no capitals labels, no third style. (24)
+3. **One axis.** Everything lines up on one centre or one edge; measure it.
+   Nothing sits a few pixels off. (9, 41, 42)
+4. **No dead space.** No empty band at the top or bottom, no small picture in a
+   big card, no gap that does not separate two things. (10, 26)
+5. **Least text.** Could a line go? Then it goes. Context first, then how, in
+   two lines at most. (24, 25)
+
+
 Read this before any UI, UX or copy work, every time. These are the rules Raz has
 had to repeat. Breaking one is a bug, not a style choice. `BRANDBOOK.md` holds the
 tokens, components and measurements that carry them out; this page says what
@@ -143,6 +163,15 @@ they are for.
     so the headline reads clearly bigger than the logo. Whatever scrolls fits a
     whole item between the header and the bar. (Raz, 2026-11-22: "just copy
     the desktop")
+45. **Say a thing once, in the place that explains it.** A name, a title or a
+    drawing already on screen is never echoed nearby in another form (a caption,
+    an eyebrow, a polaroid). Pick the one place that says it best. (Raz,
+    2026-11-23: "why is Robot Rumble there twice, in a different font each
+    time" and "do we need the name in the text and on the card?")
+46. **The child is named.** The artist's first name and age are shown wherever
+    the drawing is credited, the shared game included: "Maya, 6, drew this hero
+    on paper." They were asked for in order to be shown. Never in analytics.
+    (Raz, 2026-11-23)
 
 The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
 
