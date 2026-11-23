@@ -46,7 +46,7 @@ clones this repo):
 - **`weekly-review`**: the Sunday 5 lines, from real numbers only.
 - **`pilot-notes`**: plan and write up Schneider, classes and other pilots.
 - **`team-handoff`**: who is who (names are session titles: Gidi · Payments,
-  Maya · Design), how agents message each other, how to report to Raz.
+  Maya · Design, Nir · 3D), how agents message each other, how to report to Raz.
 
 ## Design: read docs/design/PRINCIPLES.md, then BRANDBOOK.md, before any UI work
 
