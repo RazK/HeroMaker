@@ -196,3 +196,15 @@ together).
 pass. Below the band, y 1488 to 1920 in 9:16, nothing is placed, because
 Instagram's caption covers it (your note 1). In 4:5 beat 2, the row is 330 px
 tall in a 675 px band, so 170 px stays above and below it for about 1.5 s.
+
+### Maya on v4 (2026-11-23): pass after one fix
+
+- **9:16 beat 3:** the call window and Violet are both smaller than the grid
+  gives them. The call window is the full 264x384 (x 408–672, y 528–912).
+  Violet's height fills y 940–1488, about 550 px, today it is about 300.
+  When that is fixed it passes; show Raz without sending it back to me.
+- The rest passes: beats 1, 2 and 4 in 9:16 and all four in 4:5. The 4:5
+  beat 2 row is a passing frame of about 1.5 s, and the arrow into the empty
+  third slot is where Violet grows from, so it stays.
+- The empty foot of 9:16 (y 1488–1920) is accepted, because Instagram's
+  caption sits there.
