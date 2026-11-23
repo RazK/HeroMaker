@@ -93,3 +93,17 @@ who looks at what in it and check that they can see it.
 
 Rule for the edit: a shot where a screen faces the viewer is a **POV or an
 insert**, never a room shot with people reacting behind it.
+
+### 5.1 and 5.2: she shows Grandma both (Raz, 2026-11-23)
+
+- **5.1:** the drawing in her left hand and the phone, with Violet dancing,
+  in her right. She holds them side by side, at one height, up to the
+  laptop's webcam. The camera is at 3/4 behind her shoulder, so Grandma, the
+  drawing and the phone are all in frame, and all of them face the right
+  way. It is the promise in one frame: the drawing beside what it became.
+- **5.2:** Grandma's eyes go from the drawing to Violet and back, then her
+  hand goes to her heart.
+- **Not a printed toy in her hand:** it is not on sale, and the film must
+  not show what nobody can buy.
+- **9:16:** both hands stay inside the crop. Bring them in toward the middle
+  third, rather than at arm's length.
