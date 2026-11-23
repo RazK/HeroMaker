@@ -153,3 +153,8 @@ Each rule has the date it was set.
   4. **The videos**, one per flow (happy and not-happy).
   5. **One link** to the live staging the videos were recorded on.
 - All ready features **merge to staging first**, robot green, before the video.
+- **Film/video app screens are real staging recordings only — never hand-made
+  cards.** And every **film** cut goes to Maya for a **frame-by-frame** design
+  gate BEFORE the PM sees it; a PM montage glance is not a substitute.
+  (2026-11-23, after the family-film cut 1 slipped through with hand-made cards
+  and ghost frames.)
