@@ -25,6 +25,9 @@ export interface HeroStageInstance {
   play(id: string): boolean;
   /** Keep the top `px` of the stage clear (the intro's stepper sits there). */
   setInsetTop(px: number): void;
+  /** One frame of the shown hero, framed close, as a PNG data URL (the 3D
+   *  hero's chapter tile). Absent from stage modules built before it. */
+  snapshot?(): string | null;
   clear(): void;
   dispose(): void;
 }

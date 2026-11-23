@@ -384,3 +384,98 @@ def check_packs() -> List[str]:
 
     problems.extend(check_class_seats())
     return problems
+
+
+# --------------------------------------------------------------------------
+# Shekel prices (Grow)
+# --------------------------------------------------------------------------
+#
+# Grow charges in ILS, so what we sell through it is priced in shekels, set by
+# the product manager on 2026-11-23. Money in this section is integer AGOROT
+# (1/100 shekel), the shekel's cents: no float ever holds a price.
+#
+# A product is a number of HEROES, and its credits are worked out from what a
+# hero costs (`creation_credit_price`), so a change to the step prices moves
+# the credits with it instead of leaving a "one hero" that buys most of one.
+#
+# NOT YET CHECKED against the margin floor: the floor is computed in USD and
+# there is no ILS rate in this codebase. At ~3.6 ILS to the dollar, 10 ILS is
+# ~$2.75 for a hero that costs us ~$0.57 in provider fees, before Grow's cut.
+ILS = "ILS"
+
+_ILS_PRODUCTS: List[Dict] = [
+    {
+        "slug": "single",
+        "name": "One hero",
+        "blurb": "Bring one drawing to life.",
+        "price_agorot": 10_00,
+        "heroes": 1,
+        "highlight": False,
+    },
+    {
+        "slug": "family",
+        "name": "Family",
+        "blurb": "Five drawings, five heroes.",
+        "price_agorot": 39_00,
+        "heroes": 5,
+        "highlight": True,
+    },
+]
+
+# A class: 10 ILS a child, and an order is for 10 children at least.
+CLASS_SEAT_AGOROT = 10_00
+CLASS_MIN_SEATS_ILS = 10
+
+
+def agorot_display(agorot: int) -> str:
+    """'₪10' for whole shekels, '₪10.50' otherwise. Display only."""
+    agorot = int(agorot)
+    sign = "-" if agorot < 0 else ""
+    whole, frac = divmod(abs(agorot), 100)
+    return f"{sign}₪{whole}" if frac == 0 else f"{sign}₪{whole}.{frac:02d}"
+
+
+def get_ils_products() -> List[Dict]:
+    """What Grow sells, shaped like `get_packs()` rows so the storefront reads
+    either. `price_cents` is the price in the currency's own cents: agorot."""
+    per_hero = creation_credit_price()
+    return [
+        {
+            **product,
+            "credits": product["heroes"] * per_hero,
+            "price_cents": product["price_agorot"],
+            "price_display": agorot_display(product["price_agorot"]),
+            "currency": ILS,
+        }
+        for product in _ILS_PRODUCTS
+    ]
+
+
+def get_ils_product(slug: str) -> Optional[Dict]:
+    for product in get_ils_products():
+        if product["slug"] == slug:
+            return product
+    return None
+
+
+def class_seats_price_agorot(seats: int) -> int:
+    """What `seats` class seats cost in shekels, in agorot."""
+    seats = int(seats)
+    if seats < 1:
+        raise ValueError("A class seat order is for at least one seat")
+    return seats * CLASS_SEAT_AGOROT
+
+
+def class_seats_ils_quote(seats: int) -> Dict:
+    """One class seat order in shekels, shaped like `class_seats_quote`."""
+    price = class_seats_price_agorot(seats)
+    return {
+        "slug": CLASS_SEATS_SLUG,
+        "name": "Class seats",
+        "seats": int(seats),
+        "credits": int(seats) * creation_credit_price(),
+        "price_agorot": price,
+        "price_cents": price,
+        "price_display": agorot_display(price),
+        "currency": ILS,
+    }

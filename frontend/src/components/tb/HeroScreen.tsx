@@ -20,6 +20,10 @@ interface HeroScreenProps {
   isAdmin: boolean;
   creditBalance?: number;
   onBack: () => void;
+  /** The logo: the gallery (on a phone, the way back: it has no Back button). */
+  onHome: () => void;
+  /** The site header's account controls (App's HeaderAuth): the credits and the account, or Sign in. */
+  headerAuth?: ReactNode;
   onRefresh: () => Promise<void>;
   onDeleted: () => void;
   onShowSteps: () => void;
@@ -52,7 +56,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const state = heroState(creation);
   const owns = isLoggedIn && (isAdmin || creation.user_id === currentUserId);
   // A teacher looking at a student's hero shares it, never "makes their own".
-  const shares = owns || !!props.fromClass;
+  const makesOwn = !props.fromClass;
   // An admin looking at someone else's hero: support, not its owner. Their
   // own balance means nothing here, and the owner's buy/retry bar is not theirs.
   const supporting = isLoggedIn && isAdmin && creation.user_id !== currentUserId;
@@ -161,7 +165,7 @@ export function HeroScreen(props: HeroScreenProps) {
   const canShareFiles = typeof navigator !== 'undefined' && !!navigator.canShare;
   useEffect(() => {
     pic.current = null;
-    if (!canShareFiles || !shares || state !== 'ready') return;
+    if (!canShareFiles || state !== 'ready') return;
     let alive = true;
     // The share picture is a flat JPEG (backend share_card.py): the cut
     // painting's PNG is transparent, and WhatsApp painted its background black.
@@ -174,7 +178,7 @@ export function HeroScreen(props: HeroScreenProps) {
       })
       .catch(() => { /* the link alone */ });
     return () => { alive = false; };
-  }, [creation.id, shares, state]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [creation.id, state]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!copied) return;
     const t = window.setTimeout(() => setCopied(false), 4000);
@@ -207,9 +211,10 @@ export function HeroScreen(props: HeroScreenProps) {
 
   const ready = state === 'ready';
   const canShare = ready || painted;
-  // The sheet behind ⋯ : the same button for everyone, more rows for the owner.
+  // The sheet behind ⋯ : the owner's (and an admin's) rows. Ready, Share is
+  // at the foot for everyone (Raz, 2026-11-22); before that it is here.
   const moreRows = [
-    canShare && <SheetRow key="share" icon="share" label="Share" onClick={() => { setSheet(null); share(); }} />,
+    canShare && !ready && <SheetRow key="share" icon="share" label="Share" onClick={() => { setSheet(null); share(); }} />,
     ...(owns ? [
       <SheetRow key="rename" icon="pencil" label="Rename" onClick={() => setSheet('rename')} />,
       <SheetRow key="artist" icon="brush" label="Who drew it" trail={artistLine(creation)} onClick={() => setSheet('artist')} />,
@@ -237,37 +242,49 @@ export function HeroScreen(props: HeroScreenProps) {
     ] : []),
   ].filter(Boolean);
 
-  // Back | the hero's name | ⋯ — the same three things on every state, so
-  // nothing moves as the hero comes to life. With nothing to offer (a visitor
-  // watching a hero being made) the end keeps its width, empty.
+  // The site's header, as on the gallery (Raz: "the logo and everything in
+  // the header stay with us across the site"): Back (a desktop's; a phone
+  // goes back by the logo, or the system's Back) and the logo at the start;
+  // Make your own (a desktop's), the credits and the account at the end.
+  // Opened from a class or the admin console, Back is there on a phone too:
+  // the logo goes to the gallery, not back to where it was opened.
   const header = (
     <Header
-      left={<NavButton icon="back" label={backLabel} onClick={props.onBack} className="tb-back" />}
-      title={name}
-      titleClassName="hero-name"
-      // The owner (and an admin) taps the name to rename it; anyone else reads it.
-      onTitle={owns ? () => setSheet('rename') : undefined}
-      titleLabel={owns ? `Rename ${name}` : undefined}
-      right={moreRows.length > 0 && <NavButton icon="more" label="More" onClick={() => setSheet('more')} className="tb-more" />}
+      left={(
+        <>
+          <NavButton icon="back" label={backLabel} onClick={props.onBack} className={`tb-back${props.fromClass || props.fromAdmin ? '' : ' tb-back--wide'}`} />
+          <button type="button" className="tb-logo tb-logo-mark" onClick={props.onHome} aria-label="HeroMaker home">
+            <img src="/app-icon.png" alt="" />
+            <span>HeroMaker</span>
+          </button>
+        </>
+      )}
+      right={(
+        <>
+          {makesOwn && <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm tb-make-own tb-header-make" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
+          {props.headerAuth}
+        </>
+      )}
     />
   );
+  // The ⋯ : only when it holds something for this viewer, over the card's top end.
+  const more = moreRows.length > 0 && <NavButton icon="more" label="More" onClick={() => setSheet('more')} className="tb-more tb-hero-more" />;
 
   const notice = error
     ? <div className="tb-notice tb-notice--error" role="alert">{error}<button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => setError(null)}>OK</button></div>
-    // Shared from ⋯ with no Share button on the bar to say so.
-    : copied && !(state === 'ready' && shares) && <div className="tb-notice" role="status"><Icon name="check" />Link copied</div>;
+    // Shared from ⋯ with no Share button at the foot to say so.
+    : copied && state !== 'ready' && <div className="tb-notice" role="status"><Icon name="check" />Link copied</div>;
 
   // Under the stage while the hero is not ready: what is happening.
   let info: ReactNode = null;
   let bar;
   if (state === 'ready') {
-    // One secondary, then the primary last: the same place for it whoever is
-    // looking. Only the secondary differs.
+    // The hero's own actions, the same for whoever is looking (Raz,
+    // 2026-11-22): Share, then Play, the primary, last. Make your own is the
+    // site's, in a desktop's header.
     bar = (
       <>
-        {shares
-          ? <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-share" onClick={share}><Icon name={copied ? 'check' : 'share'} />{copied ? 'Link copied' : 'Share'}</button>
-          : <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-make-own" onClick={props.onMakeOwn}><Icon name="pencil" />Make your own</button>}
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-share" onClick={share}><Icon name={copied ? 'check' : 'share'} />{copied ? 'Link copied' : 'Share'}</button>
         <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-play" onClick={() => setSheet('games')}><Icon name="play" />Play</button>
       </>
     );
@@ -357,7 +374,7 @@ export function HeroScreen(props: HeroScreenProps) {
   }
 
   return (
-    <div className="tb-screen tb-screen--fit tb-hero-screen tb-hero-main" data-state={state}>
+    <div className="tb-screen tb-screen--fit tb-hero-screen tb-hero-main" data-state={state} data-foot={ready ? 'row' : 'stack'}>
       {header}
       {/* One element in every state, so the carousel built while the hero is
           made is the one it lives on when ready. */}
@@ -376,8 +393,8 @@ export function HeroScreen(props: HeroScreenProps) {
           idle: state === 'idle',
           info,
         }}
+        page={{ foot: bar, more, onName: owns ? () => setSheet('rename') : undefined }}
       />
-      <div className="tb-bar">{bar}</div>
 
       {sheet === 'more' && (
         <Sheet title={name} onClose={() => setSheet(null)}>

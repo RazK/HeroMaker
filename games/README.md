@@ -6,7 +6,7 @@ Playable experiences built on top of the HeroMaker pipeline's rigged VRM output.
 |---|---|---|
 | [`hero-moves/`](./hero-moves) | **Live** — <https://razk.github.io/HeroMaker/hero-moves/> | A party dance game. One to three players stand side by side, each picks a hero, and every hero mirrors its own player. Also ships the camera-free Stunt Reel at `reel.html`. |
 | [`robot-rumble/`](./robot-rumble) | **New** — `/play/arena.html` in the app | Camera-free arena game: thumb stick, Punch, Jump. Bop real gallery heroes (a friendly game of tag) and wind-up robots in a walled toy room; they come from the camera's side, so the hero faces the camera's half ~68% of the round and shows a full back 3-4% (measured). Built as a page of `hero-moves`. |
-| [`hero-dash/`](./hero-dash) | **Parked** — complete and playable, not the direction | An endless runner. The chase camera shows the back of the avatar almost all the time, and the back is the part the pipeline invents. See below. |
+| [`hero-dash/`](https://github.com/RazK/HeroMaker/tree/archive/hero-dash/games/hero-dash) | **Parked** — complete and playable, not the direction. Archived on the `archive/hero-dash` branch (2026-11-23) | An endless runner. The chase camera shows the back of the avatar almost all the time, and the back is the part the pipeline invents. See below. |
 
 ## Why Hero Dash is parked
 
@@ -19,7 +19,7 @@ is the pipeline's own extrapolation. An endless runner puts the camera behind
 the player, so the thing on screen for almost the whole run is the half of the
 model nobody drew. It is a showcase that hides the thing being showcased.
 
-This was flagged as a risk in [`hero-dash/BRIEF.md`](./hero-dash/BRIEF.md) and
+This was flagged as a risk in [`hero-dash/BRIEF.md`](https://github.com/RazK/HeroMaker/tree/archive/hero-dash/games/hero-dash/BRIEF.md) and
 then mitigated — front-facing pose gates, a camera that swings around during
 Hero Time — rather than treated as disqualifying. Mitigation was the wrong call:
 if the genre points the camera the wrong way by default, no amount of set
@@ -31,16 +31,19 @@ anything else.**
 
 ## What to reuse rather than rewrite
 
-Hero Dash is kept because most of it is not about running:
+Most of Hero Dash is not about running. Its code left the tree on 2026-11-23
+(nothing built, published or imported it) and lives on the
+[`archive/hero-dash`](https://github.com/RazK/HeroMaker/tree/archive/hero-dash/games/hero-dash) branch. What was reusable is already in
+`hero-moves`:
 
-| Piece | What it does |
+| Piece | Where it is now |
 |---|---|
-| `scripts/optimize_vrm.py` | 5.5 MB pipeline VRM → ~1.2 MB, no visible loss. Also makes the texture load under a strict CSP. |
-| `hero-dash/src/avatar/loader.ts` | Loads a VRM from a URL or an inlined `data:` URI, grounds it, adds a drawn outline, and dodges the CSP traps. |
-| `hero-dash/src/avatar/rig.ts`, `poses.ts`, `animator.ts` | Rotation-only procedural animation on the normalized humanoid rig — the reason one pose library reads correctly on a superhero, a bear, a star and a cloud. The axis conventions are documented at the top of `poses.ts` and were expensive to work out. |
-| `hero-dash/src/core/heroCam.ts` | Webcam body tracking with no downloaded model: learns the empty room, then reads the player's silhouette. Works offline and inside the artifact sandbox. |
-| `hero-dash/tools/*.mjs` | The harnesses: headless play bot, per-state showcase capture, artifact-CSP server, throttled load test, layout fit checker, control-mirroring check, synthetic webcam video. |
+| `scripts/optimize_vrm.py` | unchanged: 5.5 MB pipeline VRM → ~1.2 MB, no visible loss. Also makes the texture load under a strict CSP. |
+| `avatar/rig.ts`, `poses.ts`, `animator.ts` | `hero-moves/src/avatar/`, identical copies. Rotation-only procedural animation on the normalized humanoid rig — the reason one pose library reads correctly on a superhero, a bear, a star and a cloud. The axis conventions are documented at the top of `poses.ts` and were expensive to work out. |
+| `avatar/loader.ts` | `hero-moves/src/avatar/loader.ts`, grown since: loads a VRM from a URL or an inlined `data:` URI, grounds it, adds a drawn outline, and dodges the CSP traps. |
+| `tools/csp-server.mjs`, `fitcheck.mjs` | `hero-moves/tools/`, identical copies: the artifact-CSP server and the layout fit checker. |
+| `core/heroCam.ts`, the other `tools/*.mjs` | archive only: webcam body tracking with no downloaded model (learns the empty room, then reads the player's silhouette), the headless play bot, per-state showcase capture, throttled load test, control-mirroring check, synthetic webcam video. |
 
-Read `hero-dash/README.md` before starting a new game here — the sections on
+Read [`hero-dash/README.md`](https://github.com/RazK/HeroMaker/tree/archive/hero-dash/games/hero-dash/README.md) before starting a new game here — the sections on
 publishing under the Artifact CSP and on testing layout at real viewport heights
 are hard-won and apply to anything published the same way.

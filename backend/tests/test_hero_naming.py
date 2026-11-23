@@ -287,7 +287,19 @@ def test_naming_does_not_hold_up_the_step(db, make_user, make_creation, storage)
     ("  Prickle Pete  ", "Prickle Pete"),
     ('"Brick Bo"', "Brick Bo"),
     ("“Ruby Rocket”", "Ruby Rocket"),
-    ("Captain O'Toole", "Captain O Toole"),
+    # An apostrophe inside a word is part of it (it once became a space:
+    # "I don't" was shown as "I don t"); kept as ’, whatever the model typed.
+    ("Captain O'Toole", "Captain O’Toole"),
+    ("I don't", "I don’t"),
+    ("I don’t", "I don’t"),
+    ("I donʼt", "I don’t"),
+    ("O’Malley the Brave", "O’Malley the Brave"),
+    # Quotes around a name or a word still go.
+    ("'Sparky'", "Sparky"),
+    ("Rock 'n' Roll", "Rock n Roll"),
+    ("Kids' Hero", "Kids Hero"),
+    ("don''t", "don t"),
+    ("a\x00b", "a b"),
     ("Zoom \U0001F680 Zara", "Zoom Zara"),
     ("Robo 3000", "Robo"),
     ("One Two Three Four Five", "One Two Three"),
@@ -308,7 +320,10 @@ def test_sanitize_hero_name(raw, expected):
         assert name == name.strip()
         assert len(name.split()) <= 3
         assert len(name) <= 24
-        assert not any(q in name for q in "\"'“”‘’")
+        assert not any(q in name for q in "\"'“”‘`")
+        # The one apostrophe kept sits between two letters.
+        assert all(0 < i < len(name) - 1 and name[i - 1].isalpha() and name[i + 1].isalpha()
+                   for i, ch in enumerate(name) if ch == "’")
 
 
 def test_the_pipeline_stores_the_sanitized_name(db, make_user, make_creation, storage):

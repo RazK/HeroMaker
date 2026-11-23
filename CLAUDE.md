@@ -45,6 +45,8 @@ clones this repo):
   every new idea from Raz. Steer him when an idea does not bring money.
 - **`weekly-review`**: the Sunday 5 lines, from real numbers only.
 - **`pilot-notes`**: plan and write up Schneider, classes and other pilots.
+- **`sprint`**: the 3-day sprint cadence (`docs/ops/CADENCE.md`): daily sync,
+  kickoff, review with a working staging demo, retro. The PM conducts it.
 - **`team-handoff`**: who is who (names are session titles: Gidi · Payments,
   Maya · Design, Liran · Dev, Nir · 3D, Tom · Content), how agents message each
   other, how to report to Raz.
@@ -268,8 +270,9 @@ workflow that hard-codes one. See `docs/deployment/cicd.md`.
 `games/PLAYBOOK.md` before building one — it records the asset's constraints
 (22 bones, no fingers, no blendshapes, wildly varying proportions), the
 publishing constraints, what a 2D pose tracker can and cannot read on these
-avatars, and the process rules that came out of building them. `games/hero-dash`
-is parked; `games/README.md` says why and lists what to reuse from it.
+avatars, and the process rules that came out of building them. Hero Dash
+is parked (its code is on the `archive/hero-dash` branch); `games/README.md` says
+why and where its reusable parts live now.
 
 ### Two capabilities worth knowing about before you build anything
 

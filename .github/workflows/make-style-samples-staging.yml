@@ -7,14 +7,14 @@ name: Make style samples (staging)
 # The images are pushed to the branch `style-samples/<run id>` (never main), to
 # be reviewed and merged as a PR; the full-size paintings stay an artifact.
 #
-# Default drawing: the hero girl from the logo (frontend/public/logo.png).
+# Default drawing: the hero girl from the logo (brand/hero-girl-drawing.png).
 
 on:
   workflow_dispatch:
     inputs:
       drawing:
         description: 'Drawing to paint, path in the repo'
-        default: 'frontend/public/logo.png'
+        default: 'brand/hero-girl-drawing.png'
       only:
         description: 'Only these styles, comma-separated (empty = all)'
         required: false

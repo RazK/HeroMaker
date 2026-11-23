@@ -49,11 +49,23 @@ export interface Making {
   info: ReactNode;
 }
 
+/** What the hero's own page adds to the stage (HeroLive `page`). */
+export interface HeroPage {
+  /** The hero's own actions, at the foot: Share and Play when it is ready. */
+  foot: ReactNode;
+  /** The owner taps the name card to rename the hero. */
+  onName?: () => void;
+  /** The ⋯ button, over the card's top end, when it has rows for this viewer. */
+  more?: ReactNode;
+}
+
 const STEP_FILE: Record<string, string> = { openai_render: 'rendered.png', meshy_3d: 'model.glb' };
 
 type SlideKey = 'drawing' | 'painting' | 'hero' | 'figure';
 /** What analytics calls each slide. */
 const SLIDE_NAMES: Record<SlideKey, HeroSlide> = { drawing: 'drawing', painting: 'painting', hero: '3d', figure: 'toy' };
+/** Each slide's chapter, as its tile names it. */
+const CHAPTER_NAMES: Record<SlideKey, string> = { drawing: 'Drawing', painting: 'Painting', hero: '3D hero', figure: 'Toy' };
 type SlideState = 'ready' | 'pending' | 'failed';
 interface Slide { key: SlideKey; state: SlideState }
 
@@ -88,10 +100,19 @@ const PART_STEPS: Record<'painting' | 'hero', Array<[string, number]>> = {
  * the slides pass under it, and it fades in and out by how far its slides are
  * from the middle (Dock). Nothing of one slide shows on another.
  */
-export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id), figure }: {
+export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.id), figure, page }: {
   creation: LiveHero;
   making?: Making;
   notice?: ReactNode;
+  /**
+   * The hero's own page (HeroScreen; the approved "proposal A", Raz
+   * 2026-11-22): the picture centred in its card with the name card and the
+   * slide's controls laid over it, the chapters beside it in place of the
+   * dots, and the hero's own actions (`foot`) under them. Without it (a
+   * class's screens) the stage keeps its dots, its dock and the drawing's
+   * small card.
+   */
+  page?: HeroPage;
   /** A fourth slide, the hero as an action figure (ActionFigure.tsx): shown
    *  when one is made, or to whoever may make one. `credits` is the viewer's
    *  balance, for a price while figures are for sale. */
@@ -223,6 +244,17 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     };
   }, [mod, vrm]);
 
+  // The 3D hero's chapter shows the hero itself: one frame of it, taken once
+  // it is dancing on the stage (older stage modules cannot: the painting).
+  const [heroThumb, setHeroThumb] = useState<string | null>(null);
+  useEffect(() => {
+    if (!page || !shown || heroThumb) return;
+    const t = window.setTimeout(() => {
+      try { setHeroThumb(stage.current?.snapshot?.() ?? null); } catch { /* the painting stands in */ }
+    }, 900);
+    return () => window.clearTimeout(t);
+  }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // A move tapped before the hero was on stage plays as soon as it is.
   useEffect(() => {
     if (shown && pendingMove.current && stage.current?.play(pendingMove.current)) pendingMove.current = null;
@@ -231,6 +263,8 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   // The moves are the live hero's own controls: they live on its slide, and
   // a tap plays at once (Raz: "we can't make the drawing do a flip").
   const go = useRef<((i: number, dir: 1 | -1) => void) | null>(null);
+  // Straight to a slide, the shorter way round (a chapter's tap).
+  const jump = useRef<((i: number) => void) | null>(null);
   const tap = (id: string) => {
     track('move_tapped', { move: id, hero_id: creation.id });
     pendingMove.current = id;
@@ -286,7 +320,16 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
 
   // The drawing is always the gallery's polaroid (Raz): the tile's white
   // frame and tilt, and under it the tile's name card ("by Maya, 6").
-  const nameCard = <TileCaption className="tb-live-name" title={creation.character_name?.trim() || 'Your hero'} line={byLine(creation.name, creation.age)} />;
+  const cardTitle = creation.character_name?.trim() || 'Your hero';
+  const nameCard = <TileCaption className="tb-live-name" title={cardTitle} line={byLine(creation.name, creation.age)} />;
+  // On the hero's own page the name card is the hero's name (the header is
+  // the site's): its owner taps it to rename the hero.
+  const pageName = page?.onName ? (
+    <button type="button" className="tb-tile-card tb-live-name tb-live-name--button" aria-label={`Rename ${cardTitle}`} title={`Rename ${cardTitle}`} onClick={page.onName}>
+      <span className="tb-tile-name" dir="auto">{cardTitle}</span>
+      {byLine(creation.name, creation.age) && <span className="tb-tile-line tb-tile-line--by tb-tile-by" dir="auto">{byLine(creation.name, creation.age)}</span>}
+    </button>
+  ) : nameCard;
   const drawingPic = <SlidePicture thumb={file('thumb_original.jpg')} full={file(DRAWING_DISPLAY)} polaroid />;
   const paintingPic = <SlidePicture thumb={file(paintingThumb)} full={file(paintingFile)} framed={framed} trim={painted && !framed} />;
 
@@ -310,6 +353,21 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     // The card is out as far as the slides without it are in: between the
     // hero and the action figure that is all the way (0.5 + 0.5), not half.
     const cardOut = Math.min(1, hero + fig + nearPending);
+    if (page) {
+      // The hero's own page: the name card stays on every slide, at the
+      // card's bottom start; the slide's own controls (the moves, the toy's)
+      // at its bottom end, fading with their slide; the ⋯ at its top end.
+      return (
+        <Dock dragging={dragging} layers={[
+          { key: 'name', o: 1, node: pageName },
+          // Only once the 3D hero is on the stage and can move: never greyed out
+          // over the painting that stands in while it loads (Raz, 2026-11-23).
+          ...(movesRow && movesReady && shown ? [{ key: 'moves', o: hero, node: movesRow }] : []),
+          ...(live && figure ? [{ key: 'figure', o: fig, node: null, ref: setFigureDock }] : []),
+          ...(page.more ? [{ key: 'more', o: 1, node: page.more }] : []),
+        ]} />
+      );
+    }
     return (
       <>
         <OneDrawing
@@ -326,7 +384,9 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
           // come in. --o-draw: the drawing's share alone (a wide screen shows
           // it on the drawing only; the painting's corner is the small card's).
           { key: 'name', o: 1 - cardOut, vars: { '--o-draw': String(Math.round(Math.max(0, 2 * near('drawing') - 1) * 1000) / 1000) }, node: nameCard },
-          ...(movesRow ? [{ key: 'moves', o: hero, node: movesRow }] : []),
+          // Only once the 3D hero is on the stage and can move: never greyed out
+          // over the painting that stands in while it loads (Raz, 2026-11-23).
+          ...(movesRow && movesReady && shown ? [{ key: 'moves', o: hero, node: movesRow }] : []),
           ...(live && figure ? [{ key: 'figure', o: fig, node: null, ref: setFigureDock }] : []),
         ]} />
       </>
@@ -436,22 +496,68 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     };
   };
 
+  const carousel = (
+    <Carousel
+      className="tb-stage tb-hero-stage tb-live-stage"
+      label={`How ${heroName} was made`}
+      slides={slides.map((s) => ({ key: s.key, ...view(s) }))}
+      index={index}
+      onPick={pick}
+      go={go}
+      jump={jump}
+      dots={!page}
+      overlay={overStage}
+      data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
+    />
+  );
+  // The chapters: one tile per slide, its picture and its name, in place of
+  // the dots (Raz, 2026-11-22). The current one is chosen.
+  const chapterThumb = (s: Slide): { src: string; polaroid?: boolean } => {
+    if (s.key === 'drawing' || (s.key === 'painting' && !painted)) return { src: file('thumb_original.jpg'), polaroid: true };
+    if (s.key === 'painting') return { src: file(paintingThumb) };
+    if (s.key === 'hero') return { src: heroThumb ?? file(paintingThumb) };
+    return { src: figure?.initial?.files?.preview ?? file(paintingThumb) };
+  };
+  const chapters = page && (
+    <div className="tb-chapters" role="group" aria-label={`How ${heroName} was made`} style={{ ['--n' as string]: String(slides.length) } as CSSProperties}>
+      {slides.map((s, i) => {
+        const pic = chapterThumb(s);
+        return (
+          <button
+            key={s.key}
+            type="button"
+            className={`tb-chapter${s.state !== 'ready' ? ` tb-chapter--${s.state}` : ''}`}
+            data-chapter={s.key}
+            aria-current={i === index ? 'true' : undefined}
+            onClick={() => jump.current?.(i)}
+          >
+            <span className="tb-chapter-pic"><SafeImg className={pic.polaroid ? 'tb-pol' : undefined} src={pic.src} alt="" draggable={false} /></span>
+            <span className="tb-chapter-label">{CHAPTER_NAMES[s.key]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <>
-      <div className="tb-screen-body">
-        {notice}
-        <Carousel
-          className="tb-stage tb-hero-stage tb-live-stage"
-          label={`How ${heroName} was made`}
-          slides={slides.map((s) => ({ key: s.key, ...view(s) }))}
-          index={index}
-          onPick={pick}
-          go={go}
-          overlay={overStage}
-          data={{ 'data-slide': current.key, 'data-slides': slides.map((s) => (s.state === 'ready' ? s.key : `${s.key}-${s.state}`)).join(','), 'data-shown': shown ? 'hero' : '', 'data-playing': playing ?? '' }}
-        />
-        {making?.info}
-      </div>
+      {page ? (
+        <div className="tb-screen-body tb-hero-body">
+          {carousel}
+          <div className="tb-hero-side">
+            {notice}
+            {chapters}
+            {making?.info}
+            <div className="tb-hero-foot">{page.foot}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="tb-screen-body">
+          {notice}
+          {carousel}
+          {making?.info}
+        </div>
+      )}
       {full && (
         <FullPicture
           title={full === 'drawing' ? 'The drawing' : 'Painted'}
@@ -492,12 +598,16 @@ const SLOP_PX = 8;
  * next past a fifth of the stage or on a flick (HeroLive.css: under 300ms).
  * The arrow keys and the dots move it too. A drag never counts as a tap.
  */
-function Carousel({ slides, index, onPick, go, className, label, data, overlay }: {
+function Carousel({ slides, index, onPick, go, jump, dots = true, className, label, data, overlay }: {
   slides: Array<{ key: string; label: string; node: ReactNode }>;
   index: number;
   onPick: (i: number) => void;
   /** Filled in with a way to slide straight to a slide from a given side. */
   go?: MutableRefObject<((i: number, dir: 1 | -1) => void) | null>;
+  /** Filled in with a way to go to a slide, as a dot does (the chapters). */
+  jump?: MutableRefObject<((i: number) => void) | null>;
+  /** The pager dots over the stage (the hero's own page has its chapters instead). */
+  dots?: boolean;
   /**
    * Drawn over the slides, inside the stage (the one drawing). Given how far
    * a slide is from the middle right now, in slides (the drag included), and
@@ -574,6 +684,13 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
     go.current = (i, dir) => slideToRef.current(i, dir);
     return () => { go.current = null; };
   }, [go]);
+  const goToRef = useRef(goTo);
+  goToRef.current = goTo;
+  useEffect(() => {
+    if (!jump) return;
+    jump.current = (i) => goToRef.current(i);
+    return () => { jump.current = null; };
+  }, [jump]);
 
   // The arrow keys, anywhere on the page but in a field or over a sheet.
   useEffect(() => {
@@ -672,7 +789,7 @@ function Carousel({ slides, index, onPick, go, className, label, data, overlay }
           </div>
         );
       })}
-      {n > 1 && (
+      {dots && n > 1 && (
         <div className="tb-carousel-dots">
           {slides.map((s, i) => (
             <button

@@ -666,6 +666,10 @@ function MainApp() {
     setClassesIntent(true);
     window.dispatchEvent(new CustomEvent('auth:open', { detail: { mode: 'signup', note: 'Then make your first class.' } }));
   };
+  // The account controls of the site's header: on the gallery, and on a
+  // hero's page (Raz: "the logo and everything in the header stay with us
+  // across the site").
+  const headerAuth = <HeaderAuth onOpenAdmin={() => openAdmin()} onClassesMode={(on) => { if (on) setSection('classes'); else leaveClasses(); }} />;
   const appHeader = (
     <Header
       left={(
@@ -674,7 +678,7 @@ function MainApp() {
           <span>HeroMaker</span>
         </button>
       )}
-      right={<HeaderAuth onOpenAdmin={() => openAdmin()} onClassesMode={(on) => { if (on) setSection('classes'); else leaveClasses(); }} />}
+      right={headerAuth}
     />
   );
   const footer = (extra?: JSX.Element) => (
@@ -720,6 +724,9 @@ function MainApp() {
   };
 
   let screen;
+  // A screen whose header carries the account controls mounts HeaderAuth
+  // itself; the hidden one below would open every dialog twice.
+  let ownAuth = view === 'gallery';
   if (view === 'claim' && claim) {
     screen = (
       <ClaimScreen
@@ -778,6 +785,7 @@ function MainApp() {
       />
     );
   } else if ((view === 'hero' || view === 'steps') && creation) {
+    ownAuth = true;
     screen = (
       <HeroScreen
         creation={creation}
@@ -786,6 +794,8 @@ function MainApp() {
         isAdmin={userInfo?.is_admin ?? false}
         creditBalance={creditBalance}
         onBack={backFromHero}
+        onHome={goHome}
+        headerAuth={headerAuth}
         onRefresh={refreshCreation}
         onDeleted={backFromHero}
         onShowSteps={() => { go(stepsPath(creation.id)); setView('steps'); }}
@@ -864,7 +874,7 @@ function MainApp() {
       {screen}
       {/* Off the gallery the account controls are hidden, but its dialogs
           (buy credits, sign-in) must stay mounted for any screen to open. */}
-      {view !== 'gallery' && <HeaderAuth controls={false} />}
+      {!ownAuth && <HeaderAuth controls={false} />}
       {view !== 'gallery' && <div className="tb-toasts">{notices}</div>}
 
       {/* Always mounted, so "Photos" can open it from the sheet. */}
@@ -908,16 +918,13 @@ function MainApp() {
 
       {showWebcamModal && (
         <FileUpload
-          onUpload={(file, characterName) => {
+          onUpload={(file) => {
             track('photo_taken');
-            handleUpload(file, characterName);
+            handleUpload(file);
             setShowWebcamModal(false);
           }}
           disabled={isUploading}
-          showWebcamOnMount={true}
           onClose={() => setShowWebcamModal(false)}
-          creditBalance={creditBalance}
-          creationCost={pipelineCost}
         />
       )}
 

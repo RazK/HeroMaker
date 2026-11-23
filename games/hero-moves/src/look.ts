@@ -18,18 +18,28 @@ import type { RoomEnvironment as Room } from 'three/examples/jsm/environments/Ro
  * and texture is made with them.
  */
 
-/** The hero page's light: a warm key from above and in front, a lilac fill, a soft sky over a warm floor. */
+/**
+ * The hero page's light, a soft three-point studio (Raz, 2026-11-22: the
+ * lighting "doesn't look good"): a warm key from the front left, above; a
+ * fill from the right, so the far side of the face is never in shadow; a
+ * gentle rim from behind, which lifts the hero off the plate; under them a
+ * warm sky over a warm floor. Warmer and brighter than before, and soft: no
+ * light is much stronger than the others, so nothing falls into a hard shadow.
+ */
 export const LOOK = {
-  sky: { sky: 0xffffff, ground: 0xffe9c4, intensity: 0.85 },
-  key: { color: 0xfff3e0, intensity: 2.1, position: [1.2, 3.5, 4] as const },
-  fill: { color: 0xe9e3ff, intensity: 0.6, position: [-3, 1.5, 2] as const },
-  /** ACES filmic, a touch over 1, in sRGB. */
-  exposure: 1.05,
-  /** The room the materials reflect: three's RoomEnvironment, slightly blurred, a quarter as strong. */
-  room: { blur: 0.04, intensity: 0.25 },
+  sky: { sky: 0xfffaf2, ground: 0xffe2c2, intensity: 1.0 },
+  key: { color: 0xffeedb, intensity: 2.2, position: [-2.2, 3.2, 4.2] as const },
+  fill: { color: 0xfff4ea, intensity: 0.9, position: [3.2, 1.6, 2.6] as const },
+  rim: { color: 0xfff8f0, intensity: 1.1, position: [0.8, 3.2, -4] as const },
+  /** Neutral tone mapping, in sRGB. */
+  exposure: 1.0,
+  /** The room the materials reflect: three's RoomEnvironment, slightly blurred, a third as strong. */
+  room: { blur: 0.04, intensity: 0.32 },
   /** Matte and never metal: the models come from image-to-3D, whose "metal" is noise. */
   roughness: 0.92,
   metalness: 0,
+  /** How much of a hero's own glow stays (see finishMaterials). */
+  selfGlow: 0.12,
 } as const
 
 export interface LookParts {
@@ -43,13 +53,15 @@ export interface LookParts {
  */
 export function applyLook({ THREE, RoomEnvironment }: LookParts, renderer: Three.WebGLRenderer, scene: Three.Scene): () => void {
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  // Neutral keeps the hero's own colours (ACES greyed the pinks and paled the
+  // skin); a three.js too old for it (before r162) keeps ACES.
+  renderer.toneMapping = (THREE as unknown as { NeutralToneMapping?: Three.ToneMapping }).NeutralToneMapping ?? THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = LOOK.exposure
 
   const lights = new THREE.Group()
   lights.name = 'hero-look'
   lights.add(new THREE.HemisphereLight(LOOK.sky.sky, LOOK.sky.ground, LOOK.sky.intensity))
-  for (const { color, intensity, position } of [LOOK.key, LOOK.fill]) {
+  for (const { color, intensity, position } of [LOOK.key, LOOK.fill, LOOK.rim]) {
     const light = new THREE.DirectionalLight(color, intensity)
     light.position.set(position[0], position[1], position[2])
     lights.add(light)
@@ -84,6 +96,12 @@ export function finishMaterials({ THREE }: Pick<LookParts, 'THREE'>, root: Three
         std.roughness = LOOK.roughness
         std.metalness = LOOK.metalness
         if (roomPerMaterial) std.envMapIntensity = LOOK.room.intensity
+        // Most heroes made since 2026-10 arrive lit from within: their own
+        // texture as an emissive map at full strength (the image-to-3D
+        // export). Drawn that way they were flat and washed out, whatever the
+        // lights did (Raz: the lighting "doesn't look good"). A trace of it
+        // stays, so a dark corner never goes muddy; the lights do the rest.
+        if (std.emissiveMap) std.emissiveIntensity = LOOK.selfGlow
       }
       // Kid drawings often have thin flat bits (capes, wings) with no back face.
       m.side = THREE.DoubleSide

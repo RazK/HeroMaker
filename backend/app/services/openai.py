@@ -740,6 +740,10 @@ HERO_NAME_RESPONSE_FORMAT = {
 
 # Straight, curly and angle quotes. All are dropped from a name.
 _QUOTES = "\"'`‘’‚‛“”„‟«»‹›"
+# The one apostrophe a name keeps: inside a word, written typographically.
+APOSTROPHE = "’"
+_KEEP = "\x00"
+_INNER_APOSTROPHE = re.compile(r"(?<=[^\W\d_])['’ʼ`](?=[^\W\d_])")
 
 
 def hero_name_cache_version() -> dict:
@@ -756,15 +760,23 @@ def sanitize_hero_name(raw) -> Optional[str]:
     """
     Make whatever the model said safe to show as a hero's name, or None.
 
-    Trimmed; quotes, emoji, digits and other symbols removed (letters, spaces
-    and inner hyphens survive); at most HERO_NAME_MAX_WORDS words and
-    HERO_NAME_MAX_CHARS characters, cut at a word boundary where possible.
+    Trimmed; quotes, emoji, digits and other symbols removed (letters, spaces,
+    inner hyphens and inner apostrophes survive); at most HERO_NAME_MAX_WORDS
+    words and HERO_NAME_MAX_CHARS characters, cut at a word boundary where
+    possible.
+
+    An apostrophe between two letters is part of the word ("I Don’t",
+    "O’Toole") and is kept, as ’. Until 2026-11-23 it became a space: a hero
+    the model named "I don't" was shown as "I don t".
     """
     if not isinstance(raw, str):
         return None
-    text = unicodedata.normalize("NFKC", raw)
+    text = unicodedata.normalize("NFKC", raw).replace(_KEEP, " ")
+    # Held as a placeholder while the quotes around the name are removed.
+    text = _INNER_APOSTROPHE.sub(_KEEP, text)
     text = "".join(" " if ch in _QUOTES else ch for ch in text)
-    text = "".join(ch if (ch.isalpha() or ch in " -") else " " for ch in text)
+    text = "".join(ch if (ch.isalpha() or ch in " -" + _KEEP) else " " for ch in text)
+    text = text.replace(_KEEP, APOSTROPHE)
     words = [re.sub(r"-{2,}", "-", w.strip("-")) for w in text.split()]
     words = [w for w in words if w][:HERO_NAME_MAX_WORDS]
     while len(words) > 1 and len(" ".join(words)) > HERO_NAME_MAX_CHARS:

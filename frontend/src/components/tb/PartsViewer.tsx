@@ -398,7 +398,8 @@ function Parts({ url, apart, ease, tinted, moving, look, overlay, sway = false, 
   // needs (a phone: the width limits it), so what is left is at the bottom,
   // where the drawing's card stands.
   const top = FILL * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2)) * CAMERA_Z;
-  const lift = (scale: number, value: number) => (sway ? Math.max(0, top - scale * (halfTogether + (half - halfTogether) * value)) : 0);
+  // Only with something to keep clear of (`avoid`); otherwise it is centred.
+  const lift = (scale: number, value: number) => (sway && avoid ? Math.max(0, top - scale * (halfTogether + (half - halfTogether) * value)) : 0);
   // As large as it can be while clear of `avoid`: a share of its framing,
   // together and apart, found once per layout by trying the sway's extremes.
   const clear = useRef({ key: '', together: 1, apart: 1 });

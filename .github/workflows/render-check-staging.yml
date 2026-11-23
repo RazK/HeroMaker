@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       args:
-        description: 'render_check.py arguments, e.g. --find "Captain Courage" --drawing kid=frontend/public/logo.png --styles anime,pixar --before'
+        description: 'render_check.py arguments, e.g. --find "Captain Courage" --drawing kid=brand/hero-girl-drawing.png --styles anime,pixar --before'
         required: true
       max_calls:
         description: 'Stop before this many OpenAI calls'

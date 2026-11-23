@@ -300,7 +300,7 @@ particular vocabulary, and they will hold for the next game too.
 ## Publishing constraints — established, do not re-derive
 
 * A published artifact runs under a CSP that refuses `fetch()` to `data:` and
-  may refuse `blob:`. `hero-dash/src/avatar/loader.ts` documents both traps and
+  may refuse `blob:`. `hero-moves/src/avatar/loader.ts` documents both traps and
   the way past them.
 * The artifact viewer adds chrome: a phone reporting 385x835 hands the page
   roughly **385x560**. Test there.
