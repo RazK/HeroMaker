@@ -142,6 +142,12 @@ button { font: inherit; color: inherit; }
 .rr-screen[data-phase="loading"] .rr-bar,
 .rr-screen[data-phase="error"] .rr-bar,
 .rr-screen[data-phase="end"] .rr-bar { padding: 0; background: none; box-shadow: none; margin-top: calc(-1 * var(--tb-radius-card)); }
+/* The sheet is a card over the game: the bar's cream fade above it would show
+   round its corners as a band that is not the game (Raz, 2026-11-23). */
+.rr-screen[data-phase="menu"] .rr-bar::before,
+.rr-screen[data-phase="loading"] .rr-bar::before,
+.rr-screen[data-phase="error"] .rr-bar::before,
+.rr-screen[data-phase="end"] .rr-bar::before { display: none; }
 .rr-card { display: none; }
 .rr-card.tb-panel { gap: 12px; }
 .rr-screen[data-phase="menu"] .rr-card--start,
@@ -155,6 +161,9 @@ button { font: inherit; color: inherit; }
 .rr-chip svg { color: var(--tb-grape); }
 .rr-card .tb-btn--primary { margin-top: 6px; }
 .rr-card .tb-sheet-grip { align-self: center; }
+.rr-end-bopped { text-align: center; }
+/* An empty back slot (a shared link has no Back) keeps the header's height. */
+.rr-back-slot { min-height: var(--tb-header-ctl); }
 .rr-end-score { display: flex; align-items: baseline; justify-content: center; gap: 10px; }
 .rr-end-value { font-family: var(--tb-font-display); font-weight: 600; font-size: 56px; line-height: 1; }
 .rr-end-label { font-size: 18px; font-weight: 800; color: var(--tb-ink-2); }

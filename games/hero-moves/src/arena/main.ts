@@ -86,10 +86,12 @@ ${SHARED ? '' : `<div class="tb-h1 rr-hero-name">${esc(HERO_NAME)}</div>`}
       </div>
       <div class="rr-card rr-card--end tb-panel">
 ${SHARED ? '' : '<div class="tb-eyebrow rr-end-eyebrow">Time’s up!</div>'}
-        <div class="rr-end-score"><span class="rr-end-value">0</span><span class="rr-end-label">points</span></div>
+        ${SHARED
+          ? '<div class="tb-h1 rr-end-bopped"></div>'
+          : '<div class="rr-end-score"><span class="rr-end-value">0</span><span class="rr-end-label">points</span></div>'}
         ${SHARED
           // A family from a shared link: the promise, then the way to make their own.
-          ? `<div class="rr-line"><span class="rr-end-who">A kid</span> drew ${esc(HERO_NAME)} on paper.<br>Your kid’s drawing can come alive too!</div>`
+          ? `<div class="rr-line"><span class="rr-end-who">A kid</span> drew ${esc(HERO_NAME)} on paper.<br>Your drawing can come alive too!</div>`
           : '<div class="rr-line rr-end-best">Best 0</div>'}
         <div class="rr-end-buttons"></div>
       </div>
@@ -109,11 +111,9 @@ const timerEl = app.querySelector<HTMLElement>('.rr-timer')!
 const timerValue = app.querySelector<HTMLElement>('.rr-timer-value')!
 // The app's own parts (ui/tb.ts): the round back button, the big pill buttons,
 // the sheet grip. Primary last, as in every bottom bar of the app.
-// From a shared link there is no hero page of theirs to go back to: Back
-// goes to HeroMaker's home, the landing and the gallery (Raz, 2026-11-23).
-app.querySelector('.rr-back-slot')!.append(SHARED
-  ? tbNav('back', 'HeroMaker home', () => location.assign('/'))
-  : tbNav('back', 'Back to your hero', goBack))
+// From a shared link there is no page of theirs to go back to: the logo is
+// the way home (the landing and the gallery). No Back (Raz, 2026-11-23).
+if (!SHARED) app.querySelector('.rr-back-slot')!.append(tbNav('back', 'Back to your hero', goBack))
 for (const card of app.querySelectorAll('.rr-card')) card.prepend(tbGrip())
 // Who drew it: the hero's public card says the child's first name and age
 // (Raz: "we asked for them so we would show them").
@@ -142,7 +142,7 @@ againBtn.classList.add('rr-again')
 if (SHARED) {
   // Play again steps back to second; making their own is the primary, last.
   againBtn.classList.replace('tb-btn--primary', 'tb-btn--secondary')
-  const make = tbButton('Make my kid’s hero', { icon: 'camera', onClick: () => location.assign(MAKE_PATH) })
+  const make = tbButton('Make a hero from my drawing', { icon: 'camera', onClick: () => location.assign(MAKE_PATH) })
   make.classList.add('rr-make')
   app.querySelector('.rr-end-buttons')!.append(againBtn, make)
 } else {
@@ -317,11 +317,15 @@ function finish() {
   const isBest = game.score > best
   if (isBest) writeBest(game.score)
   trackGameEnded('arena', game.time, game.score)
-  app.querySelector('.rr-end-value')!.textContent = game.score.toLocaleString('en-US')
+  const endValue = app.querySelector('.rr-end-value')
+  if (endValue) endValue.textContent = game.score.toLocaleString('en-US')
   const endEyebrow = app.querySelector('.rr-end-eyebrow')
   if (endEyebrow) endEyebrow.textContent = isBest && game.score > 0 ? 'New best!' : 'Time’s up!'
   const s = game.stats
   const bopped = s.robots + s.mushrooms + s.bouncies + s.crates + s.balloons
+  // A family from a share: what they did, in words, not a score to compare.
+  const boppedEl = app.querySelector('.rr-end-bopped')
+  if (boppedEl) boppedEl.textContent = bopped ? `You bopped ${bopped} robot${bopped === 1 ? '' : 's'}!` : 'Nice try!'
   const bestEl = app.querySelector('.rr-end-best')
   if (bestEl) bestEl.textContent = isBest
     ? `${bopped} bopped`
