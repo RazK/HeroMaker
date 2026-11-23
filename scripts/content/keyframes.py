@@ -18,12 +18,12 @@ VIOLET = f"{S}/v_alpha/0040.png"         # Violet in 3D (our render)
 LOOK = ("A still frame from a video a parent films on a phone at home, 16:9. Natural, "
         "lived-in, a little messy and imperfect, real daylight, nothing staged or glossy, "
         "slight handheld angle. The girl is EXACTLY the girl in the first reference image "
-        "(same face, hair in two pigtails, yellow t-shirt), about 7 years old. No text, no logos, "
+        "(same face, hair in two pigtails, yellow t-shirt and blue jeans: one outfit in every shot), about 7 years old. No text, no logos, "
         "no app interface text.")
 
 SHOTS = {
-    "1.1": ([MAYA, DRAW], "Close-up over the kitchen table: her hand fills in a pink boot of her crayon drawing (the drawing in the second reference image, nearly finished), tongue out in concentration, crayons and a juice cup scattered around."),
-    "1.2": ([MAYA, DRAW], "Over her shoulder at the kitchen table: the drawing from the second reference image almost done, she is colouring the yellow cape. Breakfast plates pushed aside."),
+    "1.1": ([MAYA, DRAW], "Tight close-up: her small hand holding a pink crayon fills in a pink boot of the crayon drawing from the second reference image, the boot filling the frame; crayons scattered at the edge. Only her hand and the paper are visible."),
+    "1.2": ([MAYA, DRAW], "Over her shoulder, from behind and slightly above, at the kitchen table: she bends over the drawing from the second reference image (the right way up for her), colouring the yellow cape with a yellow crayon, absorbed, NOT looking at the camera; we see the back of her head and pigtails and the drawing. Breakfast plates pushed aside."),
     "1.3": ([MAYA, DRAW], "She holds the finished drawing (second reference image) up towards the camera with both hands, beaming with pride, the drawing facing the camera and readable. Kitchen behind her."),
     "2.1": ([MAYA, DRAW], "From behind and above: an adult woman's hand holds a phone over the drawing (second reference image) lying on the kitchen table, taking a photo of it; the girl leans in beside her, watching. Only the woman's hand and forearm are visible."),
     "2.2": ([MAYA, PAINT], "The girl and her mother (a woman in her thirties, dark hair in a loose bun, grey sweater) side by side at the kitchen table, looking at a phone the mother holds; the girl leans in, curious. The phone screen faces them, not the camera."),
@@ -31,7 +31,7 @@ SHOTS = {
     "3.1": ([MAYA, VIOLET], "A phone propped up on the kitchen table against a mug, its screen showing the 3D cartoon superhero girl from the second reference image standing on a cream background. The girl leans close to it, curious, chin on her hands."),
     "3.2": ([MAYA], "The girl stands in the living room (lived-in: toys on the rug, a sofa with blankets), facing the camera, waving hello with her right hand raised high, big smile, whole body visible."),
     "3.3": ([MAYA], "The girl in the same lived-in living room, whole body, striking a superhero pose: one fist raised high, the other hand on her hip, chin up, laughing."),
-    "3.4": ([MAYA, VIOLET], "Living room: the mother (a woman in her thirties, dark hair in a loose bun, grey sweater) walks into the frame holding a coffee mug, stops mid-step and stares at a tablet on the coffee table that shows the 3D cartoon superhero girl from the second reference image; the girl stands beside the table, delighted, looking up at her mum."),
+    "3.4": ([MAYA, VIOLET], "Living room: the mother (a woman in her thirties, dark hair in a loose bun, grey sweater) walks into the frame holding a coffee mug, stops mid-step, looks at a tablet on the coffee table that shows the 3D cartoon superhero girl from the second reference image; the girl stands beside the table, delighted, looking up at her mum. The mother's face: a warm, surprised smile, not shock."),
     "4.1": ([MAYA, VIOLET], "On the sofa: the girl dances along, arms up, in front of a tablet on the coffee table whose screen shows the 3D cartoon superhero girl from the second reference image dancing on a stage with colourful lights."),
     "4.2": ([MAYA], "On the sofa: the girl cheers with both fists in the air, laughing, a tablet in front of her on the coffee table (screen not visible)."),
     "5.1": ([MAYA, VIOLET], "Video call on a laptop on the kitchen table: the laptop screen shows a smiling grandmother (white hair, glasses, cardigan). The girl holds up a phone towards the laptop camera; the phone screen shows the 3D cartoon superhero girl from the second reference image."),

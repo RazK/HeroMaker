@@ -107,3 +107,7 @@ insert**, never a room shot with people reacting behind it.
   not show what nobody can buy.
 - **9:16:** both hands stay inside the crop. Bring them in toward the middle
   third, rather than at arm's length.
+
+## Re-made (Tom, 2026-11-23)
+
+1.1 tight on the boot; 1.2 over her shoulder, colouring the cape, not looking at the camera; 3.4 Mom ends on a warm smile. The outfit rule (yellow tee, jeans) is now in every prompt.
