@@ -1,0 +1,24 @@
+{
+ "name": "visitor",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A friend opens a shared hero link.",
+   "rec": "visitor.webm",
+   "at": "shared",
+   "dur": 4.0
+  },
+  {
+   "say": "They see the hero come alive.",
+   "rec": "visitor.webm",
+   "at": "shared_alive",
+   "dur": 4.0
+  },
+  {
+   "say": "And start their own.",
+   "rec": "visitor.webm",
+   "at": "landing+0.3",
+   "dur": 3.5
+  }
+ ]
+}

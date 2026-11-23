@@ -1,0 +1,30 @@
+{
+ "name": "teacher-happy",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A teacher starts a class and shows the code.",
+   "rec": "teacher-happy.webm",
+   "at": "class_start",
+   "dur": 4.0
+  },
+  {
+   "say": "Kids join with the code. No accounts.",
+   "rec": "teacher-happy.webm",
+   "at": "class_join",
+   "dur": 4.0
+  },
+  {
+   "say": "Their heroes fill the class gallery.",
+   "rec": "teacher-happy.webm",
+   "at": "class_gallery",
+   "dur": 4.0
+  },
+  {
+   "say": "The teacher pays for the seats.",
+   "rec": "teacher-happy.webm",
+   "at": "seats_paid-1.0",
+   "dur": 4.5
+  }
+ ]
+}

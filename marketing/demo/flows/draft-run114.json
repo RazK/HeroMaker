@@ -1,0 +1,30 @@
+{
+ "name": "parent-happy-run114",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A parent opens HeroMaker and makes a hero.",
+   "rec": "demo.webm",
+   "at": 33.0,
+   "dur": 3.6
+  },
+  {
+   "say": "Out of credits? They choose a pack.",
+   "rec": "demo.webm",
+   "at": 36.9,
+   "dur": 2.8
+  },
+  {
+   "say": "They pay in the test checkout.",
+   "rec": "demo.webm",
+   "at": "checkout+2.3",
+   "dur": 4.5
+  },
+  {
+   "say": "The hero is alive, in 3D.",
+   "rec": "demo.webm",
+   "at": 88.4,
+   "dur": 5.0
+  }
+ ]
+}

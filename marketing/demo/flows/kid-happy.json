@@ -1,0 +1,30 @@
+{
+ "name": "kid-happy",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "The hero moves.",
+   "rec": "kid-happy.webm",
+   "at": "hero3d",
+   "dur": 4.0
+  },
+  {
+   "say": "The kid picks a game.",
+   "rec": "kid-happy.webm",
+   "at": "game_ready",
+   "dur": 3.5
+  },
+  {
+   "say": "And plays it with their own hero.",
+   "rec": "kid-happy.webm",
+   "at": "play",
+   "dur": 5.0
+  },
+  {
+   "say": "Then shows the family.",
+   "rec": "kid-happy.webm",
+   "at": "share",
+   "dur": 4.0
+  }
+ ]
+}

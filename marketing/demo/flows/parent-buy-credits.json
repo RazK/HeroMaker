@@ -1,0 +1,24 @@
+{
+ "name": "parent-buy-credits",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A parent opens Buy credits.",
+   "rec": "parent-buy-credits.webm",
+   "at": "buy_start",
+   "dur": 3.5
+  },
+  {
+   "say": "They pay in the test checkout.",
+   "rec": "parent-buy-credits.webm",
+   "at": "checkout",
+   "dur": 4.5
+  },
+  {
+   "say": "The credits land in their account.",
+   "rec": "parent-buy-credits.webm",
+   "at": "credits-0.5",
+   "dur": 4.0
+  }
+ ]
+}

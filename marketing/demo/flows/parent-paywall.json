@@ -1,0 +1,24 @@
+{
+ "name": "parent-paywall",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A parent with no credits left makes a hero.",
+   "rec": "parent-paywall.webm",
+   "at": "painting-0.5",
+   "dur": 3.5
+  },
+  {
+   "say": "The painting is free. To bring it to life, they choose a pack.",
+   "rec": "parent-paywall.webm",
+   "at": "bring_to_life",
+   "dur": 5.0
+  },
+  {
+   "say": "They pay (test checkout) and the hero goes on.",
+   "rec": "parent-paywall.webm",
+   "at": "paid-1.0",
+   "dur": 4.5
+  }
+ ]
+}

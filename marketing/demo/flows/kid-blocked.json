@@ -1,0 +1,18 @@
+{
+ "name": "kid-blocked",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A drawing our safety check will not paint.",
+   "rec": "kid-blocked.webm",
+   "at": "blocked-1.0",
+   "dur": 4.5
+  },
+  {
+   "say": "A kind message, nothing charged, and a new start.",
+   "rec": "kid-blocked.webm",
+   "at": "blocked_end",
+   "dur": 4.0
+  }
+ ]
+}

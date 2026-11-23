@@ -1,0 +1,36 @@
+{
+ "name": "parent-happy",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A parent taps Make a hero.",
+   "rec": "parent-happy.webm",
+   "at": "landing+0.3",
+   "dur": 3.0
+  },
+  {
+   "say": "They pick a style and answer two questions.",
+   "rec": "parent-happy.webm",
+   "at": "style",
+   "dur": 4.5
+  },
+  {
+   "say": "The painting appears.",
+   "rec": "parent-happy.webm",
+   "at": "painting-0.5",
+   "dur": 3.5
+  },
+  {
+   "say": "They pay to bring it to life.",
+   "rec": "parent-happy.webm",
+   "at": "bring_to_life",
+   "dur": 4.0
+  },
+  {
+   "say": "The hero is alive, in 3D.",
+   "rec": "parent-happy.webm",
+   "at": "hero3d",
+   "dur": 3.5
+  }
+ ]
+}

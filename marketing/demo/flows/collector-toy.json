@@ -1,0 +1,24 @@
+{
+ "name": "collector-toy",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "The hero becomes a toy you can print.",
+   "rec": "collector-toy.webm",
+   "at": "toy",
+   "dur": 4.0
+  },
+  {
+   "say": "Take it apart, piece by piece.",
+   "rec": "collector-toy.webm",
+   "at": "toy_apart",
+   "dur": 5.0
+  },
+  {
+   "say": "Download the print file.",
+   "rec": "collector-toy.webm",
+   "at": "toy_file",
+   "dur": 3.5
+  }
+ ]
+}
