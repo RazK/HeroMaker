@@ -25,7 +25,7 @@ import path from 'node:path'
 const [flowPath, recDir, out] = process.argv.slice(2)
 const check = process.argv.includes('--check')
 const flow = JSON.parse(fs.readFileSync(flowPath, 'utf8'))
-const XF = 0.4 // film.html's crossfade: every segment overlaps the next by this much
+const XF = 0 // clean cuts (Raz: no ghost frames); film.html takes the cut's "xf"
 
 const readFor = (text) => Math.min(2.8, Math.max(1.5, 0.8 + 0.22 * text.trim().split(/\s+/).length))
 const marksCache = {}
@@ -75,6 +75,6 @@ console.log(`${flow.name}: ${t.toFixed(1)} s (${footage.toFixed(1)} s of real fo
 if (t > 30) console.warn(`!! over 30 s (Raz's limit, docs/ops/CADENCE.md): trim a clip`)
 if (check) process.exit(0)
 
-fs.writeFileSync(path.join(work, 'cut.json'), JSON.stringify({ name: flow.name, segments }))
+fs.writeFileSync(path.join(work, 'cut.json'), JSON.stringify({ name: flow.name, xf: XF, segments }))
 const here = path.dirname(new URL(import.meta.url).pathname)
 execFileSync('node', ['tools/film-record.mjs', work, path.resolve(out)], { cwd: path.join(here, '../../games/hero-moves'), stdio: 'inherit' })

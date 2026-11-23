@@ -1,24 +1,45 @@
 {
  "name": "parent-buy-credits",
- "note": "Recorded on staging · real speed",
+ "note": "Recorded on staging · real speed · test money",
  "steps": [
   {
-   "say": "A parent opens Buy credits.",
-   "rec": "parent-buy-credits.webm",
-   "at": "buy_start",
-   "dur": 3.5
+   "say": "A parent with 0 credits taps the coin and picks a pack.",
+   "rec": "buy-credits.mp4",
+   "at": 6.0,
+   "dur": 4.2,
+   "crop": [
+    0,
+    0,
+    780,
+    1500
+   ],
+   "scale": 0.8
   },
   {
-   "say": "They pay in the test checkout.",
-   "rec": "parent-buy-credits.webm",
-   "at": "checkout",
-   "dur": 4.5
+   "say": "One hero, ₪10. A secure test checkout.",
+   "rec": "buy-credits.mp4",
+   "at": 12.2,
+   "dur": 3.6,
+   "crop": [
+    0,
+    0,
+    780,
+    1500
+   ],
+   "scale": 0.8
   },
   {
-   "say": "The credits land in their account.",
-   "rec": "parent-buy-credits.webm",
-   "at": "credits-0.5",
-   "dur": 4.0
+   "say": "They pay, and the credits land: the coin shows 10.",
+   "rec": "buy-credits.mp4",
+   "at": 16.5,
+   "dur": 4.0,
+   "crop": [
+    0,
+    0,
+    780,
+    1500
+   ],
+   "scale": 0.8
   }
  ]
 }
