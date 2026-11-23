@@ -62,6 +62,20 @@ def _live_creation(db: Session, creation_id: str) -> Optional[Creation]:
     )
 
 
+def _own_creation(db: Session, creation_id: str, user: User, action: str) -> Creation:
+    """The live creation `user` may act on (theirs, or any for an admin).
+
+    404 if there is none; 403 "You don't have permission to <action>" if it
+    belongs to someone else.
+    """
+    creation = _live_creation(db, creation_id)
+    if not creation:
+        raise HTTPException(status_code=404, detail="Creation not found")
+    if not user.is_admin and creation.user_id != user.id:
+        raise HTTPException(status_code=403, detail=f"You don't have permission to {action}")
+    return creation
+
+
 def update_creation(
         creation_id: str,
         update_data: CreationRequest,
@@ -69,13 +83,7 @@ def update_creation(
         user: User,
 ):
     """Update a creation's metadata (character_name, name, age)."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to update this creation")
+    creation = _own_creation(db, creation_id, user, "update this creation")
 
     # Apply provided fields only
     update_dict = update_data.model_dump(exclude_unset=True)
@@ -171,13 +179,7 @@ def delete_creation(
         task_manager
 ):
     """Delete a creation and its files. Cancels all running tasks."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions (users can only delete their own creations, unless admin)
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to delete this creation")
+    creation = _own_creation(db, creation_id, user, "delete this creation")
     
     # Cancel all running tasks for this creation
     cancelled = task_manager.cancel_all_tasks_for_creation(creation_id)
@@ -285,13 +287,7 @@ async def cancel_step(
         task_manager
 ):
     """Cancel a running step."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to cancel this step")
+    creation = _own_creation(db, creation_id, user, "cancel this step")
     
     # Find the step
     step = find_step(db, creation_id, step_name)
@@ -351,13 +347,7 @@ async def run_step(
         task_manager
 ):
     """Run a single step independently. Handles retry automatically."""
-    creation = _live_creation(db, creation_id)
-    if not creation:
-        raise HTTPException(status_code=404, detail="Creation not found")
-    
-    # Check permissions
-    if not user.is_admin and creation.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You don't have permission to run this step")
+    creation = _own_creation(db, creation_id, user, "run this step")
     
     # Validate step_name exists
     step_config = get_step_by_name(step_name)
