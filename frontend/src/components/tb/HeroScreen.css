@@ -335,6 +335,9 @@
     gap: 14px;
     padding-bottom: var(--tb-depth);
   }
+  /* Three chapters (no toy): the third takes the whole row, never an empty
+     corner beside it (principles: no dead space). */
+  .tb-hero-main .tb-chapters:not(:has(> :nth-child(4))) > :nth-child(3) { grid-column: 1 / -1; }
   .tb-hero-main .tb-chapter { gap: 8px; padding: 10px 10px 12px; border-width: 2.5px; border-radius: var(--tb-radius-input); box-shadow: 0 var(--tb-depth) 0 var(--tb-ink); }
   .tb-hero-main .tb-chapter[aria-current='true'] { box-shadow: 0 var(--tb-depth) 0 var(--tb-grape-deep); }
   /* The picture takes what the label leaves, and never sizes the tile. */
