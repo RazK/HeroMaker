@@ -208,3 +208,10 @@ tall in a 675 px band, so 170 px stays above and below it for about 1.5 s.
   third slot is where Violet grows from, so it stays.
 - The empty foot of 9:16 (y 1488–1920) is accepted, because Instagram's
   caption sits there.
+## v5: Maya's v4 fix (Tom)
+
+9:16 beat 3: Violet's visible figure fills y 940–1488 (her render frame is sized by the figure, rows 104–751 of 760). Passed by Maya with this fix; shown to Raz.
+
+![9:16](img/ad01-v5-keys-9x16.jpg)
+
+![4:5](img/ad01-v5-keys-4x5.jpg)

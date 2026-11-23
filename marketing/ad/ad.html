@@ -110,7 +110,9 @@ if (FEED) {
     sent: [],
     btnY: 0,
     // Maya v3 #1: the call on the axis above Violet; Violet from y 940 to the band's foot.
-    vFull: [(W - 548 * (520 / 760)) / 2, 940, 548 * (520 / 760), 548],
+    // Maya v4: Violet's visible figure fills y 940-1488. In the render frame she
+    // spans rows 104-751 of 760 (raised hands to feet), so the frame is sized to that.
+    vFull: (() => { const h = 548 * 760 / (751 - 104), y = 940 - 104 * h / 760; return [(W - h * 520 / 760) / 2, y, h * 520 / 760, h] })(),
     call: [408, 528, 264, 384],
   }
   // Maya v3 #4: three rows, each picture about 300 tall, its sentence beside it
