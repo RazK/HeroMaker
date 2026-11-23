@@ -4,21 +4,27 @@
  "steps": [
   {
    "say": "A friend opens a shared hero link.",
-   "rec": "visitor.webm",
-   "at": "shared",
-   "dur": 4.0
+   "rec": "visitor.mp4",
+   "at": 4.0,
+   "dur": 5.5
   },
   {
-   "say": "They see the hero come alive.",
-   "rec": "visitor.webm",
-   "at": "shared_alive",
-   "dur": 4.0
-  },
-  {
-   "say": "And start their own.",
-   "rec": "visitor.webm",
-   "at": "landing+0.3",
+   "say": "They make it dance.",
+   "rec": "visitor.mp4",
+   "at": 17.3,
    "dur": 3.5
+  },
+  {
+   "say": "Then they open HeroMaker…",
+   "rec": "visitor.mp4",
+   "at": 27.0,
+   "dur": 2.6
+  },
+  {
+   "say": "…and start a hero of their own.",
+   "rec": "visitor.mp4",
+   "at": 30.5,
+   "dur": 3.0
   }
  ]
 }

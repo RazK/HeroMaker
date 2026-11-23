@@ -3,21 +3,27 @@
  "note": "Recorded on staging · real speed",
  "steps": [
   {
-   "say": "The hero becomes a toy you can print.",
-   "rec": "collector-toy.webm",
-   "at": "toy",
-   "dur": 4.0
+   "say": "Your hero, alive in 3D.",
+   "rec": "collector-toy.mp4",
+   "at": 15.0,
+   "dur": 3.5
   },
   {
-   "say": "Take it apart, piece by piece.",
-   "rec": "collector-toy.webm",
-   "at": "toy_apart",
-   "dur": 5.0
+   "say": "Next: the same hero, as a toy you can print.",
+   "rec": "collector-toy.mp4",
+   "at": 53.4,
+   "dur": 3.5
   },
   {
-   "say": "Download the print file.",
-   "rec": "collector-toy.webm",
-   "at": "toy_file",
+   "say": "Take it apart. Arrows show where each piece clicks in.",
+   "rec": "collector-toy.mp4",
+   "at": 100.9,
+   "dur": 4.5
+  },
+  {
+   "say": "Put it back together, or download the print file.",
+   "rec": "collector-toy.mp4",
+   "at": 132.9,
    "dur": 3.5
   }
  ]
