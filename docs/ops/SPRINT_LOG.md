@@ -14,7 +14,7 @@ One entry per 3-day sprint (`CADENCE.md`). Newest first. The PM writes it.
 
 ## Log
 
-## Sprint 1 — 2026-11-23 to 2026-11-25
+## Sprint 1 — 2026-11-23 (last 3-day sprint; cadence moved to one-day mid-day)
 
 - **Goal:** The sister's money path, proven on staging — first painting free → pay ₪10 to bring the hero to life (or ₪10/seat, min 10, for a class) → receipt. So the moment Raz finishes the real Grow setup, a teacher can pay for real.
 - **Commitments** (each shows a working staging demo at the day-2 review):
@@ -24,5 +24,13 @@ One entry per 3-day sprint (`CADENCE.md`). Newest first. The PM writes it.
   - **Nir (3D):** (1) the toy cost→price table in `docs/toy/` (per method: cost, time, price for ≥50% margin); (2) after Raz's 3 cast picks + copy-yes, the 3 cast heroes dancing/flipping on staging. Demo: the table; the 3 heroes on a staging link.
   - **Tom (Content):** the family film first full cut on the pages build (free HF quota), one money moment + one CTA. Demo: the film playing at razk.github.io/HeroMaker.
 - **Context at kickoff:** staging green end to end (money path in Grow sandbox, make-a-hero, hero page). Shipped since the previous day: security guard for the leaked debug admin (#317), apostrophe fix (#320), shekel prices (#319), first-painting view ~70× faster (#328), dead-code/binary cleanup (#301–#308, #315, #330, #331), children's names off the public README (#327), robot-on-every-deploy (#310), two robot fixes for the new hero-page layout (#326, #332).
-- **Review:** _(day 2, 2026-11-25)_
-- **Retro:** _(day 2)_
+- **Review (2026-11-23):** the goal was hit on day 0.
+  - **Gidi** — ✅ pay-after-the-reveal proven on staging (FREE_PAINTING on; real `execute_step` run + test #339); Grow+Morning do-list delivered to Raz.
+  - **Liran** — ✅ the whole money path green on the CI robot end to end (run #112: 0 credits → free painting → pause → pay ₪10 + ₪39 → hero ready → class seats ₪100); all reliability/CI fixes merged; first-painting view ~70× faster.
+  - **Nir** — ✅ toy cost→price table (`docs/toy/COST.md`; 7 cm full-colour = the product, ~₪149–186 at 50% margin); Elad's clean sample cast + the kid-photo shortlist; sent Raz the picture.
+  - **Maya** — in progress: screens for Raz's approval; the "Bring it to life" screen.
+  - **Tom** — family film in progress; now owns demo videos (remaking the money-path one to Raz's presentation spec).
+  - Demo to Raz: the money-path presentation video (Tom) + staging link.
+- **Retro:** keep — merge-green-PRs + robot-on-every-deploy kept staging shippable all day, and the team hit a 3-day goal by lunch. stop — a dev hand-cutting a sped-up 50 s demo video (unwatchable). change — (1) sprints are now **one day** (the team laps a 3-day plan); (2) demo videos are **presentation-style and Tom owns them** (CADENCE.md, #344).
+
+> Open on Raz's side: 3 cast picks (Elad's 4) + Elad's one-line OK; the real-Grow setup for the first live paid class.
