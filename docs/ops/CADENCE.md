@@ -1,54 +1,73 @@
-# How the team runs: daily sync, 3-day sprints
+# How the team runs: daily one-day sprints
 
-Raz set this on 2026-11-23, from the operating kit's Team Cadence
-(`docs/product/templates/WEEKLY_REVIEW.md` is the long form). The PM conducts
-it; every agent comes to a ceremony with a **working demo on staging, tested
-— never slides or a description**. The one rule above all: *evidence over
-activity* (`docs/product/OPERATING.md`).
+Raz set this on 2026-11-23 (shortened from 3-day to one-day sprints the same
+day, because the team ships in hours, not days). The PM conducts it; every
+agent shows a **working demo on staging, tested — never slides or a
+description**. The one rule above all: *evidence over activity*
+(`docs/product/OPERATING.md`).
 
 ## The rhythm
 
-- **A sprint is 3 days.** Anchor: 2026-11-23. Today's sprint day =
-  `(days since 2026-11-23) mod 3`. Day 0 is **kickoff**, day 2 is **review +
-  retro**, day 3 starts the next sprint.
-- **Daily sync, every morning.** The PM gathers each agent's state (shipped /
-  blocked / next), unblocks what it can, and gives Raz a 5-line sync.
-- **Three ceremonies per sprint**, all run by the PM:
+- **A sprint is one day.** Every morning is a kickoff; every evening is a
+  review. No multi-day counting.
+- **Kickoff, every morning (~09:00 Israel).** The PM gathers each agent's state
+  (shipped / blocked / next), unblocks what it can, runs money-check, picks
+  **one money goal for the day**, and gives each agent **one outcome** — each
+  naming the demo it will show that evening.
+- **Review, every evening (~17:00 Israel).** Each agent delivers its demo; the
+  PM checks each one is real before it reaches Raz.
+- **Retro is not a daily ceremony.** The PM carries a process fix into the next
+  morning's kickoff only when there is a real lesson, and logs it.
 
-| Ceremony | When | What happens | What Raz gets |
-|---|---|---|---|
-| **Kickoff** | day 0, morning | The PM sets ONE money-focused sprint goal and gives each agent 1–3 outcomes, each with the working demo it must show at review. | The goal and each agent's commitments. |
-| **Review** | day 2, evening | Each agent brings a working, staging-tested demo. The PM runs the robot, checks each demo, and compares committed vs delivered. | A demo per agent (a staging link, a screenshot, a green robot) and what shipped. |
-| **Retro** | day 2, after review | Keep / stop / one process fix for next sprint; it feeds the next kickoff. | Three lines: keep, stop, the one change. |
+## What Raz gets — a demo video + a link, never text
+
+Raz asked for this on 2026-11-23: **a short demo video + a link he can click,
+not a written summary.** So:
+
+- Each finished demo goes to Raz as a **short screen-capture / robot demo-mode
+  video + a staging link**, sent straight to him.
+- The PM's own message to Raz is at most: a one-line "today's demos" header, the
+  **one** thing (if any) the PM needs from him with the ask on top, and the KPI
+  if known (paid heroes this week). No 5-line write-ups.
 
 ## What a "working demo" means (the gate)
 
-A demo counts only if Raz could click or watch it himself:
-- a **staging link** on the real site, or
-- a **screenshot / short recording** of the real thing on staging, or
+A demo counts only if Raz could watch or click it himself:
+
+- a **short demo video** of the real thing on staging (preferred), with
+- a **staging link** on the real site to try, and/or
 - a **green staging robot** run, or
-- for a backend-only change, a **passing test** named, plus the staging
+- for a backend-only change, a **passing test** named plus the staging
   behaviour it proves.
 
 A plan, a diff, "it should work", or a canvas mock is **not** a demo. An agent
-with nothing working says so at the sync before the review, so the PM can help
-or re-scope — never a surprise at review.
+with nothing working says so at the morning kickoff, never a surprise at the
+evening review.
+
+## Real-world milestones are tracked separately
+
+Some things do not fit in a day because they move on bank / holiday / human
+time, not agent time: Grow going live, a parent's consent, the Schneider pilot
+(10 Dec), a real teacher actually paying, a toy sample shipping. These are
+tracked on their own dates — not forced into a one-day sprint.
 
 ## Requests to Raz
 
 Raz's role is to monitor, answer the PM, and unblock (payments, accounts,
-approvals). **Every request to Raz funnels through the PM**, who keeps one
-prioritised list and surfaces at most the top one or two at a time, batched —
-never a flood. No agent asks Raz directly.
+approvals). **Every coordination request to Raz funnels through the PM**, who
+keeps one prioritised list and surfaces at most the top one or two at a time —
+never a flood. The exception is a finished **demo video**, which an agent sends
+Raz directly (that is the deliverable he asked for). No agent sends Raz text
+updates.
 
 ## The log
 
-The PM keeps `SPRINT_LOG.md` next to this file: one entry per sprint — the
-goal, each agent's commitments, what was demoed at review, and the retro. It
-is the record of what we learned, not a status board.
+The PM keeps `SPRINT_LOG.md` next to this file: one short entry per day — the
+goal, each agent's demo, and any retro line. It is the record of what we
+learned, not a status board.
 
-## Who comes to each ceremony
+## Who comes to each day
 
 All standing agents: Gidi · Payments, Maya · Design, Liran · Dev, Nir · 3D,
-Tom · Content. An agent with nothing in flight this sprint sits the sprint
-out and says so at kickoff.
+Tom · Content. An agent with nothing in flight that day says so at the morning
+kickoff.
