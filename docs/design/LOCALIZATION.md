@@ -32,7 +32,10 @@ translated word for word.
    is gender-neutral and is what shows when we do not know (we never ask by
    default). In Hebrew build the neutral form around the noun ("הציור של דן").
 3. **Optional values:** `{hasChild, select, yes {…} other {…}}`: the sentence
-   reads well with and without the child's name.
+   reads well with and without the child's name. The child's name comes from
+   when the drawing was made, never asked again at sharing; without it the
+   video speaks as the child: "Look what I drew!" / "תראו מה ציירתי!" (Raz,
+   2026-11-23; the Hebrew first person needs no gender).
 4. **Counts:** `{n, plural, one {…} other {…}}`; Hebrew and Arabic have more forms.
 5. One sentence per line on screen; a long translation steps the size down,
    never wraps a sentence.

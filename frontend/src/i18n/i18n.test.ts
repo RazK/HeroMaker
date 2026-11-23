@@ -36,9 +36,10 @@ test('the share video says it in each language, never needing the child gender',
   assert.equal(he.t('shareVideo.f1.title', { child: 'דן' }), 'הציור של דן…');
   assert.equal(he.t('shareVideo.f1.title', { child: 'דן', childGender: 'male' }), 'דן צייר משהו…');
   assert.equal(he.t('shareVideo.f1.title', { child: 'מאיה', childGender: 'female' }), 'מאיה ציירה משהו…');
-  assert.equal(he.t('shareVideo.f1.title'), 'תראו את הציור הזה…');
+  assert.equal(he.t('shareVideo.f1.title'), 'תראו מה ציירתי!');
   const en = createTranslator('en-US', files);
   assert.equal(en.t('shareVideo.f1.title', { child: 'Dan' }), 'Dan drew something…');
+  assert.equal(en.t('shareVideo.f1.title'), 'Look what I drew!');
   assert.equal(en.t('shareSheet.title', { hero: 'Violet Volt' }), 'Share Violet Volt');
   assert.equal(en.t('no.such.key'), 'no.such.key');
 });
