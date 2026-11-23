@@ -45,8 +45,9 @@ export function curl(from: Point, to: Point, side: 1 | -1 = 1, wiggle = 0): Curl
   // A trochoid with one turn, its loop in the middle: the radius fades in and
   // out (sin^2), so the arrow leaves the ball and reaches the socket heading
   // straight. A loop needs a radius over length / 2pi; capped so a long arrow
-  // keeps a neat loop.
-  const r = Math.min(0.4 * length, 40) * (1 + wiggle);
+  // keeps a neat, small loop: the pieces, not the arrows, are what the toy
+  // taken apart shows (Raz, 2026-11-23: the arrows read too big).
+  const r = Math.min(0.25 * length, 22) * (1 + wiggle);
   const nx = -uy * side;
   const ny = ux * side;
   const at = (t: number): Point => {
@@ -66,7 +67,7 @@ export function curl(from: Point, to: Point, side: 1 | -1 = 1, wiggle = 0): Curl
   const bl = Math.hypot(tip[0] - back[0], tip[1] - back[1]) || 1;
   const bx = (back[0] - tip[0]) / bl;
   const by = (back[1] - tip[1]) / bl;
-  const size = Math.min(10, 0.3 * length + 4);
+  const size = Math.min(7, 0.2 * length + 3);
   const wing = (turn: number): Point => {
     const c = Math.cos(turn);
     const s = Math.sin(turn);
