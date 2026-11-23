@@ -19,12 +19,13 @@
 //     in from the side as the name card;
 //   - every button over the card is a pill, its icon and its words on one
 //     line, no word cut; the toy's two buttons are one size;
-//   - the chapters: one name chip per slide (no picture: the card shows it),
-//     in the slides' order, the one in view chosen; no dots, no stage arrows;
+//   - the chapters: one tile per slide, in the slides' order, the one in view
+//     chosen; no dots, no stage arrows;
 //   - the foot: Share then Play, side by side, one width; Play the bottom-most
 //     button;
-//   - wider than tall, a ready hero: the chapters and the foot in one row
-//     under the card, nothing beside it.
+//   - wider than tall: the chapters and the foot in a column beside the card,
+//     the card down to the bottom margin (as far from the screen's bottom as
+//     from its side, 2px).
 //
 // Standalone, against any deployment:
 //   node e2e/hero-layout.mjs <base-url> <hero-id> [WxH,WxH,...]
@@ -182,15 +183,12 @@ async function slideProblems(page) {
       }
     }
 
-    // No chapter repeats the card's picture (Raz, 2026-11-23).
-    if (chapters.some((c) => { const i = c.querySelector('img'); return i && seen(i); })) problems.push('a chapter shows a picture: the card already shows it');
-    // Wider than tall, a ready hero: the chapters and the foot one row under the card.
-    if (innerWidth > innerHeight && screen.getAttribute('data-state') === 'ready') {
+    // Wider than tall: the side beside the card, the card down to the bottom margin.
+    if (innerWidth > innerHeight) {
       const side = document.querySelector('.tb-hero-side').getBoundingClientRect();
-      if (side.top < sb.bottom) problems.push('the chapters and the foot are not under the card');
-      const tops = [...chapters, ...foot].map((el) => el.getBoundingClientRect());
-      const mid = (r) => r.top + r.height / 2;
-      if (tops.length && Math.max(...tops.map(mid)) - Math.min(...tops.map(mid)) > 3) problems.push('the chapters and the foot are not one row');
+      if (side.left < sb.right) problems.push('the chapters are not beside the card');
+      const bottom = innerHeight - sb.bottom;
+      if (innerHeight >= 560 && Math.abs(bottom - sb.left) > 2) problems.push(`the card stops ${Math.round(bottom)}px over the screen's bottom, its side margin is ${Math.round(sb.left)}px`);
     }
     return { slide, problems };
   });
