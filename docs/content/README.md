@@ -1,4 +1,10 @@
-# Content (Reel)
+# Content (Tom)
+
+**Who owns what (Raz, 2026-11-23).** Tom owns the story: strategy, scripts,
+storyboard, shots, keyframes, sightlines, crops, the clips and every cut.
+Maya (design) reviews only: the brand, the fonts, the crops per format, the
+5-point gate and the sightlines; she answers "passes" or "fix X", and passes
+approved frames to Raz. The PM decides money, order and what runs.
 
 What exists, where it lives, how to re-make it.
 
