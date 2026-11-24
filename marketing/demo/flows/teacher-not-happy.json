@@ -1,18 +1,36 @@
 {
  "name": "teacher-not-happy",
- "note": "Recorded on staging · real speed",
+ "note": "Recorded on staging · real speed · test money",
  "steps": [
   {
-   "say": "More kids than seats.",
-   "rec": "teacher-not-happy.webm",
-   "at": "seats_short-1.0",
-   "dur": 4.5
+   "say": "The class is full: all 10 seats taken.",
+   "rec": "teacher-full-teacher.mp4",
+   "at": 1.3,
+   "dur": 2.6
   },
   {
-   "say": "The teacher adds seats, and the class goes on.",
-   "rec": "teacher-not-happy.webm",
-   "at": "seats_added",
-   "dur": 5.0
+   "say": "An 11th kid opens the code: the class is full.",
+   "rec": "teacher-full-student.mp4",
+   "at": 4.8,
+   "dur": 3.4
+  },
+  {
+   "say": "The teacher adds seats: ₪100, test checkout.",
+   "rec": "teacher-full-teacher.mp4",
+   "at": 10.0,
+   "dur": 5.2
+  },
+  {
+   "say": "Paid: the new seats arrive.",
+   "rec": "teacher-full-teacher.mp4",
+   "at": 17.0,
+   "dur": 2.6
+  },
+  {
+   "say": "And the kid goes on, on their own.",
+   "rec": "teacher-full-student.mp4",
+   "at": 20.8,
+   "dur": 3.2
   }
  ]
 }

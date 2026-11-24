@@ -1,30 +1,36 @@
 {
  "name": "teacher-happy",
- "note": "Recorded on staging · real speed",
+ "note": "Recorded on staging · real speed · test money",
  "steps": [
   {
-   "say": "A teacher starts a class and shows the code.",
-   "rec": "teacher-happy.webm",
-   "at": "class_start",
-   "dur": 4.0
+   "say": "A teacher starts a class for 10 kids.",
+   "rec": "teacher.mp4",
+   "at": 18.8,
+   "dur": 3.4
   },
   {
-   "say": "Kids join with the code. No accounts.",
-   "rec": "teacher-happy.webm",
-   "at": "class_join",
-   "dur": 4.0
+   "say": "They pay for 10 seats: ₪100, test checkout.",
+   "rec": "teacher.mp4",
+   "at": 22.8,
+   "dur": 3.6
   },
   {
-   "say": "Their heroes fill the class gallery.",
-   "rec": "teacher-happy.webm",
-   "at": "class_gallery",
-   "dur": 4.0
+   "say": "The class is live: a QR code and a join code.",
+   "rec": "teacher.mp4",
+   "at": 27.3,
+   "dur": 3.2
   },
   {
-   "say": "The teacher pays for the seats.",
-   "rec": "teacher-happy.webm",
-   "at": "seats_paid-1.0",
-   "dur": 4.5
+   "say": "A kid joins with the code, no account. Their hero comes alive.",
+   "rec": "teacher.mp4",
+   "at": 36.8,
+   "dur": 3.4
+  },
+  {
+   "say": "Every hero lands on the class board.",
+   "rec": "teacher.mp4",
+   "at": 63.0,
+   "dur": 3.0
   }
  ]
 }
