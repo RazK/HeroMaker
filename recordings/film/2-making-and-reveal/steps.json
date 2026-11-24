@@ -1,0 +1,37 @@
+{
+ "file": "2-making-and-reveal.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "version": "v2.0.243 · 49a1d07",
+ "viewport": "390x844 @2x",
+ "speed": "real, never sped up, nothing cut",
+ "steps": [
+  {
+   "step": "Make this hero? (the drawing in, Pixar)",
+   "at": 0
+  },
+  {
+   "step": "tapped Make my hero",
+   "at": 2.6
+  },
+  {
+   "step": "the making screen",
+   "at": 4.4
+  },
+  {
+   "step": "answered the two questions",
+   "at": 6.8
+  },
+  {
+   "step": "state making",
+   "at": 36.8
+  },
+  {
+   "step": "state ready",
+   "at": 67.9
+  },
+  {
+   "step": "end: the hero, alive",
+   "at": 75.9
+  }
+ ]
+}
