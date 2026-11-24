@@ -8,6 +8,18 @@ Newest first. When an item enters a sprint, move it to `SPRINT_LOG.md`.
 
 ## Open
 
+### Teacher: "Add seats" is hidden when a class is full (money-moment friction)
+- **From:** Liran + Anat, 2026-11-24, found while recording the teacher not-happy
+  flow. When a class fills, the teacher's live board gives no visible way to add
+  seats — "Add seats" sits in the `...` menu. A teacher in front of 30 kids will
+  not find it.
+- **Why it matters:** paying for more seats IS the teacher money moment. Hidden
+  friction here loses money at the exact point the class wants to grow.
+- **Want:** a visible "Class full → Add seats" affordance on the board itself.
+- **Scope:** small. Maya designs the button first (board, phone + desktop), Raz
+  approves, then Liran builds. **Next sprint — before the first real paid class
+  / Schneider (10 Dec).** Not tonight's demo sprint.
+
 ### Studio view: one carousel spine, no chapter cards
 - **From:** Raz, 2026-11-23. He dislikes the current hero/studio interface.
 - **Want (his vision):** the hero page is one swipeable carousel through the
