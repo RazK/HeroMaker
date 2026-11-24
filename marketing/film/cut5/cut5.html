@@ -122,10 +122,10 @@ window.__cut = {
       fall(els.land.cf, t)
     }
     if (k === 'gasp') { seq(els.gasp.img, 'gasp', 24, t, 122, 'jpg', 0); fall(els.gasp.cf, t + 1.2) }
-    if (k === 'split') { seq(els.split.top, 'mwave', 24, t, 114); seq(els.split.bot, 'vwave', 24, t, 125, 'png') }
+    if (k === 'split') { seq(els.split.top, 'mwave', 24, t, 114); seq(els.split.bot, 'vwavec', 24, t, 125, 'png') /* re-centred per frame on her torso: x 180, Maya's axis */ }
     if (k === 'family') {
       // the rows come in one after another: Grandma, the call, Mom
-      const R = els.family.rows; seq(R[0], 'gmaface', 24, t, 122); seq(R[1], 'mom', 24, t, 122, 'jpg', 30)
+      const R = els.family.rows; seq(R[0], 'gmaface', 24, t, 122); seq(R[1], 'momc', 24, t, 122, 'jpg', 30) /* cropped left of the TV at the right edge */
     }
     if (k === 'end') {
       seq(els.end.alive, 'valive', 16, t, 81, 'png')
