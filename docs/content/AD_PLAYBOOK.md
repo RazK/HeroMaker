@@ -128,6 +128,20 @@ Sources: [IKEA/Adweek](https://www.adweek.com/creativity/ikea-lovingly-recreated
 
 Sources: [TikTok creative best practices](https://ads.tiktok.com/help/article/creative-best-practices?lang=en), [TikTok Creative Codes](https://ads.tiktok.com/business/library/Creative_Codes_ENG.pdf), [Meta Reels ads](https://developers.facebook.com/blog/post/2024/11/07/unlock-the-power-of-reel-ads/), [Meta Reels ads guide](https://www.facebook.com/business/ads-guide/update/video/instagram-reels), [Google App campaign video](https://support.google.com/google-ads/answer/6167158?hl=en), [Billo hook rate](https://billo.app/blog/hook-rate-to-hold-rate), [RevenueCat creative testing](https://www.revenuecat.com/blog/growth/high-velocity-creative-testing-framework-apps-meta), [Jon Loomer on Meta testing](https://www.jonloomer.com/meta-creative-testing/).
 
+### Editing and sound (second round of study)
+- **Retention.** A cliff in the first seconds means the opening didn't deliver its promise. A slow, steady slide means dead moments: cut them, don't speed them up. A visual change about every 2–4 s (a cut, a zoom, a new caption) holds attention. This is vendor data, so treat it as directional.
+- **Sound to the cut.**
+  - The whoosh starts 2–4 frames *before* the cut. The impact lands on the frame of the change, or 1–3 frames after.
+  - The transformation gets a short riser plus a light impact.
+  - Each text card gets a soft tick.
+  - Don't use the same whoosh on every cut, or it sounds like a template.
+- **Captions.**
+  - 3–5 words per card, at least 0.8–1.2 s on screen.
+  - An accent colour on the key word works better than an underline or box.
+  - Lower-middle of the frame (inside the 15–60% band), never on top of the subject.
+
+Sources: [Opus retention](https://www.opus.pro/blog/tiktok-length-format-retention-data), [fish.audio SFX](https://fish.audio/blog/using-sound-effects-for-short-form-content), [nemovideo SFX workflow](https://www.nemovideo.com/blog/ai-sound-effect-generator-short-videos), [Opus captions](https://www.opus.pro/blog/tiktok-caption-subtitle-best-practices), [FluxNote captions](https://fluxnote.io/blog/ai-captions-that-improve-watch-time).
+
 ## 4. What moves the parent
 
 - **Keepsake.** 74% of parents keep their children's art, and a third wish they had kept more. Many throw drawings away and feel guilty about it. [YouGov, BIC] So the line is "the drawing doesn't end up in a drawer; it becomes their hero".
