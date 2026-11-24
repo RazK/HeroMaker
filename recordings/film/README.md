@@ -16,3 +16,12 @@ Gap: the robot's drawing is in staging's result cache (so no paid AI calls),
 so the painting is instant and the "Painting… a few minutes" stage does not
 show. Filming that stage needs a new drawing, which calls the paid
 providers: Raz's yes first.
+
+## Re-take with Violet Volt's drawing (Tom's continuity ask)
+
+- `1-camera-violet/1-camera-violet.mp4` (14 s): the same camera flow, the
+  fake camera fed Violet's drawing (marketing/film/direction/violet-drawing.webp)
+  on a table, the whole drawing inside the guide. Staging v2.0.245.
+- Clip 2 with Violet is NOT re-taken: her drawing is not in staging's result
+  cache (her hero dates from 2026-08-25), so making her again calls the paid
+  providers. Waiting on the PM / Raz.

@@ -1,0 +1,45 @@
+{
+ "file": "1-camera-violet.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "version": "v2.0.245 · beef903",
+ "viewport": "390x844 @2x",
+ "speed": "real, never sped up, nothing cut",
+ "steps": [
+  {
+   "step": "gallery",
+   "at": 0
+  },
+  {
+   "step": "tapped Make a hero",
+   "at": 1.6
+  },
+  {
+   "step": "tapped Take a photo",
+   "at": 2.9
+  },
+  {
+   "step": "camera open: rear feed, 3:4 guide",
+   "at": 3
+  },
+  {
+   "step": "shutter",
+   "at": 6
+  },
+  {
+   "step": "Looks good?",
+   "at": 6.2
+  },
+  {
+   "step": "tapped Use this photo",
+   "at": 8.8
+  },
+  {
+   "step": "the drawing is in: Make this hero?",
+   "at": 10.1
+  },
+  {
+   "step": "end",
+   "at": 13.6
+  }
+ ]
+}
