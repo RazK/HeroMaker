@@ -21,6 +21,10 @@ Each rule has the date it was set.
 - **Real screenshots of the real app only.** Never a diagram, mock-up or
   hand-built page passed off as a screenshot. (2026-11-23)
 - **Give a demo video + a link to try, not a text summary.** (2026-11-23)
+- **A "done / ready" claim comes WITH the thing — the video or screenshot of
+  it live on staging, never text alone.** One line on what he is about to see,
+  then show it. If it is finished, send the video. (2026-11-24, after a
+  text-only status update.)
 - **Demo video spec:** max 25–30 s; a full-screen caption slide, then ~5 s of
   real-speed screen recording per step; never sped up; no sign-in/setup
   clutter; watch it in full first. A **content** person cuts it, never a
