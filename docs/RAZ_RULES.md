@@ -21,6 +21,10 @@ Each rule has the date it was set.
 - **Real screenshots of the real app only.** Never a diagram, mock-up or
   hand-built page passed off as a screenshot. (2026-11-23)
 - **Give a demo video + a link to try, not a text summary.** (2026-11-23)
+- **A "done / ready" claim comes WITH the thing — the video or screenshot of
+  it live on staging, never text alone.** One line on what he is about to see,
+  then show it. If it is finished, send the video. (2026-11-24, after a
+  text-only status update.)
 - **Demo video spec:** max 25–30 s; a full-screen caption slide, then ~5 s of
   real-speed screen recording per step; never sped up; no sign-in/setup
   clutter; watch it in full first. A **content** person cuts it, never a
@@ -168,3 +172,21 @@ Each rule has the date it was set.
   gate BEFORE the PM sees it; a PM montage glance is not a substitute.
   (2026-11-23, after the family-film cut 1 slipped through with hand-made cards
   and ghost frames.)
+
+## Film & brand — 2026-11-24 (Raz's notes on family-film cut 4)
+
+- **A film always has sound.** Music that builds, the real moment (a laugh, a
+  gasp), and the promise if we voice it. A silent video is a draft, not a film.
+- **Say the value prop, clearly.** Every film states what HeroMaker is and why —
+  one promise, shown on the end card (and said aloud where we voice it). If a
+  stranger cannot tell what it is for, it fails.
+- **Celebrate the "comes to life" moment — make it feel magical.** The drawing →
+  hero reveal is the heart of the product (money moment #1). It is the emotional
+  peak: the magic of the transition and the child's joy must land. Never a quiet
+  cut past it.
+- **"The whole family" means the whole family — grandma included.** The share /
+  family beat shows more than mom.
+- **Maya's gate catches layout and dead space too, not only frames.** A split,
+  or any frame, must FILL the 9:16 frame, balanced — no empty dead space.
+- **Ship a film only when it feels like a film, not a draft.** (Restates the
+  demo-delivery rule, for film specifically.)
