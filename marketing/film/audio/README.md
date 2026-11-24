@@ -11,3 +11,18 @@ Every sound was checked by an audio model (gpt-audio) before use: two
 discarded (a "giggle" that read as sobbing, a crayon that read as metal
 scraping). Licence of Stable Audio 3 output: the Stability AI licence for the
 model (gated); Gidi/PM to confirm commercial use before any paid ad.
+
+## Cut 5 (Maya's seven-beat direction, 25.5 s)
+
+| t (s) | Sound | File |
+|---|---|---|
+| 0–25.5 | score: chimes and bells, strings join, swell, gentle fade (ducked under voices) | m5-2.wav (Stable Audio 3, seed 72) |
+| 2.4 | magic rising shimmer as the painting climbs out of the page | rise.wav |
+| 5.45 | sparkle burst as Violet lands | burst.wav |
+| 5.9 | "It comes alive!" | vo-alive.wav (TTS, coral) |
+| 8.8 | the girl's giggle on the gasp (the peak) | giggle3.wav |
+| 12.8 | a giggle while she waves | giggle4.wav |
+| 16.9 | Grandma: "Oh my goodness… look at her!" | vo-gma.wav (TTS, sage; an AI voice, as the cast is AI) |
+| 21.9 | "Your child's drawing, brought to life." | vo-end.wav (TTS, coral) |
+
+Mix: mix-cut5.wav. Checked by an audio model: voices clear, nothing jarring.

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Family film cut 5</title>
+<!-- Maya's direction (marketing/film/direction/): seven beats at 360x640 (rendered x3).
+     window.__cut.set(t) poses every layer for second t; nothing runs on a clock.
+     assets/ holds the frame folders (24 fps jpg, Violet's alive frames png) and the stills. -->
+<link href="https://fonts.googleapis.com/css2?family=Barriecito&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  .beat { position: absolute; inset: 0; overflow: hidden; display: none; }
+  .wood { background: #8b5e3c; }
+  .pol { position: absolute; background: #fff; transform-origin: 50% 100%; }
+  .pol img { width: 100%; display: block; }
+  .rays { position: absolute; left: -60px; right: -60px; top: 100px; height: 460px; background: radial-gradient(closest-side, rgba(255,236,160,.95), rgba(255,200,61,.35) 60%, transparent); }
+  .lil { background: radial-gradient(circle at 50% 55%, #fff6d6, #e9e3ff 60%); }
+  .cover { position: absolute; object-fit: cover; }
+  .g { position: absolute; inset: 0; display: grid; grid-template-rows: repeat(3, calc((640px - 8px) / 3)); gap: 4px; background: #fff6e9; }
+  .g img { width: 360px; height: calc((640px - 8px) / 3); min-height: 0; object-fit: cover; display: block; }
+  .e { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 24px 24px; }
+  .h { font-family: Barriecito; font-size: 36px; line-height: 38px; color: #231942; text-align: center; }
+  .row { display: flex; flex-direction: column; gap: 12px; }
+  .row > div { display: flex; align-items: center; gap: 20px; font-family: Barriecito; font-size: 26px; color: #231942; white-space: nowrap; }
+  .row .pic { width: 128px; height: 116px; display: flex; align-items: center; justify-content: center; position: relative; overflow: visible; }
+  .row .pic img { max-width: 128px; max-height: 116px; }
+  .epol { background: #fff; padding: 4px 4px 10px; transform: rotate(-3deg); box-shadow: 0 2px 6px rgba(0,0,0,.2); width: 84px; }
+  .epol img { width: 100%; display: block; }
+  .btn { height: 56px; border-radius: 999px; background: #5b3df5; color: #fff; font: 800 18px Nunito; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 0 #3a22b8; }
+</style>
+</head>
+<body>
+<script>
+const $ = (h) => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild }
+const clamp = (x) => Math.max(0, Math.min(1, x)), ease = (x) => { x = clamp(x); return x * x * (3 - 2 * x) }
+const pad = (i) => String(i).padStart(4, '0')
+const rnd = (s) => () => (s = (s * 16807) % 2147483647) / 2147483647
+// [beat, seconds]: Maya's seven beats
+const BEATS = [['glow', 2.5], ['rise', 3.0], ['land', 3.0], ['gasp', 3.0], ['split', 5.0], ['family', 5.0], ['end', 4.0]]
+let t0 = 0; for (const b of BEATS) { b.push(t0); t0 += b[1] }
+const DURATION = t0
+const els = {}
+function sparks(parent, n, seed, area) {
+  const r = rnd(seed); return Array.from({ length: n }, () => {
+    const s = [10, 14, 18, 24][Math.floor(r() * 4)]
+    const e = $(`<div class="spark" style="left:${area[0] + r() * area[2]}px;top:${area[1] + r() * area[3]}px;width:${s}px;height:${s}px"></div>`)
+    parent.appendChild(e); return { e, ph: r() * 6.28, sp: 2 + r() * 3 }
+  })
+}
+function confetti(parent, n, seed) {
+  const r = rnd(seed), C = ['#ff5c8a', '#2fa8e0', '#5b3df5', '#ffc83d', '#2fbf71']
+  return Array.from({ length: n }, () => {
+    const e = $(`<div class="conf" style="background:${C[Math.floor(r() * 5)]}"></div>`); parent.appendChild(e)
+    return { e, x: r() * 360, y0: -40 - r() * 420, v: 90 + r() * 80, rot: r() * 360, vr: -200 + r() * 400, sway: 10 + r() * 20, ph: r() * 6.28 }
+  })
+}
+function build() {
+  const b = (k, cls = '') => { const e = $(`<div class="beat ${cls}"></div>`); document.body.appendChild(e); els[k] = { root: e }; return e }
+  // 1 glow
+  let r = b('glow', 'wood'); els.glow.pol = $(`<div class="pol" style="left:40px;top:150px;width:280px;padding:10px 10px 30px"><img src="assets/violet-drawing.webp"></div>`); r.appendChild(els.glow.pol)
+  els.glow.sp = sparks(r, 16, 7, [20, 120, 300, 420])
+  // 2 rise
+  r = b('rise', 'wood'); els.rise.rays = $('<div class="rays"></div>'); r.appendChild(els.rise.rays)
+  els.rise.pol = $(`<div class="pol" style="left:40px;top:150px;width:280px;padding:10px 10px 30px"><img src="assets/violet-drawing.webp"></div>`); r.appendChild(els.rise.pol)
+  els.rise.paint = $('<img src="assets/painted.png" style="position:absolute;left:50%;height:360px;filter:drop-shadow(0 0 18px #fff)">'); r.appendChild(els.rise.paint)
+  els.rise.sp = sparks(r, 22, 11, [10, 70, 340, 380])
+  // 3 land
+  r = b('land', 'lil'); els.land.sh = $('<div style="position:absolute;left:50%;bottom:56px;width:180px;height:26px;margin-left:-90px;border-radius:50%;background:rgba(35,25,66,.22);filter:blur(6px)"></div>'); r.appendChild(els.land.sh)
+  els.land.v = $('<img style="position:absolute;left:50%">'); r.appendChild(els.land.v)
+  els.land.cf = confetti(r, 46, 3); els.land.cap = $('<div class="cap">It comes alive!</div>'); r.appendChild(els.land.cap)
+  // 4 gasp (the peak): full frame, confetti carries over, no caption
+  r = b('gasp'); els.gasp.img = $('<img class="cover" style="inset:0;width:360px;height:640px">'); r.appendChild(els.gasp.img); els.gasp.cf = confetti(r, 30, 5)
+  // 5 split: Maya waves on top, Violet (staging Wave) under; each half full width
+  r = b('split'); els.split.top = $('<img class="cover" style="left:0;top:0;width:360px;height:320px;object-position:50% 12%">'); r.appendChild(els.split.top)
+  const bot = $('<div style="position:absolute;left:0;top:320px;width:360px;height:320px;background:radial-gradient(circle at 50% 60%,#fff6d6,#e9e3ff 65%);overflow:hidden"></div>'); r.appendChild(bot)
+  els.split.bot = $('<img style="position:absolute;left:50%;bottom:8px;height:296px;transform:translateX(-50%)">'); bot.appendChild(els.split.bot)
+  els.split.cap = $('<div class="cap" style="top:296px">She copies every move!</div>'); r.appendChild(els.split.cap)
+  // 6 family: Grandma on top, Maya's call, Mom
+  r = b('family'); const g = $('<div class="g"><img style="object-position:50% 30%"><img style="object-position:50% 45%"><img style="object-position:50% 12%"></div>'); r.appendChild(g); els.family.rows = [...g.children]
+  r.appendChild($('<div class="cap" style="top:auto;bottom:28px">The whole family, wow!</div>'))
+  // 7 end card (f7)
+  r = b('end'); r.appendChild($(`<div class="e"><div class="logo" style="display:flex;align-items:center;justify-content:center;gap:8px;font:800 20px Nunito;color:#231942"><img src="assets/app-icon.png" style="width:36px;height:36px;border-radius:9px">HeroMaker</div><div class="h">Your child’s drawing,<br>brought to life.</div><div class="row"><div><span class="pic"><span class="epol"><img src="assets/violet-drawing.webp"></span></span>You draw it.</div><div><span class="pic"><img src="assets/painted.png"></span>We paint it.</div><div><span class="pic"><img class="alive" style="position:absolute;left:50%;bottom:-14px;height:150px;max-height:none;max-width:none;transform:translateX(-50%)"></span>It comes alive!</div></div><div class="btn">Make a hero</div></div>`))
+  els.end.alive = r.querySelector('.alive'); els.end.parts = [...r.querySelector('.e').children]
+}
+const waits = []
+function img(e, u) { if (e.getAttribute('src') !== u) { e.src = u; waits.push(e.decode().catch(() => {})) } }
+function twinkle(sp, t) { for (const s of sp) { const k = 0.5 + 0.5 * Math.sin(t * s.sp + s.ph); s.e.style.opacity = 0.35 + 0.65 * k; s.e.style.transform = `scale(${0.6 + 0.6 * k}) rotate(${t * 40}deg)` } }
+function fall(cf, t) { for (const c of cf) { const y = c.y0 + c.v * t, x = c.x + Math.sin(t * 2 + c.ph) * c.sway; c.e.style.left = x + 'px'; c.e.style.top = y + 'px'; c.e.style.transform = `rotate(${c.rot + c.vr * t}deg)` } }
+function seq(e, dir, fps, t, n, ext = 'jpg', from = 0) { img(e, `assets/${dir}/${pad(Math.min(n - 1, from + Math.floor(t * fps)))}.${ext}`) }
+window.__cut = {
+  duration: DURATION, beats: BEATS.map(([k, d, s]) => ({ k, d, s })),
+  async load() { build(); await document.fonts.ready; return { duration: DURATION } },
+  async set(T) {
+    waits.length = 0
+    for (const [k, d, s] of BEATS) els[k].root.style.display = T >= s && T < s + d ? 'block' : 'none'
+    const [k, d, s] = BEATS.find(([, d, s]) => T >= s && T < s + d) || BEATS.at(-1); const t = T - s, u = t / d
+    if (k === 'glow') {
+      const gl = 0.6 + 0.4 * Math.sin(t * 3)
+      els.glow.pol.style.transform = `rotate(-3deg) scale(${1 + 0.03 * ease(u)})`
+      els.glow.pol.style.boxShadow = `0 0 0 6px rgba(255,200,61,${0.3 + 0.3 * gl}),0 0 ${40 + 30 * gl}px ${12 + 12 * gl}px rgba(255,200,61,${0.45 + 0.3 * gl})`
+      twinkle(els.glow.sp, t)
+    }
+    if (k === 'rise') {
+      const a = ease(t / 1.0), p = ease((t - 0.5) / 1.4)
+      // the page lies down; the painting climbs out of it
+      Object.assign(els.rise.pol.style, { top: 150 + 210 * a + 'px', left: 40 + 20 * a + 'px', width: 280 - 40 * a + 'px' })
+      els.rise.pol.style.transform = `rotate(-3deg) perspective(400px) rotateX(${48 * a}deg)`
+      els.rise.pol.style.boxShadow = `0 0 ${60 * (1 - a)}px ${20 * (1 - a)}px rgba(255,200,61,.6)`
+      els.rise.rays.style.opacity = 0.85 * ease((t - 0.2) / 0.8)
+      els.rise.rays.style.transform = `scale(${0.8 + 0.25 * p})`
+      Object.assign(els.rise.paint.style, { top: 380 - 310 * p + 'px', opacity: ease((t - 0.45) / 0.4), transform: `translateX(-50%) scale(${0.45 + 0.55 * p})`, transformOrigin: '50% 100%' })
+      twinkle(els.rise.sp, t)
+    }
+    if (k === 'land') {
+      // Violet in the app's warm light (va_w, 16 fps); she drops in and settles
+      const drop = 1 - ease(t / 0.45), bounce = t > 0.45 ? Math.sin((t - 0.45) * 14) * Math.exp(-(t - 0.45) * 6) * 10 : 0
+      seq(els.land.v, 'valive', 16, t, 81, 'png')
+      Object.assign(els.land.v.style, { height: 560 + 'px', bottom: 24 + 'px', transform: `translateX(-50%) translateY(${-520 * drop + bounce}px)` })
+      els.land.sh.style.transform = `scale(${0.5 + 0.5 * (1 - drop)})`
+      fall(els.land.cf, t); els.land.cap.style.opacity = ease((t - 0.3) / 0.3)
+    }
+    if (k === 'gasp') { seq(els.gasp.img, 'gasp', 24, t, 122, 'jpg', 0); fall(els.gasp.cf, t + 1.2) }
+    if (k === 'split') { seq(els.split.top, 'mwave', 24, t, 121); seq(els.split.bot, 'vwave', 24, t, 144) }
+    if (k === 'family') {
+      // the rows come in one after another: Grandma, the call, Mom
+      const R = els.family.rows; seq(R[0], 'gma', 24, t, 122); seq(R[1], 'call', 24, Math.max(0, t - 0), 122); seq(R[2], 'mom', 24, t, 122, 'jpg', 30)
+    }
+    if (k === 'end') {
+      seq(els.end.alive, 'valive', 16, t, 81, 'png')
+      els.end.parts.forEach((p, i) => { p.style.opacity = ease((t - i * 0.12) / 0.3) })
+    }
+    await Promise.all(waits)
+  },
+}
+</script>
+</body>
+</html>
