@@ -146,6 +146,61 @@ fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive:
       const r = await api('/api/v1/me', { method: 'DELETE', body: JSON.stringify({ confirm: u.username }) });
       console.log('deleted test account', u.username, r.status);
     }
+  } else if (flow === 'visitor-making') {
+    // Off camera: a test parent buys a pack (TEST) and makes a hero from the
+    // robot's drawing, which the staging cache serves (no provider call).
+    const stamp = Date.now().toString(36);
+    const u = { username: `rec_${stamp}`, email: `robot+rec${stamp}@example.com`, password: `rec-${stamp}-pw` };
+    const pctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await pctx.addInitScript(() => { localStorage.setItem('heromaker_adult_confirmed', '1'); });
+    const pp = await pctx.newPage();
+    let token = null;
+    const api = (path, init = {}) => fetch(BASE.replace('frontend-staging-7cb8', 'backend-staging-384f') + path, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) } });
+    try {
+      await pp.goto(BASE + '/', { waitUntil: 'load' });
+      await pp.locator('.header-auth-button').click();
+      const g = pp.getByRole('dialog', { name: 'Is a grown-up with you?' });
+      await g.waitFor({ timeout: 15000 }); await g.getByRole('button', { name: 'Yes' }).click();
+      await pp.locator('#username').waitFor({ timeout: 15000 });
+      await pp.locator('button.auth-modal-tab').click();
+      await pp.fill('#username', u.username); await pp.fill('#email', u.email); await pp.fill('#name', 'Robot Tester');
+      await pp.fill('#dateOfBirth', '2000-01-01'); await pp.fill('#password', u.password);
+      await pp.locator('button.auth-modal-submit').click();
+      await pp.locator('.header-auth-credits').waitFor({ timeout: 30000 });
+      token = await pp.evaluate(() => localStorage.getItem('heromaker_jwt_token'));
+      await pp.locator('.header-auth-credits').click();
+      await pp.locator('.buy-credits-pack[data-pack="single"]').click();
+      await pp.waitForURL((x) => x.pathname.startsWith('/api/payments/sandbox/checkout/'), { timeout: 60000 });
+      await pp.getByRole('button', { name: 'Pay', exact: true }).click();
+      await pp.waitForURL((x) => x.toString().startsWith(BASE) && !x.pathname.startsWith('/api/payments/'), { timeout: 60000 });
+      for (let i = 0; i < 30 && (await (await api('/api/v1/me')).json()).credits < 10; i++) await pp.waitForTimeout(1000);
+      await pp.locator('.header-upload-buttons input[type=file]').setInputFiles('/home/user/HeroMaker/marketing/concepts/assets/pairs/crayon-kid-drawing.jpg');
+      const go = pp.locator('button.post-upload-action-primary');
+      await go.waitFor({ timeout: 60000 });
+      await go.click();
+      await pp.locator('.tb-hero-screen').waitFor({ timeout: 60000 });
+      const link = pp.url();
+      // On camera: a friend opens the link at once, signed out.
+      await p.goto(link, { waitUntil: 'load' });
+      mark('a friend opens the shared link while the hero is being made');
+      await p.locator('.tb-hero-screen').waitFor({ timeout: 30000 });
+      const state = async () => p.locator('.tb-hero-screen').getAttribute('data-state').catch(() => '?');
+      mark(`the page while it is made (state: ${await state()})`);
+      const t = Date.now();
+      while (Date.now() - t < 240000 && (await state()) !== 'ready') await p.waitForTimeout(1000);
+      mark(`the hero is ready (${((Date.now() - t) / 1000).toFixed(0)} s later), the 3D hero shows`);
+      await p.waitForTimeout(6000);
+      mark('end');
+      fs.writeFileSync(`${out}/link.txt`, link + '\n');
+    } finally {
+      if (token) {
+        const list = await (await api('/api/v1/gallery?view=mine')).json().catch(() => ({ data: [] }));
+        for (const c of (list.data || []).filter((c) => c.mine)) await api(`/api/v1/heroes/${c.id}`, { method: 'DELETE' });
+        const r = await api('/api/v1/me', { method: 'DELETE', body: JSON.stringify({ confirm: u.username }) });
+        console.log('deleted test account', u.username, r.status);
+      }
+      await pctx.close();
+    }
   } else if (flow === 'visitor') {
     await p.goto(BASE + '/', { waitUntil: 'load' });
     const item = p.locator('.creation-gallery-item.creation-gallery-status-completed').first();

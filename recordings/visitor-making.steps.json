@@ -1,0 +1,25 @@
+{
+ "flow": "visitor-making",
+ "file": "visitor-making.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "viewport": "390x844 @2x (780x1688 video)",
+ "speed": "real, never sped up",
+ "steps": [
+  {
+   "step": "a friend opens the shared link while the hero is being made",
+   "at": 7.3
+  },
+  {
+   "step": "the page while it is made (state: making)",
+   "at": 7.5
+  },
+  {
+   "step": "the hero is ready (7 s later), the 3D hero shows",
+   "at": 14.5
+  },
+  {
+   "step": "end",
+   "at": 20.5
+  }
+ ]
+}
