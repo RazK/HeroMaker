@@ -1,0 +1,53 @@
+name: Prune branches
+
+# Keeps the branch list short (devops/scripts/prune_branches.py), as Raz
+# asked on 2026-11-24:
+#   - a branch merged at its tip is deleted; the merged PR keeps the code
+#   - a branch with no open PR and no commit for 14 days is tagged
+#     archived/<name>, then deleted (restore: push the tag back as a branch)
+#   - main, staging, archive/*, open PRs and fresh work are never touched
+#
+# Weekly it applies. By hand it is a dry run unless "apply" is ticked. On a PR
+# that changes it, it runs the tests and a dry run and changes nothing.
+# Git refs only: no deploy, no Railway, no production.
+
+on:
+  schedule:
+    - cron: '17 3 * * 0'   # Sunday 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Delete and archive (unticked: list only)'
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - 'devops/scripts/*prune_branches*'
+      - '.github/workflows/prune-branches.yml'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: prune-branches
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the rules
+        run: python3 devops/scripts/test_prune_branches.py
+      - name: Prune
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLY: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.apply) }}
+        run: |
+          if [ "$APPLY" = "true" ]; then
+            python3 devops/scripts/prune_branches.py --repo "$GITHUB_REPOSITORY" --apply
+          else
+            python3 devops/scripts/prune_branches.py --repo "$GITHUB_REPOSITORY"
+          fi
