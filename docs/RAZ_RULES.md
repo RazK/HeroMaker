@@ -135,6 +135,11 @@ Each rule has the date it was set.
   (standing)
 - **Staging never looks like production** (its own icon, a STAGING tag).
   (standing)
+- **No text for its own sake — only text that earns its place.** Never add a
+  title, label or line to fill or balance a UI element and then backfill the
+  words. If it says nothing the screen does not already show, cut it. ("Heroes
+  kids made" stated the obvious; a filler benefit line adds nothing.) Nothing
+  to say → no text. (2026-11-24)
 
 ## Demo delivery (every demo, and the overnight sprint) — 2026-11-23
 
