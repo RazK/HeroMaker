@@ -106,3 +106,11 @@ No red, no "failed", no "credits" word.
   Family card.
 - The three ticks are gone. Under the plans there is one line, "Dances in 3D
   · Plays games · Goes to the family", in body ink-2, kept on one line.
+
+### Round 4, approved by Raz (2026-11-24)
+
+Raz: "The payments pop-up is okay", with two lines removed.
+- No benefits line ("Dances in 3D · …"). It added nothing.
+- No fine print ("One payment. No subscription."). Nobody thought it was one.
+- The sheet now holds: heading, the two plan cards (24 px apart), "Continue
+  to payment" 24 px below the Family card, and the ×. Nothing else.
