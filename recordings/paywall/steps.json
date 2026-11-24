@@ -1,7 +1,7 @@
 {
  "file": "pay-popup.mp4",
  "base": "https://frontend-staging-7cb8.up.railway.app",
- "version": "v2.0.246 · 3d1c1f7",
+ "version": "v2.0.248 · 1968462",
  "viewport": "390x844 @2x",
  "speed": "real, never sped up, nothing cut",
  "steps": [
@@ -11,7 +11,7 @@
   },
   {
    "step": "tapped Make my hero",
-   "at": 2
+   "at": 2.1
   },
   {
    "step": "answered the two questions",
@@ -39,7 +39,7 @@
   },
   {
    "step": "the TEST checkout (no real money)",
-   "at": 13.3
+   "at": 13.2
   },
   {
    "step": "tapped Pay",
@@ -55,11 +55,11 @@
   },
   {
    "step": "the hero, alive in 3D",
-   "at": 23.6
+   "at": 23.9
   },
   {
    "step": "end",
-   "at": 29.6
+   "at": 29.9
   }
  ]
 }

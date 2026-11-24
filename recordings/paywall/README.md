@@ -1,4 +1,7 @@
-# Pay pop-up on staging v2.0.246 · 3d1c1f7 (not for merge)
+# Pay pop-up on staging (not for merge)
+
+pay-popup.mp4 re-recorded on v2.0.248 · 1968462, with Maya's gate fixes (body-face prices,
+no copy when closed, the balance pill keeping up: it ends at 2). Screenshots below are from v2.0.246.
 
 Real staging, real speed (pay-popup.mp4, 31 s, 780x1688): Make my hero with 0
 credits -> painted -> the pop-up opens by itself -> One hero -> Continue to
