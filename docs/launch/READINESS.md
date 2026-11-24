@@ -3,32 +3,68 @@
 Audit of 2026-11-19, before the first paid marketing campaign. Production was
 v2.0.85 (deployed 2026-11-02); the fixes below reached staging as v2.0.115.
 
-**Verdict: not yet.** Lemon Squeezy did not approve the business, so it is
-dropped (2026-11-22). The new provider is **Grow** (Israeli, works with an
-exempt dealer, charges in ILS). Grow's API team has the request; nothing can be
-built against it until they send sandbox identifiers and answer how a payment
-callback is authenticated (their public docs do not say).
+**Verdict (2026-11-24): not live, and the code is not what blocks it.** The
+whole purchase path runs on staging in shekels through our own test mode, and
+the robot proves it on every deploy. What stands between us and real money is
+Grow: Raz's merchant account is not finished, so Grow has issued no API
+identifiers, and without them the real `grow` provider cannot be written
+against anything or tested.
 
-**Production sells nothing right now** (2026-11-22, Raz's yes): the three
-`LEMONSQUEEZY_VARIANT_*` and `LEMONSQUEEZY_WEBHOOK_SECRET` are empty on the
-production backend, so `/api/v1/packs` is `[]` and the webhook answers 401 to
-everything. Production runs v2.0.85, which would have credited a Lemon Squeezy
-test-card order. Lesson from doing it: on Railway, changing a variable
-redeploys the service **from the latest commit of its branch**, not the image
-already running. It put `main` on the production backend for ten minutes until
-the old build was redeployed by id. Change production variables with
-`skipDeploys`, then redeploy the running deployment by id.
+## 0. The path to live, gate by gate
 
-**Until Grow's API arrives: `PAYMENTS_PROVIDER=grow_sandbox`** (2026-11-23).
-Our own test mode, priced in shekels (one hero ₪10, family of five ₪39, class
-seats ₪10 a child from 10 children). A checkout stores our order and opens a
-fake page marked "TEST — no real money"; Pay makes the backend sign a
-Grow-shaped callback and run it through the real callback handler
-(`/api/payments/grow/callback`), which grants from the stored order, not from
-the callback. It refuses to arm on production and without
-`GROW_SANDBOX_SECRET`. Unset, `PAYMENTS_PROVIDER` is `lemonsqueezy` and nothing
-changes. Proof: `backend/tests/test_payments_sandbox.py`. When Grow's docs
-arrive, replace `grow_sandbox.verify_callback` with their real check.
+| # | Gate | State | Owner |
+|---|---|---|---|
+| 1 | Grow merchant account active (registration, identity, payout bank, plan: ₪70/month or ₪720/year, 0.75% a transaction) | **Open.** Grow wrote on 23 Nov that registration is unfinished. | **Raz** |
+| 2 | Grow API identifiers (`userId`, `pageCode`, API key) for sandbox and production, and how a `notifyUrl` call is authenticated | **Open.** Issued only after gate 1. Their public docs do not say how a callback is verified (read 2026-11-24). | Raz asks Grow (Liav) |
+| 3 | Real `grow` provider: create the payment page, receive the server update, verify it, `ApproveTransaction`, credit | **Ready to build, blocked on gate 2 to test.** The interface, stored orders, crediting, receipts and the robot exist (`grow_sandbox`); only the HTTP client and the verification step change. | Gidi |
+| 4 | Receipts with a real number | Ours: `/api/v1/receipts` lists every purchase (₪, credits, date). The legal receipt (קבלה) for an exempt dealer is issued by Grow or by Morning connected to Grow. Store Grow's `asmachta`/transaction id as our order number when gate 3 lands. | Raz decides Grow-only or Morning; Gidi stores the number |
+| 5 | Production runs today's code | **Open.** Production is v2.0.85 (2 Nov), far behind staging. Needs a green robot on the staging SHA and Raz's yes. | Raz's yes, Gidi promotes |
+| 6 | Production variables: `PAYMENTS_PROVIDER=grow`, `GROW_*` keys | **Open**, after gates 2, 3, 5. Set with `skipDeploys`, then redeploy the running deployment by id (see the trap below). `grow_sandbox` refuses to arm on production. | Raz's yes |
+| 7 | One real ₪10 purchase and one real hero on production, then refund | **Open**, after gate 6. The only proof that production's Grow, OpenAI and Meshy keys work. | Raz's card and yes |
+| 8 | Provider balances (Meshy, OpenAI) and an alert when one runs dry | Open. Admin → Money shows balances; no alert yet. | Raz tops up; Gidi builds the alert on "go" |
+
+**Not a gate any more:** Lemon Squeezy (never approved, dropped 22 Nov) and its
+`LEMONSQUEEZY_TEST_MODE` question. Its production variables are emptied, so
+production lists no packs and its webhook answers 401.
+
+**What Grow's docs say (read 2026-11-24, developers.grow.business):**
+`CreatePaymentLink` is `POST /api/light/server/1.1/CreatePaymentLink`,
+multipart form, server-side only, with `notifyUrl`, `successUrl`, products,
+payment types (card, Bit, Apple Pay, Google Pay) and `cField1..9`.
+Production base: `https://secure.meshulam.co.il/api/light/server/1.0`.
+`ApproveTransaction` "must be executed after each successful payment"; if it
+is not, Grow resends the server update (5 more times, per Grow's own Make
+guide). "The transaction will still be processed even if the ApproveTransaction
+request is not executed or fails." Not documented: callback signature, secret
+or IP list; a transaction lookup; refunds. Until Grow answers, the callback
+must be confirmed some other way before credits are granted.
+
+**The sister's class this week does not wait for any of this:** a Grow hosted
+payment link (₪10 a child) once gate 1 is done, and Gidi grants the seats by
+hand on production after Raz sees the paid receipt (Admin → user → Credits,
+then the teacher adds seats). No code.
+
+## What runs today (staging)
+
+**`PAYMENTS_PROVIDER=grow_sandbox`** (2026-11-23), staging only. One hero ₪10,
+a family of five ₪39, class seats ₪10 a child from 10. A checkout stores our
+order and opens a page marked "TEST — no real money"; Pay makes the backend
+sign a Grow-shaped callback and run it through the real handler
+(`/api/payments/grow/callback`), which grants from the stored order, never
+from the callback's fields. A wrong sum, a duplicate transaction, a forged or
+unsigned callback grant nothing. It refuses to arm on production and without
+`GROW_SANDBOX_SECRET`. Proof: `backend/tests/test_payments_sandbox.py` and the
+staging robot's buy and class steps.
+
+**`FREE_PAINTING=on`** (2026-11-23), staging only: a new account's first
+painting is free, the hero pauses at 3D with `not_enough_credits`, the buyer
+pays ₪10 and "Try again" finishes it. Proof:
+`backend/tests/test_pay_after_reveal.py` and a hand run on staging the same day.
+
+**The Railway trap:** changing a variable redeploys the service from the
+latest commit of its branch, not the image already running. On 22 Nov that
+put `main` on the production backend for ten minutes. Change production
+variables with `skipDeploys`, then redeploy the running deployment by id.
 
 ## 1. Ready and proven
 
@@ -57,54 +93,19 @@ arrive, replace `grow_sandbox.verify_callback` with their real check.
 
 ## 3. Needs Raz
 
-Most blocking first. Each line is one action.
-
-1. **Grow account and API identifiers.** Raz opened the account
-   (2026-11-22) and was passed to Grow's API team. Needed from them: sandbox
-   `userId` and `pageCode`, test cards, the production base URL, the
-   `approveTransaction`, transaction-lookup and refund docs, how a
-   `notifyUrl` callback is authenticated, and whether USD and foreign cards
-   work. Until the callback can be authenticated (signature, or a server-side
-   lookup by transaction id), the webhook must not grant credits on its word.
-2. **Prices in ILS.** Grow charges in shekels. The current packs are priced
-   in dollars; a shekel price table is a decision for Raz (section 4).
-3. **Approve one real purchase and one real hero on production** (about $5.90:
-   the smallest pack, plus about $0.90 of provider cost; the $5 can be
-   refunded). No hero has been made on production since the 2 November deploy,
-   and staging's robot reuses a cached model, so nothing recent proves that
-   production's OpenAI and Meshy keys still work. This is the only real proof.
-4. **Promote staging to production.** Production is more than 25 merges
-   behind and has none of the fixes in section 2. Needs a green robot and your yes.
-5. **Check the Meshy plan and top it up.** Plan and balance:
-   <https://www.meshy.ai/settings/subscription>. A hero uses about 35 Meshy
-   credits. For a first campaign of 300 heroes buy about 10,500 credits. If
-   you expect more than 10 heroes inside five minutes, the plan needs more
-   task slots than Pro's 10 (Premium has 30).
-6. **Top up OpenAI and turn on auto-recharge**:
-   <https://platform.openai.com/settings/organization/billing/overview>.
-   About $50 covers 300 paintings. Your image rate limit is at
-   <https://platform.openai.com/settings/organization/limits>.
-7. **Decide the margin** (section 4). At Meshy's current prices every pack
-   earns 30% to 39%, under the 50% floor the code promises. Choose one: accept
-   it, raise prices, or try Meshy's cheaper model. The agent changes no price
-   without you.
-8. **Password reset is off on both environments** (`RESEND_API_KEY` is not
-   set). A buyer who signed up with a password and forgets it is locked out of
-   paid credits. Make a key at <https://resend.com/api-keys>, verify a sending
-   domain at <https://resend.com/domains>, and set `RESEND_API_KEY` and
-   `MAIL_FROM` as shared variables. Sign in with Google works today.
-9. **Class seats cannot be bought with money on production**
-   (`LEMONSQUEEZY_VARIANT_CLASS_SEATS` is not set there). Needed only if the
-   campaign targets teachers. Add the live variant id.
-10. **Nobody is told when something breaks.** The backend writes
-    `PROVIDER_OUT_OF_CREDITS` and `PROVIDER_QUEUE_FULL` to the log and nothing
-    reads them. Until alerts exist, look at Admin → Money once a day during the
-    campaign. Say "go" and an agent adds an email alert.
+Gates 1, 2, 5, 6, 7 and 8 in section 0, in that order. Also, not blocking:
+password reset is off on both environments until `RESEND_API_KEY` and
+`MAIL_FROM` are set (sign in with Google works).
 
 Not needed for launch: the toy is not on sale (`ACTION_FIGURE_FOR_SALE` is
 off, and production has no Hi3D keys).
 
 ## 4. What a hero costs and earns
+
+**In shekels with Grow (the prices since 2026-11-23):** a hero costs us about
+$0.87, about ₪2.75. At ₪10 a hero and Grow's 0.75%, we keep about ₪7.2 a hero
+(72%), before Grow's ₪70 a month. The dollar tables below are the Lemon
+Squeezy era and are kept for the cost lines.
 
 A hero is 10 credits. Costs per hero, at the providers' current list prices:
 
