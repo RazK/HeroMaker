@@ -455,3 +455,8 @@
   .tb-hero-main[data-state='ready'] .tb-chapters { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
   .tb-hero-main[data-state='ready'] .tb-chapters > :nth-child(3) { grid-column: auto; }
 }
+/* While the pay pop-up is open, the painting alone is behind it: no name
+   card, no copy, no buttons (paywall.md, round 3 revised). */
+.tb-hero-screen--paying .tb-live-name,
+.tb-hero-screen--paying .tb-paywall,
+.tb-hero-screen--paying .tb-hero-foot { visibility: hidden; }

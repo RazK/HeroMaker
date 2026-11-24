@@ -1,0 +1,38 @@
+/* The pay pop-up (PaywallSheet.tsx; docs/design/proposals/paywall.md, round 4).
+   Heading and ×, two plan cards 24px apart, Continue 24px under the last. */
+
+.tb-sheet.tb-paywall-sheet { background: var(--tb-cream); gap: 0; }
+
+.tb-paywall-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.tb-paywall-heading { margin: 0; font-family: var(--tb-font-display); font-weight: 600; font-size: 28px; line-height: 1.15; color: var(--tb-ink); text-wrap: balance; min-width: 0; }
+.tb-paywall-close {
+  flex-shrink: 0; width: 40px; height: 40px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: var(--tb-white); color: var(--tb-ink);
+  box-shadow: 0 2px 0 var(--tb-line); cursor: pointer;
+}
+
+.tb-paywall-plans { display: flex; flex-direction: column; gap: 24px; }
+.tb-plan {
+  position: relative; width: 100%; min-height: 76px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px; text-align: start;
+  border: 2.5px solid var(--tb-line); border-radius: var(--tb-radius-input);
+  background: var(--tb-white); color: var(--tb-ink);
+  box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-line);
+  font-family: var(--tb-font-body); cursor: pointer;
+}
+.tb-plan--on { border-color: var(--tb-grape); background: var(--tb-chosen); box-shadow: 0 var(--tb-depth-sm) 0 var(--tb-grape-deep); }
+.tb-plan:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(91, 61, 245, 0.25); }
+.tb-plan-dot { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--tb-line); background: var(--tb-white); }
+.tb-plan--on .tb-plan-dot { border-color: var(--tb-grape); background: radial-gradient(circle, var(--tb-grape) 0 5px, var(--tb-white) 6px); }
+.tb-plan-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tb-plan-title { font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; line-height: 1.1; }
+.tb-plan-line { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }
+.tb-plan-price { flex-shrink: 0; font-family: var(--tb-font-display); font-weight: 600; font-size: 24px; }
+.tb-plan-badge {
+  position: absolute; top: 0; right: 16px; transform: translateY(-55%);
+  padding: 3px 10px; border-radius: 999px; background: var(--tb-sun);
+  font-family: var(--tb-font-body); font-weight: 800; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tb-ink);
+}
+
+.tb-paywall-note { margin-top: 16px; font-weight: 700; color: var(--tb-ink-2); text-align: center; }
+.tb-paywall-go { margin-top: 24px; }

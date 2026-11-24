@@ -7,6 +7,7 @@ import { flush, track } from '../../analytics';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, ProgressBar, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
+import { PaywallSheet, takeResumeAfterPurchase } from './PaywallSheet';
 import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, refundWords, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
 
@@ -212,6 +213,22 @@ export function HeroScreen(props: HeroScreenProps) {
   const retryCost = remainingCost(creation);
   const short = creditBalance !== undefined && retryCost > creditBalance;
 
+  // The pay pop-up (PaywallSheet): it opens by itself when the hero pauses for
+  // payment and its owner cannot pay, and again from Bring it to life.
+  const payable = paywall && owns && !supporting;
+  const [paying, setPaying] = useState(false);
+  const askedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (payable && short && askedFor.current !== creation.id) { askedFor.current = creation.id; setPaying(true); }
+    if (!payable) setPaying(false);
+  }, [payable, short, creation.id]);
+  // Back from paying at this hero's pop-up: once the webhook's credits are in,
+  // it goes on from 3D by itself. Once only (the marker is taken), so a slow
+  // balance never runs it twice.
+  useEffect(() => {
+    if (payable && !short && !busy && takeResumeAfterPurchase(creation.id)) tryAgain();
+  }, [payable, short, busy, creation.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const ready = state === 'ready';
   const canShare = ready || painted;
   // The sheet behind ⋯ : the owner's (and an admin's) rows. Ready, Share is
@@ -353,13 +370,13 @@ export function HeroScreen(props: HeroScreenProps) {
         <span className="tb-btn-trail"><Icon name="coin" size={18} />{retryCost} credits</span>
       </button>
     );
-    // The paywall's one way on: bring it to life, the price after the words
-    // (rule 27). Short of credits it opens Buy credits; once paid, the same
-    // button runs the rest of the hero.
+    // The paywall's one way on. Short of credits it opens the pay pop-up
+    // (PaywallSheet: plans, no "credits"); with enough, the same button runs
+    // the rest of the hero, its price after the words (rule 27).
     const bring = (
       <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-bring-to-life" disabled={busy}
-        onClick={short ? () => window.dispatchEvent(new CustomEvent('credits:buy')) : tryAgain}>
-        <Icon name="dance" />Bring it to life <span className="tb-bring-price">· {retryCost} credits</span>
+        onClick={short ? () => setPaying(true) : tryAgain}>
+        <Icon name="dance" />Bring it to life{!short && <span className="tb-bring-price">· {retryCost} credits</span>}
       </button>
     );
     bar = paywall && owns && !supporting ? (
@@ -399,7 +416,7 @@ export function HeroScreen(props: HeroScreenProps) {
   }
 
   return (
-    <div className="tb-screen tb-screen--fit tb-hero-screen tb-hero-main" data-state={state} data-foot={ready ? 'row' : 'stack'}>
+    <div className={`tb-screen tb-screen--fit tb-hero-screen tb-hero-main${paying ? ' tb-hero-screen--paying' : ''}`} data-state={state} data-foot={ready ? 'row' : 'stack'}>
       {header}
       {/* One element in every state, so the carousel built while the hero is
           made is the one it lives on when ready. */}
@@ -421,6 +438,10 @@ export function HeroScreen(props: HeroScreenProps) {
         }}
         page={{ foot: bar, more, onName: owns ? () => setSheet('rename') : undefined }}
       />
+
+      {paying && payable && (
+        <PaywallSheet heroName={heroName(creation)} creationId={creation.id} credits={creditBalance} onClose={() => setPaying(false)} />
+      )}
 
       {sheet === 'more' && (
         <Sheet title={name} onClose={() => setSheet(null)}>

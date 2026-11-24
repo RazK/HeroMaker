@@ -811,8 +811,27 @@ try {
     // The painting is made for free, then the hero waits for payment before 3D.
     const how = await waitForHero(page, null, { pauseAt: 'meshy_3d', pauseCode: 'not_enough_credits' });
     if (how !== 'paused') throw new Error('the free hero did not pause before 3D');
-    // Raz (2026-11-23): the paywall is not a failure. The painting, proud: no
-    // red, no cross, no "failed"; "It's painted!" and the way on.
+    // The pay pop-up opens by itself (paywall.md round 4, approved by Raz
+    // 2026-11-24): "Bring <name> to life!", the plans from /packs with Best
+    // value picked, Continue to payment, and nothing else - never "credits".
+    const pop = page.getByRole('dialog', { name: /^Bring .+ to life!$/ });
+    await pop.waitFor({ timeout: 20000 });
+    await pop.locator('.tb-plan').first().waitFor({ timeout: 20000 });
+    const payPop = await pop.evaluate((d) => ({
+      plans: [...d.querySelectorAll('.tb-plan')].map((p) => `${p.dataset.pack}${p.getAttribute('aria-checked') === 'true' ? '*' : ''}`),
+      badge: d.querySelector('.tb-plan--on .tb-plan-badge')?.textContent?.trim(),
+      go: d.querySelector('.tb-paywall-go')?.textContent?.trim(),
+      creditsWord: /credit/i.test(d.innerText),
+      behind: [...document.querySelectorAll('.tb-live-name, .tb-hero-foot')].filter((e) => getComputedStyle(e).visibility !== 'hidden' && e.getBoundingClientRect().height > 0).length,
+    }));
+    if (payPop.plans.join(',') !== 'single,family*' || !/best value/i.test(payPop.badge || '') || payPop.go !== 'Continue to payment' || payPop.creditsWord || payPop.behind) {
+      throw new Error(`the pay pop-up is not the approved one: ${JSON.stringify(payPop)}`);
+    }
+    await snap(page, 'paywall-sheet');
+    await pop.getByRole('button', { name: 'Close' }).click();
+    await pop.waitFor({ state: 'detached', timeout: 5000 });
+    // Closed, the page under it: the paywall is not a failure. The painting,
+    // proud: no red, no cross, no "failed"; "It's painted!" and the way on.
     const wall = await page.evaluate(() => ({
       title: document.querySelector('.tb-paywall-title')?.textContent?.trim(),
       failedWord: /fail/i.test(document.querySelector('.tb-hero-screen')?.innerText || ''),
@@ -820,7 +839,7 @@ try {
       slide: document.querySelector('.tb-live-stage')?.getAttribute('data-slide'),
       bring: [...document.querySelectorAll('.tb-bring-to-life')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
     }));
-    if (wall.title !== 'It’s painted!' || wall.failedWord || wall.cross || wall.slide !== 'painting' || !/^Bring it to life\s*· \d+ credits$/.test(wall.bring[0] || '')) {
+    if (wall.title !== 'It’s painted!' || wall.failedWord || wall.cross || wall.slide !== 'painting' || wall.bring[0] !== 'Bring it to life') {
       throw new Error(`the paywall is not Maya's: ${JSON.stringify(wall)}`);
     }
     await snap(page, 'free-painting-paused');

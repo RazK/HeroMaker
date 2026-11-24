@@ -24,6 +24,10 @@ export const PURCHASE_RETURN_PARAM = 'purchase';
 // new one: without this, "Adding your credits…" waited for a change that had
 // already happened, and stayed (persona review). This tab only.
 const BALANCE_BEFORE = 'heromaker.credits.beforeCheckout';
+/** Remember the balance as the buyer leaves for checkout (BuyCredits and the paywall). */
+export function rememberBalanceBeforeCheckout(credits: number | undefined): void {
+  try { if (credits !== undefined) sessionStorage.setItem(BALANCE_BEFORE, String(credits)); } catch { /* the wait falls back to the first read */ }
+}
 /** The balance before checkout, read once (undefined: not known). */
 export function balanceBeforeCheckout(): number | undefined {
   try {
@@ -55,7 +59,7 @@ export function BuyCredits({ isOpen, onClose, note, credits }: BuyCreditsProps) 
     try {
       const back = `${window.location.origin}/?${PURCHASE_RETURN_PARAM}=done`;
       const { checkout_url } = await api.createCheckout(slug, back);
-      try { if (credits !== undefined) sessionStorage.setItem(BALANCE_BEFORE, String(credits)); } catch { /* the wait falls back to the first read */ }
+      rememberBalanceBeforeCheckout(credits);
       // The checkout opened. Whether it was paid is the webhook's to say, never the browser's.
       track('checkout_started', { pack: slug });
       flush(true);
