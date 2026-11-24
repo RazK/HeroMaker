@@ -1,0 +1,65 @@
+{
+ "file": "pay-popup.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "version": "v2.0.246 · 3d1c1f7",
+ "viewport": "390x844 @2x",
+ "speed": "real, never sped up, nothing cut",
+ "steps": [
+  {
+   "step": "Make this hero? (0 credits: the painting is free)",
+   "at": 0
+  },
+  {
+   "step": "tapped Make my hero",
+   "at": 2
+  },
+  {
+   "step": "answered the two questions",
+   "at": 4.8
+  },
+  {
+   "step": "painted: the pay pop-up opens by itself",
+   "at": 5.1
+  },
+  {
+   "step": "picked One hero",
+   "at": 8.6
+  },
+  {
+   "step": "picked Family pack",
+   "at": 10.2
+  },
+  {
+   "step": "picked One hero",
+   "at": 11.7
+  },
+  {
+   "step": "tapped Continue to payment",
+   "at": 12.9
+  },
+  {
+   "step": "the TEST checkout (no real money)",
+   "at": 13.3
+  },
+  {
+   "step": "tapped Pay",
+   "at": 16.2
+  },
+  {
+   "step": "back on the hero",
+   "at": 16.2
+  },
+  {
+   "step": "credits in: the 3D starts by itself",
+   "at": 16.3
+  },
+  {
+   "step": "the hero, alive in 3D",
+   "at": 23.6
+  },
+  {
+   "step": "end",
+   "at": 29.6
+  }
+ ]
+}
