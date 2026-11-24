@@ -101,6 +101,15 @@ export function HeroScreen(props: HeroScreenProps) {
   }, [state]);
 
   const step = currentStep(creation);
+  // Each step charges its credits as it starts, so the header's balance is
+  // read again whenever the hero moves on: once per run left the last
+  // charges out (the pill said 3 where the account had 2).
+  const stepAt = `${state}:${creation.steps.findIndex((x) => x.status !== 'completed')}`;
+  const firstStepAt = useRef(stepAt);
+  useEffect(() => {
+    if (stepAt === firstStepAt.current) return;
+    if (owns) props.onCreditsChanged();
+  }, [stepAt]); // eslint-disable-line react-hooks/exhaustive-deps
   // Out of credits is a paywall, not a failure (the painting is done and good):
   // the whole screen celebrates and asks for credits, never shows an error.
   const paywall = state === 'failed' && step?.error_code === 'not_enough_credits';
@@ -323,13 +332,11 @@ export function HeroScreen(props: HeroScreenProps) {
     const label = paywall ? `Bring ${heroName(creation)} to life` : failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
     const eta = progress ? etaText(progress.endsAt, now) : '';
     info = paywall && !supporting ? (
-      // The paywall (Maya's design, 2026-11-23): the painting is done and good,
-      // so the page celebrates it. Two sentences, each on its own line. No
-      // stepper, no red, no cross, no "failed"; the hero's name is on its card.
-      <div className="tb-making tb-paywall" data-step={step?.step_name} data-step-index={stepIndex} data-paywall>
-        <h2 className="tb-h2 tb-paywall-title">It’s painted!</h2>
-        <p className="tb-paywall-line" role="status">Next, it comes alive in 3D.</p>
-      </div>
+      // The paywall: the painting shows it is painted and Bring it to life
+      // says what comes next, so there is no copy (Raz's rule 53; Maya's gate,
+      // 2026-11-24) and the stage takes the room. The empty marker stays for
+      // the robot (data-paywall): no stepper, no red, no cross, no "failed".
+      <div className="tb-making tb-paywall" data-step={step?.step_name} data-step-index={stepIndex} data-paywall aria-hidden="true" />
     ) : (
       <div className={failed && !paywall ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed && !paywall ? step?.error_code ?? 'unknown' : undefined} data-paywall={paywall || undefined}>
         <Stepper steps={stepViews(creation)} />

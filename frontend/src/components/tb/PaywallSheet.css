@@ -27,7 +27,9 @@
 .tb-plan-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .tb-plan-title { font-family: var(--tb-font-display); font-weight: 600; font-size: 22px; line-height: 1.1; }
 .tb-plan-line { font-size: 14px; font-weight: 700; color: var(--tb-ink-2); }
-.tb-plan-price { flex-shrink: 0; font-family: var(--tb-font-display); font-weight: 600; font-size: 24px; }
+/* Prices in the body face: the display face's digits and ₪ read as broken
+   at 2x (Maya's gate, 2026-11-24). The plan names keep the display face. */
+.tb-plan-price { flex-shrink: 0; font-family: var(--tb-font-body); font-weight: 800; font-size: 22px; color: var(--tb-ink); }
 .tb-plan-badge {
   position: absolute; top: 0; right: 16px; transform: translateY(-55%);
   padding: 3px 10px; border-radius: 999px; background: var(--tb-sun);

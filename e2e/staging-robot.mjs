@@ -834,15 +834,17 @@ try {
     await pop.getByRole('button', { name: 'Close' }).click();
     await pop.waitFor({ state: 'detached', timeout: 5000 });
     // Closed, the page under it: the paywall is not a failure. The painting,
-    // proud: no red, no cross, no "failed"; "It's painted!" and the way on.
+    // proud: no red, no cross, no "failed", and no copy (rule 53) - only
+    // Back to my heroes and Bring it to life.
     const wall = await page.evaluate(() => ({
       title: document.querySelector('.tb-paywall-title')?.textContent?.trim(),
+      copy: (document.querySelector('.tb-making[data-paywall]')?.textContent || '').trim(),
       failedWord: /fail/i.test(document.querySelector('.tb-hero-screen')?.innerText || ''),
       cross: document.querySelectorAll('.tb-failed, .tb-status-name--failed, .tb-step-dot--failed, .tb-slide-failed-mark').length,
       slide: document.querySelector('.tb-live-stage')?.getAttribute('data-slide'),
       bring: [...document.querySelectorAll('.tb-bring-to-life')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
     }));
-    if (wall.title !== 'It’s painted!' || wall.failedWord || wall.cross || wall.slide !== 'painting' || wall.bring[0] !== 'Bring it to life') {
+    if (wall.title !== undefined || wall.copy || wall.failedWord || wall.cross || wall.slide !== 'painting' || wall.bring[0] !== 'Bring it to life') {
       throw new Error(`the paywall is not Maya's: ${JSON.stringify(wall)}`);
     }
     await snap(page, 'free-painting-paused');
