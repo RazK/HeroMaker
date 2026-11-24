@@ -75,7 +75,7 @@ function build() {
   const bot = $('<div style="position:absolute;left:0;top:320px;width:360px;height:320px;background:radial-gradient(circle at 50% 60%,#fff6d6,#e9e3ff 65%);overflow:hidden"></div>'); r.appendChild(bot)
   bot.appendChild($('<div style="position:absolute;left:50%;bottom:12px;width:150px;height:18px;margin-left:-75px;border-radius:50%;background:rgba(35,25,66,.25);filter:blur(5px)"></div>'))
   els.split.bot = $('<img style="position:absolute;left:50%;bottom:4px;height:316px;transform:translateX(-50%) scaleX(-1)">'); bot.appendChild(els.split.bot)
-  els.split.cap = $('<div class="cap" style="top:248px">She copies every move!</div>'); r.appendChild(els.split.cap)
+  els.split.cap = $('<div class="cap" style="top:252px">She copies every move!</div>'); r.appendChild(els.split.cap)
   // 6 family: Grandma on top, Mom under; faces only, no screen around them (no frame in a frame)
   r = b('family'); const g = $('<div class="g"><img style="object-position:50% 18%"><img style="object-position:50% 14%"></div>'); r.appendChild(g); els.family.rows = [...g.children]
   r.appendChild($('<div class="cap" style="top:auto;bottom:28px">The whole family, wow!</div>'))
@@ -116,12 +116,13 @@ window.__cut = {
       // Violet in the app's warm light (va_w, 16 fps); she drops in and settles
       const drop = 1 - ease(t / 0.45), bounce = t > 0.45 ? Math.sin((t - 0.45) * 14) * Math.exp(-(t - 0.45) * 6) * 10 : 0
       seq(els.land.v, 'valive', 16, t, 81, 'png')
-      Object.assign(els.land.v.style, { height: 548 + 'px', bottom: -6 + 'px', transform: `translateX(-50%) translateY(${-520 * drop + bounce}px)` })
+      // 530 px and 26 px left: her widest frame (arms out) spans x 25 to 335, inside the 24 px margins
+      Object.assign(els.land.v.style, { height: 530 + 'px', bottom: 0 + 'px', transform: `translateX(calc(-50% - 26px)) translateY(${-520 * drop + bounce}px)` })
       els.land.sh.style.transform = `scale(${0.5 + 0.5 * (1 - drop)})`
       fall(els.land.cf, t)
     }
     if (k === 'gasp') { seq(els.gasp.img, 'gasp', 24, t, 122, 'jpg', 0); fall(els.gasp.cf, t + 1.2) }
-    if (k === 'split') { seq(els.split.top, 'mwave', 24, t, 121); seq(els.split.bot, 'vwave', 24, t, 144) }
+    if (k === 'split') { seq(els.split.top, 'mwave', 24, t, 114); seq(els.split.bot, 'vwave', 24, t, 125, 'png') }
     if (k === 'family') {
       // the rows come in one after another: Grandma, the call, Mom
       const R = els.family.rows; seq(R[0], 'gmaface', 24, t, 122); seq(R[1], 'mom', 24, t, 122, 'jpg', 30)
