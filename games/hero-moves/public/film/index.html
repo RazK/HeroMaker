@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HeroMaker · Family film</title>
+<style>
+  :root { --cream: #fff6e9; --ink: #231942; }
+  html, body { margin: 0; min-height: 100dvh; background: var(--cream); color: var(--ink); }
+  body { display: grid; place-items: center; padding: 16px; box-sizing: border-box; }
+  video { width: min(100%, calc((100dvh - 32px) * 9 / 16)); aspect-ratio: 9 / 16; border-radius: 24px; background: #000; }
+</style>
+</head>
+<body>
+<!-- The family film (docs/content/scripts/family.md), 30 s, 9:16. The cast is AI-generated, never real. -->
+<video src="family-film.mp4" poster="poster.jpg" controls playsinline preload="metadata"></video>
+</body>
+</html>
