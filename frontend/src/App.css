@@ -30,7 +30,15 @@
   display: flex;
 }
 .tb-upload-preview img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
-.tb-new-hero-tip { padding: 0 4px 12px; }
+/* New hero: only its two buttons. 24px above them (on a phone, 16px under
+   the grip) and 24px below the lower one's depth. */
+.tb-sheet.tb-new-hero-sheet { padding-bottom: calc(24px + var(--tb-depth) + env(safe-area-inset-bottom, 0px)); }
+@media (orientation: landscape) and (max-height: 559px) {
+  .tb-sheet.tb-new-hero-sheet { padding-top: 24px; }
+}
+@media (min-width: 900px) and (min-height: 600px) {
+  .tb-scrim:not(.tb-scrim--center) > .tb-sheet.tb-new-hero-sheet { padding-block: 24px calc(24px + var(--tb-depth)); }
+}
 .post-upload-actions-bar { flex-shrink: 0; padding-top: 2px; }
 
 /* "Make this hero?" on a phone on its side: the drawing, the styles and two

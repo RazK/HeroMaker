@@ -895,8 +895,9 @@ function MainApp() {
       </div>
 
       {showNewHero && (
-        <Sheet title="New hero" onClose={() => setShowNewHero(false)}>
-          <div className="tb-muted tb-new-hero-tip">Whole character in frame · good light</div>
+        // Just the two ways in, no title or tip (Raz, 2026-11-24); the name
+        // stays for screen readers and the robot.
+        <Sheet label="New hero" className="tb-new-hero-sheet" onClose={() => setShowNewHero(false)}>
           <div className="tb-stack">
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => { setShowNewHero(false); setShowWebcamModal(true); }}>
               <Icon name="camera" />Take a photo
