@@ -14,6 +14,23 @@ One entry per 3-day sprint (`CADENCE.md`). Newest first. The PM writes it.
 
 ## Log
 
+## Day sprint — 2026-11-24
+
+- **Goal:** the first paid hero — payments live. Move 0 → 1.
+- **Delivered on staging (green, robot run 140):** money moment #1 — the "Bring
+  it to life" pay pop-up + the real money path (pop-up → TEST checkout → signed
+  webhook → the same hero resumes to 3D → receipt); the new camera; 4 UI polish
+  fixes (equal buttons, sticky = Make a hero, no "Heroes kids made" title,
+  stripped New hero sheet). Each shown to Raz as a video + staging link,
+  verified by the PM.
+- **Blocked on Raz only:** the 6 Grow go-live steps (real money on production).
+- **KPI:** 0 paid heroes this week — payments not yet live on production.
+- **Retro — keep:** show, don't tell (video + staging link, verified by the PM
+  before showing). **Change:** map a goal's hard dependencies INTO the sprint —
+  the pay pop-up was first mis-triaged to the backlog while "first paid hero"
+  was the goal, and Raz caught it. When setting a goal, list what it cannot
+  ship without and keep those in-sprint.
+
 ## Sprint 1 — 2026-11-23 (last 3-day sprint; cadence moved to one-day mid-day)
 
 - **Goal:** The sister's money path, proven on staging — first painting free → pay ₪10 to bring the hero to life (or ₪10/seat, min 10, for a class) → receipt. So the moment Raz finishes the real Grow setup, a teacher can pay for real.
