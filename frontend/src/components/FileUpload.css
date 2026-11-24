@@ -1,6 +1,6 @@
 /* The camera (FileUpload.tsx; docs/design/proposals/camera.md).
-   Phone: full screen. Desktop: the same screen as a 760 px card over the
-   dimmed app. */
+   Phone: full screen. Desktop: the same screen as a 760 px card on the
+   plain page colour. */
 
 .cam {
   position: fixed;
@@ -25,7 +25,9 @@
 }
 
 @media (min-width: 820px) and (min-height: 600px) {
-  .cam { background: rgba(35, 25, 66, 0.55); --cam-top: 96px; --cam-bottom: 150px; }
+  /* Opaque, as in the design: nothing of the screen underneath shows
+     round the card (a gallery button once showed through a 55% scrim). */
+  .cam { background: var(--tb-cream); --cam-top: 96px; --cam-bottom: 150px; }
   .cam-card {
     width: 760px;
     height: min(calc(100vh - 64px), 820px);
