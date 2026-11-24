@@ -17,7 +17,8 @@ does not go out.
 4. **No dead space.** No empty band at the top or bottom, no small picture in a
    big card, no gap that does not separate two things. (10, 26)
 5. **Least text.** Could a line go? Then it goes. Context first, then how, in
-   two lines at most. (24, 25)
+   two lines at most. No text for its own sake: a line that says what the
+   screen already shows, or fills space, fails. (24, 25, 53)
 
 
 Read this before any UI, UX or copy work, every time. These are the rules Raz has
@@ -203,6 +204,16 @@ they are for.
     front left above, a fill from the right, a gentle rim from behind; faces
     clearly lit, colours as the painting has them, no hard shadow. A hero that
     arrives lit from within (its texture as full emissive) is not drawn flat.
+
+## No text for its own sake (Raz, 2026-11-24)
+
+53. **Text only when it says something the screen does not already show.**
+    Never add a title, label or line to fill or balance an element and then
+    find words for it. If there is nothing to say, there is no text. Removed
+    for this reason: the landing's "Heroes kids made" title (the gallery says
+    it), the paywall's benefits line and "One payment. No subscription."
+    (nobody thought it was one), the New hero sheet's title and framing hint
+    (the camera already shows the hint).
 
 The full list, every review as a Do and a Don't: `DOS_AND_DONTS.md`.
 
