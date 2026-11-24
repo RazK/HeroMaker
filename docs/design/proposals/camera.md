@@ -13,7 +13,7 @@ One screen serves both "Make a hero" and the class's "Take a photo".
   drawing flat and fill the frame."
 - The close (×) is a 48 px white circle, top-left.
 - The bottom row is on one axis:
-  - "Choose a photo" (gallery icon) at the left
+  - "Photos" (gallery icon) at the left
   - the **shutter** in the middle: 84 px, white ring, grape centre
   - **Flip** (camera icon) at the right
 - No other chrome: no title, no bar.
@@ -25,14 +25,14 @@ One screen serves both "Make a hero" and the class's "Take a photo".
 - Retake (secondary), then **Use this photo** (primary, last). On a phone
   they are stacked; on a desktop they sit in one centred row.
 
-**Desktop:** the same screen as a centred card, 760 px wide, over the dimmed
-app. Flip is shown only when there are two cameras.
+**Desktop:** the same screen as a centred card, 760 px wide, on an opaque cream page
+(the app is hidden behind it, #363). Flip is shown only when there are two cameras.
 
 **Build notes (Liran):**
 - react-webcam with `facingMode: {ideal: 'environment'}`.
 - `mirrored` only for the front lens.
 - Crop to the guide's rectangle on capture.
-- "Choose a photo" opens the existing file input.
+- "Photos" opens the existing file input.
 
 ### Revised after Dana's gate review (2026-11-24)
 
