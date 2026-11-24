@@ -110,6 +110,8 @@ const sameList = (a: CreationResponse[], b: CreationResponse[]) =>
   a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
 
 interface GalleryProps {
+  /** The gallery's accessible name, where no heading shows it (the landing). */
+  label?: string;
   isAdmin: boolean;
   userId?: string;
   onSelect: (c: CreationResponse) => void;
@@ -133,7 +135,7 @@ interface GalleryProps {
  * A teacher's classes are the other place, My classes: the switch above the
  * screen picks it, and then it is shown here, without the chips.
  */
-export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: setFilter, section, classes }: GalleryProps) {
+export function Gallery({ label, isAdmin, userId, onSelect, filter, tabs, onFilter: setFilter, section, classes }: GalleryProps) {
   const isClasses = section === 'classes';
   const place: Place = isClasses ? 'classes' : filter;
   const key = listKey(filter, userId);
@@ -264,7 +266,7 @@ export function Gallery({ isAdmin, userId, onSelect, filter, tabs, onFilter: set
   }, [filter, tabs.length, isClasses]);
 
   return (
-    <div className="tb-gallery creation-gallery" ref={rootRef}>
+    <div className="tb-gallery creation-gallery" ref={rootRef} role={label ? 'region' : undefined} aria-label={label}>
       {tabs.length > 1 && !isClasses && (
         <div className="tb-gallery-chips" role="tablist" aria-label="Show" ref={chipsRef}>
           {tabs.map((t) => (
