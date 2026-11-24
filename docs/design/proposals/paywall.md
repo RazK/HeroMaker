@@ -99,3 +99,10 @@ No red, no "failed", no "credits" word.
 - The desktop dialog is 480 px, centred on the screen (measured).
 - This is still a mock-up on staging, not a built screen. Raz sees it as a
   labelled proposal. Dana measures the real build on staging.
+
+### Round 3, after Raz's notes (2026-11-24)
+
+- 24 px between the plan cards, so the Best value badge has room above the
+  Family card.
+- The three ticks are gone. Under the plans there is one line, "Dances in 3D
+  · Plays games · Goes to the family", in body ink-2, kept on one line.
