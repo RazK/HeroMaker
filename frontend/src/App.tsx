@@ -933,6 +933,11 @@ function MainApp() {
             handleUpload(file);
             setShowWebcamModal(false);
           }}
+          onChoose={(file) => {
+            track('photo_chosen');
+            handleUpload(file);
+            setShowWebcamModal(false);
+          }}
           disabled={isUploading}
           onClose={() => setShowWebcamModal(false)}
         />

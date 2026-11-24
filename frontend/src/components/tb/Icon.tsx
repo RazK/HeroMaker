@@ -29,6 +29,8 @@ const PATHS: Record<string, JSX.Element> = {
   grid: <><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>,
   trash: <><path d="M4 7h16" /><path d="M9 7V4.5h6V7" /><path d="M6.5 7l1 13h9l1-13" /></>,
   redo: <><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v5h5" /></>,
+  // Flip the camera: two arrows chasing round, so it never reads as a second shutter.
+  flip: <><path d="M20 11a8 8 0 0 0-14.3-4.9" /><path d="M5 3v3.5h3.5" /><path d="M4 13a8 8 0 0 0 14.3 4.9" /><path d="M19 21v-3.5h-3.5" /></>,
   pencil: <path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 013 3L8 19z" />,
   lock: <><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V8a4 4 0 018 0v2.5" /></>,
   scan: <><path d="M4 8V5a1 1 0 011-1h3" /><path d="M16 4h3a1 1 0 011 1v3" /><path d="M20 16v3a1 1 0 01-1 1h-3" /><path d="M8 20H5a1 1 0 01-1-1v-3" /><path d="M4 12h16" /></>,

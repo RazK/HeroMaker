@@ -17,6 +17,7 @@
     "qrcode-generator": "^1.4.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-webcam": "^7.2.0",
     "three": "^0.160.0"
   },
   "devDependencies": {
