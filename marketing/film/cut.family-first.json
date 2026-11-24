@@ -96,29 +96,17 @@
    "from": 26
   },
   {
-   "kind": "split",
+   "kind": "seq",
+   "dir": "assets/f5_split",
+   "ext": "jpg",
+   "n": 161,
+   "fps": 16,
+   "iw": 1080,
+   "ih": 1920,
+   "zoom": 1,
    "dur": 10.06,
    "caption": "It comes alive!",
-   "top": {
-    "dir": "assets/f5_vcol",
-    "ext": "png",
-    "n": 161,
-    "fps": 16,
-    "iw": 540,
-    "ih": 1248,
-    "column": true
-   },
-   "bottom": {
-    "dir": "assets/f5_maya",
-    "ext": "jpg",
-    "n": 161,
-    "fps": 16,
-    "from": 1,
-    "iw": 560,
-    "ih": 832,
-    "fy": 0.3
-   },
-   "layout": "side"
+   "note": "precomposed: Maya left (video), Violet right at 80% of her height, feet on one line"
   },
   {
    "kind": "seq",
