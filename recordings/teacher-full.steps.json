@@ -1,0 +1,56 @@
+{
+ "flow": "teacher-full (not happy: not enough seats)",
+ "files": [
+  "teacher-full-teacher.mp4",
+  "teacher-full-student.mp4"
+ ],
+ "note": "both videos start at the same moment (t=0): put them side by side or cut between them",
+ "speed": "real, never sped up",
+ "steps": [
+  {
+   "who": "teacher",
+   "step": "the class board: every seat has a hero (10 of 10)",
+   "at": 1.5
+  },
+  {
+   "who": "student",
+   "step": "an 11th student opens the class code",
+   "at": 4.4
+  },
+  {
+   "who": "student",
+   "step": "\"This class is full. Ask your teacher for a seat.\"",
+   "at": 5.2
+  },
+  {
+   "who": "teacher",
+   "step": "taps More (⋯): Add seats",
+   "at": 10.2
+  },
+  {
+   "who": "teacher",
+   "step": "taps Add seats",
+   "at": 11.8
+  },
+  {
+   "who": "teacher",
+   "step": "TEST checkout: ₪100 for 10 more seats",
+   "at": 13.9
+  },
+  {
+   "who": "teacher",
+   "step": "paid: back on the class, the seats arrive",
+   "at": 17.3
+  },
+  {
+   "who": "student",
+   "step": "a seat: the student goes on to \"What is your name?\" by themself",
+   "at": 21.1
+  },
+  {
+   "who": "end",
+   "step": "end",
+   "at": 27.1
+  }
+ ]
+}
