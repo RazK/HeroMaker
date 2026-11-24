@@ -1,0 +1,6 @@
+html,body{margin:0;width:360px;height:640px;overflow:hidden;font-family:Nunito;background:#fff6e9}
+.cap{position:absolute;left:50%;top:40px;transform:translateX(-50%);background:#fff6e9;color:#231942;font-family:Barriecito;font-size:30px;line-height:1;padding:10px 20px 12px;border-radius:999px;white-space:nowrap;box-shadow:0 4px 0 rgba(35,25,66,.15);z-index:9}
+.full{position:absolute;inset:0;background-size:cover;background-position:center}
+.spark{position:absolute;width:14px;height:14px;background:#ffc83d;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);filter:drop-shadow(0 0 6px #fff)}
+.conf{position:absolute;width:8px;height:14px;border-radius:2px}
+.no{position:absolute;bottom:8px;left:8px;font:800 11px Nunito;color:#fff;background:rgba(35,25,66,.6);padding:2px 8px;border-radius:999px;z-index:20}
