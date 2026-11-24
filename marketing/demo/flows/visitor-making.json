@@ -1,0 +1,24 @@
+{
+ "name": "visitor-making",
+ "note": "Recorded on staging · real speed",
+ "steps": [
+  {
+   "say": "A friend opens a shared link while the hero is still being made.",
+   "rec": "visitor-making.mp4",
+   "at": 7.4,
+   "dur": 4.0
+  },
+  {
+   "say": "The page says what's happening and how long is left.",
+   "rec": "visitor-making.mp4",
+   "at": 11.4,
+   "dur": 2.6
+  },
+  {
+   "say": "When it's ready, the hero comes alive.",
+   "rec": "visitor-making.mp4",
+   "at": 18.0,
+   "dur": 2.6
+  }
+ ]
+}
