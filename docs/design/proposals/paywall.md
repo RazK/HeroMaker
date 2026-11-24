@@ -87,3 +87,15 @@ recommended, then one CTA, then the fine print.
 running. Credits come from the webhook only, as now.
 
 No red, no "failed", no "credits" word.
+
+### Round 3, revised after Dana's gate review (2026-11-24)
+
+- No hero thumbnail in the sheet. The painting behind is the picture, so the
+  thumbnail duplicated it and nested a frame in a frame.
+- Behind the sheet: the PAINTING (this is the moment it exists). There is no
+  3D hero tile, because it does not exist yet. The name card, Share and Play
+  are hidden while the sheet is open.
+- The name appears once, in the heading.
+- The desktop dialog is 480 px, centred on the screen (measured).
+- This is still a mock-up on staging, not a built screen. Raz sees it as a
+  labelled proposal. Dana measures the real build on staging.
