@@ -5,10 +5,9 @@
 .tb-making, .tb-failed { display: flex; flex-direction: column; gap: 12px; }
 /* The paywall (Maya, 2026-11-23): "It's painted!" over one line, centred, each
    sentence on its own line; the line in the body face, ink-2. */
-.tb-paywall { gap: 4px; align-items: center; text-align: center; }
-.tb-paywall-title { margin: 0; }
+/* The paywall has no copy (rule 53): only its marker, so the stage grows. */
+.tb-making.tb-paywall { display: none; }
 .tb-bring-price { font-family: var(--tb-font-body); font-weight: 800; white-space: nowrap; }
-.tb-paywall-line { margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--tb-ink-2); }
 .tb-status-name--failed { color: var(--tb-red); }
 /* Failed: one short line under "<Step> failed" (app/services/step_errors.py
    keeps it to 12 words). The provider's raw text used to sit here, and on a
