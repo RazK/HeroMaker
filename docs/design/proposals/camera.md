@@ -33,3 +33,13 @@ app. Flip is shown only when there are two cameras.
 - `mirrored` only for the front lens.
 - Crop to the guide's rectangle on capture.
 - "Choose a photo" opens the existing file input.
+
+### Revised after Dana's gate review (2026-11-24)
+
+- **Review is one frame.** The capture crop snaps to the paper, not to the
+  guide box, so the polaroid hugs the drawing with no table margin inside it.
+  (Build: crop to the guide, then trim the outer band if it is not paper.)
+- **Labels.** The side buttons are labelled "Photos" and "Flip". Flip uses
+  the rotate-arrows icon, so it never reads as a second shutter.
+- **Hint pill:** exactly 16 px above the guide (measured: 16.0).
+- **Guide:** centred, with 43 px left and right at 390 px.
