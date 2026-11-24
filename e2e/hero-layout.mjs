@@ -222,9 +222,12 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
       return tile && tile.getBoundingClientRect().width > 0 ? 'tile' : false;
     }, i, { timeout: 20000 }).then((h) => h.jsonValue(), () => 'tile');
     if (ready === 'here') return true;
-    // Short, and not fatal: if the slide lands on the target between the wait
-    // and the click, the tile hides again; the check below says where we are.
-    await page.locator('.tb-chapter').nth(i).click({ timeout: 5000 }).catch(() => {});
+    // Not fatal: if the slide lands on the target between the wait and the
+    // click, the tile hides again; the check below says where we are. But
+    // patient (30 s, Playwright's default): a tile still moving is not yet
+    // clickable, and on CI's software GL that took over 5 s in run #126, so a
+    // 5 s click gave up on a tile that was fine.
+    await page.locator('.tb-chapter').nth(i).click({ timeout: 30000 }).catch(() => {});
     // 20 s, not 5: the robot draws the 3D hero and the toy without a GPU
     // (software GL on CI), where a slide change on the toy hero took over 5 s
     // in runs 89-91. What this checks is WHERE a chapter goes, not how fast a
@@ -240,7 +243,9 @@ export async function checkHeroLayout(page, { settle = 900 } = {}) {
     // A chapter goes straight to its own slide.
     if (!landed) got.problems.unshift(`the chapter "${slides[i]}" landed on "${got.slide}"`);
     out.push(got);
-    if (slides[i] === 'figure') {
+    // Take apart only on the toy's own slide: anywhere else its button sits
+    // under the hero's moves, and the tap would say nothing about the toy.
+    if (slides[i] === 'figure' && landed) {
       const apart = await toyApart(page);
       if (apart) out.push(apart);
     }
