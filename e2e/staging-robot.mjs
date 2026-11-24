@@ -506,6 +506,9 @@ let heroName = null;
 // after 'buy' has paid. When off, the robot runs as it always has.
 let freePainting = false;
 let freeHeroUrl = null;
+// The free hero paid for at its pay pop-up (grow_sandbox): it is ready, so
+// 'create' makes a second hero the ordinary way instead of resuming it.
+let paidAtPaywall = false;
 
 /** The two questions (the WhoFor board), over the first hero being made. */
 async function answerTwoQuestions(page) {
@@ -845,11 +848,40 @@ try {
     await snap(page, 'free-painting-paused');
     const balance = await creditsShown(page);
     if (balance !== 0) throw new Error(`balance after the free painting is ${balance}, want 0`);
+    // The money moment, as a parent does it: Bring it to life -> the pop-up ->
+    // One hero -> Continue to payment -> the TEST checkout -> Pay -> back on
+    // this hero, which goes on to 3D by itself once the webhook's credits are
+    // in. The browser never says a payment happened; the server's callback does.
+    let paid = '';
+    const provider = await paymentsProvider();
+    if (provider.name === 'grow_sandbox') {
+      const single = provider.packs.find((x) => x.slug === 'single');
+      if (!single) throw new Error(`no 'single' pack on sale: ${provider.packs.map((x) => x.slug).join(', ')}`);
+      const receiptsBefore = (await receipts()).length;
+      await page.locator('.tb-bring-to-life').click();
+      await pop.waitFor({ timeout: 10000 });
+      await pop.locator('.tb-plan[data-pack="single"]').click();
+      if (await pop.locator('.tb-plan[data-pack="single"]').getAttribute('aria-checked') !== 'true') throw new Error('One hero did not become the picked plan');
+      await pop.getByRole('button', { name: 'Continue to payment' }).click();
+      // No marks: the demo video's buy marks belong to the buy step.
+      await payOnSandbox(page, { amount: ilsDisplay(single.price_cents), marks: false });
+      const back = new URL(page.url());
+      if (back.pathname !== new URL(freeHeroUrl).pathname) throw new Error(`paid at the pop-up, came back to ${back.pathname}, not the hero (${new URL(freeHeroUrl).pathname})`);
+      // Paused until the credits are in; then the 3D runs with no tap.
+      await page.locator('.tb-making[data-paywall]').waitFor({ state: 'detached', timeout: 90000 });
+      await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
+      const after = await creditsShown(page);
+      const got = (await receipts()).length - receiptsBefore;
+      if (got !== 1) throw new Error(`paying One hero at the pop-up left ${got} receipts, want 1`);
+      if (after < 0 || after >= single.credits) throw new Error(`after paying ${single.credits} and the 3D, the balance is ${after}`);
+      paidAtPaywall = true;
+      paid = `; at the pop-up: One hero ${ilsDisplay(single.price_cents)} paid in the TEST checkout, back on the hero, it went on to 3D by itself and is ready (balance ${after}, 1 receipt)`;
+    }
     // Home again, as after any other step: the paused hero's own Buy credits
     // button would be a second match for the buy step's menu row.
     await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
     await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
-    return 'with 0 credits: Make my hero (no cost shown), the painting made free, paused before 3D (not_enough_credits), balance still 0';
+    return `with 0 credits: Make my hero (no cost shown), the painting made free, paused before 3D (not_enough_credits); the pay pop-up as approved${paid}`;
   });
 
   await step(page, 'buy', async () => {
@@ -882,7 +914,7 @@ try {
   });
 
   await step(page, 'create', async () => {
-    if (freeHeroUrl) {
+    if (freeHeroUrl && !paidAtPaywall) {
       // Paid now: the paused free hero goes on from 3D with its paywall
       // button, "Bring it to life · N credits" (Maya's design, #350).
       await page.goto(freeHeroUrl);
