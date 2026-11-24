@@ -67,7 +67,7 @@ function build() {
   // 3 land
   r = b('land', 'lil'); els.land.sh = $('<div style="position:absolute;left:50%;bottom:56px;width:180px;height:26px;margin-left:-90px;border-radius:50%;background:rgba(35,25,66,.22);filter:blur(6px)"></div>'); r.appendChild(els.land.sh)
   els.land.v = $('<img style="position:absolute;left:50%">'); r.appendChild(els.land.v)
-  els.land.cf = confetti(r, 46, 3); els.land.cap = $('<div class="cap">It comes alive!</div>'); r.appendChild(els.land.cap)
+  els.land.cf = confetti(r, 46, 3) // no caption: the voice says "It comes alive!" (Maya, e2a37a5)
   // 4 gasp (the peak): full frame, confetti carries over, no caption
   r = b('gasp'); els.gasp.img = $('<img class="cover" style="inset:0;width:360px;height:640px">'); r.appendChild(els.gasp.img); els.gasp.cf = confetti(r, 30, 5)
   // 5 split: Maya waves on top, Violet (staging Wave) under; each half full width
@@ -77,7 +77,7 @@ function build() {
   els.split.bot = $('<img style="position:absolute;left:50%;bottom:4px;height:316px;transform:translateX(-50%) scaleX(-1)">'); bot.appendChild(els.split.bot)
   els.split.cap = $('<div class="cap" style="top:248px">She copies every move!</div>'); r.appendChild(els.split.cap)
   // 6 family: Grandma on top, Mom under; faces only, no screen around them (no frame in a frame)
-  r = b('family'); const g = $('<div class="g"><img style="object-position:50% 40%"><img style="object-position:50% 14%"></div>'); r.appendChild(g); els.family.rows = [...g.children]
+  r = b('family'); const g = $('<div class="g"><img style="object-position:50% 18%"><img style="object-position:50% 14%"></div>'); r.appendChild(g); els.family.rows = [...g.children]
   r.appendChild($('<div class="cap" style="top:auto;bottom:28px">The whole family, wow!</div>'))
   // 7 end card (f7)
   r = b('end'); r.appendChild($(`<div class="e"><div class="logo" style="display:flex;align-items:center;justify-content:center;gap:8px;font:26px Barriecito;color:#231942"><img src="assets/app-icon.png" style="width:36px;height:36px;border-radius:9px">HeroMaker</div><div class="h">Your child’s drawing,<br>brought to life.</div><div class="row"><div><span class="pic"><span class="epol"><img src="assets/violet-drawing.webp"></span></span>You draw it.</div><div><span class="pic"><img src="assets/painted.png"></span>We paint it.</div><div><span class="pic"><img class="alive" style="position:absolute;left:50%;bottom:-14px;height:150px;max-height:none;max-width:none;transform:translateX(-50%)"></span>It comes alive!</div></div><div class="btn">Make a hero</div></div>`))
@@ -118,7 +118,7 @@ window.__cut = {
       seq(els.land.v, 'valive', 16, t, 81, 'png')
       Object.assign(els.land.v.style, { height: 548 + 'px', bottom: -6 + 'px', transform: `translateX(-50%) translateY(${-520 * drop + bounce}px)` })
       els.land.sh.style.transform = `scale(${0.5 + 0.5 * (1 - drop)})`
-      fall(els.land.cf, t); els.land.cap.style.opacity = ease((t - 0.3) / 0.3)
+      fall(els.land.cf, t)
     }
     if (k === 'gasp') { seq(els.gasp.img, 'gasp', 24, t, 122, 'jpg', 0); fall(els.gasp.cf, t + 1.2) }
     if (k === 'split') { seq(els.split.top, 'mwave', 24, t, 121); seq(els.split.bot, 'vwave', 24, t, 144) }
