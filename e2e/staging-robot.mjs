@@ -947,8 +947,15 @@ try {
     await page.locator('.tb-hero-screen').waitFor({ timeout: 60000 });
     mark('pipeline_start');
     // The two questions: over the first hero being made, once per browser,
-    // after it is paid for. Both are asked here (not a class).
-    await answerTwoQuestions(page);
+    // after it is paid for. Both are asked here (not a class) - unless the
+    // free hero, paid for at its pop-up, already asked them: then they must
+    // NOT come again (once per browser).
+    if (paidAtPaywall) {
+      const again = await page.getByRole('dialog', { name: 'Two quick questions' }).waitFor({ timeout: 8000 }).then(() => true).catch(() => false);
+      if (again) throw new Error('the two questions were asked again on the second hero');
+    } else {
+      await answerTwoQuestions(page);
+    }
     await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
     mark('pipeline_end');
     // The hero's name is on its name card, over the stage (the header is the site's).
