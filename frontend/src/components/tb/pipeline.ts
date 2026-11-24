@@ -47,7 +47,9 @@ export function stepViews(c: CreationResponse) {
     icon: STEP_UI[s.step_name]?.icon ?? 'box',
     state: s.status === 'completed' ? 'done' as const
       : s.status === 'processing' ? 'now' as const
-      : s.status === 'failed' ? 'failed' as const
+      // Out of credits is a paywall, not a failure: show the step as one still
+      // to come (its own icon), never a red cross.
+      : s.status === 'failed' ? (s.error_code === 'not_enough_credits' ? 'next' as const : 'failed' as const)
       : 'next' as const,
   }));
 }

@@ -7,6 +7,7 @@ import { flush, track } from '../../analytics';
 import { HeroLive } from './HeroLive';
 import { Icon } from './Icon';
 import { Dialog, Header, NavButton, ProgressBar, Sheet, SheetRow, Stepper, useFitScreen } from './parts';
+import { PaywallSheet, takeResumeAfterPurchase } from './PaywallSheet';
 import { STEP_UI, StepProgress, currentStep, etaText, failedLabel, failedLine, heroName, heroState, holdSteady, refundWords, remainingCost, stepProgress, stepViews } from './pipeline';
 import './HeroScreen.css';
 
@@ -100,6 +101,9 @@ export function HeroScreen(props: HeroScreenProps) {
   }, [state]);
 
   const step = currentStep(creation);
+  // Out of credits is a paywall, not a failure (the painting is done and good):
+  // the whole screen celebrates and asks for credits, never shows an error.
+  const paywall = state === 'failed' && step?.error_code === 'not_enough_credits';
   const now = Date.now();
   const measured = stepProgress(step, now);
   const stepKey = `${step?.step_name}:${step?.started_at}`;
@@ -209,6 +213,22 @@ export function HeroScreen(props: HeroScreenProps) {
   const retryCost = remainingCost(creation);
   const short = creditBalance !== undefined && retryCost > creditBalance;
 
+  // The pay pop-up (PaywallSheet): it opens by itself when the hero pauses for
+  // payment and its owner cannot pay, and again from Bring it to life.
+  const payable = paywall && owns && !supporting;
+  const [paying, setPaying] = useState(false);
+  const askedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (payable && short && askedFor.current !== creation.id) { askedFor.current = creation.id; setPaying(true); }
+    if (!payable) setPaying(false);
+  }, [payable, short, creation.id]);
+  // Back from paying at this hero's pop-up: once the webhook's credits are in,
+  // it goes on from 3D by itself. Once only (the marker is taken), so a slow
+  // balance never runs it twice.
+  useEffect(() => {
+    if (payable && !short && !busy && takeResumeAfterPurchase(creation.id)) tryAgain();
+  }, [payable, short, busy, creation.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const ready = state === 'ready';
   const canShare = ready || painted;
   // The sheet behind ⋯ : the owner's (and an admin's) rows. Ready, Share is
@@ -300,21 +320,29 @@ export function HeroScreen(props: HeroScreenProps) {
     bar = <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>{backLabel}</button>;
   } else {
     const failed = state === 'failed';
-    const label = failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
+    const label = paywall ? `Bring ${heroName(creation)} to life` : failed ? failedLabel(step) : step ? STEP_UI[step.step_name]?.label ?? step.step_name : 'Waiting to start';
     const eta = progress ? etaText(progress.endsAt, now) : '';
-    info = (
-      <div className={failed ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed ? step?.error_code ?? 'unknown' : undefined}>
+    info = paywall && !supporting ? (
+      // The paywall (Maya's design, 2026-11-23): the painting is done and good,
+      // so the page celebrates it. Two sentences, each on its own line. No
+      // stepper, no red, no cross, no "failed"; the hero's name is on its card.
+      <div className="tb-making tb-paywall" data-step={step?.step_name} data-step-index={stepIndex} data-paywall>
+        <h2 className="tb-h2 tb-paywall-title">It’s painted!</h2>
+        <p className="tb-paywall-line" role="status">Next, it comes alive in 3D.</p>
+      </div>
+    ) : (
+      <div className={failed && !paywall ? 'tb-failed' : 'tb-making'} data-step={step?.step_name} data-step-index={stepIndex} data-error={failed && !paywall ? step?.error_code ?? 'unknown' : undefined} data-paywall={paywall || undefined}>
         <Stepper steps={stepViews(creation)} />
         <div className="tb-status">
-          <div className={`tb-status-name${failed ? ' tb-status-name--failed' : ''}`}>{label}</div>
-          {failed
+          <div className={`tb-status-name${failed && !paywall ? ' tb-status-name--failed' : ''}`}>{label}</div>
+          {failed && !paywall
             // The raw provider error is an admin's, behind Details; never on the page.
             ? isAdmin && step?.error_detail && <button type="button" className="tb-chip tb-error-details" onClick={() => setSheet('details')}>Details</button>
             : <div className="tb-status-eta">{eta}</div>}
         </div>
         {failed && (supporting
           ? <SupportFacts creation={creation} step={step} />
-          : <div className="tb-failed-line" role="status">{failedLine(step)}</div>)}
+          : <div className="tb-failed-line" role="status">{paywall ? `${heroName(creation)} is painted and ready. Bring it to life in 3D.` : failedLine(step)}</div>)}
         {!failed && (
           // Keyed by the step's run, so a new step starts its bar from empty
           // instead of sliding backwards from the last one.
@@ -342,7 +370,21 @@ export function HeroScreen(props: HeroScreenProps) {
         <span className="tb-btn-trail"><Icon name="coin" size={18} />{retryCost} credits</span>
       </button>
     );
-    bar = failed && supporting ? (
+    // The paywall's one way on. Short of credits it opens the pay pop-up
+    // (PaywallSheet: plans, no "credits"); with enough, the same button runs
+    // the rest of the hero, its price after the words (rule 27).
+    const bring = (
+      <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-bring-to-life" disabled={busy}
+        onClick={short ? () => setPaying(true) : tryAgain}>
+        <Icon name="dance" />Bring it to life{!short && <span className="tb-bring-price">· {retryCost} credits</span>}
+      </button>
+    );
+    bar = paywall && owns && !supporting ? (
+      <>
+        <button type="button" className="tb-btn tb-btn--secondary tb-btn--full" onClick={props.onBack}>Back to my heroes</button>
+        {bring}
+      </>
+    ) : failed && supporting ? (
       // Support: the facts are above; the per-step tools are one tap away.
       <>
         <button type="button" className="tb-btn tb-btn--secondary tb-btn--full tb-every-step" onClick={props.onShowSteps}><Icon name="grid" />Every step</button>
@@ -374,7 +416,7 @@ export function HeroScreen(props: HeroScreenProps) {
   }
 
   return (
-    <div className="tb-screen tb-screen--fit tb-hero-screen tb-hero-main" data-state={state} data-foot={ready ? 'row' : 'stack'}>
+    <div className={`tb-screen tb-screen--fit tb-hero-screen tb-hero-main${paying ? ' tb-hero-screen--paying' : ''}`} data-state={state} data-foot={ready ? 'row' : 'stack'}>
       {header}
       {/* One element in every state, so the carousel built while the hero is
           made is the one it lives on when ready. */}
@@ -389,12 +431,17 @@ export function HeroScreen(props: HeroScreenProps) {
           step: step?.step_name,
           pct: progress?.pct ?? 0,
           failed: state === 'failed',
+          paywall,
           failedLabel: failedLabel(step),
           idle: state === 'idle',
           info,
         }}
         page={{ foot: bar, more, onName: owns ? () => setSheet('rename') : undefined }}
       />
+
+      {paying && payable && (
+        <PaywallSheet heroName={heroName(creation)} creationId={creation.id} credits={creditBalance} onClose={() => setPaying(false)} />
+      )}
 
       {sheet === 'more' && (
         <Sheet title={name} onClose={() => setSheet(null)}>

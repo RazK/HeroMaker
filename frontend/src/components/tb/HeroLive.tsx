@@ -42,6 +42,8 @@ export interface Making {
   step?: string;
   pct: number;
   failed: boolean;
+  /** Out of credits is a paywall, not a failure: the slide celebrates, no cross. */
+  paywall?: boolean;
   /** "Sculpting failed": the failed step's name, for its slide. */
   failedLabel?: string;
   idle?: boolean;
@@ -139,7 +141,9 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
   if (painted) slides.push({ key: 'painting', state: 'ready' });
   else if (making && !making.idle) slides.push({ key: 'painting', state: coming });
   if (live) slides.push({ key: 'hero', state: 'ready' });
-  else if (painted && !making.idle) slides.push({ key: 'hero', state: coming });
+  // Paused for credits (the paywall): there is no 3D yet and none is being
+  // made, so the painting is the last slide and the stage shows it, proud.
+  else if (painted && !making.idle && !making.paywall) slides.push({ key: 'hero', state: coming });
   if (live && figure) slides.push({ key: 'figure', state: 'ready' });
   const frontier = slides.find((s) => s.state !== 'ready') ?? slides[slides.length - 1];
 
@@ -186,7 +190,13 @@ export function HeroLive({ creation, making, notice, moves = MOVES.map((m) => m.
     before.current = sig;
     const born = slides.find((s) => s.state === 'ready' && was[s.key] && was[s.key] !== 'ready');
     if (born && follow.current) setAt(born.key);
-    // A slide that went away (it never does today): back to the part in the making.
+    // A part that starts being made after a pause (paid at the paywall, the
+    // 3D begins) with nothing just born: the stage goes to it. When a part is
+    // born and the next appears with it, the new part stays the one shown.
+    const started = slides.find((s) => s.state === 'pending' && !was[s.key]);
+    if (started && !born) setAt(started.key);
+    // A slide that went away (the 3D one, when the hero pauses at the paywall):
+    // back to the last part there is.
     if (!slides.some((s) => s.key === at)) setAt(frontier.key);
   }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
 

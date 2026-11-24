@@ -506,6 +506,9 @@ let heroName = null;
 // after 'buy' has paid. When off, the robot runs as it always has.
 let freePainting = false;
 let freeHeroUrl = null;
+// The free hero paid for at its pay pop-up (grow_sandbox): it is ready, so
+// 'create' makes a second hero the ordinary way instead of resuming it.
+let paidAtPaywall = false;
 
 /** The two questions (the WhoFor board), over the first hero being made. */
 async function answerTwoQuestions(page) {
@@ -535,6 +538,15 @@ async function waitForHero(page, done, { pauseAt = null, pauseCode = null } = {}
   let lastLine = '';
   while (Date.now() < deadline) {
     if (done && await done.isVisible().catch(() => false)) return 'done';
+    // Out of credits is a paywall, not a failure: the hero screen shows it as
+    // tb-making[data-paywall] (no red, no cross), not tb-failed.
+    const paused = page.locator('.tb-making[data-paywall]');
+    if (await paused.count()) {
+      const name = await paused.getAttribute('data-step').catch(() => '?');
+      if (pauseAt && name === pauseAt && pauseCode === 'not_enough_credits') return 'paused';
+      const label = await paused.locator('.tb-status-name').innerText().catch(() => '?');
+      throw new Error(`hero paused for credits at "${name}" (${label}), not the expected ${pauseAt}/${pauseCode}`);
+    }
     const failed = page.locator('.tb-failed');
     if (await failed.count()) {
       const name = await failed.getAttribute('data-step').catch(() => '?');
@@ -802,14 +814,74 @@ try {
     // The painting is made for free, then the hero waits for payment before 3D.
     const how = await waitForHero(page, null, { pauseAt: 'meshy_3d', pauseCode: 'not_enough_credits' });
     if (how !== 'paused') throw new Error('the free hero did not pause before 3D');
+    // The pay pop-up opens by itself (paywall.md round 4, approved by Raz
+    // 2026-11-24): "Bring <name> to life!", the plans from /packs with Best
+    // value picked, Continue to payment, and nothing else - never "credits".
+    const pop = page.getByRole('dialog', { name: /^Bring .+ to life!$/ });
+    await pop.waitFor({ timeout: 20000 });
+    await pop.locator('.tb-plan').first().waitFor({ timeout: 20000 });
+    const payPop = await pop.evaluate((d) => ({
+      plans: [...d.querySelectorAll('.tb-plan')].map((p) => `${p.dataset.pack}${p.getAttribute('aria-checked') === 'true' ? '*' : ''}`),
+      badge: d.querySelector('.tb-plan--on .tb-plan-badge')?.textContent?.trim(),
+      go: d.querySelector('.tb-paywall-go')?.textContent?.trim(),
+      creditsWord: /credit/i.test(d.innerText),
+      behind: [...document.querySelectorAll('.tb-live-name, .tb-hero-foot')].filter((e) => getComputedStyle(e).visibility !== 'hidden' && e.getBoundingClientRect().height > 0).length,
+    }));
+    if (payPop.plans.join(',') !== 'single,family*' || !/best value/i.test(payPop.badge || '') || payPop.go !== 'Continue to payment' || payPop.creditsWord || payPop.behind) {
+      throw new Error(`the pay pop-up is not the approved one: ${JSON.stringify(payPop)}`);
+    }
+    await snap(page, 'paywall-sheet');
+    await pop.getByRole('button', { name: 'Close' }).click();
+    await pop.waitFor({ state: 'detached', timeout: 5000 });
+    // Closed, the page under it: the paywall is not a failure. The painting,
+    // proud: no red, no cross, no "failed"; "It's painted!" and the way on.
+    const wall = await page.evaluate(() => ({
+      title: document.querySelector('.tb-paywall-title')?.textContent?.trim(),
+      failedWord: /fail/i.test(document.querySelector('.tb-hero-screen')?.innerText || ''),
+      cross: document.querySelectorAll('.tb-failed, .tb-status-name--failed, .tb-step-dot--failed, .tb-slide-failed-mark').length,
+      slide: document.querySelector('.tb-live-stage')?.getAttribute('data-slide'),
+      bring: [...document.querySelectorAll('.tb-bring-to-life')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
+    }));
+    if (wall.title !== 'It’s painted!' || wall.failedWord || wall.cross || wall.slide !== 'painting' || wall.bring[0] !== 'Bring it to life') {
+      throw new Error(`the paywall is not Maya's: ${JSON.stringify(wall)}`);
+    }
     await snap(page, 'free-painting-paused');
     const balance = await creditsShown(page);
     if (balance !== 0) throw new Error(`balance after the free painting is ${balance}, want 0`);
+    // The money moment, as a parent does it: Bring it to life -> the pop-up ->
+    // One hero -> Continue to payment -> the TEST checkout -> Pay -> back on
+    // this hero, which goes on to 3D by itself once the webhook's credits are
+    // in. The browser never says a payment happened; the server's callback does.
+    let paid = '';
+    const provider = await paymentsProvider();
+    if (provider.name === 'grow_sandbox') {
+      const single = provider.packs.find((x) => x.slug === 'single');
+      if (!single) throw new Error(`no 'single' pack on sale: ${provider.packs.map((x) => x.slug).join(', ')}`);
+      const receiptsBefore = (await receipts()).length;
+      await page.locator('.tb-bring-to-life').click();
+      await pop.waitFor({ timeout: 10000 });
+      await pop.locator('.tb-plan[data-pack="single"]').click();
+      if (await pop.locator('.tb-plan[data-pack="single"]').getAttribute('aria-checked') !== 'true') throw new Error('One hero did not become the picked plan');
+      await pop.getByRole('button', { name: 'Continue to payment' }).click();
+      // No marks: the demo video's buy marks belong to the buy step.
+      await payOnSandbox(page, { amount: ilsDisplay(single.price_cents), marks: false });
+      const back = new URL(page.url());
+      if (back.pathname !== new URL(freeHeroUrl).pathname) throw new Error(`paid at the pop-up, came back to ${back.pathname}, not the hero (${new URL(freeHeroUrl).pathname})`);
+      // Paused until the credits are in; then the 3D runs with no tap.
+      await page.locator('.tb-making[data-paywall]').waitFor({ state: 'detached', timeout: 90000 });
+      await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
+      const after = await creditsShown(page);
+      const got = (await receipts()).length - receiptsBefore;
+      if (got !== 1) throw new Error(`paying One hero at the pop-up left ${got} receipts, want 1`);
+      if (after < 0 || after >= single.credits) throw new Error(`after paying ${single.credits} and the 3D, the balance is ${after}`);
+      paidAtPaywall = true;
+      paid = `; at the pop-up: One hero ${ilsDisplay(single.price_cents)} paid in the TEST checkout, back on the hero, it went on to 3D by itself and is ready (balance ${after}, 1 receipt)`;
+    }
     // Home again, as after any other step: the paused hero's own Buy credits
     // button would be a second match for the buy step's menu row.
     await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
     await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
-    return 'with 0 credits: Make my hero (no cost shown), the painting made free, paused before 3D (not_enough_credits), balance still 0';
+    return `with 0 credits: Make my hero (no cost shown), the painting made free, paused before 3D (not_enough_credits); the pay pop-up as approved${paid}`;
   });
 
   await step(page, 'buy', async () => {
@@ -842,15 +914,16 @@ try {
   });
 
   await step(page, 'create', async () => {
-    if (freeHeroUrl) {
-      // Paid now: the paused free hero goes on from 3D with Try again.
+    if (freeHeroUrl && !paidAtPaywall) {
+      // Paid now: the paused free hero goes on from 3D with its paywall
+      // button, "Bring it to life · N credits" (Maya's design, #350).
       await page.goto(freeHeroUrl);
-      const again = page.getByRole('button', { name: /Try again/ });
+      const again = page.getByRole('button', { name: /Bring it to life/ });
       await again.waitFor({ timeout: 30000 });
       await again.click();
       // The pause stays on screen until the retry is picked up; only then
       // does a failed stage mean anything.
-      await page.locator('.tb-failed').waitFor({ state: 'detached', timeout: 60000 });
+      await page.locator('.tb-making[data-paywall], .tb-failed').waitFor({ state: 'detached', timeout: 60000 });
       await waitForHero(page, page.locator('.tb-hero-screen[data-state="ready"]'));
       mark('pipeline_end');
       heroName = await page.locator('.tb-live-stage .tb-live-name .tb-tile-name').first().innerText().catch(() => null);

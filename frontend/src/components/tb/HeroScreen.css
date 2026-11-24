@@ -3,6 +3,12 @@
 .tb-hero-screen .tb-hero-stage { background: var(--tb-plate-1); }
 .tb-hero-faded { filter: grayscale(0.6); opacity: 0.5; }
 .tb-making, .tb-failed { display: flex; flex-direction: column; gap: 12px; }
+/* The paywall (Maya, 2026-11-23): "It's painted!" over one line, centred, each
+   sentence on its own line; the line in the body face, ink-2. */
+.tb-paywall { gap: 4px; align-items: center; text-align: center; }
+.tb-paywall-title { margin: 0; }
+.tb-bring-price { font-family: var(--tb-font-body); font-weight: 800; white-space: nowrap; }
+.tb-paywall-line { margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--tb-ink-2); }
 .tb-status-name--failed { color: var(--tb-red); }
 /* Failed: one short line under "<Step> failed" (app/services/step_errors.py
    keeps it to 12 words). The provider's raw text used to sit here, and on a
@@ -449,3 +455,8 @@
   .tb-hero-main[data-state='ready'] .tb-chapters { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
   .tb-hero-main[data-state='ready'] .tb-chapters > :nth-child(3) { grid-column: auto; }
 }
+/* While the pay pop-up is open, the painting alone is behind it: no name
+   card, no copy, no buttons (paywall.md, round 3 revised). */
+.tb-hero-screen--paying .tb-live-name,
+.tb-hero-screen--paying .tb-paywall,
+.tb-hero-screen--paying .tb-hero-foot { visibility: hidden; }
