@@ -150,7 +150,7 @@ function MainApp() {
   const [userInfo, setUserInfo] = useState<{ id: string; is_admin: boolean; is_teacher: boolean } | null>(null);
   const [galleryKey, setGalleryKey] = useState(0);
   // Signed out: whether the landing's own Run a class / Make a hero are on screen
-  // (then the bar is empty; scrolled past them, they are in the bar).
+  // (then the bar is empty; scrolled past them, Make a hero is in the bar).
   const [landingActsShown, setLandingActsShown] = useState(false);
   const renderStyles = useRenderStyles();
   const [renderStyle, setRenderStyle] = useState<string>(DEFAULT_STYLE);
@@ -837,6 +837,7 @@ function MainApp() {
           )}
           <Gallery
             key={galleryKey}
+            label={!isLoggedIn ? 'Heroes kids made' : undefined}
             filter={shownTab}
             tabs={tabs}
             onFilter={setTab}
@@ -860,15 +861,11 @@ function MainApp() {
             </button>
           ) : !isLoggedIn ? (
             // Signed out, the landing's own two buttons stand above the
-            // gallery; scrolled past them, the same two are here.
-            <div className="tb-bar-row">
-              <button type="button" className="tb-btn tb-btn--secondary tb-run-class" onClick={runClass}>
-                <Icon name="school" />Run a class
-              </button>
-              <button type="button" className="tb-btn tb-btn--primary tb-new-hero" disabled={isUploading} onClick={startNewHero}>
-                <Icon name="camera" />{isUploading ? 'Uploading…' : 'Make a hero'}
-              </button>
-            </div>
+            // gallery; scrolled past them, Make a hero alone is here, as
+            // when signed in. Run a class stays on the landing (Raz, 2026-11-24).
+            <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-new-hero" disabled={isUploading} onClick={startNewHero}>
+              <Icon name="camera" />{isUploading ? 'Uploading…' : 'Make a hero'}
+            </button>
           ) : (
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full tb-new-hero" disabled={isUploading} onClick={startNewHero}>
               <Icon name="camera" />{isUploading ? 'Uploading…' : 'Make a hero'}
@@ -898,8 +895,9 @@ function MainApp() {
       </div>
 
       {showNewHero && (
-        <Sheet title="New hero" onClose={() => setShowNewHero(false)}>
-          <div className="tb-muted tb-new-hero-tip">Whole character in frame · good light</div>
+        // Just the two ways in, no title or tip (Raz, 2026-11-24); the name
+        // stays for screen readers and the robot.
+        <Sheet label="New hero" className="tb-new-hero-sheet" onClose={() => setShowNewHero(false)}>
           <div className="tb-stack">
             <button type="button" className="tb-btn tb-btn--primary tb-btn--full" onClick={() => { setShowNewHero(false); setShowWebcamModal(true); }}>
               <Icon name="camera" />Take a photo

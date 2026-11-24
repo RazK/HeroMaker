@@ -1,7 +1,9 @@
 /* The landing above the gallery (Landing.tsx). Designed on the canvas,
    boards Landing (phone) and LandingDesk (desktop), approved 2026-11-22. */
 
-.tb-landing { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; flex-shrink: 0; }
+/* 8px under it plus the screen's 16px gap: the buttons stand 24px above the
+   first hero (Raz, 2026-11-24), at every size. */
+.tb-landing { display: flex; flex-direction: column; gap: 14px; padding: 8px 0; flex-shrink: 0; }
 
 /* Phone: the headline is read by screen readers only; the same sentences
    stand under their pictures (.tb-landing-cap). */
@@ -53,13 +55,21 @@
 .tb-landing-cap--3 { grid-column: 5; justify-self: end; }
 
 .tb-landing-acts--side { display: none; }
-.tb-landing-acts--below { margin-top: 6px; }
+.tb-landing-acts--below { margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-.tb-landing-gallery { margin: 8px 0 0; font-family: var(--tb-font-display); font-weight: 400; font-size: 24px; text-align: center; color: var(--tb-ink); }
+/* Run a class: Make a hero's shape exactly (no border, grape depth, the same
+   press); only the fill differs, white with grape words (Raz, 2026-11-24).
+   Here only, so the app's other secondary buttons keep theirs. */
+.tb-landing .tb-landing-class {
+  background: var(--tb-white);
+  color: var(--tb-grape);
+  box-shadow: 0 var(--tb-depth) 0 var(--tb-grape-deep);
+}
+.tb-landing .tb-landing-class:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 var(--tb-grape-deep); }
 
 /* Desktop: the headline and Make a hero on the left, the pictures on the right. */
 @media (min-width: 900px) and (min-height: 600px) {
-  .tb-landing { flex-direction: row; align-items: center; gap: 32px; padding: 8px 0 16px; }
+  .tb-landing { flex-direction: row; align-items: center; gap: 32px; padding: 8px 0; }
   .tb-landing-text { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; flex: 0 0 400px; display: flex; flex-direction: column; align-items: flex-start; gap: 32px; }
   .tb-landing-title { font-size: 60px; line-height: 1.06; }
   .tb-landing-title span { display: block; }
@@ -68,10 +78,9 @@
   .tb-landing-artist { font-size: 20px; padding: 10px 0 12px; }
   .tb-landing-paper { padding: 8px 8px 0; }
   .tb-landing-pic--painted img { border-radius: 24px; }
-  .tb-landing-acts--side { display: flex; }
+  .tb-landing-acts--side { display: flex; flex-direction: column; gap: 16px; }
   .tb-landing-acts--side .tb-btn { width: 260px; }
   .tb-landing-acts--below { display: none; }
-  .tb-landing-gallery { font-size: 32px; text-align: start; margin-top: 0; }
 }
 
 /* A phone on its side: the desktop's layout, scaled to the screen (Raz,
@@ -81,12 +90,11 @@
   .tb-landing-text { position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; flex: 0 0 31%; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
   .tb-landing-title { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.06; }
   .tb-landing-title span { display: block; }
-  .tb-landing-acts--side { display: flex; }
-  .tb-landing-acts--side .tb-btn { height: var(--tb-btn-sm-h); font-size: 17px; padding: 0 20px; }
+  .tb-landing-acts--side { display: flex; flex-direction: column; gap: 16px; }
+  .tb-landing-acts--side .tb-btn { width: 260px; height: var(--tb-btn-sm-h); font-size: 17px; padding: 0 20px; }
   .tb-landing-story { flex: 1 1 auto; min-width: 0; grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr) 32px minmax(0, 1fr); column-gap: 12px; }
   .tb-landing-cap { display: none; }
   .tb-landing-acts--below { display: none; }
-  .tb-landing-gallery { text-align: start; margin-top: 0; }
   .tb-screen--app > .tb-bar .tb-btn { height: var(--tb-btn-sm-h); font-size: 17px; padding: 0 16px; }
   .tb-screen--app > .tb-bar .tb-bar-row,
   .tb-screen--app > .tb-bar > .tb-btn { width: min(100%, 440px); align-self: center; }

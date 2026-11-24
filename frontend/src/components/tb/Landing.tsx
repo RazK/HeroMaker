@@ -8,12 +8,16 @@ import './Landing.css';
  * her, and alive in 3D, with a wavy arrow between each. Then the two ways in,
  * Run a class and Make a hero, right above the gallery.
  *
+ * The two buttons have one shape (same size, depth and press); only the fill
+ * differs: Make a hero grape, Run a class white with grape words (Raz,
+ * 2026-11-24). No heading over the gallery: the heroes speak for themselves.
+ *
  * Phone: the pictures in one row, each sentence under its own picture, then
- * the two buttons. Desktop: the headline (one sentence per line) and Make a
- * hero on the left, the pictures on the right.
+ * the two buttons side by side. Desktop: the headline (one sentence per
+ * line) and the two buttons, stacked, on the left; the pictures on the right.
  *
  * While these buttons are on screen the bar below is empty; scrolled past
- * them, they are in the bar (App, `onButtonsShown`).
+ * them, the bar holds Make a hero alone (App, `onButtonsShown`).
  */
 const LINES = ['You draw it.', 'We paint it.', 'It comes alive!'] as const;
 
@@ -43,13 +47,15 @@ export function Landing({ onMakeHero, onRunClass, busy, onButtonsShown }: Landin
   }, [onButtonsShown]);
 
   return (
-    <>
     <section className="tb-landing" aria-label="What HeroMaker does">
       <div className="tb-landing-text">
         <h1 className="tb-landing-title">{LINES.map((l) => <span key={l}>{l} </span>)}</h1>
         <div className="tb-landing-acts tb-landing-acts--side" ref={sideRef}>
           <button type="button" className="tb-btn tb-btn--primary tb-landing-make" disabled={busy} onClick={onMakeHero}>
             <Icon name="camera" />Make a hero
+          </button>
+          <button type="button" className="tb-btn tb-landing-class" onClick={onRunClass}>
+            <Icon name="school" />Run a class
           </button>
         </div>
       </div>
@@ -72,7 +78,7 @@ export function Landing({ onMakeHero, onRunClass, busy, onButtonsShown }: Landin
         {LINES.map((l, i) => <p key={l} className={`tb-landing-cap tb-landing-cap--${i + 1}`} aria-hidden="true">{l}</p>)}
       </div>
       <div className="tb-landing-acts tb-landing-acts--below tb-bar-row" ref={belowRef}>
-        <button type="button" className="tb-btn tb-btn--secondary tb-landing-class" onClick={onRunClass}>
+        <button type="button" className="tb-btn tb-landing-class" onClick={onRunClass}>
           <Icon name="school" />Run a class
         </button>
         <button type="button" className="tb-btn tb-btn--primary tb-landing-make" disabled={busy} onClick={onMakeHero}>
@@ -80,8 +86,6 @@ export function Landing({ onMakeHero, onRunClass, busy, onButtonsShown }: Landin
         </button>
       </div>
     </section>
-    <h2 className="tb-landing-gallery">Heroes kids made</h2>
-    </>
   );
 }
 
