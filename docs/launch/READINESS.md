@@ -3,6 +3,13 @@
 Audit of 2026-11-19, before the first paid marketing campaign. Production was
 v2.0.85 (deployed 2026-11-02); the fixes below reached staging as v2.0.115.
 
+**Status 2026-11-25 (night):** staging v2.0.248 · 1968462 is green on the
+staging robot, money steps included ([run 140](https://github.com/RazK/HeroMaker/actions/runs/45398449540)):
+free painting → the pay pop-up → TEST checkout → back to the same hero, which
+goes on to 3D by itself → receipt; every pack, a Fail, and class seats.
+Production is still v2.0.85 and lists no packs. The moment gates 1 and 2 close,
+the remaining work is gate 3 (about a day) and Raz's yeses for gates 5–7.
+
 **Verdict (2026-11-24): not live, and the code is not what blocks it.** The
 whole purchase path runs on staging in shekels through our own test mode, and
 the robot proves it on every deploy. What stands between us and real money is
