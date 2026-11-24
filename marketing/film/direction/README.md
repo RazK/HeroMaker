@@ -9,9 +9,12 @@ shows the 7 beats; each `fN.html` is one 360x640 frame (`node shot.js .` renders
 | 2 | The painting rises out of the page | The magic beat: drawing → hero in one move, warm light rays. |
 | 3 | Violet lands, confetti, "It comes alive!" | Hero fills the frame. One caption. |
 | 4 | Maya's gasp | The emotional peak. Full frame, no caption. |
-| 5 | The split: Maya waves, Violet waves | Top half / bottom half, each full width, 320 px each. No dead space. Tom: use the real staging wave, same move both halves. |
-| 6 | The family: Grandma, Maya's call, Mom | Three stacked full-width rows, Grandma on top. Caption "The whole family, wow!" |
+| 5 | The split: Maya waves, Violet waves | Top half / bottom half, 320 px each, full width. Caption inside the top half. Tom: the real staging wave, the same move in both halves. |
+| 6 | The family: Grandma, Mom | Two full-width rows, Grandma on top. Faces only: no laptop, phone or screen around them (no frame in a frame). Caption "The whole family, wow!" |
 | 7 | End card: the value | Logo, "Your child's drawing, brought to life.", three steps (128 px picture column, text at x 172), full-width "Make a hero" 24 px from the edges and bottom. |
 
 Gate before the PM: frame by frame, the 7 points in `docs/design/PRINCIPLES.md`.
 App screens only from real staging recordings.
+
+The hero cut-outs in f3, f5 and f7 are low-res placeholders. The cut uses the real rendered hero.
+The "N ·" labels at the bottom left are storyboard markers only. They are not in the cut.
