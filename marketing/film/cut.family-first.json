@@ -15,7 +15,8 @@
     0.5,
     0.5
    ],
-   "dur": 3.0
+   "dur": 2.4,
+   "from": 0
   },
   {
    "kind": "seq",
@@ -30,7 +31,8 @@
     0.5,
     0.5
    ],
-   "dur": 3.0
+   "dur": 2.4,
+   "from": 8
   },
   {
    "kind": "seq",
@@ -45,8 +47,9 @@
     0.5,
     0.55
    ],
-   "dur": 3.2,
-   "caption": "You draw it."
+   "dur": 2.4,
+   "caption": "You draw it.",
+   "from": 0
   },
   {
    "kind": "seq",
@@ -61,7 +64,8 @@
     0.5,
     0.5
    ],
-   "dur": 3.0
+   "dur": 2.4,
+   "from": 16
   },
   {
    "kind": "seq",
@@ -72,7 +76,7 @@
    "iw": 1080,
    "ih": 1920,
    "zoom": 1,
-   "dur": 4.2,
+   "dur": 3.0,
    "note": "marketing/film/spec/paint.html, drawing then painting"
   },
   {
@@ -88,19 +92,21 @@
     0.5,
     0.4
    ],
-   "dur": 4.0
+   "dur": 2.4,
+   "from": 26
   },
   {
    "kind": "split",
-   "dur": 10.4,
+   "dur": 10.06,
    "caption": "It comes alive!",
    "top": {
-    "dir": "assets/f5_violet3",
+    "dir": "assets/f5_vcol",
     "ext": "png",
     "n": 161,
     "fps": 16,
-    "iw": 520,
-    "ih": 760
+    "iw": 540,
+    "ih": 1248,
+    "column": true
    },
    "bottom": {
     "dir": "assets/f5_maya",
@@ -127,7 +133,8 @@
     0.5,
     0.5
    ],
-   "dur": 4.2
+   "dur": 2.4,
+   "from": 24
   },
   {
    "kind": "seq",
@@ -138,7 +145,7 @@
    "iw": 1080,
    "ih": 1920,
    "zoom": 1,
-   "dur": 4.0,
+   "dur": 2.5,
    "note": "marketing/film/spec/end.html, Violet moving in row 3"
   }
  ],

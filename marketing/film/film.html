@@ -158,8 +158,13 @@ window.__film = {
           const mFig = s.bottom.figure || 0.82, mFeet = s.bottom.feet || 0.95, vFig = s.top.figure || 0.84, vFeet = s.top.feet || 0.928
           waits.push(img(s.topImg, frameOf(s, t, s.top)), img(s.botImg, frameOf(s, t, s.bottom)))
           Object.assign(s.botImg.style, { left: '0px', top: y + 'px', width: cw + 'px', height: ch + 'px', objectFit: 'cover', borderRadius: '0', clipPath: 'none' })
+          if (s.top.column) {
+            // Violet's column, precomposed (scaled so her widest pose fits, a soft follow, feet on Maya's line).
+            Object.assign(s.topImg.style, { left: cw + 'px', top: y + 'px', width: cw + 'px', height: ch + 'px', clipPath: 'none' })
+          } else {
           const vh = ch * mFig / vFig, vw = vh * s.top.iw / s.top.ih, vx = cw + (cw - vw) / 2, vy = y + mFeet * ch - vFeet * vh
           Object.assign(s.topImg.style, { left: vx + 'px', top: vy + 'px', width: vw + 'px', height: vh + 'px', clipPath: `inset(${Math.max(0, y - vy)}px ${Math.max(0, vx + vw - W)}px ${Math.max(0, vy + vh - (y + ch))}px ${Math.max(0, cw - vx)}px)` })
+          }
         } else {
         const half = (H * 0.8 - H * 0.18) / 2
         const top = H * 0.18
@@ -195,7 +200,7 @@ window.__film = {
       if (s.cap) {
         // Maya's gate: one caption treatment, ink on a cream band, the same slot every time.
         Object.assign(s.band.style, { height: H * 0.15 + 'px' })
-        Object.assign(s.cap.style, { top: (H * 0.15 - capSize) / 2 + 'px', fontSize: capSize + 'px', opacity: ease((t - s.t0 - 0.3) / 0.4) })
+        Object.assign(s.cap.style, { top: (H * 0.15 - capSize) / 2 + 'px', fontSize: capSize + 'px', opacity: 1 })
       }
     }
     await Promise.all(waits)
