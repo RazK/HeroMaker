@@ -8,6 +8,17 @@ Newest first. When an item enters a sprint, move it to `SPRINT_LOG.md`.
 
 ## Open
 
+### WhatsApp / Telegram bot — a second interface (new business line)
+- **From:** Raz, 2026-11-24. A chat interface (start Telegram, later WhatsApp)
+  where parents send a drawing and get the painting, 3D hero and video — most of
+  the website, on the **same API endpoints**. Driven by Schneider (10 Dec).
+- **Money-check:** *yes, later.* Serves the home-from-class → home-buy bridge.
+  WhatsApp needs Meta business verification (weeks); Telegram first. Smallest
+  test = a thin bot on the existing endpoints, reusing the pay link.
+- **Now:** product gathers requirements + designs the chat flow with Maya. Raz
+  in the loop at the design gate. **Pod formed at build** (Raz, 2026-11-24).
+- **Full write-up:** `docs/product/whatsapp-bot.md`.
+
 ### Studio view: one carousel spine, no chapter cards
 - **From:** Raz, 2026-11-23. He dislikes the current hero/studio interface.
 - **Want (his vision):** the hero page is one swipeable carousel through the
