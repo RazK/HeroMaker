@@ -7,7 +7,7 @@ shows the 7 beats; each `fN.html` is one 360x640 frame (`node shot.js .` renders
 |---|------|------|
 | 1 | Drawing glows on the table | The drawing is the frame. Gold glow + sparkles start the magic. |
 | 2 | The painting rises out of the page | The magic beat: drawing → hero in one move, warm light rays. |
-| 3 | Violet lands, confetti, "It comes alive!" | Hero fills the frame. One caption. |
+| 3 | Violet lands, confetti | Hero fills the frame. No caption: the voice says "It comes alive!" (the end card shows it once). |
 | 4 | Maya's gasp | The emotional peak. Full frame, no caption. |
 | 5 | The split: Maya waves, Violet waves | Top half / bottom half, 320 px each, full width. Caption inside the top half. Tom: the real staging wave, the same move in both halves. |
 | 6 | The family: Grandma, Mom | Two full-width rows, Grandma on top. Faces only: no laptop, phone or screen around them (no frame in a frame). Caption "The whole family, wow!" |
