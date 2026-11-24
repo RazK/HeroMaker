@@ -1,0 +1,50 @@
+{
+ "file": "camera-demo.mp4",
+ "base": "https://frontend-staging-7cb8.up.railway.app",
+ "version": "v2.0.241 · a58635b",
+ "viewport": "390x844 @2x",
+ "speed": "real",
+ "camera": "Chromium fake device: a still of a crayon drawing on a table (no real camera in the runner)",
+ "steps": [
+  {
+   "step": "gallery, signed in",
+   "at": 0
+  },
+  {
+   "step": "tapped Make a hero",
+   "at": 1.6
+  },
+  {
+   "step": "tapped Take a photo",
+   "at": 2.8
+  },
+  {
+   "step": "camera open: rear feed, 3:4 guide, hint",
+   "at": 3.1
+  },
+  {
+   "step": "shutter",
+   "at": 6.6
+  },
+  {
+   "step": "review: Looks good? (cropped to the paper)",
+   "at": 6.7
+  },
+  {
+   "step": "Retake: back to the camera",
+   "at": 10.2
+  },
+  {
+   "step": "shutter again",
+   "at": 12.8
+  },
+  {
+   "step": "review again",
+   "at": 12.9
+  },
+  {
+   "step": "end",
+   "at": 15.9
+  }
+ ]
+}

@@ -10,3 +10,11 @@ camera, so Flip is hidden. "Use this photo" was not pressed.
 
 - 390x844-capture.png / 390x844-review.png
 - 1440x900-capture.png / 1440x900-review.png
+
+## camera-demo.mp4 (17 s, raw, real speed)
+
+The whole camera flow on real staging (v2.0.241 · a58635b), 390x844 @2x,
+recorded with Chrome's own screencast; nothing cut or sped up. Sign-up was
+done before recording started. Gallery -> Make a hero -> Take a photo ->
+camera (fake device: the crayon drawing on a table) -> shutter -> "Looks
+good?" -> Retake -> shutter -> review. Step times in steps.json.
