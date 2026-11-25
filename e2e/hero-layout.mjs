@@ -275,7 +275,12 @@ async function toyApart(page) {
   // The parts are in: their canvas, and no loading ring.
   await page.waitForFunction(() => !!document.querySelector('.tb-figure-room canvas') && !document.querySelector('.tb-parts-loading'), null, { timeout: 120000 })
     .catch(() => {});
-  await button.click();
+  // noWaitAfter: the button only toggles; it navigates nowhere. Playwright's
+  // wait for "scheduled navigations" after a click otherwise needs the page's
+  // main thread, which the 3D toy holds on the runner's software GPU: twice
+  // on 2026-11-25 (runs 144, 147) the click was done and that wait ran out
+  // the 30 s. Whether the tap worked is checked just below (aria-pressed).
+  await button.click({ noWaitAfter: true });
   await page.waitForTimeout(2200);
   const got = await slideProblems(page);
   got.slide = 'figure taken apart';
@@ -285,7 +290,7 @@ async function toyApart(page) {
   const arrows = await page.evaluate(() => [...document.querySelectorAll('.tb-parts-arrows g')]
     .filter((g) => +getComputedStyle(g).opacity > 0.9 && (g.querySelector('path')?.getAttribute('d') || '').length > 10).length);
   if (!arrows) got.problems.push('taken apart, the toy draws no arrows');
-  await button.click();
+  await button.click({ noWaitAfter: true });
   await page.waitForTimeout(1500);
   return got;
 }
