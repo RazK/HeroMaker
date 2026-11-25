@@ -70,6 +70,8 @@ def grow_env(monkeypatch, client, calls):
         assert f"{parts.scheme}://{parts.netloc}" == FRONTEND, url
         path = parts.path + (f"?{parts.query}" if parts.query else "")
         calls.append((parts.path, dict((k, v[1]) for k, v in (files or {}).items()) or dict(data or {})))
+        if "/grow/notify/" in parts.path:
+            calls.append(("notify-encoding", "multipart" if files is not None else "urlencoded"))
         if files is not None:
             return Resp(client.post(path, files=files))
         return Resp(client.post(path, data=data))
@@ -166,6 +168,9 @@ def test_pay_on_the_page_credits_through_the_verified_notify(grow_env, client, m
     r = client.post(f"{path}/pay", params={"s": sig}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == f"{FRONTEND}/?purchased=1&response=success"
     assert _balance(db, user.id) == HERO
+    # The stand-in posts multipart, as Grow does: this test fails if it ever
+    # goes back to urlencoded.
+    assert [e for p, e in calls if p == "notify-encoding"] == ["multipart"]
 
     order = _last_order(db, user.id)
     assert order.status == "paid" and order.transaction_id
