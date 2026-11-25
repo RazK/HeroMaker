@@ -148,7 +148,8 @@ def test_checkout_calls_create_payment_process_and_grants_nothing(grow_env, clie
     order = _last_order(db, user.id)
     assert sent["sum"] == "39.00" and sent["cField1"] == order.id
     assert sent["pageCode"] == "standin-page" and sent["userId"] == "standin-user"
-    assert sent["notifyUrl"].startswith(f"{FRONTEND}/api/payments/grow/notify/{order.id}?t=")
+    assert sent["notifyUrl"] == f"{FRONTEND}/api/payments/grow/notify/{order.id}/{grow.notify_token(order.id)}"
+    assert "?" not in sent["notifyUrl"]     # nothing rides on a query string Grow might drop
     assert "checkout=failed" in sent["cancelUrl"]
     assert order.provider == "grow" and order.status == "pending" and order.amount_minor == 3900
     assert order.metadata_json["grow_process_id"] and order.metadata_json["grow_process_token"]
@@ -206,19 +207,19 @@ def test_unproven_notifies_grant_nothing(grow_env, client, make_user, db, calls,
     _checkout(client, user)
     order, url = _last_order(db, user.id), _notify_url(calls)
     form = _update(order)
-    base = url.split("?")[0]
+    base, token = url.rsplit("/", 1)
     if how == "no token":
         url = base
     elif how == "wrong token":
-        url = base + "?t=" + "0" * 64
+        url = base + "/" + "0" * 64
     elif how == "wrong process token":
         form["data[processToken]"] = "forged"
     elif how == "wrong process id":
         form["data[processId]"] = "1"
     elif how == "other order's token":
-        url = base + "?" + other_url.split("?")[1]
+        url = base + "/" + other_url.rsplit("/", 1)[1]
     elif how == "unknown order":
-        url = f"{FRONTEND}/api/payments/grow/notify/not-an-order?" + url.split("?")[1]
+        url = f"{FRONTEND}/api/payments/grow/notify/not-an-order/{token}"
     assert _post_notify(client, url, form).status_code == 401
     assert _balance(db, user.id) == 0
 
@@ -285,7 +286,31 @@ def test_the_stand_in_never_runs_in_production(grow_env, client, monkeypatch):
 
 def test_the_notify_is_closed_unless_grow_sells(client, monkeypatch):
     monkeypatch.setenv("PAYMENTS_PROVIDER", "grow_sandbox")
-    assert client.post("/api/payments/grow/notify/x?t=y", data={"a": "b"}).status_code == 404
+    assert client.post("/api/payments/grow/notify/x/y", data={"a": "b"}).status_code == 404
+
+
+def test_a_multipart_notify_credits(grow_env, client, make_user, db, calls):
+    """Grow posts its server update as form data the way createPaymentProcess
+    is sent: multipart. The stand-in sends urlencoded; this is the other path."""
+    user = make_user(credits=0)
+    _checkout(client, user)
+    order, url = _last_order(db, user.id), _notify_url(calls)
+    files = {k: (None, v) for k, v in _update(order).items()}
+    r = client.post(urlsplit(url).path, files=files)
+    assert r.json()["status"] == "ok", r.text
+    assert _balance(db, user.id) == HERO
+    assert client.post(urlsplit(url).path, files=files).json()["status"] == "ok"   # resend
+    assert _balance(db, user.id) == HERO
+
+
+def test_the_old_query_token_url_still_verifies(grow_env, client, make_user, db, calls):
+    """Staging orders opened before the token moved into the path."""
+    user = make_user(credits=0)
+    _checkout(client, user)
+    order = _last_order(db, user.id)
+    old = f"/api/payments/grow/notify/{order.id}?t={grow.notify_token(order.id)}"
+    assert client.post(old, data=_update(order)).json()["status"] == "ok"
+    assert client.post(f"/api/payments/grow/notify/{order.id}?t=bad", data=_update(order, "9")).status_code == 401
 
 
 def test_only_grows_live_host_is_real_money(monkeypatch):

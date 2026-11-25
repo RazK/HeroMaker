@@ -556,11 +556,22 @@ def _grant_paid_order(db: Session, order: CheckoutOrder, callback: dict) -> dict
     return {"status": "ok", "credits_granted": order.credits, "balance_after": tx.balance_after}
 
 
-@router.post("/grow/notify/{order_id}")
-async def grow_notify(order_id: str, request: Request, t: Optional[str] = None,
-                      db: Session = Depends(get_db)):
+@router.post("/grow/notify/{order_id}/{token}")
+async def grow_notify(order_id: str, token: str, request: Request, db: Session = Depends(get_db)):
     """Grow's server update for one order (PAYMENTS_PROVIDER=grow). See
     handle_grow_notify: verify, credit, then approveTransaction."""
+    return await _grow_notify(db, order_id, token, request)
+
+
+@router.post("/grow/notify/{order_id}")
+async def grow_notify_query_token(order_id: str, request: Request, t: Optional[str] = None,
+                                  db: Session = Depends(get_db)):
+    """The first notifyUrl shape (token in ?t=), for staging orders opened
+    before the token moved into the path. Same verification."""
+    return await _grow_notify(db, order_id, t, request)
+
+
+async def _grow_notify(db: Session, order_id: str, t: Optional[str], request: Request):
     content_type = request.headers.get("content-type", "")
     if "multipart/form-data" in content_type:
         form = await request.form()

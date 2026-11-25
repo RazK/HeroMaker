@@ -41,6 +41,16 @@ against anything or tested.
 `LEMONSQUEEZY_TEST_MODE` question. Its production variables are emptied, so
 production lists no packs and its webhook answers 401.
 
+**Real-Grow checklist: nothing takes real money until every line is green,
+plus Raz's credentials and his yes** (from the #375 review, 2026-11-25; owner Gidi):
+
+| # | Blocker | State |
+|---|---|---|
+| G1 | **How Grow calls `notifyUrl`.** If Grow dropped a query string, every real payment would 401 and the buyer would pay for nothing. | **Fixed in code:** the token is a path segment (`/api/payments/grow/notify/<order>/<token>`), no query. **Still to confirm with Grow:** that it POSTs to the URL exactly as given, and with which content type. |
+| G2 | **A multipart notify, end to end.** Grow posts form data the way `createPaymentProcess` is sent; the stand-in sends urlencoded. | **Green:** `test_a_multipart_notify_credits` (credits once, resend credits nothing more). Re-prove against Grow's sandbox once it issues our IDs. |
+| G3 | One payment through **Grow's own sandbox** (not the stand-in): page, test card, notify, credits, `approveTransaction` answered 1. | Open: waits on gate 2's IDs. |
+| G4 | Production variables and the one real ₪10 purchase + refund. | Open: gates 6 and 7. |
+
 **What Grow's docs say (read 2026-11-24, developers.grow.business):**
 `CreatePaymentLink` is `POST /api/light/server/1.1/CreatePaymentLink`,
 multipart form, server-side only, with `notifyUrl`, `successUrl`, products,
