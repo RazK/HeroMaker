@@ -646,7 +646,7 @@ function MainApp() {
       {purchaseNotice && <div className="tb-notice app-purchase-notice" role="status"><Icon name="coin" />{purchaseNotice}</div>}
       {paymentFailed && (
         <div className="tb-notice app-payment-failed" role="status">
-          <Icon name="coin" />Payment didn’t go through
+          <Icon name="coin" /><span className="app-payment-failed-text">Payment didn’t go through</span>
           <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => { setPaymentFailed(false); window.dispatchEvent(new CustomEvent('credits:buy')); }}>Try again</button>
         </div>
       )}

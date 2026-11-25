@@ -51,7 +51,7 @@ export function PaywallSheet({ heroName, creationId, credits, onClose }: Paywall
   const [picked, setPicked] = useState<string | null>(null);
   // Read in the initializer, used up after mounting (StrictMode calls an
   // initializer twice; taking it there lost it).
-  const [error, setError] = useState<string | null>(() => (failedNoteDue ? 'Payment didn’t go through. Try again.' : null));
+  const [error, setError] = useState<string | null>(() => (failedNoteDue ? 'Payment didn’t go through.' : null));
   useEffect(() => { failedNoteDue = false; }, []);
   const [going, setGoing] = useState(false);
 
