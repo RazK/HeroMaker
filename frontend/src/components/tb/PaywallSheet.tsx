@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { flush, track } from '../../analytics';
 import { api, ApiError, CreditPack } from '../../api/client';
-import { PURCHASE_RETURN_PARAM, rememberBalanceBeforeCheckout } from '../BuyCredits';
+import { CHECKOUT_FAILED_ON_LOAD, PURCHASE_RETURN_PARAM, rememberBalanceBeforeCheckout } from '../BuyCredits';
 import { Icon } from './Icon';
 import { Sheet } from './parts';
 import { planLines } from './paywall';
@@ -35,6 +35,9 @@ export function takeResumeAfterPurchase(creationId: string): boolean {
   } catch { return false; }
 }
 
+/** Back from a checkout that did not go through: the pop-up's first opening says so, once. */
+let failedNoteDue = CHECKOUT_FAILED_ON_LOAD;
+
 interface PaywallSheetProps {
   heroName: string;
   creationId: string;
@@ -46,7 +49,10 @@ interface PaywallSheetProps {
 export function PaywallSheet({ heroName, creationId, credits, onClose }: PaywallSheetProps) {
   const [packs, setPacks] = useState<CreditPack[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Read in the initializer, used up after mounting (StrictMode calls an
+  // initializer twice; taking it there lost it).
+  const [error, setError] = useState<string | null>(() => (failedNoteDue ? 'Payment didn’t go through. Try again.' : null));
+  useEffect(() => { failedNoteDue = false; }, []);
   const [going, setGoing] = useState(false);
 
   useEffect(() => {
