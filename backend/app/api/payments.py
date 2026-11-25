@@ -29,6 +29,8 @@ Lemon Squeezy WILL deliver twice; this is not a hypothetical.
 import logging
 from typing import Optional
 
+from starlette.concurrency import run_in_threadpool
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_
@@ -39,7 +41,7 @@ from app.config import packs as packs_config
 from app.database import get_db
 from app.models import CheckoutOrder, ClassRoom, Payment, User
 from app.services import classes as class_service
-from app.services import analytics, ledger, payments_provider
+from app.services import analytics, grow, ledger, payments_provider
 
 logger = logging.getLogger(__name__)
 
@@ -474,14 +476,25 @@ def handle_grow_callback(db: Session, raw: bytes, headers) -> dict:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed callback body") from exc
 
     provider = payments_provider.name()
-    transaction_id = callback["transaction_id"]
     order = (db.query(CheckoutOrder)
              .filter(CheckoutOrder.id == callback["order_id"], CheckoutOrder.provider == provider)
              .first())
     if order is None:
         logger.error("Payment callback for transaction %s names order %s, which we never opened; "
-                     "nothing granted", transaction_id, callback["order_id"])
+                     "nothing granted", callback["transaction_id"], callback["order_id"])
         return {"status": "ignored", "reason": "unknown order"}
+    return _grant_paid_order(db, order, callback)
+
+
+def _grant_paid_order(db: Session, order: CheckoutOrder, callback: dict) -> dict:
+    """
+    Grant what OUR stored `order` buys, for a VERIFIED callback saying
+    transaction `callback["transaction_id"]` paid `callback["sum_minor"]`.
+    The caller has authenticated the callback; this checks it against the
+    order (paid, same sum), claims the order once, and credits once.
+    """
+    provider = order.provider
+    transaction_id = callback["transaction_id"]
     if not callback["paid"]:
         return {"status": "ignored", "reason": f"transaction status {callback['status']}"}
     if callback["sum_minor"] != order.amount_minor:
@@ -541,6 +554,65 @@ def handle_grow_callback(db: Session, raw: bytes, headers) -> dict:
     logger.info("Credited %s credits to user %s for order %s, transaction %s (balance now %s)",
                 order.credits, order.user_id, order.id, transaction_id, tx.balance_after)
     return {"status": "ok", "credits_granted": order.credits, "balance_after": tx.balance_after}
+
+
+@router.post("/grow/notify/{order_id}")
+async def grow_notify(order_id: str, request: Request, t: Optional[str] = None,
+                      db: Session = Depends(get_db)):
+    """Grow's server update for one order (PAYMENTS_PROVIDER=grow). See
+    handle_grow_notify: verify, credit, then approveTransaction."""
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        body = grow.from_form(form.multi_items())
+    else:
+        try:
+            body = grow.parse_notify_body(await request.body(), content_type)
+        except grow.GrowError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed notify body") from exc
+    # In the threadpool: it calls Grow (approveTransaction) with a blocking
+    # client, which must not stall the event loop.
+    return await run_in_threadpool(handle_grow_notify, db, order_id, t, body)
+
+
+def handle_grow_notify(db: Session, order_id: str, token: Optional[str], body: dict) -> dict:
+    """
+    Grow says an order was paid. Credits move only if grow.verify_notify
+    proves the update is Grow's, about THIS order (the order's secret notify
+    token, and the processId/processToken Grow gave our server for it). Then
+    the stored order decides what is granted, exactly as for the sandbox
+    (_grant_paid_order). Then approveTransaction, which Grow requires; if it
+    fails Grow resends the update, and the replay grants nothing more.
+
+    404 unless grow sells here; 401 for an unproven update; 200 otherwise.
+    """
+    if payments_provider.name() != grow.NAME or not grow.can_sell():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+    order = (db.query(CheckoutOrder)
+             .filter(CheckoutOrder.id == order_id, CheckoutOrder.provider == grow.NAME)
+             .first())
+    if order is None:
+        # The same answer as a bad token: do not tell a prober which ids exist.
+        logger.warning("Grow notify for order %s, which we never opened; rejected", order_id)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified notify")
+    try:
+        callback = grow.verify_notify(order, token, body)
+    except grow.NotifyRejected as exc:
+        logger.warning("Rejected a Grow notify for order %s: %s", order_id, exc)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified notify") from exc
+    except grow.GrowError as exc:
+        logger.error("Unreadable Grow notify for order %s: %s", order_id, exc)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed notify body") from exc
+
+    result = _grant_paid_order(db, order, callback)
+    if callback["paid"] and result.get("status") == "ok":
+        approved = grow.approve_transaction(callback["data"])
+        order = db.query(CheckoutOrder).filter(CheckoutOrder.id == order.id).one()
+        order.metadata_json = {**(order.metadata_json or {}), "grow_asmachta": callback["asmachta"],
+                               "grow_approved": approved}
+        db.commit()
+        result = {**result, "approved": approved}
+    return result
 
 
 def _grow_class_seats(db: Session, order: CheckoutOrder, ref: str, meta: dict) -> dict:
