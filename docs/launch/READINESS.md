@@ -10,6 +10,13 @@ goes on to 3D by itself → receipt; every pack, a Fail, and class seats.
 Production is still v2.0.85 and lists no packs. The moment gates 1 and 2 close,
 the remaining work is gate 3 (about a day) and Raz's yeses for gates 5–7.
 
+**Failed payment (2026-11-25, #373):** back from a checkout that did not go
+through, the site says "Payment didn't go through" with Try again (home) or
+one line above Continue to payment (the hero's pop-up); never "Adding your
+credits". Verified on staging v2.0.251 · 6823ce8 by the robot: Fail granted
+nothing, the notice showed, Try again reopened the packs; Pay, family, class
+seats and the pop-up path all still green.
+
 **Verdict (2026-11-24): not live, and the code is not what blocks it.** The
 whole purchase path runs on staging in shekels through our own test mode, and
 the robot proves it on every deploy. What stands between us and real money is
