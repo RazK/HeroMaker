@@ -65,7 +65,7 @@ for i in range(75):
 # S5 8-10
 for i in range(60): save(cover(load('src/c24',10+i),0.5,0.45),'Her drawing. Her hero.')
 # S6 10-12.5
-for i in range(75): save(cover(key(load('src/k6',i),load('src/stage',i),True),0.469),'Now she plays it.')
+for i in range(75): save(shiftdown(cover(key(load('src/k6',i),load('src/stage',i),True),0.469),100),'Now she plays it.')
 # S7 12.5-15 still end card
 k7=Image.open(f'{S}/kf2/k7.png').convert('RGB'); low=k7.crop((0,int(k7.height*0.2),k7.width,k7.height)).resize((720,int(720*k7.height*0.8/k7.width)),Image.LANCZOS)
 card=Image.new('RGBA',(W,H),CREAM+(255,)); card.paste(low,(0,H-low.height))
