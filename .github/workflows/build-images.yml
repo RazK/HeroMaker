@@ -219,9 +219,41 @@ jobs:
           path: frontend/public/play/
           retention-days: 1
 
-  deploy-staging:
+  # Is this commit still main's tip? The concurrency group below runs one
+  # deploy at a time, but in the order they ARRIVE, not the order they merged:
+  # a commit with nothing to build arrives first. On 2026-11-25 #378 (backend
+  # build) and #379 (robot only) merged 3 s apart; #379 deployed at 08:57:32,
+  # #378 at 08:58:07, and staging went back to #378 (robot run 147 waited 40
+  # min for a commit it never served). An older commit now never deploys over
+  # a newer one: the newer commit's own run deploys main.
+  staging-tip:
     needs: [changes, config, bundle-game, build-backend, build-frontend, build-vrm-converter]
-    # One staging deploy at a time, newest last. Without this, merges close
+    if: |
+      always() && !cancelled() && !failure()
+      && github.event_name != 'pull_request'
+      && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      current: ${{ steps.tip.outputs.current }}
+    steps:
+      - id: tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${GITHUB_SHA:0:7} is no longer main's tip (${tip:0:7}); that commit's run deploys staging"
+          fi
+
+  deploy-staging:
+    needs: [changes, config, bundle-game, build-backend, build-frontend, build-vrm-converter, staging-tip]
+    # One staging deploy at a time (staging-tip above keeps it the newest).
+    # Without this, merges close
     # together deploy in parallel and the slowest wins: on 2026-11-23 #347,
     # #348 and #352 merged within 45 s; #352 (nothing to build) deployed at
     # 22:13:07, #348 (images to build) at 22:13:57, and staging went back to
@@ -240,6 +272,7 @@ jobs:
       && github.ref == 'refs/heads/main'
       && needs.config.result == 'success'
       && needs.bundle-game.result == 'success'
+      && needs.staging-tip.outputs.current == 'true'
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     environment:
