@@ -165,7 +165,14 @@ STAGING_ONLY = {
     # the PM's call for the Sprint 1 demo (2026-11-23); production stays off
     # until Raz decides to give paintings away to real customers.
     # backend/app/services/free_painting.py
-    "backend": {"PIPELINE_RESULT_CACHE", "ANALYTICS_ENABLED", "FREE_PAINTING"},
+    # The real Grow provider against the Grow stand-in, until Grow issues our
+    # identifiers (2026-11-25). Production sells through Grow only after
+    # Raz's yes; then PAYMENTS_PROVIDER and the GROW_* keys get production
+    # values and leave this set, and GROW_STANDIN_ENABLED never does.
+    # backend/app/services/grow.py, backend/app/api/grow_standin.py
+    "backend": {"PIPELINE_RESULT_CACHE", "ANALYTICS_ENABLED", "FREE_PAINTING",
+                "PAYMENTS_PROVIDER", "GROW_API_BASE", "GROW_USER_ID", "GROW_PAGE_CODE",
+                "GROW_STANDIN_ENABLED", "GROW_NOTIFY_SECRET"},
 }
 
 
