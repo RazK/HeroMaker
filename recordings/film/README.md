@@ -25,3 +25,12 @@ providers: Raz's yes first.
 - Clip 2 with Violet is NOT re-taken: her drawing is not in staging's result
   cache (her hero dates from 2026-08-25), so making her again calls the paid
   providers. Waiting on the PM / Raz.
+
+## Violet dancing, true 30 fps (for the "hero animating" shot)
+
+- `4-violet-dancing/violet-dancing-30fps.mp4` (10 s, 780x1688, 30 fps): Violet
+  Volt's live staging hero (26eef3df), dancing. 300 of 300 frames unique.
+- Live capture of 3D on our runners gets ~3 fps (no GPU). This one steps the
+  page clock 1/30 s (Playwright `page.clock`), renders, then screenshots each
+  frame: smooth whatever the machine. `record-stepped.js` is the recorder.
+- Real speed: 1 s of the hero's own clock = 1 s of video.
