@@ -19,6 +19,14 @@ interface BuyCreditsProps {
 // the balance and says thanks - it never tells the backend a payment happened.
 export const PURCHASE_RETURN_PARAM = 'purchase';
 
+// A checkout that did not go through comes back with ?checkout=failed (the
+// TEST checkout's Fail; payments_sandbox.py). Read once, at load, before App
+// tidies the address: the screen says so and offers to try again, and never
+// waits for credits that are not coming.
+export const CHECKOUT_FAILED_PARAM = 'checkout';
+export const CHECKOUT_FAILED_ON_LOAD = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get(CHECKOUT_FAILED_PARAM) === 'failed';
+
 // The balance as the buyer left for checkout. The webhook often lands before
 // the buyer is back, so the first balance read on return may already be the
 // new one: without this, "Adding your credits…" waited for a change that had

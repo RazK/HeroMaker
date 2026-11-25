@@ -384,10 +384,21 @@ async function buyOnSandbox(page, packs) {
   await openSheet();
   await (await packCard(failPack)).click();
   const failedOrder = await payOnSandbox(page, { button: 'Fail', amount: failPack.price_display, marks: false });
-  if (new URL(page.url()).searchParams.get('checkout') !== 'failed') throw new Error(`Fail came back to ${page.url()}, without checkout=failed`);
   await page.locator('.header-auth-credits').waitFor({ timeout: 30000 });
+  // Back from a failed checkout the screen says so and offers it again; it
+  // never waits for credits that are not coming ("Adding your credits…").
+  const failedNote = page.locator('.app-payment-failed');
+  await failedNote.waitFor({ timeout: 15000 });
+  const failedText = (await failedNote.innerText()).replace(/\s+/g, ' ').trim();
+  if (!/^Payment didn.t go through Try again$/.test(failedText)) throw new Error(`back from Fail the notice reads "${failedText}"`);
+  if (await page.locator('.app-purchase-notice').count()) throw new Error(`back from Fail it says "${await page.locator('.app-purchase-notice').innerText()}"`);
   await page.waitForTimeout(5000);
   await snap(page, 'checkout-failed-back');
+  // Try again: one tap back to the packs.
+  await failedNote.getByRole('button', { name: 'Try again' }).click();
+  await page.locator('.buy-credits-pack').first().waitFor({ timeout: 20000 });
+  await page.keyboard.press('Escape');
+  await page.locator('.buy-credits-pack').first().waitFor({ state: 'detached', timeout: 5000 });
   const shownAfterFail = await creditsShown(page);
   const afterFail = await balance();
   if (afterFail !== start || shownAfterFail !== start) throw new Error(`a failed checkout moved the balance ${start} -> ${afterFail} (shown ${shownAfterFail})`);
@@ -435,7 +446,7 @@ async function buyOnSandbox(page, packs) {
   }
   if (DEMO) { await page.locator('.header-auth-credits').hover(); await page.waitForTimeout(3000); }
   mark('credits_end');
-  return `grow_sandbox TEST checkout: Fail granted nothing (balance ${start}, no receipt, order failed); paid ${bought.join('; ')}; balance ${start} -> ${await balance()}`;
+  return `grow_sandbox TEST checkout: Fail granted nothing (balance ${start}, no receipt, order failed; the screen said "Payment didn't go through" and Try again reopened the packs); paid ${bought.join('; ')}; balance ${start} -> ${await balance()}`;
 }
 
 // ---------------------------------------------------------------------------
