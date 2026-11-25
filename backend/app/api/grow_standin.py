@@ -215,7 +215,10 @@ def pay(blob: str, s: str = ""):
     facts = _unpack(blob, s)
     transaction_id = str(secrets.randbelow(900_000_000) + 100_000_000)
     try:
-        resp = requests.post(facts["notify"], data=server_update(facts, transaction_id), timeout=30)
+        # Multipart, as Grow sends it ("the same way as CreatePaymentProcess"),
+        # so the robot drives the decode real Grow will hit.
+        form = server_update(facts, transaction_id)
+        resp = requests.post(facts["notify"], files={k: (None, v) for k, v in form.items()}, timeout=30)
         logger.info("Grow stand-in: server update for process %s -> HTTP %s", facts["pid"], resp.status_code)
     except requests.RequestException as exc:
         logger.error("Grow stand-in: server update for process %s failed: %s", facts["pid"], type(exc).__name__)
