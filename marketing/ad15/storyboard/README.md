@@ -41,3 +41,11 @@ PM decision, 25 Nov: option (a). The label goes in the description, and Meta add
 > Dramatization · AI characters. App screens are real.
 
 The CTA button is *Make a hero*. The text doesn't use "only", and doesn't say anything personal about the viewer ("Are you a mom…").
+
+## Music and sound (final cut 2)
+- **Music:** "Blue Sky" by Sergmusic (Freesound 639933). Licence **CC0 1.0** (public domain): commercial use, no credit required. Checked on https://freesound.org/people/Sergmusic/sounds/639933/ on 25 Nov 2026. We use 0:15–0:30 of the track, so its new melodic layer lands on the reveal at 7 s.
+- **Sound effects:**
+  - burst / rise / giggle: our own Stable Audio 3 renders (marketing/film/audio/).
+  - shutter: synthesised noise.
+  - Stable Audio 3's licence is still pending with Gidi. If it isn't cleared, these short effects get swapped too.
+- **Mix QA:** checked by the audio model on 25 Nov. Every effect is audible at its time, with no clipping and no silent gaps. Mean -18.9 dB, peak -0.8 dB.
