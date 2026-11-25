@@ -279,19 +279,26 @@ async function toyApart(page) {
   // wait for "scheduled navigations" after a click otherwise needs the page's
   // main thread, which the 3D toy holds on the runner's software GPU: twice
   // on 2026-11-25 (runs 144, 147) the click was done and that wait ran out
-  // the 30 s. Whether the tap worked is checked just below (aria-pressed).
-  await button.click({ noWaitAfter: true });
-  await page.waitForTimeout(2200);
+  // the 30 s. Measured on staging without a GPU: the tap itself returns in
+  // 13-15 s and the arrows are drawn 20-24 s after it, because they fade in
+  // frame by frame as the parts come apart. So wait for that, the behaviour
+  // itself (chosen, and its arrows drawn), up to 60 s, then check it all.
+  await button.click({ noWaitAfter: true, timeout: 60000 });
+  await page.waitForFunction(() => {
+    const b = document.querySelector('.tb-dock-layer .tb-figure-apart');
+    return b?.getAttribute('aria-pressed') === 'true' && [...document.querySelectorAll('.tb-parts-arrows g')].filter((g) => +getComputedStyle(g).opacity > 0.9 && (g.querySelector('path')?.getAttribute('d') || '').length > 10).length > 0;
+  }, null, { timeout: 60000, polling: 250 }).catch(() => {});
   const got = await slideProblems(page);
   got.slide = 'figure taken apart';
   if ((await button.getAttribute('aria-pressed')) !== 'true' || !/Put together/.test(await button.textContent())) {
     got.problems.push('Take apart did not turn into a chosen "Put together"');
   }
-  const arrows = await page.evaluate(() => [...document.querySelectorAll('.tb-parts-arrows g')]
-    .filter((g) => +getComputedStyle(g).opacity > 0.9 && (g.querySelector('path')?.getAttribute('d') || '').length > 10).length);
+  const arrows = await page.evaluate(() => [...document.querySelectorAll('.tb-parts-arrows g')].filter((g) => +getComputedStyle(g).opacity > 0.9 && (g.querySelector('path')?.getAttribute('d') || '').length > 10).length);
   if (!arrows) got.problems.push('taken apart, the toy draws no arrows');
-  await button.click({ noWaitAfter: true });
-  await page.waitForTimeout(1500);
+  await button.click({ noWaitAfter: true, timeout: 60000 });
+  await page.waitForFunction(() => document.querySelector('.tb-dock-layer .tb-figure-apart')?.getAttribute('aria-pressed') === 'false',
+    null, { timeout: 60000, polling: 250 }).catch(() => {});
+  if ((await button.getAttribute('aria-pressed')) !== 'false') got.problems.push('Put together did not turn back into "Take apart"');
   return got;
 }
 
