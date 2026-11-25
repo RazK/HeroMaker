@@ -57,11 +57,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A newer merge replaced this commit before it reached staging: its
+      # deploy was skipped (build-images.yml, staging-tip) and the newer
+      # commit's own robot run tests staging. Waiting here would time out.
+      - name: Skip a commit main has moved past
+        id: tip
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [ "$tip" != "$SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${SHA:0:7} is no longer main's tip (${tip:0:7}); the robot run for ${tip:0:7} tests staging"
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install Playwright
+        if: steps.tip.outputs.skip != 'true'
         working-directory: e2e
         run: |
           npm install --no-audit --no-fund
@@ -77,7 +94,7 @@ jobs:
       # three services took ~21 min on 2026-11-23 (two merges queued), and a
       # 20-min wait failed runs #109 and #111 on a staging that was fine.
       - name: Wait for staging to serve the merged commit
-        if: github.event_name == 'workflow_run'
+        if: github.event_name == 'workflow_run' && steps.tip.outputs.skip != 'true'
         env:
           FRONTEND: ${{ steps.url.outputs.frontend }}
           SHA: ${{ github.event.workflow_run.head_sha }}
@@ -97,6 +114,7 @@ jobs:
           exit 1
 
       - name: Run the robot
+        if: steps.tip.outputs.skip != 'true'
         working-directory: e2e
         env:
           BASE_URL: ${{ steps.url.outputs.frontend }}
@@ -110,7 +128,7 @@ jobs:
 
       # Saved before any editing, so a failed cut never loses the recording.
       - name: Upload screenshots and the raw recording
-        if: always()
+        if: always() && steps.tip.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: staging-robot
