@@ -11,7 +11,7 @@ real HTTP, unchanged: point GROW_API_BASE at
 and grow.py calls createPaymentProcess and approveTransaction here exactly as
 it will call Grow. The hosted page here (TEST - no real money, Pay / Fail)
 plays Grow's card page: Pay makes THIS server POST a Grow-shaped server update,
-as form data, over HTTP, to the notifyUrl grow.py gave it, carrying the
+as multipart form data (as Grow does), over HTTP, to the notifyUrl grow.py gave it, carrying the
 processId and processToken it handed out. The notify endpoint verifies it like
 any other (token, process pair, stored order, sum), and only then credits.
 
@@ -215,7 +215,10 @@ def pay(blob: str, s: str = ""):
     facts = _unpack(blob, s)
     transaction_id = str(secrets.randbelow(900_000_000) + 100_000_000)
     try:
-        resp = requests.post(facts["notify"], data=server_update(facts, transaction_id), timeout=30)
+        # multipart/form-data, as real Grow posts it, so the notify route's
+        # multipart path is the one staging exercises.
+        form = server_update(facts, transaction_id)
+        resp = requests.post(facts["notify"], files={k: (None, v) for k, v in form.items()}, timeout=30)
         logger.info("Grow stand-in: server update for process %s -> HTTP %s", facts["pid"], resp.status_code)
     except requests.RequestException as exc:
         logger.error("Grow stand-in: server update for process %s failed: %s", facts["pid"], type(exc).__name__)

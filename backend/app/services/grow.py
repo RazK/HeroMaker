@@ -20,8 +20,8 @@ Grow's docs describe no signature, secret or IP list for the server update,
 and no transaction lookup. So the proof is built from two things only Grow
 and our server ever hold:
 
-1. The notify URL itself. Each order's notifyUrl carries a token,
-   HMAC-SHA256(GROW_NOTIFY_SECRET, order id). We send that URL to Grow
+1. The notify URL itself. Each order's notifyUrl carries a token as its
+   last path segment, HMAC-SHA256(GROW_NOTIFY_SECRET, order id). We send that URL to Grow
    server to server; it is never shown to a browser. A POST without the
    right token for that order is rejected (401).
 2. Grow's processId and processToken for the order. createPaymentProcess
@@ -193,8 +193,13 @@ def notify_token(order_id: str) -> str:
 
 def notify_url(order_id: str) -> str:
     """Where Grow sends the server update for one order. On the frontend's own
-    origin, which proxies /api/ to this backend, like every other call."""
-    return f"{get_frontend_url()}{NOTIFY_PATH}/{order_id}?t={notify_token(order_id)}"
+    origin, which proxies /api/ to this backend, like every other call.
+
+    The token is a PATH segment, not a query parameter: we register this URL
+    with Grow ourselves, and a path survives whether or not Grow keeps a
+    query string when it posts. A dropped ?t= would have refused every real
+    payment (the buyer pays and gets nothing)."""
+    return f"{get_frontend_url()}{NOTIFY_PATH}/{order_id}/{notify_token(order_id)}"
 
 
 def token_ok(order_id: str, token: Optional[str]) -> bool:

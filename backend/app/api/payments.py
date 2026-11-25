@@ -556,11 +556,12 @@ def _grant_paid_order(db: Session, order: CheckoutOrder, callback: dict) -> dict
     return {"status": "ok", "credits_granted": order.credits, "balance_after": tx.balance_after}
 
 
-@router.post("/grow/notify/{order_id}")
-async def grow_notify(order_id: str, request: Request, t: Optional[str] = None,
+@router.post("/grow/notify/{order_id}/{token}")
+async def grow_notify(order_id: str, token: str, request: Request,
                       db: Session = Depends(get_db)):
-    """Grow's server update for one order (PAYMENTS_PROVIDER=grow). See
-    handle_grow_notify: verify, credit, then approveTransaction."""
+    """Grow's server update for one order (PAYMENTS_PROVIDER=grow). The token
+    is in the path (grow.notify_url). See handle_grow_notify: verify, credit,
+    then approveTransaction. A notify without a token matches no route: 404."""
     content_type = request.headers.get("content-type", "")
     if "multipart/form-data" in content_type:
         form = await request.form()
@@ -572,7 +573,7 @@ async def grow_notify(order_id: str, request: Request, t: Optional[str] = None,
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed notify body") from exc
     # In the threadpool: it calls Grow (approveTransaction) with a blocking
     # client, which must not stall the event loop.
-    return await run_in_threadpool(handle_grow_notify, db, order_id, t, body)
+    return await run_in_threadpool(handle_grow_notify, db, order_id, token, body)
 
 
 def handle_grow_notify(db: Session, order_id: str, token: Optional[str], body: dict) -> dict:
