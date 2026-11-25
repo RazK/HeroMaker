@@ -68,6 +68,7 @@ def test_no_old_route_is_mounted():
         "/api/payments/grow-standin/page/{blob}/pay",
         "/api/payments/grow/callback",
         "/api/payments/grow/notify/{order_id}",
+        "/api/payments/grow/notify/{order_id}/{token}",
         "/api/payments/sandbox/checkout/{order_id}",
         "/api/payments/sandbox/checkout/{order_id}/fail",
         "/api/payments/sandbox/checkout/{order_id}/pay",
