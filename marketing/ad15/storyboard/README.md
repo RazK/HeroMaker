@@ -39,6 +39,7 @@ PM decision, 25 Nov: option (a). The label goes in the description, and Meta add
 
 > Your child's drawing, brought to life. Snap a photo of any drawing and HeroMaker turns it into a 3D hero they can play with. For kids 4–9.
 > Dramatization · AI characters. App screens are real.
+> Music: "Blue Sky" by Sergmusic (CC0). Sound effects: Stable Audio 3 (Stability AI).
 
 The CTA button is *Make a hero*. The text doesn't use "only", and doesn't say anything personal about the viewer ("Are you a mom…").
 
@@ -47,5 +48,5 @@ The CTA button is *Make a hero*. The text doesn't use "only", and doesn't say an
 - **Sound effects:**
   - burst / rise / giggle: our own Stable Audio 3 renders (marketing/film/audio/).
   - shutter: synthesised noise.
-  - Stable Audio 3's licence is still pending with Gidi. If it isn't cleared, these short effects get swapped too.
+  - Licence (Gidi, 25 Nov): the Stability Community Licence covers commercial use, ads included, under US$1M revenue, and we own the outputs. **Condition: Raz registers with Stability for free before the ad goes public.**
 - **Mix QA:** checked by the audio model on 25 Nov. Every effect is audible at its time, with no clipping and no silent gaps. Mean -18.9 dB, peak -0.8 dB.
