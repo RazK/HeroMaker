@@ -58,9 +58,16 @@ def test_no_old_route_is_mounted():
     assert "/api/v1/heroes" in paths     # the listing is the app's whole surface
     assert not [p for p in paths if p.startswith(old)]
     # The providers calling us: Lemon Squeezy's webhook, the Grow-shaped
-    # callback, and grow_sandbox's fake hosted page (404 unless armed).
+    # callback, grow_sandbox's fake hosted page (404 unless armed), Grow's
+    # notify, and the Grow stand-in (404 unless enabled, never in production).
     assert sorted(p for p in paths if p.startswith("/api/payments")) == [
+        "/api/payments/grow-standin/api/light/server/1.0/approveTransaction",
+        "/api/payments/grow-standin/api/light/server/1.0/createPaymentProcess",
+        "/api/payments/grow-standin/page/{blob}",
+        "/api/payments/grow-standin/page/{blob}/fail",
+        "/api/payments/grow-standin/page/{blob}/pay",
         "/api/payments/grow/callback",
+        "/api/payments/grow/notify/{order_id}",
         "/api/payments/sandbox/checkout/{order_id}",
         "/api/payments/sandbox/checkout/{order_id}/fail",
         "/api/payments/sandbox/checkout/{order_id}/pay",

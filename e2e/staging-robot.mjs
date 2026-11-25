@@ -312,8 +312,13 @@ async function payOnLemonSqueezy(page, email, { marks: marking = true } = {}) {
 // redirects back to the site.
 // ---------------------------------------------------------------------------
 const SANDBOX_PATH = '/api/payments/sandbox/checkout/';
+// PAYMENTS_PROVIDER=grow with GROW_API_BASE on the Grow stand-in
+// (backend/app/api/grow_standin.py): the real Grow code path, the same TEST
+// page title and Pay / Fail buttons.
+const GROW_STANDIN_PATH = '/api/payments/grow-standin/page/';
+const ON_TEST_CHECKOUT = (u) => u.pathname.startsWith(SANDBOX_PATH) || u.pathname.startsWith(GROW_STANDIN_PATH);
 const SANDBOX_TITLE = 'TEST checkout - no real money';
-const CHECKOUT_URL = (u) => /lemonsqueezy\.com/.test(u.hostname) || u.pathname.startsWith(SANDBOX_PATH);
+const CHECKOUT_URL = (u) => /lemonsqueezy\.com/.test(u.hostname) || ON_TEST_CHECKOUT(u);
 
 // Which provider sells here, read from what the API returns: grow_sandbox
 // prices its packs in ILS, Lemon Squeezy in USD. Staging may go back to Lemon
@@ -332,7 +337,7 @@ const ilsDisplay = (agorot) => `₪${Math.floor(agorot / 100)}${agorot % 100 ? `
 // On the TEST page: check it is ours and says what it sells, press `button`
 // ("Pay" or "Fail"), and come back to the site. Returns the order's page URL.
 async function payOnSandbox(page, { button = 'Pay', amount = null, marks: marking = true } = {}) {
-  await page.waitForURL((u) => u.pathname.startsWith(SANDBOX_PATH), { timeout: 60000 });
+  await page.waitForURL((u) => ON_TEST_CHECKOUT(u), { timeout: 60000 });
   await page.waitForLoadState('domcontentloaded');
   const orderUrl = page.url();
   if (!orderUrl.startsWith(BASE_URL)) throw new Error(`the TEST checkout is not on the site's own origin: ${orderUrl}`);
@@ -346,7 +351,7 @@ async function payOnSandbox(page, { button = 'Pay', amount = null, marks: markin
   if (marking) mark('checkout');
   await linger(page, 1500);
   await page.getByRole('button', { name: button, exact: true }).click();
-  await page.waitForURL((u) => u.toString().startsWith(BASE_URL) && !u.pathname.startsWith(SANDBOX_PATH), { timeout: 60000 });
+  await page.waitForURL((u) => u.toString().startsWith(BASE_URL) && !ON_TEST_CHECKOUT(u), { timeout: 60000 });
   if (marking && button === 'Pay') mark('paid');
   return orderUrl;
 }
@@ -403,11 +408,15 @@ async function buyOnSandbox(page, packs) {
   const afterFail = await balance();
   if (afterFail !== start || shownAfterFail !== start) throw new Error(`a failed checkout moved the balance ${start} -> ${afterFail} (shown ${shownAfterFail})`);
   if ((await receipts()).length !== startReceipts.length) throw new Error('a failed checkout left a receipt');
-  // The order itself is failed for good: its page offers no Pay any more.
-  await page.goto(failedOrder, { waitUntil: 'domcontentloaded' });
-  const status = (await page.locator('.status').innerText().catch(() => '')).trim();
-  if (status !== 'This order is failed.') throw new Error(`the failed order's page says "${status}", want "This order is failed."`);
-  if (await page.getByRole('button', { name: 'Pay', exact: true }).count()) throw new Error('a failed order still offers Pay');
+  // grow_sandbox: the order itself is failed for good, its page offers no Pay
+  // any more. (Grow lets a declined buyer retry on the same page, so there
+  // the order simply stays unpaid; the balance and receipts above prove it.)
+  if (new URL(failedOrder).pathname.startsWith(SANDBOX_PATH)) {
+    await page.goto(failedOrder, { waitUntil: 'domcontentloaded' });
+    const status = (await page.locator('.status').innerText().catch(() => '')).trim();
+    if (status !== 'This order is failed.') throw new Error(`the failed order's page says "${status}", want "This order is failed."`);
+    if (await page.getByRole('button', { name: 'Pay', exact: true }).count()) throw new Error('a failed order still offers Pay');
+  }
   await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' });
 
   // Pay: each pack adds exactly its credits, and one receipt that says so.
@@ -1524,7 +1533,7 @@ try {
       throw new Error(`the checkout is for ${checkout.seats} seats at ${checkout.price_display}, want ${seats} at ${want}`);
     }
 
-    const onSandbox = new URL(checkout.checkout_url).pathname.startsWith(SANDBOX_PATH);
+    const onSandbox = ON_TEST_CHECKOUT(new URL(checkout.checkout_url));
     if (onSandbox !== sandbox) throw new Error(`seat_price is in ${price.currency || 'USD'} but the checkout opened at ${checkout.checkout_url}`);
     if (sandbox) await payOnSandbox(page, { amount: want, marks: false });
     else await payOnLemonSqueezy(page, user.email, { marks: false });
