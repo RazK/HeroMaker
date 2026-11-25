@@ -36,5 +36,8 @@
   font-family: var(--tb-font-body); font-weight: 800; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--tb-ink);
 }
 
-.tb-paywall-note { margin-top: 16px; font-weight: 700; color: var(--tb-ink-2); text-align: center; }
+/* A line between the plans and Continue: 16px from the card's depth and 16px
+   to the button, so the 24px rhythm grows evenly (Maya's gate, #373). */
+.tb-paywall-note { margin-top: calc(16px + var(--tb-depth-sm)); font-weight: 700; color: var(--tb-ink-2); text-align: center; }
+.tb-paywall-note + .tb-paywall-go { margin-top: 16px; }
 .tb-paywall-go { margin-top: 24px; }

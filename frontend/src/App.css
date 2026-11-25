@@ -78,3 +78,9 @@
 /* Signed out, while the landing's own two buttons are on screen, the bar is
    away; scrolled past them, it holds the same two (Landing.tsx). */
 .tb-bar--away { display: none; }
+
+/* Back from a checkout that did not go through: one sentence on one line
+   (rule 25). Where the coin would push it to two lines, the coin goes; the
+   words carry it (Maya's gate, #373). */
+.app-payment-failed-text { white-space: nowrap; }
+@media (max-width: 400px) { .app-payment-failed > svg { display: none; } }

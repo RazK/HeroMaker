@@ -4,13 +4,15 @@ Which payment provider sells, and the one surface the app calls it through.
     PAYMENTS_PROVIDER=lemonsqueezy   (default) app/services/lemonsqueezy.py, unchanged
     PAYMENTS_PROVIDER=grow_sandbox   app/services/grow_sandbox.py: our own test mode,
                                      shekel prices, never armed in production
-    PAYMENTS_PROVIDER=grow           Grow itself. Not built yet: sells nothing.
+    PAYMENTS_PROVIDER=grow           app/services/grow.py: Grow itself (its sandbox, a
+                                     stand-in, or live, by GROW_API_BASE)
 
 app/api/payments.py and app/api/classes.py call this module, never a provider
 directly. Exactly one provider sells at a time: the storefront lists its
 products, checkouts open through it, and only ITS callback is believed. The
 Lemon Squeezy webhook rejects everything while another provider is selected,
-and the Grow callback answers 404 unless grow_sandbox is selected and armed.
+the sandbox callback answers 404 unless grow_sandbox is selected and armed, and
+Grow's notify answers 404 unless grow is selected and can sell.
 
 Errors come out as this module's own two, whichever provider raised them:
 NotConfiguredError (ours to fix: 503) and PaymentsError (the provider said
@@ -23,13 +25,13 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.config import packs as packs_config
-from app.services import grow_sandbox, lemonsqueezy
+from app.services import grow, grow_sandbox, lemonsqueezy
 
 logger = logging.getLogger(__name__)
 
 LEMONSQUEEZY = "lemonsqueezy"
 GROW_SANDBOX = grow_sandbox.NAME
-GROW = "grow"
+GROW = grow.NAME
 PROVIDERS = (LEMONSQUEEZY, GROW_SANDBOX, GROW)
 
 # Lemon Squeezy's webhook events, for its handler in payments.py.
@@ -68,6 +70,8 @@ def can_sell() -> bool:
         return lemonsqueezy.can_sell()
     if provider == GROW_SANDBOX:
         return grow_sandbox.can_sell()
+    if provider == GROW:
+        return grow.can_sell()
     return False
 
 
@@ -75,7 +79,9 @@ def test_mode() -> bool:
     provider = name()
     if provider == LEMONSQUEEZY:
         return lemonsqueezy.test_mode()
-    # The sandbox never takes money; Grow is not built, so it takes none either.
+    if provider == GROW:
+        return grow.test_mode()
+    # The sandbox never takes money.
     return True
 
 
@@ -94,6 +100,8 @@ def list_packs() -> List[Dict[str, Any]]:
         return [{**p, "currency": "USD"} for p in packs_config.get_packs(include_unconfigured=False)]
     if provider == GROW_SANDBOX:
         return grow_sandbox.list_packs()
+    if provider == GROW:
+        return grow.list_packs()
     return []
 
 
@@ -122,6 +130,8 @@ def seat_price() -> Optional[Dict[str, Any]]:
         }
     if provider == GROW_SANDBOX:
         return grow_sandbox.seat_price()
+    if provider == GROW:
+        return grow.seat_price()
     return None
 
 
@@ -135,6 +145,7 @@ def create_checkout(
     email: Optional[str] = None,
     redirect_url: Optional[str] = None,
     db: Optional[Session] = None,
+    full_name: Optional[str] = None,
 ) -> str:
     """A checkout URL for `pack`. Nothing is charged and no credits move."""
     provider = name()
@@ -145,9 +156,12 @@ def create_checkout(
         if provider == GROW_SANDBOX:
             return grow_sandbox.create_checkout(db, pack=pack, user_id=user_id, email=email,
                                                 redirect_url=redirect_url)
-    except (lemonsqueezy.NotConfiguredError, grow_sandbox.NotArmedError) as exc:
+        if provider == GROW:
+            return grow.create_checkout(db, pack=pack, user_id=user_id, email=email,
+                                        redirect_url=redirect_url, full_name=full_name)
+    except (lemonsqueezy.NotConfiguredError, grow_sandbox.NotArmedError, grow.NotConfiguredError) as exc:
         raise NotConfiguredError(str(exc)) from exc
-    except (lemonsqueezy.LemonSqueezyError, grow_sandbox.SandboxError) as exc:
+    except (lemonsqueezy.LemonSqueezyError, grow_sandbox.SandboxError, grow.GrowError) as exc:
         raise PaymentsError(str(exc)) from exc
     raise NotConfiguredError(f"Payments provider {provider!r} cannot open a checkout")
 
@@ -170,11 +184,13 @@ def create_class_seats_checkout(
             return lemonsqueezy.create_class_seats_checkout(**kwargs)
         if provider == GROW_SANDBOX:
             return grow_sandbox.create_class_seats_checkout(db, **kwargs)
-    except (lemonsqueezy.NotConfiguredError, grow_sandbox.NotArmedError) as exc:
+        if provider == GROW:
+            return grow.create_class_seats_checkout(db, **kwargs)
+    except (lemonsqueezy.NotConfiguredError, grow_sandbox.NotArmedError, grow.NotConfiguredError) as exc:
         raise NotConfiguredError(str(exc)) from exc
-    except grow_sandbox.SeatsError as exc:
+    except (grow_sandbox.SeatsError, grow.SeatsError) as exc:
         raise SeatsError(str(exc)) from exc
-    except (lemonsqueezy.LemonSqueezyError, grow_sandbox.SandboxError) as exc:
+    except (lemonsqueezy.LemonSqueezyError, grow_sandbox.SandboxError, grow.GrowError) as exc:
         raise PaymentsError(str(exc)) from exc
     raise NotConfiguredError(f"Payments provider {provider!r} cannot open a checkout")
 

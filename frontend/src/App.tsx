@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { HeaderAuth } from './components/HeaderAuth';
-import { PURCHASE_RETURN_PARAM, balanceBeforeCheckout } from './components/BuyCredits';
+import { CHECKOUT_FAILED_ON_LOAD, CHECKOUT_FAILED_PARAM, PURCHASE_RETURN_PARAM, balanceBeforeCheckout } from './components/BuyCredits';
 import { AdminSteps } from './components/admin/AdminSteps';
 import { AdminPanel } from './components/AdminPanel';
 import { ResetPassword, RESET_PASSWORD_PATH } from './components/ResetPassword';
@@ -289,14 +289,23 @@ function MainApp() {
   // the signed webhook grants the credits, usually within a second or two, so
   // all this does is re-read the balance until it moves (or give up quietly).
   const [purchaseNotice, setPurchaseNotice] = useState<string | null>(null);
+  // Back from a checkout that did not go through (?checkout=failed): say so and
+  // offer it again, never "Adding your credits…" for credits that are not
+  // coming. On a hero's page its pay pop-up says it (PaywallSheet).
+  const [paymentFailed, setPaymentFailed] = useState(false);
   useEffect(() => {
-    if (!PURCHASE_ON_LOAD) return;
+    if (!PURCHASE_ON_LOAD && !CHECKOUT_FAILED_ON_LOAD) return;
     const params = new URLSearchParams(window.location.search);
     params.delete(PURCHASE_RETURN_PARAM);
+    params.delete(CHECKOUT_FAILED_PARAM);
     const query = params.toString();
     window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
 
     if (!getAuthToken()) return;
+    if (CHECKOUT_FAILED_ON_LOAD) {
+      if (!window.location.pathname.startsWith('/hero/')) setPaymentFailed(true);
+      return;
+    }
     setPurchaseNotice('Thanks! Adding your credits…');
     let cancelled = false;
     (async () => {
@@ -635,6 +644,12 @@ function MainApp() {
   const notices = (
     <>
       {purchaseNotice && <div className="tb-notice app-purchase-notice" role="status"><Icon name="coin" />{purchaseNotice}</div>}
+      {paymentFailed && (
+        <div className="tb-notice app-payment-failed" role="status">
+          <Icon name="coin" /><span className="app-payment-failed-text">Payment didn’t go through</span>
+          <button type="button" className="tb-btn tb-btn--secondary tb-btn--sm" onClick={() => { setPaymentFailed(false); window.dispatchEvent(new CustomEvent('credits:buy')); }}>Try again</button>
+        </div>
+      )}
       {accountNotice && (
         <div className="tb-notice app-account-notice" role="status">
           <Icon name="check" />{accountNotice}

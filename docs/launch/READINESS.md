@@ -3,6 +3,20 @@
 Audit of 2026-11-19, before the first paid marketing campaign. Production was
 v2.0.85 (deployed 2026-11-02); the fixes below reached staging as v2.0.115.
 
+**Status 2026-11-25 (night):** staging v2.0.248 · 1968462 is green on the
+staging robot, money steps included ([run 140](https://github.com/RazK/HeroMaker/actions/runs/45398449540)):
+free painting → the pay pop-up → TEST checkout → back to the same hero, which
+goes on to 3D by itself → receipt; every pack, a Fail, and class seats.
+Production is still v2.0.85 and lists no packs. The moment gates 1 and 2 close,
+the remaining work is gate 3 (about a day) and Raz's yeses for gates 5–7.
+
+**Failed payment (2026-11-25, #373):** back from a checkout that did not go
+through, the site says "Payment didn't go through" with Try again (home) or
+one line above Continue to payment (the hero's pop-up); never "Adding your
+credits". Verified on staging v2.0.251 · 6823ce8 by the robot: Fail granted
+nothing, the notice showed, Try again reopened the packs; Pay, family, class
+seats and the pop-up path all still green.
+
 **Verdict (2026-11-24): not live, and the code is not what blocks it.** The
 whole purchase path runs on staging in shekels through our own test mode, and
 the robot proves it on every deploy. What stands between us and real money is
@@ -16,7 +30,7 @@ against anything or tested.
 |---|---|---|---|
 | 1 | Grow merchant account active (registration, identity, payout bank, plan: ₪70/month or ₪720/year, 0.75% a transaction) | **Open.** Grow wrote on 23 Nov that registration is unfinished. | **Raz** |
 | 2 | Grow API identifiers (`userId`, `pageCode`, API key) for sandbox and production, and how a `notifyUrl` call is authenticated | **Open.** Issued only after gate 1. Their public docs do not say how a callback is verified (read 2026-11-24). | Raz asks Grow (Liav) |
-| 3 | Real `grow` provider: create the payment page, receive the server update, verify it, `ApproveTransaction`, credit | **Ready to build, blocked on gate 2 to test.** The interface, stored orders, crediting, receipts and the robot exist (`grow_sandbox`); only the HTTP client and the verification step change. | Gidi |
+| 3 | Real `grow` provider: create the payment page, receive the server update, verify it, `ApproveTransaction`, credit | **Built (2026-11-25), proven against a Grow stand-in; Grow's own sandbox waits on gate 2.** `PAYMENTS_PROVIDER=grow` (`backend/app/services/grow.py`). The notify is verified by a per-order secret notifyUrl token plus the processId/processToken Grow returned to our server; the stored order decides what is granted. Staging runs it against `grow_standin` until Grow's sandbox userId/pageCode arrive, then only `GROW_*` variables change. Proof: `backend/tests/test_grow.py`. | Gidi |
 | 4 | Receipts with a real number | Ours: `/api/v1/receipts` lists every purchase (₪, credits, date). The legal receipt (קבלה) for an exempt dealer is issued by Grow or by Morning connected to Grow. Store Grow's `asmachta`/transaction id as our order number when gate 3 lands. | Raz decides Grow-only or Morning; Gidi stores the number |
 | 5 | Production runs today's code | **Open.** Production is v2.0.85 (2 Nov), far behind staging. Needs a green robot on the staging SHA and Raz's yes. | Raz's yes, Gidi promotes |
 | 6 | Production variables: `PAYMENTS_PROVIDER=grow`, `GROW_*` keys | **Open**, after gates 2, 3, 5. Set with `skipDeploys`, then redeploy the running deployment by id (see the trap below). `grow_sandbox` refuses to arm on production. | Raz's yes |
@@ -26,6 +40,17 @@ against anything or tested.
 **Not a gate any more:** Lemon Squeezy (never approved, dropped 22 Nov) and its
 `LEMONSQUEEZY_TEST_MODE` question. Its production variables are emptied, so
 production lists no packs and its webhook answers 401.
+
+**Real-Grow checklist: nothing takes real money until every line is green,
+plus Raz's credentials and his yes** (from the #375 review, 2026-11-25; owner Gidi):
+
+| # | Blocker | State |
+|---|---|---|
+| G1 | **How Grow calls `notifyUrl`.** If Grow dropped a query string, every real payment would 401 and the buyer would pay for nothing. | **Fixed in code:** the token is a path segment (`/api/payments/grow/notify/<order>/<token>`), no query. **Still to confirm with Grow:** that it POSTs to the URL exactly as given, and with which content type. |
+| G2 | **A multipart notify, end to end.** Grow posts form data the way `createPaymentProcess` is sent; the stand-in sends urlencoded. | **Green:** the Grow stand-in now posts its notify as multipart, so the pay test and the staging robot run that path end to end; plus `test_a_multipart_notify_credits` (credits once, resend credits nothing more). Re-prove against Grow's sandbox once it issues our IDs. |
+| G3 | One payment through **Grow's own sandbox** (not the stand-in): page, test card, notify, credits, `approveTransaction` answered 1. | Open: waits on gate 2's IDs. |
+| G4 | Production variables and the one real ₪10 purchase + refund. | Open: gates 6 and 7. |
+| G5 | Remove the first notify shape (`/grow/notify/<order>?t=`), kept only for staging orders opened before 2026-11-25. | Open: cleanup before production. |
 
 **What Grow's docs say (read 2026-11-24, developers.grow.business):**
 `CreatePaymentLink` is `POST /api/light/server/1.1/CreatePaymentLink`,

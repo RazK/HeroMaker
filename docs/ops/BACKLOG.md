@@ -8,6 +8,16 @@ Newest first. When an item enters a sprint, move it to `SPRINT_LOG.md`.
 
 ## Open
 
+### Failed-payment screen: "Adding your credits…" after a payment fails
+- **From:** Gidi, 2026-11-25, go-live readiness finding. After a payment fails,
+  the UI still shows "Adding your credits…" — it waits for credits that never
+  arrive, so the buyer is left stuck with no word that the payment failed.
+- **Why it matters:** this is the money moment's failure path. A stuck,
+  misleading screen at the point of payment loses a paying customer and trust.
+- **Want:** the screen must say the payment **failed** and offer **one-tap
+  retry**.
+- **Scope:** small, frontend (owner: Gidi). Before go-live.
+
 ### Teacher: "Add seats" is hidden when a class is full (money-moment friction)
 - **From:** Liran + Anat, 2026-11-24, found while recording the teacher not-happy
   flow. When a class fills, the teacher's live board gives no visible way to add
