@@ -317,6 +317,13 @@ const SANDBOX_PATH = '/api/payments/sandbox/checkout/';
 // page title and Pay / Fail buttons.
 const GROW_STANDIN_PATH = '/api/payments/grow-standin/page/';
 const ON_TEST_CHECKOUT = (u) => u.pathname.startsWith(SANDBOX_PATH) || u.pathname.startsWith(GROW_STANDIN_PATH);
+// Which TEST page the robot actually paid on, so a report never names the
+// wrong path: "grow" (PAYMENTS_PROVIDER=grow, the real Grow code against the
+// stand-in) or "grow_sandbox" (our older fake provider).
+const paidOn = new Set();
+const checkoutLabel = () => (paidOn.size ? [...paidOn].map((k) => (k === 'grow'
+  ? 'the real Grow code path (Grow stand-in) TEST checkout' : 'the grow_sandbox TEST checkout')).join(' + ')
+  : 'the TEST checkout');
 const SANDBOX_TITLE = 'TEST checkout - no real money';
 const CHECKOUT_URL = (u) => /lemonsqueezy\.com/.test(u.hostname) || ON_TEST_CHECKOUT(u);
 
@@ -341,6 +348,11 @@ async function payOnSandbox(page, { button = 'Pay', amount = null, marks: markin
   await page.waitForLoadState('domcontentloaded');
   const orderUrl = page.url();
   if (!orderUrl.startsWith(BASE_URL)) throw new Error(`the TEST checkout is not on the site's own origin: ${orderUrl}`);
+  const onGrow = new URL(orderUrl).pathname.startsWith(GROW_STANDIN_PATH);
+  paidOn.add(onGrow ? 'grow' : 'grow_sandbox');
+  if (onGrow && !(await page.getByText('real Grow code path').count())) {
+    throw new Error('the Grow stand-in page does not say it runs the real Grow code path');
+  }
   const title = await page.title();
   if (title !== SANDBOX_TITLE) throw new Error(`the checkout page is titled "${title}", want "${SANDBOX_TITLE}"`);
   if (amount !== null) {
@@ -455,7 +467,7 @@ async function buyOnSandbox(page, packs) {
   }
   if (DEMO) { await page.locator('.header-auth-credits').hover(); await page.waitForTimeout(3000); }
   mark('credits_end');
-  return `grow_sandbox TEST checkout: Fail granted nothing (balance ${start}, no receipt, order failed; the screen said "Payment didn't go through" and Try again reopened the packs); paid ${bought.join('; ')}; balance ${start} -> ${await balance()}`;
+  return `${checkoutLabel()}: Fail granted nothing (balance ${start}, no receipt, order failed; the screen said "Payment didn't go through" and Try again reopened the packs); paid ${bought.join('; ')}; balance ${start} -> ${await balance()}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -897,7 +909,7 @@ try {
       if (got !== 1) throw new Error(`paying One hero at the pop-up left ${got} receipts, want 1`);
       if (after < 0 || after >= single.credits) throw new Error(`after paying ${single.credits} and the 3D, the balance is ${after}`);
       paidAtPaywall = true;
-      paid = `; at the pop-up: One hero ${ilsDisplay(single.price_cents)} paid in the TEST checkout, back on the hero, it went on to 3D by itself and is ready (balance ${after}, 1 receipt)`;
+      paid = `; at the pop-up: One hero ${ilsDisplay(single.price_cents)} paid in ${checkoutLabel()}, back on the hero, it went on to 3D by itself and is ready (balance ${after}, 1 receipt)`;
     }
     // Home again, as after any other step: the paused hero's own Buy credits
     // button would be a second match for the buy step's menu row.
@@ -1712,7 +1724,7 @@ try {
       await switchBar.waitFor({ state: 'detached', timeout: 15000 });
       await page.locator('.tb-new-hero').waitFor({ timeout: 15000 });
     }
-    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on ${sandbox ? 'the grow_sandbox TEST checkout (one receipt)' : 'Lemon Squeezy'}, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero (${kidAsked}), ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
+    return `school: ${school}; "${className}", ${seats} seats at ${want} (teacher price, from GET /api/v1/classes); paid on ${sandbox ? `${checkoutLabel()} (one receipt)` : 'Lemon Squeezy'}, seats in ${landed}s after returning; API seats=${cls.seats}, balance unchanged at ${after}; started: code ${pin} and a QR; student "${kidName}" joined and made a hero (${kidAsked}), ready in ${kidReady}, opened from the class live in 3D; a second "${kidName}" from another phone waited as "${kidName} 2" and was removed from the board; the live strip on Gallery led back to it; ended; group mode off again`;
   });
 
   // Analytics (docs/analytics/REQUIREMENTS.md): the run above must have left
