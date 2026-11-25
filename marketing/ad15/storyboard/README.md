@@ -33,3 +33,11 @@
 - A: Violet steps off the page (this board).
 - B: "He drew 5 legs. It still has 5 legs."
 - C: The drawing comes off the fridge.
+
+## The ad's description text (Meta)
+PM decision, 25 Nov: option (a). The label goes in the description, and Meta adds its own AI label automatically. The picture stays clean. Raz makes the final call before anything runs.
+
+> Your child's drawing, brought to life. Snap a photo of any drawing and HeroMaker turns it into a 3D hero they can play with. For kids 4–9.
+> Dramatization · AI characters. App screens are real.
+
+The CTA button is *Make a hero*. The text doesn't use "only", and doesn't say anything personal about the viewer ("Are you a mom…").
