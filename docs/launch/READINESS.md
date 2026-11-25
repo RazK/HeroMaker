@@ -47,9 +47,10 @@ plus Raz's credentials and his yes** (from the #375 review, 2026-11-25; owner Gi
 | # | Blocker | State |
 |---|---|---|
 | G1 | **How Grow calls `notifyUrl`.** If Grow dropped a query string, every real payment would 401 and the buyer would pay for nothing. | **Fixed in code:** the token is a path segment (`/api/payments/grow/notify/<order>/<token>`), no query. **Still to confirm with Grow:** that it POSTs to the URL exactly as given, and with which content type. |
-| G2 | **A multipart notify, end to end.** Grow posts form data the way `createPaymentProcess` is sent; the stand-in sends urlencoded. | **Green:** `test_a_multipart_notify_credits` (credits once, resend credits nothing more). Re-prove against Grow's sandbox once it issues our IDs. |
+| G2 | **A multipart notify, end to end.** Grow posts form data the way `createPaymentProcess` is sent; the stand-in sends urlencoded. | **Green:** the Grow stand-in now posts its notify as multipart, so the pay test and the staging robot run that path end to end; plus `test_a_multipart_notify_credits` (credits once, resend credits nothing more). Re-prove against Grow's sandbox once it issues our IDs. |
 | G3 | One payment through **Grow's own sandbox** (not the stand-in): page, test card, notify, credits, `approveTransaction` answered 1. | Open: waits on gate 2's IDs. |
 | G4 | Production variables and the one real ₪10 purchase + refund. | Open: gates 6 and 7. |
+| G5 | Remove the first notify shape (`/grow/notify/<order>?t=`), kept only for staging orders opened before 2026-11-25. | Open: cleanup before production. |
 
 **What Grow's docs say (read 2026-11-24, developers.grow.business):**
 `CreatePaymentLink` is `POST /api/light/server/1.1/CreatePaymentLink`,
