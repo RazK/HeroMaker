@@ -3,6 +3,9 @@
 This reel uses real staging footage only. There are no AI people and no mock-ups. Its job is to let us cut fast once Raz picks the direction.
 
 ## reel-v0 (32.5 s)
+
+> **Warning (26 Nov, 08:00, Liran):** clips 3 and 4 are **not real speed**. Playwright's clock leaked into page time, about 741 ms per frame instead of 33, so the motion plays many times too fast. Don't use them. Liran is re-recording with the clock paused, and v1 replaces them.
+
 | # | Clip | Source | Quality |
 |---|---|---|---|
 | 1 | Camera → Violet's drawing goes in | Liran, 1-camera-violet (real speed) | Smooth (2D UI) |

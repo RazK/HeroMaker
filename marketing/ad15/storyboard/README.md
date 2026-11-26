@@ -50,3 +50,7 @@ The CTA button is *Make a hero*. The text doesn't use "only", and doesn't say an
   - shutter: synthesised noise.
   - Licence (Gidi, 25 Nov): the Stability Community Licence covers commercial use, ads included, under US$1M revenue, and we own the outputs. **Condition: Raz registers with Stability for free before the ad goes public.**
 - **Mix QA:** checked by the audio model on 25 Nov. Every effect is audible at its time, with no clipping and no silent gaps. Mean -18.9 dB, peak -0.8 dB.
+
+
+## Known issue (26 Nov)
+In ad cut 2, the dance in F4 ("Every line kept") and the game on the TV in F6 come from Liran's two clips of 24–25 Nov, which turned out to be **not real speed** (the motion is too fast). If the ad is used, swap in the re-recordings (clock paused, about 34 ms per frame).
