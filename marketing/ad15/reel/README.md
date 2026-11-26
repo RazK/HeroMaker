@@ -15,7 +15,21 @@ This reel uses real staging footage only. There are no AI people and no mock-ups
 
 Music: "Blue Sky" by Sergmusic, CC0.
 
-## Coming next (Liran, stepped 30 fps, no paid calls)
+## reel-v1 (46.3 s), only real speed and verified
+| # | Clip | Source |
+|---|---|---|
+| 1 | Camera → Violet's drawing goes in | 1-camera-violet (Chrome screencast, real speed) |
+| 2 | Making screen → 0% → 100% → 3D | 2-making-and-reveal (screencast, real speed; **robot test drawing**, live 3D slightly choppy) |
+| 3 | Violet's hero page: drawing → painting → 3D | 6-violet-real/1-arrival (true 30 fps, clock paused, 34 ms/frame) |
+| 4 | Tap Flip | 6-violet-real/2-move-flip (true 30 fps) |
+| 5 | Tap Wave | 6-violet-real/2-move-wave (true 30 fps) |
+| 6 | The original drawing, full size | 6-violet-real/3-tab-drawing (true 30 fps) |
+| 7 | The painting | 6-violet-real/3-tab-painting (true 30 fps) |
+| 8 | Robot Rumble lobby (Violet in a playroom, drawings on the wall) | 6-violet-real/4-robot-rumble (true 30 fps) |
+
+v1 drops v0's dancing and Dance party clips (too fast). They come back once Liran re-records them.
+
+## Was "coming next" (now in v1)
 - Violet's hero page arriving: drawing → painting → 3D.
 - Wave, Flip and Punch.
 - The Drawing / Painting tabs.
