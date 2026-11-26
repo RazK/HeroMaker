@@ -1,0 +1,23 @@
+{
+  "hero": "26eef3df-315f-40f8-a6bd-b87716d34976",
+  "url": "https://frontend-staging-7cb8.up.railway.app/play/arena.html",
+  "mode": "rumble",
+  "arg": null,
+  "viewport": "844x390",
+  "deviceScaleFactor": 2,
+  "fps": 30,
+  "frames": 180,
+  "method": "stepped clock (Playwright clock.install + runFor 1/30 s per frame), staging",
+  "steps": [
+    {
+      "frame": 0,
+      "t": 0,
+      "what": "Robot Rumble with Violet, no camera, no player input"
+    },
+    {
+      "frame": 180,
+      "t": 6,
+      "what": "end"
+    }
+  ]
+}

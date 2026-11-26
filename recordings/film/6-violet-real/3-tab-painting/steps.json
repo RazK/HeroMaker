@@ -1,0 +1,23 @@
+{
+  "hero": "26eef3df-315f-40f8-a6bd-b87716d34976",
+  "url": "https://frontend-staging-7cb8.up.railway.app/hero/26eef3df-315f-40f8-a6bd-b87716d34976",
+  "mode": "tab",
+  "arg": "Painting",
+  "viewport": "390x844",
+  "deviceScaleFactor": 2,
+  "fps": 30,
+  "frames": 105,
+  "method": "stepped clock (Playwright clock.install + runFor 1/30 s per frame), staging",
+  "steps": [
+    {
+      "frame": 15,
+      "t": 0.5,
+      "what": "tapped the Painting tab"
+    },
+    {
+      "frame": 105,
+      "t": 3.5,
+      "what": "end"
+    }
+  ]
+}
