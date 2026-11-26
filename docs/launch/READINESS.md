@@ -41,6 +41,8 @@ against anything or tested.
 `LEMONSQUEEZY_TEST_MODE` question. Its production variables are emptied, so
 production lists no packs and its webhook answers 401.
 
+**The go-live pass itself, step by step, with its rehearsal: [GO_LIVE.md](GO_LIVE.md).**
+
 **Real-Grow checklist: nothing takes real money until every line is green,
 plus Raz's credentials and his yes** (from the #375 review, 2026-11-25; owner Gidi):
 
