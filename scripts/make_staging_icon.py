@@ -6,6 +6,10 @@ STAGING band. frontend/apply-env-look.sh swaps it in when the container starts
 on any Railway environment but production, so a promote carries the same code
 and production keeps its own icon.
 
+It also makes the in-app logo, frontend/public/logo.webp: the same picture
+at 144 px (the header draws it at 36-40 px, so 3x screens stay sharp). The
+header used to load the 586 px, 537 KB app-icon.png on every page for that.
+
 Run it again whenever app-icon.png changes; CI fails until you do
 (frontend/scripts/check-env-look.sh compares SOURCE.sha256).
 
@@ -20,6 +24,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "frontend/public/app-icon.png"
 OUT = ROOT / "frontend/env-assets/staging"
 SIZE = 1024  # the manifest's largest declared size: never upscaled
+LOGO = ROOT / "frontend/public/logo.webp"
+LOGO_SIZE = 144  # 3x the largest in-app size (40 px)
 INK = (35, 25, 66, 255)       # --tb-ink
 SUN = (255, 194, 51, 255)     # --tb-sun
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -47,6 +53,10 @@ def main() -> None:
     icon.convert("RGB").quantize(colors=256, method=Image.Quantize.MEDIANCUT).save(OUT / "app-icon.png", optimize=True)
     (OUT / "SOURCE.sha256").write_text(hashlib.sha256(SOURCE.read_bytes()).hexdigest() + "  frontend/public/app-icon.png\n")
     print(f"wrote {OUT / 'app-icon.png'}")
+
+    logo = Image.open(SOURCE).convert("RGBA").resize((LOGO_SIZE, LOGO_SIZE), Image.LANCZOS)
+    logo.save(LOGO, "WEBP", quality=90, method=6)
+    print(f"wrote {LOGO} ({LOGO.stat().st_size:,} bytes)")
 
 
 if __name__ == "__main__":
