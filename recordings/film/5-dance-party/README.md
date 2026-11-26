@@ -10,3 +10,8 @@
   routine to film without a person. This is her camera-off dance.
 - Recorded with a stepped clock (Playwright page.clock, 1/30 s per frame), so
   it is smooth on a runner with no GPU. `record-dance-party.js` is the recorder.
+
+**Re-recorded 2026-11-26 (real speed).** The first version was captured with the
+fake clock installed but not paused: each ~1 s screenshot leaked into page time
+(measured 741 ms per frame), so the dance played far too fast. The script now
+pauses the clock first; each frame is exactly 1/30 s (measured 34 ms).
