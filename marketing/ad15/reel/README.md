@@ -15,6 +15,9 @@ This reel uses real staging footage only. There are no AI people and no mock-ups
 
 Music: "Blue Sky" by Sergmusic, CC0.
 
+## reel-v2 (55.3 s): v1 plus the corrected clips
+Adds 6 · Tap Dance and 10 · Dance party, both re-recorded by Liran at real speed with the clock paused (commit c89cab6). All clips are real speed.
+
 ## reel-v1 (46.3 s), only real speed and verified
 | # | Clip | Source |
 |---|---|---|
