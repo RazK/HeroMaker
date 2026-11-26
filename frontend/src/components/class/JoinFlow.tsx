@@ -128,7 +128,7 @@ function ClassFull({ pin, title, onSeat }: { pin: string; title: string; onSeat:
 function KidHeader({ title, onBack }: { title: string; onBack?: () => void }) {
   return (
     <Header
-      left={onBack ? <NavButton icon="back" label="Back" onClick={onBack} /> : <img className="cls-kid-logo" src="/app-icon.png" alt="HeroMaker" width={40} height={40} />}
+      left={onBack ? <NavButton icon="back" label="Back" onClick={onBack} /> : <img className="cls-kid-logo" src="/logo.webp" alt="HeroMaker" width={40} height={40} />}
       title={title}
     />
   );

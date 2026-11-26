@@ -3,7 +3,8 @@
 # `npm run build`, from frontend/; CI does (ci.yml frontend-build).
 #
 # Fails when:
-#   - app-icon.png changed but staging's icon was not remade from it
+#   - app-icon.png changed but staging's icon and the in-app logo
+#     (public/logo.webp) were not remade from it
 #     (.venv/bin/python scripts/make_staging_icon.py)
 #   - staging's icon is the same picture as production's
 #   - apply-env-look.sh touches production's build at all
@@ -33,7 +34,8 @@ grep -q '"src":"app-icon-staging.png"' "$tmp/staging/manifest.webmanifest" || fa
 grep -q 'href="/app-icon-staging.png"' "$tmp/staging/index.html" || fail "staging's tab keeps production's icon"
 grep -q 'rel="manifest" href="/manifest.webmanifest?env=staging"' "$tmp/staging/index.html" || fail "staging's manifest URL is the one the service worker precaches"
 cmp -s "$tmp/staging/app-icon-staging.png" dist/app-icon.png && fail "staging's icon is production's"
-cmp -s "$tmp/staging/app-icon.png" dist/app-icon.png || fail "staging changed the in-app logo picture"
+cmp -s "$tmp/staging/app-icon.png" dist/app-icon.png || fail "staging changed production's icon file"
+cmp -s "$tmp/staging/logo.webp" dist/logo.webp || fail "staging changed the in-app logo picture"
 
 
 echo "env look: staging differs from production, production untouched"

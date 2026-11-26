@@ -699,7 +699,7 @@ function MainApp() {
     <Header
       left={(
         <button type="button" className="tb-logo tb-logo-mark app-header-center" onClick={goHome} aria-label="HeroMaker home">
-          <img src="/app-icon.png" alt="" />
+          <img src="/logo.webp" alt="" />
           <span>HeroMaker</span>
         </button>
       )}

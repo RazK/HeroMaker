@@ -133,7 +133,7 @@ export function ClaimScreen({ token, onHome, onSeeHeroes, onOpenHero }: {
       <Header
         left={(
           <button type="button" className="tb-logo cls-claim-logo" onClick={onHome} aria-label="HeroMaker home">
-            <img src="/app-icon.png" alt="" width={40} height={40} />
+            <img src="/logo.webp" alt="" width={40} height={40} />
           </button>
         )}
         title={view && !spent ? heroName : 'HeroMaker'}

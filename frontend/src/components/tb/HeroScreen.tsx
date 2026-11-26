@@ -283,7 +283,7 @@ export function HeroScreen(props: HeroScreenProps) {
         <>
           <NavButton icon="back" label={backLabel} onClick={props.onBack} className={`tb-back${props.fromClass || props.fromAdmin ? '' : ' tb-back--wide'}`} />
           <button type="button" className="tb-logo tb-logo-mark" onClick={props.onHome} aria-label="HeroMaker home">
-            <img src="/app-icon.png" alt="" />
+            <img src="/logo.webp" alt="" />
             <span>HeroMaker</span>
           </button>
         </>
