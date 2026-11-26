@@ -53,4 +53,4 @@ The CTA button is *Make a hero*. The text doesn't use "only", and doesn't say an
 
 
 ## Known issue (26 Nov)
-In ad cut 2, the dance in F4 ("Every line kept") and the game on the TV in F6 come from Liran's two clips of 24–25 Nov, which turned out to be **not real speed** (the motion is too fast). If the ad is used, swap in the re-recordings (clock paused, about 34 ms per frame).
+In ad cut 2, the dance in F4 ("Every line kept") and the game on the TV in F6 come from Liran's two clips of 24–25 Nov, which turned out to be **not real speed** (the motion is too fast). **Fixed on 26 Nov:** cut 2 was re-rendered with the re-recordings (commit c89cab6). Every movement in the ad now runs at real speed.
