@@ -18,6 +18,7 @@ want=$(cut -d' ' -f1 env-assets/staging/SOURCE.sha256)
 have=$(sha256sum public/app-icon.png | cut -d' ' -f1)
 [ "$want" = "$have" ] || fail "public/app-icon.png changed: run .venv/bin/python scripts/make_staging_icon.py and commit frontend/env-assets/staging"
 cmp -s env-assets/staging/app-icon.png public/app-icon.png && fail "staging's icon is production's"
+cmp -s env-assets/staging/favicon.png public/favicon.png && fail "staging's tab icon is production's"
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -31,7 +32,8 @@ cp -r dist "$tmp/staging"
 grep -q 'data-env="staging"' "$tmp/staging/index.html" || fail "staging index.html has no data-env"
 grep -q '"short_name":"HM Staging"' "$tmp/staging/manifest.webmanifest" || fail "staging manifest keeps production's name"
 grep -q '"src":"app-icon-staging.png"' "$tmp/staging/manifest.webmanifest" || fail "staging's installed app keeps production's icon"
-grep -q 'href="/app-icon-staging.png"' "$tmp/staging/index.html" || fail "staging's tab keeps production's icon"
+grep -q 'href="/favicon-staging.png"' "$tmp/staging/index.html" || fail "staging's tab keeps production's icon"
+cmp -s "$tmp/staging/favicon-staging.png" dist/favicon.png && fail "staging's tab icon is production's"
 grep -q 'rel="manifest" href="/manifest.webmanifest?env=staging"' "$tmp/staging/index.html" || fail "staging's manifest URL is the one the service worker precaches"
 cmp -s "$tmp/staging/app-icon-staging.png" dist/app-icon.png && fail "staging's icon is production's"
 cmp -s "$tmp/staging/app-icon.png" dist/app-icon.png || fail "staging changed production's icon file"
