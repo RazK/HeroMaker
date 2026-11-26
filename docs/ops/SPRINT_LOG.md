@@ -14,6 +14,28 @@ One entry per 3-day sprint (`CADENCE.md`). Newest first. The PM writes it.
 
 ## Log
 
+## Day sprint — 2026-11-26
+
+- **Goal:** keep the money goal moving while it is Raz-gated — make the product
+  and funnel launch-ready for the first real payment.
+- **Delivered on staging (green, robot runs 155–156, v2.0.264):** load-time wins
+  (slim mocap clips #383, 9 KB logo #384, 5.8 KB favicon #385 — gallery −21%,
+  hero −27% bytes); the go-live runbook + a strictly read-only check script
+  (#386, docs/launch/GO_LIVE.md); the landing phone buttons flipped so Make a
+  hero leads (#382, Raz's call). Plus, for review (not shipped): the launch +
+  acquisition plan with a real funnel walk (Noa) and the real-footage ad reel
+  (real speed, no AI people — Tom). Each shown to Raz as a video + link, verified
+  by the PM.
+- **Blocked on Raz only:** the 3 go-live steps (Grow registration + credentials +
+  Stability); the ad direction; the studio-redesign approval.
+- **KPI:** 0 paid heroes this week — payments not yet live on production.
+- **Retro — keep:** honest measurement held (held the CPU-contaminated hero-load
+  time and captioned the hero "1 MB less, not faster"; the robot asserts the real
+  Grow path, not a mislabel). **Change:** every 3D screen-recording must PAUSE the
+  page clock (~34 ms/frame) or it plays ~22× too fast — sped-up dance/game clips
+  reached the ad Raz saw and read as "awful". Carry to tomorrow: a real-speed
+  check on every motion capture before it is shown.
+
 ## Day sprint — 2026-11-25
 
 - **Goal:** the first *real* paid hero — the real Grow connection proven on
