@@ -123,5 +123,6 @@ Run on staging, read-only, every time this runbook changes:
 3. The staging robot: buy and class steps on the real Grow code path.
 4. `railway-env.sh diff -e staging`: clean (needs the Railway CLI token).
 
-Last rehearsal: 2026-11-26, staging v2.0.259 · 1ed52ee (all PASS);
-production v2.0.85 · b0fc00f (2 expected FAILs); robot green.
+Last rehearsal: 2026-11-26, staging v2.0.263 · 7672837 (all PASS);
+production v2.0.85 · b0fc00f (2 expected FAILs); robot landing, signup, buy green
+on the real Grow code path (Grow stand-in).
