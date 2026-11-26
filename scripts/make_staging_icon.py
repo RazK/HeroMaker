@@ -6,7 +6,8 @@ STAGING band. frontend/apply-env-look.sh swaps it in when the container starts
 on any Railway environment but production, so a promote carries the same code
 and production keeps its own icon.
 
-It also makes the in-app logo, frontend/public/logo.webp: the same picture
+It also makes the browser tab's icons (frontend/public/favicon.png and
+staging's env-assets/staging/favicon.png, 64 px) and the in-app logo, frontend/public/logo.webp: the same picture
 at 144 px (the header draws it at 36-40 px, so 3x screens stay sharp). The
 header used to load the 586 px, 537 KB app-icon.png on every page for that.
 
@@ -26,6 +27,7 @@ OUT = ROOT / "frontend/env-assets/staging"
 SIZE = 1024  # the manifest's largest declared size: never upscaled
 LOGO = ROOT / "frontend/public/logo.webp"
 LOGO_SIZE = 144  # 3x the largest in-app size (40 px)
+FAVICON_SIZE = 64  # a tab draws 16-32 px; 2x screens stay sharp
 INK = (35, 25, 66, 255)       # --tb-ink
 SUN = (255, 194, 51, 255)     # --tb-sun
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -57,6 +59,13 @@ def main() -> None:
     logo = Image.open(SOURCE).convert("RGBA").resize((LOGO_SIZE, LOGO_SIZE), Image.LANCZOS)
     logo.save(LOGO, "WEBP", quality=90, method=6)
     print(f"wrote {LOGO} ({LOGO.stat().st_size:,} bytes)")
+
+    # The browser tab's icons, production's and staging's: the tab used to
+    # load the full 586 px (537 KB) and 1024 px (263 KB) icons.
+    for src, out in ((Image.open(SOURCE).convert("RGBA"), ROOT / "frontend/public/favicon.png"),
+                     (icon, OUT / "favicon.png")):
+        src.resize((FAVICON_SIZE, FAVICON_SIZE), Image.LANCZOS).save(out, optimize=True)
+        print(f"wrote {out} ({out.stat().st_size:,} bytes)")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,8 @@
 # (staging) gets:
 #   - its own icon (env-assets/staging/app-icon.png, made by
 #     scripts/make_staging_icon.py), served as app-icon-staging.png: the
-#     installed app and the browser tab. The in-app logo stays production's
+#     installed app; and its 64 px cut (env-assets/staging/favicon.png),
+#     served as favicon-staging.png: the browser tab. The in-app logo stays production's
 #     picture (app-icon.png) with the STAGING tag beside it; the dark tile
 #     shrank the hero inside it.
 #   - its own installed-app name ("HeroMaker Staging" / "HM Staging") and a
@@ -38,6 +39,7 @@ fi
 fail() { echo "ERROR: env look for $env_name: $1" >&2; exit 1; }
 
 cp "$assets/staging/app-icon.png" "$html/app-icon-staging.png" || fail "no staging icon"
+cp "$assets/staging/favicon.png" "$html/favicon-staging.png" || fail "no staging favicon"
 
 manifest="$html/manifest.webmanifest"
 grep -q '"name":"HeroMaker"' "$manifest" || fail "manifest name not found"
@@ -52,11 +54,11 @@ sed -i -e 's/"name":"HeroMaker"/"name":"HeroMaker Staging"/' \
 index="$html/index.html"
 grep -q '<html lang="en">' "$index" || fail "<html lang=\"en\"> not found in index.html"
 grep -q '<title>HeroMaker</title>' "$index" || fail "<title> not found in index.html"
-grep -q 'rel="icon" type="image/png" href="/app-icon.png"' "$index" || fail "favicon not found in index.html"
+grep -q 'rel="icon" type="image/png" href="/favicon.png"' "$index" || fail "favicon not found in index.html"
 grep -q '<link rel="manifest" href="/manifest.webmanifest">' "$index" || fail "manifest link not found in index.html"
 sed -i -e "s|<html lang=\"en\">|<html lang=\"en\" data-env=\"$env_name\">|" \
        -e "s|<title>HeroMaker</title>|<title>HeroMaker · Staging</title>|" \
-       -e 's|rel="icon" type="image/png" href="/app-icon.png"|rel="icon" type="image/png" href="/app-icon-staging.png"|' \
+       -e 's|rel="icon" type="image/png" href="/favicon.png"|rel="icon" type="image/png" href="/favicon-staging.png"|' \
        -e "s|<link rel=\"manifest\" href=\"/manifest.webmanifest\">|<link rel=\"manifest\" href=\"/manifest.webmanifest?env=$env_name\">|" "$index"
 
 echo "env look: $env_name (staging icon, name, label)"
