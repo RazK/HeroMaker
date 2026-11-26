@@ -78,11 +78,11 @@ export function Landing({ onMakeHero, onRunClass, busy, onButtonsShown }: Landin
         {LINES.map((l, i) => <p key={l} className={`tb-landing-cap tb-landing-cap--${i + 1}`} aria-hidden="true">{l}</p>)}
       </div>
       <div className="tb-landing-acts tb-landing-acts--below tb-bar-row" ref={belowRef}>
-        <button type="button" className="tb-btn tb-landing-class" onClick={onRunClass}>
-          <Icon name="school" />Run a class
-        </button>
         <button type="button" className="tb-btn tb-btn--primary tb-landing-make" disabled={busy} onClick={onMakeHero}>
           <Icon name="camera" />Make a hero
+        </button>
+        <button type="button" className="tb-btn tb-landing-class" onClick={onRunClass}>
+          <Icon name="school" />Run a class
         </button>
       </div>
     </section>
