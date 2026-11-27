@@ -14,6 +14,29 @@ One entry per 3-day sprint (`CADENCE.md`). Newest first. The PM writes it.
 
 ## Log
 
+## Day sprint — 2026-11-27
+
+- **Goal:** hold discipline while the money goal is Raz-gated — advance only
+  genuinely-unblocked, KPI-relevant work; do not spin the team on guesses.
+- **Delivered on staging (green, robot run 160, v2.0.266):** the Schneider
+  Dec-10 pilot plan folded into docs/product/pilots/P-001 with privacy and
+  consent as the first rule (#388), with a real-staging DEMO of the class flow
+  through the pay-for-seats money moment (teacher -> pay 100 shekels for 10
+  seats -> projected join code -> a kid joins with no account -> hero live);
+  PRINCIPLES rule 21 now records the landing exception from #382 (#389). Both
+  docs-only; the demo is backed by the green robot on the same build.
+- **Held (no speculative builds):** Maya (ad + studio approval), Tom (ad
+  direction), Gidi (go-live), Nir (parked) — all waiting on Raz.
+- **Blocked on Raz only:** the 3 go-live steps; the ad direction; the
+  studio-redesign approval; the pilot's dated calls (Hebrew screens 30 Nov,
+  provider top-up 7 Dec, payments-Live-before-10-Dec).
+- **KPI:** 0 paid heroes this week — payments not yet live on production.
+- **Retro — keep:** restraint held — one real outcome was assignable, one was
+  assigned, and it shipped. **Change:** verify drift against the agent, not a
+  stale status flag — a get_session `unpushed_work` flag mis-flagged Maya's
+  branch; she corrected it in one line. Trust the agent's live word over the
+  cached summary.
+
 ## Day sprint — 2026-11-26
 
 - **Goal:** keep the money goal moving while it is Raz-gated — make the product
