@@ -97,7 +97,8 @@ they are for.
 
 20. **Tap = instant.** A move plays the moment it is tapped. No queues.
 21. **The primary action is the bottom-most element**, in the same place on every
-    screen.
+    screen. One exception, Raz's call (25 Nov): on the landing, "Make a hero"
+    leads, first in the phone row and on top on desktop (#382).
 22. **Kind, playful words.** Kids read this. Never violent or clinical: the action
     figure is a toy made of pieces, never cut or split. "It's almost violent."
 23. **Decisions belong where they are made.** Choose what to make (a moving hero, a
