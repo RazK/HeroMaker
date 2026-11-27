@@ -18,7 +18,7 @@ One entry per 3-day sprint (`CADENCE.md`). Newest first. The PM writes it.
 
 - **Goal:** hold discipline while the money goal is Raz-gated — advance only
   genuinely-unblocked, KPI-relevant work; do not spin the team on guesses.
-- **Delivered on staging (green, robot run 160, v2.0.266):** the Schneider
+- **Delivered on staging (green, robot runs 159–160, v2.0.266–267):** the Schneider
   Dec-10 pilot plan folded into docs/product/pilots/P-001 with privacy and
   consent as the first rule (#388), with a real-staging DEMO of the class flow
   through the pay-for-seats money moment (teacher -> pay 100 shekels for 10
